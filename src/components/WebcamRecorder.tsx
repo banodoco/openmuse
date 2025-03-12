@@ -1,9 +1,11 @@
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { Camera, CheckCircle, X, RefreshCw, Play, Pause } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
+import { toast } from 'sonner';
 
 interface WebcamRecorderProps {
   onVideoRecorded: (video: RecordedVideo) => void;
@@ -195,7 +197,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   }, [isSourceVideoPlaying]);
 
   const handleSyncedPlayback = useCallback(() => {
-    if (sourceVideoRef.current && previewVideoRef.current) {
+    if (sourceVideoRef.current && previewVideoRef.current && previewUrl) {
       if (isSyncedPlaying) {
         // If currently playing, pause both videos
         sourceVideoRef.current.pause();
@@ -233,7 +235,8 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     } else {
       console.error('Video refs not available:', { 
         sourceRef: !!sourceVideoRef.current, 
-        previewRef: !!previewVideoRef.current 
+        previewRef: !!previewVideoRef.current,
+        previewUrl: !!previewUrl
       });
     }
   }, [isSyncedPlaying, previewUrl]);
@@ -325,6 +328,8 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
               controls
               playsInline
               muted={false}
+              autoPlay={false}
+              key={previewUrl} // Add key to force re-render when URL changes
             />
           ) : (
             <video
