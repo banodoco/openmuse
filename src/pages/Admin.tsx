@@ -1,411 +1,181 @@
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
 import { VideoEntry } from '@/lib/types';
-import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash, VideoIcon, Check, X, Play, PauseIcon, RefreshCw, AlertCircle, ToggleLeft, ToggleRight, ThumbsUp } from 'lucide-react';
-import VideoPlayer from '@/components/VideoPlayer';
-import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
+import StorageVideoPlayer from '@/components/StorageVideoPlayer';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import StorageSettings from '@/components/StorageSettings';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
-  const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
-  const [selectedResponse, setSelectedResponse] = useState<string | null>(null);
-  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
-  const [isPlayingTogether, setIsPlayingTogether] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  const [showApprovedOnly, setShowApprovedOnly] = useState<boolean | null>(null);
-  const originalVideoRef = useRef<HTMLVideoElement>(null);
-  const responseVideoRef = useRef<HTMLVideoElement>(null);
-  
+  const [activeTab, setActiveTab] = useState('videos');
+
   useEffect(() => {
     loadEntries();
-    
-    return () => {
-      stopAllPlayback();
-      
-      entries.forEach(entry => {
-        if (entry.video_location?.startsWith('blob:')) {
-          URL.revokeObjectURL(entry.video_location);
-        }
-        if (entry.acting_video_location?.startsWith('blob:')) {
-          URL.revokeObjectURL(entry.acting_video_location);
-        }
-      });
-    };
   }, []);
 
   const loadEntries = () => {
     setIsLoading(true);
+    const allEntries = videoDB.getAllEntries();
+    // Sort by date (newest first)
+    allEntries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    setEntries(allEntries);
+    setIsLoading(false);
+  };
+
+  const handleApproveToggle = async (entry: VideoEntry) => {
     try {
-      const loadedEntries = videoDB.getAllEntries();
-      console.log('Loaded entries:', loadedEntries.length, 
-        'With responses:', loadedEntries.filter(e => e.acting_video_location).length);
-      
-      setEntries(loadedEntries);
-      
-      if (loadedEntries.length === 0) {
-        toast.info('No video entries found');
-      }
-    } catch (error) {
-      console.error('Error loading entries:', error);
-      toast.error('Failed to load video entries');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const stopAllPlayback = () => {
-    if (originalVideoRef.current) {
-      originalVideoRef.current.pause();
-    }
-    if (responseVideoRef.current) {
-      responseVideoRef.current.pause();
-    }
-    setIsPlayingTogether(false);
-  };
-
-  const handleRefresh = () => {
-    stopAllPlayback();
-    setSelectedVideo(null);
-    setSelectedResponse(null);
-    setSelectedEntryId(null);
-    loadEntries();
-    toast.success('Data refreshed');
-  };
-
-  const handleClearAll = () => {
-    if (window.confirm('Are you sure you want to delete all entries? This cannot be undone.')) {
-      videoDB.clearAllEntries();
-      setEntries([]);
-      setSelectedVideo(null);
-      setSelectedResponse(null);
-      setSelectedEntryId(null);
-      setIsPlayingTogether(false);
-      toast.success('All entries cleared');
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    if (window.confirm('Are you sure you want to delete this entry? This cannot be undone.')) {
-      try {
-        const currentEntries = videoDB.getAllEntries();
-        const updatedEntries = currentEntries.filter(entry => entry.id !== id);
-        localStorage.setItem('video_response_entries', JSON.stringify(updatedEntries));
-        setEntries(updatedEntries);
-        
-        if (id === selectedEntryId) {
-          stopAllPlayback();
-          setSelectedVideo(null);
-          setSelectedResponse(null);
-          setSelectedEntryId(null);
-        }
-        
-        toast.success('Entry deleted');
-      } catch (error) {
-        console.error('Error deleting entry:', error);
-        toast.error('Failed to delete entry');
-      }
-    }
-  };
-
-  const handleToggleApproval = (id: string, currentStatus: boolean) => {
-    try {
-      const updatedEntry = videoDB.setApprovalStatus(id, !currentStatus);
+      const updatedEntry = videoDB.setApprovalStatus(entry.id, !entry.admin_approved);
       if (updatedEntry) {
-        setEntries(prevEntries => 
-          prevEntries.map(entry => 
-            entry.id === id ? updatedEntry : entry
-          )
-        );
-        toast.success(`Entry ${!currentStatus ? 'approved' : 'unapproved'}`);
+        setEntries(entries.map(e => e.id === entry.id ? updatedEntry : e));
+        toast.success(`Video ${updatedEntry.admin_approved ? 'approved' : 'unapproved'} successfully`);
       }
     } catch (error) {
-      console.error('Error toggling approval status:', error);
+      console.error('Error toggling approval:', error);
       toast.error('Failed to update approval status');
     }
   };
 
-  const playVideosTogether = () => {
-    if (!originalVideoRef.current || !responseVideoRef.current) {
-      toast.error('Videos not available');
+  const handleDeleteEntry = async (entry: VideoEntry) => {
+    if (!window.confirm(`Are you sure you want to delete this video by ${entry.reviewer_name}?`)) {
       return;
     }
 
-    if (isPlayingTogether) {
-      originalVideoRef.current.pause();
-      responseVideoRef.current.pause();
-      setIsPlayingTogether(false);
-      toast.info('Videos paused');
-      console.log('Both videos paused');
+    try {
+      const success = await videoDB.deleteEntry(entry.id);
+      if (success) {
+        setEntries(entries.filter(e => e.id !== entry.id));
+        toast.success('Video deleted successfully');
+      } else {
+        toast.error('Failed to delete video');
+      }
+    } catch (error) {
+      console.error('Error deleting entry:', error);
+      toast.error('Error deleting video');
+    }
+  };
+
+  const handleClearAll = async () => {
+    if (!window.confirm('Are you sure you want to delete ALL videos? This cannot be undone.')) {
       return;
     }
 
-    originalVideoRef.current.currentTime = 0;
-    responseVideoRef.current.currentTime = 0;
-    
-    originalVideoRef.current.muted = false;
-    responseVideoRef.current.muted = true;
-
-    Promise.all([
-      originalVideoRef.current.play().catch(error => {
-        console.error('Error playing original video:', error);
-        toast.error('Could not play original video');
-        throw error;
-      }),
-      responseVideoRef.current.play().catch(error => {
-        console.error('Error playing response video:', error);
-        toast.error('Could not play response video');
-        throw error;
-      })
-    ]).then(() => {
-      setIsPlayingTogether(true);
-      toast.success('Playing videos together');
-      console.log('Both videos started playing successfully');
-    }).catch((error) => {
-      console.error('Failed to play videos together:', error);
-      setIsPlayingTogether(false);
-    });
-  };
-
-  const handleSelectEntry = (entry: VideoEntry) => {
-    console.log('Selecting entry:', entry.id);
-    
-    setSelectedEntryId(entry.id);
-    setSelectedVideo(entry.video_location);
-    setSelectedResponse(entry.acting_video_location || null);
-    
-    console.log('Video info:', {
-      original: entry.video_location?.substring(0, 50),
-      response: entry.acting_video_location?.substring(0, 50),
-      hasResponse: !!entry.acting_video_location
-    });
-  };
-
-  const toggleApprovalFilter = () => {
-    setShowApprovedOnly(prev => {
-      if (prev === null) return true;
-      if (prev === true) return false;
-      return null;
-    });
-  };
-
-  const getApprovalFilterLabel = () => {
-    if (showApprovedOnly === null) return "All Videos";
-    if (showApprovedOnly === true) return "Approved Only";
-    return "Unapproved Only";
-  };
-
-  const filteredEntries = entries.filter(entry => {
-    if (showApprovedOnly === null) return true;
-    return entry.admin_approved === showApprovedOnly;
-  });
-
-  const renderVideoPlayer = (src: string | null, ref: React.RefObject<HTMLVideoElement>, label: string) => {
-    if (!src) {
-      return (
-        <div className="bg-muted/30 rounded-lg p-6 text-center flex flex-col items-center justify-center">
-          <AlertCircle className="h-12 w-12 text-muted-foreground/50 mb-3" />
-          <p className="text-muted-foreground">No {label.toLowerCase()} available</p>
-        </div>
-      );
+    try {
+      await videoDB.clearAllEntries();
+      setEntries([]);
+      toast.success('All videos deleted successfully');
+    } catch (error) {
+      console.error('Error clearing entries:', error);
+      toast.error('Failed to delete all videos');
     }
-    
-    return (
-      <div className="bg-card rounded-lg shadow-sm p-4 border">
-        <h3 className="text-md font-medium mb-3">{label}</h3>
-        <div className="aspect-video w-full bg-black rounded-md overflow-hidden">
-          <VideoPlayer 
-            src={src}
-            controls 
-            autoPlay={false} 
-            muted={isPlayingTogether && label === "Video Response"}
-            videoRef={ref}
-            key={`${label}-${selectedEntryId}-${src.substring(0, 20)}`}
-          />
-        </div>
-      </div>
-    );
+  };
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background animate-fade-in">
+    <div className="min-h-screen bg-background flex flex-col">
       <Navigation />
-      
-      <main className="flex-1 container max-w-6xl py-8 px-4">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <div className="flex gap-2">
-            <Button onClick={toggleApprovalFilter} variant="outline" className="gap-2">
-              {showApprovedOnly === null ? (
-                <Eye className="h-4 w-4" />
-              ) : showApprovedOnly ? (
-                <ToggleRight className="h-4 w-4" />
-              ) : (
-                <ToggleLeft className="h-4 w-4" />
-              )}
-              {getApprovalFilterLabel()}
-            </Button>
-            <Button onClick={handleRefresh} variant="outline" className="gap-2">
-              <RefreshCw className="h-4 w-4" />
-              Refresh Data
-            </Button>
-            <Button onClick={handleClearAll} variant="destructive" className="gap-2">
-              <Trash className="h-4 w-4" />
-              Clear All
-            </Button>
-          </div>
-        </div>
 
-        {isLoading ? (
-          <div className="text-center py-12 bg-muted/30 rounded-lg">
-            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-            <p className="text-muted-foreground">Loading video entries...</p>
-          </div>
-        ) : entries.length === 0 ? (
-          <div className="text-center py-12 bg-muted/30 rounded-lg">
-            <VideoIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
-            <h2 className="text-xl font-medium mb-2">No entries found</h2>
-            <p className="text-muted-foreground">
-              Video entries will appear here once they've been uploaded or recorded.
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-6">
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-1 space-y-4">
-                <div className="p-4 bg-card rounded-lg shadow-sm border">
-                  <h2 className="text-lg font-semibold mb-3">Video Entries ({filteredEntries.length})</h2>
-                  <div className="space-y-3 max-h-[70vh] overflow-y-auto pr-2">
-                    {filteredEntries.map((entry) => (
-                      <div 
-                        key={entry.id}
-                        className={`p-3 rounded-md border transition-colors ${
-                          selectedEntryId === entry.id 
-                            ? 'bg-primary/10 border-primary/30' 
-                            : 'hover:bg-muted/50'
-                        }`}
-                      >
-                        <div className="flex justify-between items-start mb-1">
-                          <span className="font-medium truncate">
-                            {entry.reviewer_name}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
-                          </span>
-                        </div>
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-1">
-                            <VideoIcon className="h-3.5 w-3.5 text-primary" />
-                            <span>Original</span>
-                          </div>
-                          {entry.acting_video_location ? (
-                            <div className="flex items-center gap-1 text-green-600">
-                              <Check className="h-3.5 w-3.5" />
-                              <span>Has response</span>
-                            </div>
-                          ) : entry.skipped ? (
-                            <div className="flex items-center gap-1 text-amber-600">
-                              <X className="h-3.5 w-3.5" />
-                              <span>Skipped</span>
-                            </div>
-                          ) : (
-                            <div className="flex items-center gap-1 text-muted-foreground">
-                              <span>Pending response</span>
-                            </div>
-                          )}
-                        </div>
-                        
-                        {entry.admin_approved && (
-                          <div className="mt-2 flex items-center gap-1 text-green-600">
-                            <ThumbsUp className="h-3.5 w-3.5" />
-                            <span className="text-xs font-medium">Admin Approved</span>
-                          </div>
-                        )}
-                        
-                        <div className="flex justify-end gap-2 mt-2">
-                          <Button 
-                            variant={entry.admin_approved ? "secondary" : "default"}
-                            size="sm" 
-                            onClick={() => handleToggleApproval(entry.id, entry.admin_approved)}
-                            className="gap-1"
-                          >
-                            {entry.admin_approved ? (
-                              <>
-                                <X className="h-3.5 w-3.5" />
-                                Unapprove
-                              </>
-                            ) : (
-                              <>
-                                <Check className="h-3.5 w-3.5" />
-                                Approve
-                              </>
-                            )}
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm" 
-                            onClick={() => handleDelete(entry.id)}
-                          >
-                            <Trash className="h-3.5 w-3.5" />
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleSelectEntry(entry)}
-                          >
-                            <Eye className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+      <main className="container py-8 px-4 flex-1">
+        <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+        <p className="text-muted-foreground mb-8">Manage video submissions and settings</p>
+
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="mb-6">
+            <TabsTrigger value="videos">Videos</TabsTrigger>
+            <TabsTrigger value="settings">Settings</TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="videos">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-2xl font-semibold">All Videos</h2>
+              {entries.length > 0 && (
+                <Button 
+                  variant="destructive" 
+                  onClick={handleClearAll}
+                  size="sm"
+                >
+                  Delete All
+                </Button>
+              )}
+            </div>
+
+            {isLoading ? (
+              <p>Loading videos...</p>
+            ) : entries.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-lg text-muted-foreground">No videos have been uploaded yet</p>
               </div>
-              
-              <div className="lg:col-span-2 space-y-4">
-                {selectedEntryId ? (
-                  <>
-                    <div className="flex justify-between items-center mb-2">
-                      <h3 className="text-lg font-semibold">Video Preview</h3>
-                      {selectedVideo && selectedResponse && (
+            ) : (
+              <div className="space-y-8">
+                {entries.map(entry => (
+                  <div key={entry.id} className="border rounded-lg overflow-hidden bg-card">
+                    <div className="p-4 border-b flex justify-between items-center">
+                      <div>
+                        <h3 className="font-medium">{entry.reviewer_name}</h3>
+                        <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
+                      </div>
+                      <div className="flex space-x-2">
                         <Button 
-                          variant="default" 
-                          className="gap-2"
-                          onClick={playVideosTogether}
+                          variant={entry.admin_approved ? "outline" : "default"}
+                          size="sm"
+                          onClick={() => handleApproveToggle(entry)}
                         >
-                          {isPlayingTogether ? (
-                            <>
-                              <PauseIcon className="h-4 w-4" />
-                              Pause Videos
-                            </>
-                          ) : (
-                            <>
-                              <Play className="h-4 w-4" />
-                              Play Together
-                            </>
-                          )}
+                          {entry.admin_approved ? "Unapprove" : "Approve"}
                         </Button>
-                      )}
+                        <Button 
+                          variant="destructive" 
+                          size="sm"
+                          onClick={() => handleDeleteEntry(entry)}
+                        >
+                          Delete
+                        </Button>
+                      </div>
                     </div>
                     
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {renderVideoPlayer(selectedVideo, originalVideoRef, "Original Video")}
-                      {renderVideoPlayer(selectedResponse, responseVideoRef, "Video Response")}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
+                      <div>
+                        <p className="text-sm font-medium mb-2">Original Video</p>
+                        <div className="rounded overflow-hidden bg-black aspect-video">
+                          <StorageVideoPlayer
+                            videoLocation={entry.video_location}
+                            className="w-full h-full"
+                            controls
+                          />
+                        </div>
+                      </div>
+                      
+                      {entry.acting_video_location && (
+                        <div>
+                          <p className="text-sm font-medium mb-2">Response Video</p>
+                          <div className="rounded overflow-hidden bg-black aspect-video">
+                            <StorageVideoPlayer
+                              videoLocation={entry.acting_video_location}
+                              className="w-full h-full"
+                              controls
+                            />
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </>
-                ) : (
-                  <div className="bg-muted/30 rounded-lg p-12 text-center h-full flex flex-col items-center justify-center">
-                    <Eye className="h-12 w-12 text-muted-foreground/50 mb-3" />
-                    <p className="text-lg text-muted-foreground">Select a video entry to view details</p>
                   </div>
-                )}
+                ))}
               </div>
-            </div>
-          </div>
-        )}
+            )}
+          </TabsContent>
+
+          <TabsContent value="settings">
+            <h2 className="text-2xl font-semibold mb-6">Application Settings</h2>
+            <StorageSettings />
+          </TabsContent>
+        </Tabs>
       </main>
     </div>
   );

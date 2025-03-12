@@ -1,6 +1,7 @@
 
 import { VideoEntry } from './types';
 import { videoStorage } from './storage';
+import { remoteStorage } from './remoteStorage';
 
 class VideoDatabase {
   private readonly VIDEO_KEY = 'video_response_entries';
@@ -51,23 +52,50 @@ class VideoDatabase {
     
     let videoLocation = entry.video_location;
     
-    // If it's a blob URL, fetch the blob and save it to IndexedDB
+    // If it's a blob URL, fetch the blob and save it
     if (entry.video_location.startsWith('blob:')) {
       try {
         const response = await fetch(entry.video_location);
         const blob = await response.blob();
         
-        // Save the video blob to IndexedDB
-        await videoStorage.saveVideo({
-          id: `video_${id}`,
-          blob
-        });
+        // Check storage configuration
+        const config = remoteStorage.getConfig();
         
-        // Use a reference to the video in IndexedDB
-        videoLocation = `idb://video_${id}`;
-        this.log(`Saved video to IndexedDB with ID: video_${id}`);
+        if (config.type === 'remote') {
+          try {
+            // Upload to remote storage
+            const remoteUrl = await remoteStorage.uploadVideo({
+              id: `video_${id}`,
+              blob
+            });
+            
+            // Use the remote URL
+            videoLocation = remoteUrl;
+            this.log(`Saved video to remote storage: ${remoteUrl}`);
+          } catch (error) {
+            this.error('Failed to save to remote storage, falling back to local:', error);
+            
+            // Fall back to local storage
+            await videoStorage.saveVideo({
+              id: `video_${id}`,
+              blob
+            });
+            
+            videoLocation = `idb://video_${id}`;
+            this.log(`Saved video to IndexedDB with ID: video_${id}`);
+          }
+        } else {
+          // Save to local storage (IndexedDB)
+          await videoStorage.saveVideo({
+            id: `video_${id}`,
+            blob
+          });
+          
+          videoLocation = `idb://video_${id}`;
+          this.log(`Saved video to IndexedDB with ID: video_${id}`);
+        }
       } catch (error) {
-        this.error('Failed to save video to IndexedDB:', error);
+        this.error('Failed to save video:', error);
         throw error;
       }
     }
@@ -107,23 +135,50 @@ class VideoDatabase {
     
     let savedLocation = actingVideoLocation;
     
-    // If it's a blob URL, fetch the blob and save it to IndexedDB
+    // If it's a blob URL, fetch the blob and save it
     if (actingVideoLocation.startsWith('blob:')) {
       try {
         const response = await fetch(actingVideoLocation);
         const blob = await response.blob();
         
-        // Save the video blob to IndexedDB
-        await videoStorage.saveVideo({
-          id: `acting_${id}`,
-          blob
-        });
+        // Check storage configuration
+        const config = remoteStorage.getConfig();
         
-        // Use a reference to the video in IndexedDB
-        savedLocation = `idb://acting_${id}`;
-        this.log(`Saved acting video to IndexedDB with ID: acting_${id}`);
+        if (config.type === 'remote') {
+          try {
+            // Upload to remote storage
+            const remoteUrl = await remoteStorage.uploadVideo({
+              id: `acting_${id}`,
+              blob
+            });
+            
+            // Use the remote URL
+            savedLocation = remoteUrl;
+            this.log(`Saved acting video to remote storage: ${remoteUrl}`);
+          } catch (error) {
+            this.error('Failed to save to remote storage, falling back to local:', error);
+            
+            // Fall back to local storage
+            await videoStorage.saveVideo({
+              id: `acting_${id}`,
+              blob
+            });
+            
+            savedLocation = `idb://acting_${id}`;
+            this.log(`Saved acting video to IndexedDB with ID: acting_${id}`);
+          }
+        } else {
+          // Save to local storage (IndexedDB)
+          await videoStorage.saveVideo({
+            id: `acting_${id}`,
+            blob
+          });
+          
+          savedLocation = `idb://acting_${id}`;
+          this.log(`Saved acting video to IndexedDB with ID: acting_${id}`);
+        }
       } catch (error) {
-        this.error('Failed to save acting video to IndexedDB:', error);
+        this.error('Failed to save acting video:', error);
         throw error;
       }
     }
@@ -175,6 +230,9 @@ class VideoDatabase {
         this.error(`Error getting video ${videoId}:`, error);
         return '';
       }
+    } else if (videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) {
+      // Return remote URLs as-is
+      return videoLocation;
     }
     
     return videoLocation;
@@ -210,8 +268,9 @@ class VideoDatabase {
       return false;
     }
     
-    // Delete the original video if it's in IndexedDB
+    // Delete the original video
     if (entry.video_location.startsWith('idb://')) {
+      // Local storage case
       const videoId = entry.video_location.substring(6);
       try {
         await videoStorage.deleteVideo(videoId);
@@ -219,16 +278,33 @@ class VideoDatabase {
       } catch (error) {
         this.error(`Error deleting video ${videoId}:`, error);
       }
+    } else if (entry.video_location.startsWith('http://') || entry.video_location.startsWith('https://')) {
+      // Remote storage case
+      try {
+        await remoteStorage.deleteVideo(entry.video_location);
+      } catch (error) {
+        this.error(`Error deleting remote video:`, error);
+      }
     }
     
-    // Delete the acting video if it exists and is in IndexedDB
-    if (entry.acting_video_location && entry.acting_video_location.startsWith('idb://')) {
-      const actingVideoId = entry.acting_video_location.substring(6);
-      try {
-        await videoStorage.deleteVideo(actingVideoId);
-        this.log(`Deleted acting video ${actingVideoId} from storage`);
-      } catch (error) {
-        this.error(`Error deleting acting video ${actingVideoId}:`, error);
+    // Delete the acting video if it exists
+    if (entry.acting_video_location) {
+      if (entry.acting_video_location.startsWith('idb://')) {
+        // Local storage case
+        const actingVideoId = entry.acting_video_location.substring(6);
+        try {
+          await videoStorage.deleteVideo(actingVideoId);
+          this.log(`Deleted acting video ${actingVideoId} from storage`);
+        } catch (error) {
+          this.error(`Error deleting acting video ${actingVideoId}:`, error);
+        }
+      } else if (entry.acting_video_location.startsWith('http://') || entry.acting_video_location.startsWith('https://')) {
+        // Remote storage case
+        try {
+          await remoteStorage.deleteVideo(entry.acting_video_location);
+        } catch (error) {
+          this.error(`Error deleting remote acting video:`, error);
+        }
       }
     }
     

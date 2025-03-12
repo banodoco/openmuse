@@ -19,6 +19,13 @@ export interface VideoFile {
   blob: Blob;
 }
 
+// Storage configuration options
+export interface StorageConfig {
+  type: 'local' | 'remote';
+  remoteUrl?: string;
+  apiKey?: string;
+}
+
 // Add custom event type for TypeScript
 declare global {
   interface MediaRecorderEventMap {
