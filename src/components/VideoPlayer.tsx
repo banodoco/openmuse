@@ -11,6 +11,7 @@ interface VideoPlayerProps {
   className?: string;
   controls?: boolean;
   onLoadedData?: () => void;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -21,8 +22,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   className = '',
   controls = true,
   onLoadedData,
+  videoRef,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const internalVideoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -32,9 +34,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   useEffect(() => {
-    if (!videoRef.current || !src) return;
+    if (!src) return;
     
-    const video = videoRef.current;
+    const video = videoRef?.current || internalVideoRef.current;
+    if (!video) return;
     
     // Reset error state when changing sources
     setError(null);
@@ -114,15 +117,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         URL.revokeObjectURL(video.src);
       }
     };
-  }, [src, autoPlay, onLoadedData]);
+  }, [src, autoPlay, onLoadedData, videoRef]);
 
   const handleRetry = () => {
-    if (!videoRef.current) return;
+    const video = videoRef?.current || internalVideoRef.current;
+    if (!video) return;
     
     setError(null);
     setIsLoading(true);
     
-    const video = videoRef.current;
     video.pause();
     
     // For blob URLs, we'll try to fetch it again
@@ -175,7 +178,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
       
       <video
-        ref={videoRef}
+        ref={videoRef || internalVideoRef}
         className={cn("w-full h-full object-cover", className)}
         autoPlay={autoPlay}
         muted={muted}
