@@ -29,32 +29,10 @@ class VideoDatabase {
         return [];
       }
       
-      // Convert base64 strings back to blob URLs if needed
+      // Process the entries but don't try to convert base64 to blob URLs here
+      // as they will be short-lived and cause issues
       const processedEntries = parsedEntries.map(entry => {
-        const processedEntry = { ...entry };
-        
-        // Create blob URLs from base64 if stored that way
-        if (entry.video_location && entry.video_location.startsWith('data:')) {
-          try {
-            const blob = this.base64ToBlob(entry.video_location);
-            processedEntry.video_location = URL.createObjectURL(blob);
-            this.log(`Recreated blob URL for video: ${processedEntry.video_location}`);
-          } catch (error) {
-            this.error('Failed to convert base64 to blob for video:', error);
-          }
-        }
-        
-        if (entry.acting_video_location && entry.acting_video_location.startsWith('data:')) {
-          try {
-            const blob = this.base64ToBlob(entry.acting_video_location);
-            processedEntry.acting_video_location = URL.createObjectURL(blob);
-            this.log(`Recreated blob URL for acting video: ${processedEntry.acting_video_location}`);
-          } catch (error) {
-            this.error('Failed to convert base64 to blob for acting video:', error);
-          }
-        }
-        
-        return processedEntry;
+        return { ...entry };
       });
       
       this.log(`Retrieved ${processedEntries.length} entries from localStorage (${processedEntries.filter(e => e.acting_video_location).length} with responses)`);
@@ -72,81 +50,59 @@ class VideoDatabase {
         return;
       }
       
-      // Store blob URLs as base64 data
-      const preparedEntries = entries.map(entry => {
-        const preparedEntry = { ...entry };
-        
-        // Only convert blob URLs, not already processed ones
-        if (entry.video_location && entry.video_location.startsWith('blob:')) {
-          try {
-            this.log(`Converting blob to base64 for video: ${entry.video_location}`);
-            // For real applications, this would be an async operation
-            // Here we'll just mark it as a placeholder since we can't fetch the blob content
-            preparedEntry.video_location = `data:video/webm;base64,PLACEHOLDER_${Date.now()}`;
-          } catch (error) {
-            this.error('Failed to convert blob to base64 for video:', error);
-          }
-        }
-        
-        if (entry.acting_video_location && entry.acting_video_location.startsWith('blob:')) {
-          try {
-            this.log(`Converting blob to base64 for acting video: ${entry.acting_video_location}`);
-            // In a real app, we'd fetch the blob and convert it to base64
-            // For demonstration purposes, we'll use a placeholder
-            preparedEntry.acting_video_location = `data:video/webm;base64,PLACEHOLDER_${Date.now()}`;
-          } catch (error) {
-            this.error('Failed to convert blob to base64 for acting video:', error);
-          }
-        }
-        
-        return preparedEntry;
-      });
-      
-      localStorage.setItem(this.VIDEO_KEY, JSON.stringify(preparedEntries));
+      localStorage.setItem(this.VIDEO_KEY, JSON.stringify(entries));
       this.log(`Saved ${entries.length} entries to localStorage`);
     } catch (error) {
       this.error('Error saving entries to localStorage:', error);
     }
   }
   
-  // Helper method to convert base64 to blob
-  private base64ToBlob(base64: string): Blob {
+  // Helper method to safely fetch a blob and convert to base64
+  private async blobUrlToBase64(blobUrl: string): Promise<string> {
     try {
-      const parts = base64.split(',');
-      const contentType = parts[0].split(':')[1].split(';')[0];
-      const byteCharacters = atob(parts[1]);
-      const byteArrays = [];
+      const response = await fetch(blobUrl);
+      const blob = await response.blob();
       
-      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
-        const slice = byteCharacters.slice(offset, offset + 512);
-        const byteNumbers = new Array(slice.length);
-        
-        for (let i = 0; i < slice.length; i++) {
-          byteNumbers[i] = slice.charCodeAt(i);
-        }
-        
-        const byteArray = new Uint8Array(byteNumbers);
-        byteArrays.push(byteArray);
-      }
-      
-      return new Blob(byteArrays, { type: contentType });
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          const base64data = reader.result as string;
+          resolve(base64data);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
     } catch (error) {
-      this.error('Error converting base64 to blob:', error);
-      // Return an empty blob as fallback
-      return new Blob([], { type: 'video/webm' });
+      this.error('Error converting blob URL to base64:', error);
+      throw error;
     }
   }
   
-  addEntry(entry: Omit<VideoEntry, 'id' | 'created_at'>): VideoEntry {
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at'>): Promise<VideoEntry> {
     const entries = this.getAll();
+    
+    let videoLocation = entry.video_location;
+    
+    // If it's a blob URL, convert to base64 for persistence
+    if (entry.video_location.startsWith('blob:')) {
+      try {
+        this.log(`Converting blob to base64 for video: ${entry.video_location}`);
+        videoLocation = await this.blobUrlToBase64(entry.video_location);
+        this.log('Successfully converted blob to base64');
+      } catch (error) {
+        this.error('Failed to convert blob to base64, storing original URL:', error);
+      }
+    }
+    
     const newEntry: VideoEntry = {
       ...entry,
+      video_location: videoLocation,
       id: crypto.randomUUID(),
       created_at: new Date().toISOString()
     };
     
     this.save([...entries, newEntry]);
-    this.log(`Added new entry: ${newEntry.id}, video location: ${newEntry.video_location}`);
+    this.log(`Added new entry: ${newEntry.id}, video location: ${newEntry.video_location.substring(0, 50)}...`);
     return newEntry;
   }
   
@@ -188,16 +144,23 @@ class VideoDatabase {
     return this.updateEntry(id, { skipped: true });
   }
   
-  saveActingVideo(id: string, actingVideoLocation: string): VideoEntry | null {
-    this.log(`Saving acting video for entry ${id}: ${actingVideoLocation}`);
+  async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
+    this.log(`Saving acting video for entry ${id}: ${actingVideoLocation.substring(0, 50)}...`);
     
-    // If it's a blob URL, we need to convert it to base64 in a real app
-    // For our purposes, just log the URL type
+    let savedLocation = actingVideoLocation;
+    
+    // If it's a blob URL, convert to base64 for persistence
     if (actingVideoLocation.startsWith('blob:')) {
-      this.log(`Acting video is a blob URL. In a real app, would fetch and store as base64.`);
+      try {
+        this.log('Converting blob URL to base64 for storage');
+        savedLocation = await this.blobUrlToBase64(actingVideoLocation);
+        this.log('Successfully converted blob to base64');
+      } catch (error) {
+        this.error('Failed to convert blob to base64, storing original URL:', error);
+      }
     }
     
-    return this.updateEntry(id, { acting_video_location: actingVideoLocation });
+    return this.updateEntry(id, { acting_video_location: savedLocation });
   }
   
   getAllEntries(): VideoEntry[] {
@@ -225,4 +188,5 @@ class VideoDatabase {
   }
 }
 
+// Create a singleton instance
 export const videoDB = new VideoDatabase();

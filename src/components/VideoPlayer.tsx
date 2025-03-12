@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -28,8 +27,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
+  const [processedSrc, setProcessedSrc] = useState<string>('');
 
   useEffect(() => {
+    setError(null);
+    setErrorDetails('');
+    setIsLoading(true);
+    
     if (!src) {
       console.log('[VideoPlayer] No source provided to VideoPlayer');
       setError('No video source provided');
@@ -37,7 +41,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    console.log(`[VideoPlayer] Loading video: ${src.substring(0, 50)}...`);
+    if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) {
+      console.log(`[VideoPlayer] Using data or regular URL: ${src.substring(0, 30)}...`);
+      setProcessedSrc(src);
+    } 
+    else if (src.startsWith('blob:')) {
+      console.log(`[VideoPlayer] Using blob URL: ${src.substring(0, 30)}...`);
+      setProcessedSrc(src);
+    }
+    else {
+      console.error(`[VideoPlayer] Unsupported source format: ${src.substring(0, 30)}...`);
+      setError('Unsupported video format');
+      setIsLoading(false);
+    }
+  }, [src]);
+
+  useEffect(() => {
+    if (!processedSrc) {
+      return;
+    }
+    
+    console.log(`[VideoPlayer] Loading video: ${processedSrc.substring(0, 50)}...`);
     
     const video = videoRef?.current || internalVideoRef.current;
     if (!video) {
@@ -45,14 +69,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    // Reset error state when changing sources
-    setError(null);
-    setErrorDetails('');
-    setIsLoading(true);
-    
-    // Simplified event handlers
     const handleLoadedData = () => {
-      console.log(`[VideoPlayer] Video loaded successfully: ${src.substring(0, 30)}...`);
+      console.log(`[VideoPlayer] Video loaded successfully: ${processedSrc.substring(0, 30)}...`);
       setIsLoading(false);
       if (onLoadedData) onLoadedData();
     };
@@ -63,9 +81,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ? `Error ${videoError.code}: ${videoError.message}` 
         : 'Unknown video error';
       
-      console.error(`[VideoPlayer] Video error for ${src.substring(0, 30)}...: ${errorMsg}`);
+      console.error(`[VideoPlayer] Video error for ${processedSrc.substring(0, 30)}...: ${errorMsg}`);
       
-      // For more detailed debugging
       let details = '';
       if (videoError) {
         details += `Code: ${videoError.code}\n`;
@@ -76,11 +93,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }
       
-      // Different messages based on URL type
-      if (src.startsWith('blob:')) {
+      if (processedSrc.startsWith('blob:')) {
         setError(`Cannot load blob video. The URL may have expired since your last refresh.`);
         details += 'Blob URLs are temporary and expire when the page is refreshed.\n';
-      } else if (src.startsWith('data:')) {
+      } else if (processedSrc.startsWith('data:')) {
         setError(`Cannot load data URL video. The encoding may be incorrect.`);
         details += 'Data URLs might be too large or improperly encoded.\n';
       } else {
@@ -94,19 +110,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('error', handleError);
     
-    // Stop any current playback
     video.pause();
     
-    // Set the video source
     try {
-      video.src = src;
+      video.src = processedSrc;
       video.load();
       
-      // Auto-play if requested (and only after setting the source)
       if (autoPlay) {
         video.play().catch(e => {
           console.warn('[VideoPlayer] Autoplay prevented:', e);
-          // Don't treat autoplay prevention as an error
         });
       }
     } catch (err) {
@@ -115,17 +127,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsLoading(false);
     }
     
-    // Cleanup
     return () => {
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('error', handleError);
       
-      // Cleanup video element
       video.pause();
       video.src = '';
       video.load();
     };
-  }, [src, autoPlay, onLoadedData, videoRef]);
+  }, [processedSrc, autoPlay, onLoadedData, videoRef]);
 
   const handleRetry = () => {
     const video = videoRef?.current || internalVideoRef.current;

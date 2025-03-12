@@ -5,7 +5,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { videoDB } from '@/lib/db';
 import Navigation from '@/components/Navigation';
-import { UploadCloud, Loader2, CheckCircle, Info } from 'lucide-react';
+import { UploadCloud, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -66,20 +66,19 @@ const Upload: React.FC = () => {
     setUploading(true);
     
     try {
-      await Promise.all(files.map(file => {
-        return new Promise<void>((resolve) => {
-          const videoLocation = URL.createObjectURL(file);
-          
-          videoDB.addEntry({
-            video_location: videoLocation,
-            reviewer_name: reviewerName,
-            acting_video_location: null,
-            skipped: false
-          });
-          
-          setTimeout(resolve, 500);
+      for (const file of files) {
+        const videoLocation = URL.createObjectURL(file);
+        console.log(`Created blob URL for upload: ${videoLocation}`);
+        
+        await videoDB.addEntry({
+          video_location: videoLocation,
+          reviewer_name: reviewerName,
+          acting_video_location: null,
+          skipped: false
         });
-      }));
+        
+        await new Promise(resolve => setTimeout(resolve, 300));
+      }
       
       toast.success(`${files.length} video${files.length > 1 ? 's' : ''} uploaded successfully!`);
       
