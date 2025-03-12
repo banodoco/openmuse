@@ -6,6 +6,7 @@ export interface VideoEntry {
   acting_video_location: string | null;
   skipped: boolean;
   created_at: string;
+  admin_approved: boolean;
 }
 
 export interface RecordedVideo {

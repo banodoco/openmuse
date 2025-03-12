@@ -1,4 +1,3 @@
-
 import { VideoEntry } from './types';
 
 class VideoDatabase {
@@ -44,7 +43,7 @@ class VideoDatabase {
     }
   }
   
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at'>): Promise<VideoEntry> {
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
     const entries = this.getAll();
     
     let videoLocation = entry.video_location;
@@ -64,7 +63,8 @@ class VideoDatabase {
       ...entry,
       video_location: videoLocation,
       id: crypto.randomUUID(),
-      created_at: new Date().toISOString()
+      created_at: new Date().toISOString(),
+      admin_approved: false
     };
     
     this.save([...entries, newEntry]);
@@ -136,6 +136,11 @@ class VideoDatabase {
   
   markAsSkipped(id: string): VideoEntry | null {
     return this.updateEntry(id, { skipped: true });
+  }
+  
+  setApprovalStatus(id: string, approved: boolean): VideoEntry | null {
+    this.log(`Setting approval status for entry ${id} to ${approved}`);
+    return this.updateEntry(id, { admin_approved: approved });
   }
   
   getAllEntries(): VideoEntry[] {
