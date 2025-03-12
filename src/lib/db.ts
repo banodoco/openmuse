@@ -5,27 +5,49 @@ import { VideoEntry } from './types';
 // In a real application, you would use a proper database
 class VideoDatabase {
   private readonly VIDEO_KEY = 'video_response_entries';
+  private readonly DEBUG = true; // Enable verbose logging
   
   private getAll(): VideoEntry[] {
     try {
       const entries = localStorage.getItem(this.VIDEO_KEY);
-      if (!entries) return [];
       
-      const parsedEntries = JSON.parse(entries);
-      console.log(`Retrieved ${parsedEntries.length} entries from localStorage`);
-      return Array.isArray(parsedEntries) ? parsedEntries : [];
+      if (!entries) {
+        this.log('No entries found in localStorage, returning empty array');
+        return [];
+      }
+      
+      let parsedEntries;
+      try {
+        parsedEntries = JSON.parse(entries);
+      } catch (parseError) {
+        this.error('Failed to parse entries from localStorage:', parseError);
+        return [];
+      }
+      
+      if (!Array.isArray(parsedEntries)) {
+        this.error('Retrieved data is not an array, returning empty array');
+        return [];
+      }
+      
+      this.log(`Retrieved ${parsedEntries.length} entries from localStorage`);
+      return parsedEntries;
     } catch (error) {
-      console.error('Error getting entries from localStorage:', error);
+      this.error('Error getting entries from localStorage:', error);
       return [];
     }
   }
   
   private save(entries: VideoEntry[]): void {
     try {
+      if (!Array.isArray(entries)) {
+        this.error('Attempted to save non-array data to localStorage');
+        return;
+      }
+      
       localStorage.setItem(this.VIDEO_KEY, JSON.stringify(entries));
-      console.log(`Saved ${entries.length} entries to localStorage`);
+      this.log(`Saved ${entries.length} entries to localStorage`);
     } catch (error) {
-      console.error('Error saving entries to localStorage:', error);
+      this.error('Error saving entries to localStorage:', error);
     }
   }
   
@@ -38,7 +60,7 @@ class VideoDatabase {
     };
     
     this.save([...entries, newEntry]);
-    console.log('Added new entry:', newEntry.id);
+    this.log(`Added new entry: ${newEntry.id}, video location: ${newEntry.video_location}`);
     return newEntry;
   }
   
@@ -48,10 +70,15 @@ class VideoDatabase {
       entry => !entry.acting_video_location && !entry.skipped
     );
     
-    if (pendingEntries.length === 0) return null;
+    if (pendingEntries.length === 0) {
+      this.log('No pending entries found');
+      return null;
+    }
     
     const randomIndex = Math.floor(Math.random() * pendingEntries.length);
-    return pendingEntries[randomIndex];
+    const selectedEntry = pendingEntries[randomIndex];
+    this.log(`Selected random pending entry: ${selectedEntry.id}`);
+    return selectedEntry;
   }
   
   updateEntry(id: string, update: Partial<VideoEntry>): VideoEntry | null {
@@ -59,7 +86,7 @@ class VideoDatabase {
     const index = entries.findIndex(entry => entry.id === id);
     
     if (index === -1) {
-      console.warn(`Entry with id ${id} not found for update`);
+      this.warn(`Entry with id ${id} not found for update`);
       return null;
     }
     
@@ -67,7 +94,7 @@ class VideoDatabase {
     entries[index] = updatedEntry;
     
     this.save(entries);
-    console.log(`Updated entry: ${id}`);
+    this.log(`Updated entry: ${id}`);
     return updatedEntry;
   }
   
@@ -76,18 +103,32 @@ class VideoDatabase {
   }
   
   saveActingVideo(id: string, actingVideoLocation: string): VideoEntry | null {
+    this.log(`Saving acting video for entry ${id}: ${actingVideoLocation}`);
     return this.updateEntry(id, { acting_video_location: actingVideoLocation });
   }
   
   getAllEntries(): VideoEntry[] {
     const entries = this.getAll();
-    console.log(`Retrieved all ${entries.length} entries`);
+    this.log(`Retrieved all ${entries.length} entries`);
     return entries;
   }
   
   clearAllEntries(): void {
     this.save([]);
-    console.log('Cleared all entries');
+    this.log('Cleared all entries');
+  }
+  
+  // Enhanced logging methods for better debugging
+  private log(...args: any[]): void {
+    if (this.DEBUG) console.log(...args);
+  }
+  
+  private warn(...args: any[]): void {
+    if (this.DEBUG) console.warn(...args);
+  }
+  
+  private error(...args: any[]): void {
+    console.error(...args); // Always log errors
   }
 }
 

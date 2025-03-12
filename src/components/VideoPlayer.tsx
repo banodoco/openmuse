@@ -28,11 +28,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Function to check if a string is a blob URL
-  const isBlobUrl = (url: string): boolean => {
-    return url.startsWith('blob:');
-  };
-
   useEffect(() => {
     if (!src) {
       console.log('No source provided to VideoPlayer');
@@ -55,7 +50,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     // Simplified event handlers
     const handleLoadedData = () => {
-      console.log(`Video loaded successfully: ${src.substring(0, 30)}...`);
+      console.log(`Video loaded successfully: ${src}`);
       setIsLoading(false);
       if (onLoadedData) onLoadedData();
     };
@@ -65,10 +60,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ? `Error ${video.error.code}: ${video.error.message}` 
         : 'Unknown video error';
       
-      console.error(`Video error for ${src.substring(0, 30)}...: ${errorMsg}`);
+      console.error(`Video error for ${src}: ${errorMsg}`);
       
-      if (isBlobUrl(src)) {
-        setError(`Cannot load blob URL. The video may have expired or is not accessible.`);
+      // For localStorage-based videos, suggest possible solutions
+      if (src.startsWith('blob:')) {
+        setError(`Cannot load video. The blob URL may have expired since the app was refreshed.`);
       } else {
         setError(errorMsg);
       }
@@ -81,9 +77,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     // Stop any current playback
     video.pause();
     
-    // Set the video source directly - avoid fetch for blob URLs as they may not be accessible
+    // Set the video source
     try {
-      // For regular videos, just set the source
       video.src = src;
       video.load();
       
@@ -121,7 +116,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     video.pause();
     
-    // Just try setting the source directly again
     video.src = src;
     video.load();
     toast.info('Attempting to reload video...');
@@ -164,7 +158,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         loop={loop}
         controls={controls}
         playsInline
-        key={src} // Force recreation of video element when src changes
       >
         <source src={src} />
         Your browser does not support the video tag.

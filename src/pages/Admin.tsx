@@ -4,37 +4,65 @@ import { videoDB } from '@/lib/db';
 import { VideoEntry } from '@/lib/types';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash, VideoIcon, Check, X, Play, PauseIcon } from 'lucide-react';
+import { Eye, Trash, VideoIcon, Check, X, Play, PauseIcon, RefreshCw } from 'lucide-react';
 import VideoPlayer from '@/components/VideoPlayer';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
 
 const Admin: React.FC = () => {
-  const [entries, setEntries] = useState<VideoEntry[]>(() => videoDB.getAllEntries());
+  const [entries, setEntries] = useState<VideoEntry[]>([]);
   const [selectedVideo, setSelectedVideo] = useState<string | null>(null);
   const [selectedResponse, setSelectedResponse] = useState<string | null>(null);
+  const [selectedEntryId, setSelectedEntryId] = useState<string | null>(null);
   const [isPlayingTogether, setIsPlayingTogether] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const originalVideoRef = useRef<HTMLVideoElement>(null);
   const responseVideoRef = useRef<HTMLVideoElement>(null);
   
+  // Load entries when component mounts
   useEffect(() => {
-    // Refresh entries when component mounts
-    handleRefresh();
-
-    // Stop playing when component unmounts
+    loadEntries();
+    
+    // Cleanup on unmount
     return () => {
-      if (originalVideoRef.current) {
-        originalVideoRef.current.pause();
-      }
-      if (responseVideoRef.current) {
-        responseVideoRef.current.pause();
-      }
+      stopAllPlayback();
     };
   }, []);
 
+  const loadEntries = () => {
+    setIsLoading(true);
+    try {
+      const loadedEntries = videoDB.getAllEntries();
+      setEntries(loadedEntries);
+      console.log('Loaded entries:', loadedEntries.length);
+      
+      if (loadedEntries.length === 0) {
+        toast.info('No video entries found');
+      }
+    } catch (error) {
+      console.error('Error loading entries:', error);
+      toast.error('Failed to load video entries');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const stopAllPlayback = () => {
+    if (originalVideoRef.current) {
+      originalVideoRef.current.pause();
+    }
+    if (responseVideoRef.current) {
+      responseVideoRef.current.pause();
+    }
+    setIsPlayingTogether(false);
+  };
+
   const handleRefresh = () => {
-    setEntries(videoDB.getAllEntries());
-    console.log('Retrieved entries:', videoDB.getAllEntries().length);
+    stopAllPlayback();
+    setSelectedVideo(null);
+    setSelectedResponse(null);
+    setSelectedEntryId(null);
+    loadEntries();
     toast.success('Data refreshed');
   };
 
@@ -44,6 +72,7 @@ const Admin: React.FC = () => {
       setEntries([]);
       setSelectedVideo(null);
       setSelectedResponse(null);
+      setSelectedEntryId(null);
       setIsPlayingTogether(false);
       toast.success('All entries cleared');
     }
@@ -51,23 +80,26 @@ const Admin: React.FC = () => {
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this entry? This cannot be undone.')) {
-      // Get updated entries directly from localStorage to ensure consistency
-      const currentEntries = videoDB.getAllEntries();
-      const updatedEntries = currentEntries.filter(entry => entry.id !== id);
-      localStorage.setItem('video_response_entries', JSON.stringify(updatedEntries));
-      setEntries(updatedEntries);
-      
-      // Clear selection if the deleted entry was selected
-      const deletedEntry = currentEntries.find(entry => entry.id === id);
-      if (deletedEntry) {
-        if (deletedEntry.video_location === selectedVideo) {
+      try {
+        // Get updated entries directly from localStorage to ensure consistency
+        const currentEntries = videoDB.getAllEntries();
+        const updatedEntries = currentEntries.filter(entry => entry.id !== id);
+        localStorage.setItem('video_response_entries', JSON.stringify(updatedEntries));
+        setEntries(updatedEntries);
+        
+        // Clear selection if the deleted entry was selected
+        if (id === selectedEntryId) {
+          stopAllPlayback();
           setSelectedVideo(null);
           setSelectedResponse(null);
-          setIsPlayingTogether(false);
+          setSelectedEntryId(null);
         }
+        
+        toast.success('Entry deleted');
+      } catch (error) {
+        console.error('Error deleting entry:', error);
+        toast.error('Failed to delete entry');
       }
-      
-      toast.success('Entry deleted');
     }
   };
 
@@ -90,6 +122,10 @@ const Admin: React.FC = () => {
     // Reset both videos to the beginning
     originalVideoRef.current.currentTime = 0;
     responseVideoRef.current.currentTime = 0;
+    
+    // Ensure videos are unmuted when playing together
+    originalVideoRef.current.muted = false;
+    responseVideoRef.current.muted = true; // Mute response video when playing together
     
     // Start playing both videos
     Promise.all([
@@ -115,20 +151,48 @@ const Admin: React.FC = () => {
 
   // Select an entry
   const handleSelectEntry = (entry: VideoEntry) => {
+    console.log('Selecting entry:', entry.id);
+    
     // Reset playback state
-    setIsPlayingTogether(false);
+    stopAllPlayback();
+    
+    // Update selected entry ID immediately
+    setSelectedEntryId(entry.id);
     
     // Force clean slate when selecting a new entry
     setSelectedVideo(null);
     setSelectedResponse(null);
     
-    // Use setTimeout to ensure state updates before setting new values
+    // Small delay to ensure state is cleared before setting new values
     setTimeout(() => {
+      console.log(`Setting video: ${entry.video_location}`);
       setSelectedVideo(entry.video_location);
+      
       if (entry.acting_video_location) {
+        console.log(`Setting response: ${entry.acting_video_location}`);
         setSelectedResponse(entry.acting_video_location);
       }
-    }, 50);
+    }, 100);
+  };
+
+  const renderVideoPlayer = (src: string | null, ref: React.RefObject<HTMLVideoElement>, label: string) => {
+    if (!src) return null;
+    
+    return (
+      <div className="bg-card rounded-lg shadow-sm p-4 border">
+        <h3 className="text-md font-medium mb-3">{label}</h3>
+        <div className="aspect-video w-full bg-black rounded-md overflow-hidden">
+          <VideoPlayer 
+            src={src}
+            controls 
+            autoPlay={false} 
+            muted={isPlayingTogether && label === "Video Response"}
+            videoRef={ref}
+            key={`${label}-${selectedEntryId}-${Date.now()}`}
+          />
+        </div>
+      </div>
+    );
   };
 
   return (
@@ -140,6 +204,7 @@ const Admin: React.FC = () => {
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <div className="flex gap-2">
             <Button onClick={handleRefresh} variant="outline" className="gap-2">
+              <RefreshCw className="h-4 w-4" />
               Refresh Data
             </Button>
             <Button onClick={handleClearAll} variant="destructive" className="gap-2">
@@ -149,7 +214,12 @@ const Admin: React.FC = () => {
           </div>
         </div>
 
-        {entries.length === 0 ? (
+        {isLoading ? (
+          <div className="text-center py-12 bg-muted/30 rounded-lg">
+            <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+            <p className="text-muted-foreground">Loading video entries...</p>
+          </div>
+        ) : entries.length === 0 ? (
           <div className="text-center py-12 bg-muted/30 rounded-lg">
             <VideoIcon className="h-12 w-12 mx-auto text-muted-foreground/50 mb-3" />
             <h2 className="text-xl font-medium mb-2">No entries found</h2>
@@ -167,7 +237,7 @@ const Admin: React.FC = () => {
                     <div 
                       key={entry.id}
                       className={`p-3 rounded-md border transition-colors cursor-pointer ${
-                        selectedVideo === entry.video_location 
+                        selectedEntryId === entry.id 
                           ? 'bg-primary/10 border-primary/30' 
                           : 'hover:bg-muted/50'
                       }`}
@@ -221,11 +291,11 @@ const Admin: React.FC = () => {
             </div>
             
             <div className="lg:col-span-2 space-y-4">
-              {selectedVideo ? (
+              {selectedEntryId ? (
                 <>
                   <div className="flex justify-between items-center mb-2">
                     <h3 className="text-lg font-semibold">Video Preview</h3>
-                    {selectedResponse && (
+                    {selectedVideo && selectedResponse && (
                       <Button 
                         variant="default" 
                         className="gap-2"
@@ -247,36 +317,16 @@ const Admin: React.FC = () => {
                   </div>
                   
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="bg-card rounded-lg shadow-sm p-4 border">
-                      <h3 className="text-md font-medium mb-3">Original Video</h3>
-                      <div className="aspect-video w-full bg-black rounded-md overflow-hidden">
-                        {selectedVideo && (
-                          <VideoPlayer 
-                            src={selectedVideo}
-                            controls 
-                            autoPlay={false} 
-                            muted={isPlayingTogether}
-                            videoRef={originalVideoRef}
-                            key={`original-${Date.now()}`}
-                          />
-                        )}
+                    {selectedVideo ? (
+                      renderVideoPlayer(selectedVideo, originalVideoRef, "Original Video")
+                    ) : (
+                      <div className="bg-muted/30 rounded-lg p-6 text-center flex flex-col items-center justify-center">
+                        <p className="text-muted-foreground">Loading original video...</p>
                       </div>
-                    </div>
+                    )}
                     
                     {selectedResponse ? (
-                      <div className="bg-card rounded-lg shadow-sm p-4 border">
-                        <h3 className="text-md font-medium mb-3">Video Response</h3>
-                        <div className="aspect-video w-full bg-black rounded-md overflow-hidden">
-                          <VideoPlayer 
-                            src={selectedResponse}
-                            controls 
-                            autoPlay={false} 
-                            muted={isPlayingTogether}
-                            videoRef={responseVideoRef}
-                            key={`response-${Date.now()}`}
-                          />
-                        </div>
-                      </div>
+                      renderVideoPlayer(selectedResponse, responseVideoRef, "Video Response")
                     ) : (
                       <div className="bg-muted/30 rounded-lg p-6 text-center flex flex-col items-center justify-center">
                         <p className="text-muted-foreground">No response video available</p>
