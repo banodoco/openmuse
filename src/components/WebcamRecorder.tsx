@@ -37,6 +37,30 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const previewVideoRef = useRef<HTMLVideoElement>(null);
   const recordingCompleteRef = useRef<boolean>(false);
 
+  const handleDataAvailable = useCallback((event: BlobEvent) => {
+    console.log('Data available event fired, data size:', event.data.size);
+    if (event.data && event.data.size > 0) {
+      setRecordedChunks(prev => {
+        console.log('Adding chunk, total chunks now:', prev.length + 1);
+        return [...prev, event.data];
+      });
+    }
+  }, []);
+
+  const createPreviewFromChunks = useCallback(() => {
+    console.log('Creating preview, recorded chunks:', recordedChunks.length);
+    
+    if (recordedChunks.length > 0) {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setIsPreviewMode(true);
+      
+      // Add logging to confirm preview is created successfully
+      console.log('Preview created with URL:', url);
+    }
+  }, [recordedChunks]);
+
   useEffect(() => {
     async function setupWebcam() {
       try {
@@ -156,31 +180,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     }, 1000);
     
     return () => clearInterval(countdownInterval);
-  }, [recordingDelay, sourceSrc, handleDataAvailable, createPreviewFromChunks, recordedChunks.length]);
-
-  const handleDataAvailable = useCallback((event: BlobEvent) => {
-    console.log('Data available event fired, data size:', event.data.size);
-    if (event.data && event.data.size > 0) {
-      setRecordedChunks(prev => {
-        console.log('Adding chunk, total chunks now:', prev.length + 1);
-        return [...prev, event.data];
-      });
-    }
-  }, []);
-
-  const createPreviewFromChunks = useCallback(() => {
-    console.log('Creating preview, recorded chunks:', recordedChunks.length);
-    
-    if (recordedChunks.length > 0) {
-      const blob = new Blob(recordedChunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      setPreviewUrl(url);
-      setIsPreviewMode(true);
-      
-      // Add logging to confirm preview is created successfully
-      console.log('Preview created with URL:', url);
-    }
-  }, [recordedChunks]);
+  }, [recordingDelay, sourceSrc, handleDataAvailable, createPreviewFromChunks]);
 
   const handleStopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
