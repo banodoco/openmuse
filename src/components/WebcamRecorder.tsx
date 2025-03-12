@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
@@ -31,8 +30,8 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [sourceVideoDelay, setSourceVideoDelay] = useState<number>(0);
   const [isSourceVideoPlaying, setIsSourceVideoPlaying] = useState(false);
+  const [recordingDelay, setRecordingDelay] = useState<number>(0);
   
-  // Initialize webcam on mount
   useEffect(() => {
     async function setupWebcam() {
       try {
@@ -61,13 +60,11 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     setupWebcam();
     
     return () => {
-      // Clean up streams when component unmounts
       if (webcamRef.current && webcamRef.current.srcObject) {
         const stream = webcamRef.current.srcObject as MediaStream;
         stream.getTracks().forEach(track => track.stop());
       }
       
-      // Clean up preview URL
       if (previewUrl) {
         URL.revokeObjectURL(previewUrl);
       }
@@ -75,31 +72,27 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   }, []);
 
   const handleStartRecording = useCallback(() => {
-    // Start countdown before recording
     setCountdown(3);
     const countdownInterval = setInterval(() => {
       setCountdown(prev => {
         if (prev === null || prev <= 1) {
           clearInterval(countdownInterval);
           
-          if (webcamRef.current && webcamRef.current.srcObject) {
-            const stream = webcamRef.current.srcObject as MediaStream;
-            mediaRecorderRef.current = new MediaRecorder(stream, {
-              mimeType: 'video/webm;codecs=vp9'
-            });
-            mediaRecorderRef.current.ondataavailable = handleDataAvailable;
-            mediaRecorderRef.current.start();
-            setIsRecording(true);
+          if (sourceVideoRef.current && sourceSrc) {
+            sourceVideoRef.current.play();
+            setIsSourceVideoPlaying(true);
             
-            // Play the source video after specified delay
-            if (sourceVideoRef.current && sourceSrc) {
-              setTimeout(() => {
-                if (sourceVideoRef.current) {
-                  sourceVideoRef.current.play();
-                  setIsSourceVideoPlaying(true);
-                }
-              }, sourceVideoDelay * 1000);
-            }
+            setTimeout(() => {
+              if (webcamRef.current && webcamRef.current.srcObject) {
+                const stream = webcamRef.current.srcObject as MediaStream;
+                mediaRecorderRef.current = new MediaRecorder(stream, {
+                  mimeType: 'video/webm;codecs=vp9'
+                });
+                mediaRecorderRef.current.ondataavailable = handleDataAvailable;
+                mediaRecorderRef.current.start();
+                setIsRecording(true);
+              }
+            }, recordingDelay * 1000);
           }
           
           return null;
@@ -109,7 +102,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     }, 1000);
     
     return () => clearInterval(countdownInterval);
-  }, [sourceVideoDelay, sourceSrc]);
+  }, [recordingDelay, sourceSrc]);
 
   const handleDataAvailable = useCallback(({ data }: BlobEvent) => {
     if (data.size > 0) {
@@ -122,13 +115,11 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       
-      // Pause the source video
       if (sourceVideoRef.current) {
         sourceVideoRef.current.pause();
         setIsSourceVideoPlaying(false);
       }
       
-      // Slight delay to ensure all chunks are processed
       setTimeout(() => {
         if (recordedChunks.length > 0) {
           const blob = new Blob(recordedChunks, { type: 'video/webm' });
@@ -177,7 +168,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     }
   }, [isSourceVideoPlaying]);
 
-  // If camera permission is denied
   if (cameraPermission === false) {
     return (
       <div className={cn("flex flex-col items-center justify-center space-y-4 p-8 bg-secondary/50 rounded-lg", className)}>
@@ -196,7 +186,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   return (
     <div className={cn("relative", className)}>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
-        {/* Source video (what the user is responding to) */}
         {sourceSrc && (
           <div className="h-full flex flex-col">
             <div className="rounded-lg overflow-hidden flex-1">
@@ -216,7 +205,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
               <div className="mt-2 px-2">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-muted-foreground">
-                    Video delay: {sourceVideoDelay} {sourceVideoDelay === 1 ? 'second' : 'seconds'}
+                    Recording delay: {recordingDelay.toFixed(1)} {recordingDelay === 1 ? 'second' : 'seconds'}
                   </span>
                   <div className="flex gap-2">
                     <Button 
@@ -239,10 +228,10 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
                 </div>
                 <div className="py-2">
                   <Slider 
-                    value={[sourceVideoDelay]} 
-                    onValueChange={(values) => setSourceVideoDelay(values[0])}
-                    max={5}
-                    step={1}
+                    value={[recordingDelay]} 
+                    onValueChange={(values) => setRecordingDelay(values[0])}
+                    max={1}
+                    step={0.1}
                   />
                 </div>
               </div>
@@ -250,7 +239,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
           </div>
         )}
         
-        {/* Webcam preview or recorded video preview */}
         <div className="relative h-full rounded-lg overflow-hidden bg-black">
           {isPreviewMode && previewUrl ? (
             <video 
@@ -271,10 +259,8 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
             />
           )}
           
-          {/* Recording indicator */}
           {isRecording && <div className="recording-indicator" />}
           
-          {/* Countdown overlay */}
           {countdown !== null && (
             <div className="countdown-overlay">
               <div className="countdown-number">{countdown}</div>
@@ -283,7 +269,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
         </div>
       </div>
       
-      {/* Control buttons */}
       <div className="mt-6 flex justify-center space-x-4">
         {isPreviewMode ? (
           <>
