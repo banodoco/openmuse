@@ -28,6 +28,7 @@ const Index: React.FC = () => {
       if (!video) {
         setNoVideosAvailable(true);
       } else {
+        console.log("Loaded video:", video.video_location);
         setCurrentVideo(video);
         setNoVideosAvailable(false);
       }
@@ -66,6 +67,10 @@ const Index: React.FC = () => {
 
   const handleCancelRecording = useCallback(() => {
     setIsRecording(false);
+  }, []);
+
+  const handleVideoLoaded = useCallback(() => {
+    console.log("Video fully loaded and ready to play");
   }, []);
 
   return (
@@ -138,6 +143,7 @@ const Index: React.FC = () => {
                   src={currentVideo.video_location} 
                   controls
                   autoPlay
+                  onLoadedData={handleVideoLoaded}
                 />
               </div>
             </div>
