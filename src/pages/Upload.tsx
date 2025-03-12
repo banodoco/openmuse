@@ -141,21 +141,17 @@ const Upload: React.FC = () => {
               onDrop={handleDrop}
               onDragOver={handleDragOver}
             >
-              {uploaded ? (
+              {uploading ? (
                 <div className="text-center animate-scale-in">
                   <div className="flex justify-center mb-2">
-                    <CheckCircle className="h-12 w-12 text-green-500" />
+                    <Loader2 className="h-12 w-12 text-primary animate-spin" />
                   </div>
-                  <h3 className="text-lg font-medium">Upload Complete!</h3>
+                  <h3 className="text-lg font-medium">Uploading...</h3>
                 </div>
               ) : (
                 <>
                   <div className="w-16 h-16 rounded-full bg-secondary flex items-center justify-center">
-                    {uploading ? (
-                      <Loader2 className="h-8 w-8 text-primary animate-spin" />
-                    ) : (
-                      <UploadCloud className="h-8 w-8 text-primary" />
-                    )}
+                    <UploadCloud className="h-8 w-8 text-primary" />
                   </div>
                   <div>
                     <h3 className="text-lg font-medium">
