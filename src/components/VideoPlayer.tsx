@@ -25,19 +25,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
   const loadingTimeoutRef = useRef<number | null>(null);
+  
+  // Reset loading state when src changes
+  useEffect(() => {
+    setIsLoading(true);
+    setHasError(false);
+  }, [src]);
 
   useEffect(() => {
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    // Reset states when src changes
-    setIsLoading(true);
-    setHasError(false);
+    // Clean up function for all event listeners
+    const cleanup = () => {
+      if (loadingTimeoutRef.current) {
+        window.clearTimeout(loadingTimeoutRef.current);
+      }
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+      videoElement.removeEventListener('error', handleError);
+      videoElement.removeEventListener('canplaythrough', handleCanPlayThrough);
+      videoElement.removeEventListener('playing', handlePlaying);
+    };
 
     const handleLoadedData = () => {
-      console.log("Video loaded successfully:", src);
-      setIsLoading(false);
-      setHasError(false);
+      console.log("Video loaded data successfully:", src);
       if (onLoadedData) onLoadedData();
     };
 
@@ -51,8 +62,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       console.log("Video can play through:", src);
       setIsLoading(false);
     };
+    
+    const handlePlaying = () => {
+      console.log("Video is now playing:", src);
+      setIsLoading(false);
+    };
 
-    // Set up an aggressive timeout as a fallback
+    // Set up a fallback timeout
     if (loadingTimeoutRef.current) {
       window.clearTimeout(loadingTimeoutRef.current);
     }
@@ -60,20 +76,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     loadingTimeoutRef.current = window.setTimeout(() => {
       console.log("Force loading complete after timeout");
       setIsLoading(false);
-    }, 1000);
+    }, 2000); // Increased timeout to give more time for loading
 
+    // Force video to load
+    videoElement.load();
+    
+    // Add event listeners
     videoElement.addEventListener('loadeddata', handleLoadedData);
     videoElement.addEventListener('error', handleError);
     videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
+    videoElement.addEventListener('playing', handlePlaying);
     
-    return () => {
-      if (loadingTimeoutRef.current) {
-        window.clearTimeout(loadingTimeoutRef.current);
-      }
-      videoElement.removeEventListener('loadeddata', handleLoadedData);
-      videoElement.removeEventListener('error', handleError);
-      videoElement.removeEventListener('canplaythrough', handleCanPlayThrough);
-    };
+    return cleanup;
   }, [src, onLoadedData]);
 
   // Get current playback info
@@ -125,6 +139,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         playsInline
         onTimeUpdate={handleTimeUpdate}
         style={{ opacity: isLoading ? 0 : 1 }}
+        preload="auto"
       />
     </div>
   );
