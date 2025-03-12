@@ -24,7 +24,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
-  const loadingTimeoutRef = useRef<number | null>(null);
   
   // Reset loading state when src changes
   useEffect(() => {
@@ -36,20 +35,34 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const videoElement = videoRef.current;
     if (!videoElement) return;
 
-    // Clean up function for all event listeners
-    const cleanup = () => {
-      if (loadingTimeoutRef.current) {
-        window.clearTimeout(loadingTimeoutRef.current);
+    // Manual loading state tracking
+    let isVideoLoaded = false;
+    
+    const handleCanPlay = () => {
+      console.log("Video can play:", src);
+      if (!isVideoLoaded) {
+        isVideoLoaded = true;
+        setIsLoading(false);
       }
-      videoElement.removeEventListener('loadeddata', handleLoadedData);
-      videoElement.removeEventListener('error', handleError);
-      videoElement.removeEventListener('canplaythrough', handleCanPlayThrough);
-      videoElement.removeEventListener('playing', handlePlaying);
     };
 
     const handleLoadedData = () => {
-      console.log("Video loaded data successfully:", src);
+      console.log("Video loaded data:", src);
       if (onLoadedData) onLoadedData();
+      
+      // Fallback in case canplay doesn't fire
+      if (!isVideoLoaded) {
+        isVideoLoaded = true;
+        setIsLoading(false);
+      }
+    };
+
+    const handlePlaying = () => {
+      console.log("Video is playing:", src);
+      if (!isVideoLoaded) {
+        isVideoLoaded = true;
+        setIsLoading(false);
+      }
     };
 
     const handleError = (e: Event) => {
@@ -58,39 +71,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setHasError(true);
     };
 
-    const handleCanPlayThrough = () => {
-      console.log("Video can play through:", src);
-      setIsLoading(false);
-    };
+    // Set up event listeners
+    videoElement.addEventListener('canplay', handleCanPlay);
+    videoElement.addEventListener('loadeddata', handleLoadedData);
+    videoElement.addEventListener('playing', handlePlaying);
+    videoElement.addEventListener('error', handleError);
     
-    const handlePlaying = () => {
-      console.log("Video is now playing:", src);
-      setIsLoading(false);
-    };
-
-    // Set up a fallback timeout
-    if (loadingTimeoutRef.current) {
-      window.clearTimeout(loadingTimeoutRef.current);
-    }
-
-    loadingTimeoutRef.current = window.setTimeout(() => {
+    // Set a backup timeout (3 seconds)
+    const timeoutId = setTimeout(() => {
       console.log("Force loading complete after timeout");
-      setIsLoading(false);
-    }, 2000); // Increased timeout to give more time for loading
-
-    // Force video to load
+      if (!isVideoLoaded) {
+        isVideoLoaded = true;
+        setIsLoading(false);
+      }
+    }, 3000);
+    
+    // Force load the video
     videoElement.load();
     
-    // Add event listeners
-    videoElement.addEventListener('loadeddata', handleLoadedData);
-    videoElement.addEventListener('error', handleError);
-    videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
-    videoElement.addEventListener('playing', handlePlaying);
-    
-    return cleanup;
+    return () => {
+      videoElement.removeEventListener('canplay', handleCanPlay);
+      videoElement.removeEventListener('loadeddata', handleLoadedData);
+      videoElement.removeEventListener('playing', handlePlaying);
+      videoElement.removeEventListener('error', handleError);
+      clearTimeout(timeoutId);
+    };
   }, [src, onLoadedData]);
 
-  // Get current playback info
   const handleTimeUpdate = () => {
     const video = videoRef.current;
     if (video && isLoading && video.currentTime > 0) {
@@ -117,6 +124,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                   setIsLoading(true);
                   setHasError(false);
                   videoRef.current.load();
+                  
+                  // Try to play if autoplay is enabled
+                  if (autoPlay) {
+                    videoRef.current.play().catch(err => {
+                      console.warn("Could not autoplay after retry:", err);
+                    });
+                  }
                 }
               }}
             >
@@ -127,7 +141,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
       <video
         ref={videoRef}
-        src={src}
         className={cn(
           "w-full h-full rounded-lg object-cover",
           className
@@ -140,7 +153,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onTimeUpdate={handleTimeUpdate}
         style={{ opacity: isLoading ? 0 : 1 }}
         preload="auto"
-      />
+      >
+        <source src={src} type="video/mp4" />
+        <source src={src} type="video/webm" />
+        Your browser does not support the video tag.
+      </video>
     </div>
   );
 };
