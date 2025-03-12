@@ -63,6 +63,10 @@ class VideoDatabase {
   getAllEntries(): VideoEntry[] {
     return this.getAll();
   }
+  
+  clearAllEntries(): void {
+    this.save([]);
+  }
 }
 
 export const videoDB = new VideoDatabase();
