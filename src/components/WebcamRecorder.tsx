@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
@@ -33,6 +34,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const [recordingDelay, setRecordingDelay] = useState<number>(0);
   const [isSyncedPlaying, setIsSyncedPlaying] = useState(false);
   const previewVideoRef = useRef<HTMLVideoElement>(null);
+  const recordingCompleteRef = useRef<boolean>(false);
 
   useEffect(() => {
     async function setupWebcam() {
@@ -75,6 +77,9 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
 
   const handleStartRecording = useCallback(() => {
     setCountdown(3);
+    setRecordedChunks([]); // Clear any previous recording chunks
+    recordingCompleteRef.current = false;
+    
     const countdownInterval = setInterval(() => {
       setCountdown(prev => {
         if (prev === null || prev <= 1) {
@@ -90,7 +95,19 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
                 mediaRecorderRef.current = new MediaRecorder(stream, {
                   mimeType: 'video/webm;codecs=vp9'
                 });
+                
+                // Set up the ondataavailable handler before starting
                 mediaRecorderRef.current.ondataavailable = handleDataAvailable;
+                
+                // Set up the onstop handler
+                mediaRecorderRef.current.onstop = () => {
+                  console.log('MediaRecorder stopped, chunks:', recordedChunks.length);
+                  recordingCompleteRef.current = true;
+                  
+                  // Create preview in the next tick to ensure all chunks are collected
+                  setTimeout(createPreviewFromChunks, 100);
+                };
+                
                 mediaRecorderRef.current.start();
                 setIsRecording(true);
               }
@@ -109,11 +126,24 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const handleDataAvailable = useCallback(({ data }: BlobEvent) => {
     if (data.size > 0) {
       setRecordedChunks(prev => [...prev, data]);
+      console.log('Data chunk received, size:', data.size);
     }
   }, []);
 
+  const createPreviewFromChunks = useCallback(() => {
+    console.log('Creating preview, recorded chunks:', recordedChunks.length);
+    
+    if (recordedChunks.length > 0) {
+      const blob = new Blob(recordedChunks, { type: 'video/webm' });
+      const url = URL.createObjectURL(blob);
+      setPreviewUrl(url);
+      setIsPreviewMode(true);
+    }
+  }, [recordedChunks]);
+
   const handleStopRecording = useCallback(() => {
     if (mediaRecorderRef.current && isRecording) {
+      console.log('Stopping recording');
       mediaRecorderRef.current.stop();
       setIsRecording(false);
       setIsSyncedPlaying(false);
@@ -122,17 +152,8 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
         sourceVideoRef.current.pause();
         setIsSourceVideoPlaying(false);
       }
-      
-      setTimeout(() => {
-        if (recordedChunks.length > 0) {
-          const blob = new Blob(recordedChunks, { type: 'video/webm' });
-          const url = URL.createObjectURL(blob);
-          setPreviewUrl(url);
-          setIsPreviewMode(true);
-        }
-      }, 100);
     }
-  }, [isRecording, recordedChunks]);
+  }, [isRecording]);
 
   const handleConfirm = useCallback(() => {
     if (recordedChunks.length > 0) {
@@ -191,6 +212,13 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
       }
     }
   }, [isSyncedPlaying]);
+
+  // Effect to handle when recordedChunks updates after recording is complete
+  useEffect(() => {
+    if (recordingCompleteRef.current && recordedChunks.length > 0 && !isPreviewMode) {
+      createPreviewFromChunks();
+    }
+  }, [recordedChunks, isPreviewMode, createPreviewFromChunks]);
 
   if (cameraPermission === false) {
     return (
