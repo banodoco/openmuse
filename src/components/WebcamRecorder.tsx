@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
@@ -6,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { Camera, CheckCircle, X, RefreshCw, Play, Pause } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
+import StorageVideoPlayer from './StorageVideoPlayer';
 
 interface WebcamRecorderProps {
   onVideoRecorded: (video: RecordedVideo) => void;
@@ -241,7 +241,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     }
   }, [isSyncedPlaying, previewUrl]);
 
-  // Effect to handle when recordedChunks updates after recording is complete
   useEffect(() => {
     if (recordingCompleteRef.current && recordedChunks.length > 0 && !isPreviewMode) {
       createPreviewFromChunks();
@@ -269,16 +268,25 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
         {sourceSrc && (
           <div className="h-full flex flex-col">
             <div className="rounded-lg overflow-hidden flex-1">
-              <video
-                ref={sourceVideoRef}
-                src={sourceSrc}
-                className="w-full h-full object-cover rounded-lg"
-                playsInline
-                muted
-                controls={!isRecording && !isPreviewMode}
-                onPlay={() => setIsSourceVideoPlaying(true)}
-                onPause={() => setIsSourceVideoPlaying(false)}
-              />
+              {sourceSrc.startsWith('idb://') ? (
+                <StorageVideoPlayer
+                  videoLocation={sourceSrc}
+                  className="w-full h-full object-cover rounded-lg"
+                  controls={!isRecording && !isPreviewMode}
+                  muted
+                />
+              ) : (
+                <video
+                  ref={sourceVideoRef}
+                  src={sourceSrc}
+                  className="w-full h-full object-cover rounded-lg"
+                  playsInline
+                  muted
+                  controls={!isRecording && !isPreviewMode}
+                  onPlay={() => setIsSourceVideoPlaying(true)}
+                  onPause={() => setIsSourceVideoPlaying(false)}
+                />
+              )}
             </div>
             
             {!isRecording && !isPreviewMode && (

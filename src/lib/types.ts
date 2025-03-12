@@ -13,3 +13,8 @@ export interface RecordedVideo {
   blob: Blob;
   url: string;
 }
+
+export interface VideoFile {
+  id: string;
+  blob: Blob;
+}

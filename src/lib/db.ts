@@ -1,4 +1,6 @@
+
 import { VideoEntry } from './types';
+import { videoStorage } from './storage';
 
 class VideoDatabase {
   private readonly VIDEO_KEY = 'video_response_entries';
@@ -45,16 +47,27 @@ class VideoDatabase {
   
   async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
     const entries = this.getAll();
+    const id = crypto.randomUUID();
     
     let videoLocation = entry.video_location;
+    
+    // If it's a blob URL, fetch the blob and save it to IndexedDB
     if (entry.video_location.startsWith('blob:')) {
       try {
         const response = await fetch(entry.video_location);
         const blob = await response.blob();
-        videoLocation = await this.blobToDataUrl(blob);
-        this.log('Successfully converted blob to data URL');
+        
+        // Save the video blob to IndexedDB
+        await videoStorage.saveVideo({
+          id: `video_${id}`,
+          blob
+        });
+        
+        // Use a reference to the video in IndexedDB
+        videoLocation = `idb://video_${id}`;
+        this.log(`Saved video to IndexedDB with ID: video_${id}`);
       } catch (error) {
-        this.error('Failed to convert blob to data URL:', error);
+        this.error('Failed to save video to IndexedDB:', error);
         throw error;
       }
     }
@@ -62,7 +75,7 @@ class VideoDatabase {
     const newEntry: VideoEntry = {
       ...entry,
       video_location: videoLocation,
-      id: crypto.randomUUID(),
+      id,
       created_at: new Date().toISOString(),
       admin_approved: false
     };
@@ -70,15 +83,6 @@ class VideoDatabase {
     this.save([...entries, newEntry]);
     this.log(`Added new entry: ${newEntry.id}`);
     return newEntry;
-  }
-  
-  private async blobToDataUrl(blob: Blob): Promise<string> {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
   }
   
   getRandomPendingEntry(): VideoEntry | null {
@@ -102,14 +106,24 @@ class VideoDatabase {
     this.log(`Saving acting video for entry ${id}`);
     
     let savedLocation = actingVideoLocation;
+    
+    // If it's a blob URL, fetch the blob and save it to IndexedDB
     if (actingVideoLocation.startsWith('blob:')) {
       try {
         const response = await fetch(actingVideoLocation);
         const blob = await response.blob();
-        savedLocation = await this.blobToDataUrl(blob);
-        this.log('Successfully converted acting video blob to data URL');
+        
+        // Save the video blob to IndexedDB
+        await videoStorage.saveVideo({
+          id: `acting_${id}`,
+          blob
+        });
+        
+        // Use a reference to the video in IndexedDB
+        savedLocation = `idb://acting_${id}`;
+        this.log(`Saved acting video to IndexedDB with ID: acting_${id}`);
       } catch (error) {
-        this.error('Failed to convert acting video blob to data URL:', error);
+        this.error('Failed to save acting video to IndexedDB:', error);
         throw error;
       }
     }
@@ -143,13 +157,87 @@ class VideoDatabase {
     return this.updateEntry(id, { admin_approved: approved });
   }
   
+  async getVideoUrl(videoLocation: string): Promise<string> {
+    if (videoLocation.startsWith('idb://')) {
+      const videoId = videoLocation.substring(6); // Remove the 'idb://' prefix
+      
+      try {
+        const blob = await videoStorage.getVideo(videoId);
+        if (blob) {
+          const url = URL.createObjectURL(blob);
+          this.log(`Created object URL for video ${videoId}: ${url}`);
+          return url;
+        } else {
+          this.error(`Video not found in storage: ${videoId}`);
+          return '';
+        }
+      } catch (error) {
+        this.error(`Error getting video ${videoId}:`, error);
+        return '';
+      }
+    }
+    
+    return videoLocation;
+  }
+  
   getAllEntries(): VideoEntry[] {
     return this.getAll();
   }
   
-  clearAllEntries(): void {
+  async clearAllEntries(): Promise<void> {
+    // Get all entries to find video IDs
+    const entries = this.getAll();
+    
+    // Clear all videos from IndexedDB
+    try {
+      await videoStorage.clearAllVideos();
+      this.log('Cleared all videos from storage');
+    } catch (error) {
+      this.error('Error clearing videos from storage:', error);
+    }
+    
+    // Clear entries from localStorage
     this.save([]);
     this.log('Cleared all entries');
+  }
+  
+  async deleteEntry(id: string): Promise<boolean> {
+    const entries = this.getAll();
+    const entry = entries.find(e => e.id === id);
+    
+    if (!entry) {
+      this.warn(`Entry with id ${id} not found for deletion`);
+      return false;
+    }
+    
+    // Delete the original video if it's in IndexedDB
+    if (entry.video_location.startsWith('idb://')) {
+      const videoId = entry.video_location.substring(6);
+      try {
+        await videoStorage.deleteVideo(videoId);
+        this.log(`Deleted video ${videoId} from storage`);
+      } catch (error) {
+        this.error(`Error deleting video ${videoId}:`, error);
+      }
+    }
+    
+    // Delete the acting video if it exists and is in IndexedDB
+    if (entry.acting_video_location && entry.acting_video_location.startsWith('idb://')) {
+      const actingVideoId = entry.acting_video_location.substring(6);
+      try {
+        await videoStorage.deleteVideo(actingVideoId);
+        this.log(`Deleted acting video ${actingVideoId} from storage`);
+      } catch (error) {
+        this.error(`Error deleting acting video ${actingVideoId}:`, error);
+      }
+    }
+    
+    // Remove the entry from the list
+    const updatedEntries = entries.filter(e => e.id !== id);
+    this.save(updatedEntries);
+    this.log(`Deleted entry: ${id}`);
+    
+    return true;
   }
   
   private log(...args: any[]): void {
