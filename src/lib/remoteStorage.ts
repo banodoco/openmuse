@@ -15,12 +15,31 @@ class RemoteVideoStorage {
   // Configure storage settings
   configure(config: StorageConfig): void {
     this.config = config;
-    localStorage.setItem('video_storage_config', JSON.stringify(config));
+    localStorage.setItem('video_storage_config', JSON.stringify({
+      ...config,
+      // Don't store AWS secret key in localStorage for security
+      awsSecretKey: config.awsSecretKey ? '[SECRET STORED]' : undefined
+    }));
     this.log(`Storage configured as ${config.type}`);
+    
+    // Store sensitive AWS secrets in sessionStorage instead of localStorage
+    if (config.type === 'aws' && config.awsSecretKey) {
+      sessionStorage.setItem('aws_secret_key', config.awsSecretKey);
+    } else {
+      sessionStorage.removeItem('aws_secret_key');
+    }
   }
 
   // Get current configuration
   getConfig(): StorageConfig {
+    // For AWS config, retrieve the secret key from sessionStorage
+    if (this.config.type === 'aws') {
+      const secretKey = sessionStorage.getItem('aws_secret_key');
+      return {
+        ...this.config,
+        awsSecretKey: secretKey || undefined
+      };
+    }
     return this.config;
   }
 
@@ -30,6 +49,15 @@ class RemoteVideoStorage {
       const savedConfig = localStorage.getItem('video_storage_config');
       if (savedConfig) {
         this.config = JSON.parse(savedConfig);
+        
+        // For AWS config, try to get the secret key from sessionStorage
+        if (this.config.type === 'aws') {
+          const secretKey = sessionStorage.getItem('aws_secret_key');
+          if (secretKey) {
+            this.config.awsSecretKey = secretKey;
+          }
+        }
+        
         this.log(`Loaded storage config: ${this.config.type}`);
       }
     } catch (error) {
@@ -37,10 +65,78 @@ class RemoteVideoStorage {
     }
   }
 
-  // Upload a video to the remote server
+  // Upload a video to the storage
   async uploadVideo(videoFile: VideoFile): Promise<string> {
-    if (this.config.type !== 'remote' || !this.config.remoteUrl) {
+    if (this.config.type === 'aws') {
+      return this.uploadToAWS(videoFile);
+    } else if (this.config.type === 'remote' && this.config.remoteUrl) {
+      return this.uploadToRemoteServer(videoFile);
+    } else {
       throw new Error('Remote storage not configured');
+    }
+  }
+  
+  // Upload to AWS S3
+  private async uploadToAWS(videoFile: VideoFile): Promise<string> {
+    if (!this.config.awsBucket || !this.config.awsRegion || 
+        !this.config.awsAccessKey || !this.config.awsSecretKey) {
+      throw new Error('AWS storage not fully configured');
+    }
+
+    try {
+      this.log(`Uploading video ${videoFile.id} to AWS S3`);
+      
+      // For AWS S3 uploads we would typically use the AWS SDK
+      // Here we'll use a pre-signed URL approach for simplicity
+      
+      // First, get a pre-signed URL for the upload
+      const presignedUrlEndpoint = `https://${this.config.awsRegion}.aws-presigned-url-service.com/generate`;
+      const presignedUrlResponse = await fetch(presignedUrlEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bucket: this.config.awsBucket,
+          key: `videos/${videoFile.id}.webm`,
+          accessKey: this.config.awsAccessKey,
+          // Note: In a real implementation, you would NOT send the secret key to your backend
+          // Your backend would securely store and use it instead
+          secretKey: '[SECRET]', // Placeholder - real implementation would use a different approach
+        }),
+      });
+
+      if (!presignedUrlResponse.ok) {
+        throw new Error(`Failed to get pre-signed URL: ${presignedUrlResponse.status}`);
+      }
+
+      const { uploadUrl, fileUrl } = await presignedUrlResponse.json();
+      
+      // Then upload the file using the pre-signed URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: videoFile.blob,
+        headers: {
+          'Content-Type': 'video/webm',
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error(`Failed to upload to S3: ${uploadResponse.status}`);
+      }
+      
+      this.log(`Video uploaded successfully to AWS S3, URL: ${fileUrl}`);
+      return fileUrl;
+    } catch (error) {
+      this.error('Failed to upload video to AWS:', error);
+      throw error;
+    }
+  }
+  
+  // Upload to custom remote server
+  private async uploadToRemoteServer(videoFile: VideoFile): Promise<string> {
+    if (!this.config.remoteUrl) {
+      throw new Error('Remote server URL not configured');
     }
 
     try {
@@ -80,10 +176,63 @@ class RemoteVideoStorage {
     return remoteUrl; // Remote URLs are already accessible
   }
 
-  // Delete a video from the remote server
+  // Delete a video from the storage
   async deleteVideo(remoteUrl: string): Promise<boolean> {
-    if (this.config.type !== 'remote' || !this.config.remoteUrl) {
+    if (this.config.type === 'aws') {
+      return this.deleteFromAWS(remoteUrl);
+    } else if (this.config.type === 'remote' && this.config.remoteUrl) {
+      return this.deleteFromRemoteServer(remoteUrl);
+    } else {
       throw new Error('Remote storage not configured');
+    }
+  }
+  
+  // Delete from AWS S3
+  private async deleteFromAWS(fileUrl: string): Promise<boolean> {
+    if (!this.config.awsBucket || !this.config.awsRegion || 
+        !this.config.awsAccessKey || !this.config.awsSecretKey) {
+      throw new Error('AWS storage not fully configured');
+    }
+
+    try {
+      this.log(`Deleting video from AWS S3: ${fileUrl}`);
+      
+      // Extract the object key from the fileUrl
+      // This assumes the fileUrl follows a pattern like https://bucket.s3.region.amazonaws.com/key
+      const urlParts = new URL(fileUrl);
+      const key = urlParts.pathname.substring(1); // Remove leading slash
+      
+      const deleteEndpoint = `https://${this.config.awsRegion}.aws-delete-service.com/delete`;
+      const response = await fetch(deleteEndpoint, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          bucket: this.config.awsBucket,
+          key: key,
+          accessKey: this.config.awsAccessKey,
+          // Note: In a real implementation, you would NOT send the secret key to your backend
+          secretKey: '[SECRET]', // Placeholder
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Failed to delete from S3: ${response.status}`);
+      }
+
+      this.log(`Video deleted from AWS S3: ${fileUrl}`);
+      return true;
+    } catch (error) {
+      this.error('Failed to delete video from AWS S3:', error);
+      return false;
+    }
+  }
+  
+  // Delete from custom remote server
+  private async deleteFromRemoteServer(remoteUrl: string): Promise<boolean> {
+    if (!this.config.remoteUrl) {
+      throw new Error('Remote server URL not configured');
     }
 
     try {
