@@ -21,53 +21,54 @@ const Index: React.FC = () => {
   const loadRandomVideo = useCallback(async () => {
     setIsLoading(true);
     
-    // Add a small delay to make transitions feel more natural
-    setTimeout(() => {
-      const video = videoDB.getRandomPendingEntry();
-      
-      if (!video) {
-        setNoVideosAvailable(true);
-      } else {
-        console.log("Loading video:", video.video_location);
-        
-        // Create a new Image object to verify the URL is valid
-        const testVideo = document.createElement('video');
-        testVideo.muted = true;
-        testVideo.src = video.video_location;
-        testVideo.onloadeddata = () => {
-          console.log("Video pre-validated successfully:", video.video_location);
-          setCurrentVideo(video);
-          setNoVideosAvailable(false);
-          setIsLoading(false);
-        };
-        testVideo.onerror = () => {
-          console.error("Video URL is invalid:", video.video_location);
-          toast.error("Video couldn't be loaded. Trying another...");
+    // Get a random video from the database
+    const video = videoDB.getRandomPendingEntry();
+    
+    if (!video) {
+      setNoVideosAvailable(true);
+      setIsLoading(false);
+      return;
+    }
+    
+    console.log("Loading video:", video.video_location);
+    
+    // Check if it's a blob URL
+    if (video.video_location.startsWith('blob:')) {
+      // For blob URLs, we need to check if they're still valid
+      try {
+        const response = await fetch(video.video_location);
+        if (!response.ok) {
+          console.error("Blob URL is no longer valid:", video.video_location);
+          toast.error("Video is no longer accessible. Trying another...");
+          
           // Mark as skipped to avoid this video in the future
           videoDB.markAsSkipped(video.id);
+          
+          // Try another video
           loadRandomVideo();
-        };
+          return;
+        }
         
-        // Set a timeout to handle cases where the video doesn't load or error
-        const timeoutId = setTimeout(() => {
-          if (!testVideo.error) {
-            console.log("Video pre-validation timed out, assuming success:", video.video_location);
-            setCurrentVideo(video);
-            setNoVideosAvailable(false);
-            setIsLoading(false);
-          }
-        }, 3000);
+        // Blob is valid, we can proceed
+        setCurrentVideo(video);
+        setNoVideosAvailable(false);
+        setIsLoading(false);
+      } catch (err) {
+        console.error("Error checking blob URL:", err);
+        toast.error("Video couldn't be accessed. Trying another...");
         
-        // Clean up timeout on success or error
-        testVideo.onloadeddata = () => {
-          clearTimeout(timeoutId);
-          console.log("Video pre-validated successfully:", video.video_location);
-          setCurrentVideo(video);
-          setNoVideosAvailable(false);
-          setIsLoading(false);
-        };
+        // Mark as skipped
+        videoDB.markAsSkipped(video.id);
+        
+        // Try another video
+        loadRandomVideo();
       }
-    }, 600);
+    } else {
+      // For regular URLs, we'll set it and let the VideoPlayer handle validation
+      setCurrentVideo(video);
+      setNoVideosAvailable(false);
+      setIsLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -158,7 +159,7 @@ const Index: React.FC = () => {
                   Skip This Video
                 </Button>
                 <Button 
-                  onClick={() => setIsRecording(true)}
+                  onClick={handleStartRecording}
                   className={cn(
                     "gap-2 rounded-full transition-all duration-300",
                     "hover:bg-primary/90 hover:scale-[1.02]"
