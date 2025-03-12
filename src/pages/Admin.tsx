@@ -1,10 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { videoDB } from '@/lib/db';
 import { VideoEntry } from '@/lib/types';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash, VideoIcon, Check, X, Play, PauseIcon, RefreshCw } from 'lucide-react';
+import { Eye, Trash, VideoIcon, Check, X, Play, PauseIcon, RefreshCw, AlertCircle } from 'lucide-react';
 import VideoPlayer from '@/components/VideoPlayer';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -19,13 +18,20 @@ const Admin: React.FC = () => {
   const originalVideoRef = useRef<HTMLVideoElement>(null);
   const responseVideoRef = useRef<HTMLVideoElement>(null);
   
-  // Load entries when component mounts
   useEffect(() => {
     loadEntries();
     
-    // Cleanup on unmount
     return () => {
       stopAllPlayback();
+      
+      entries.forEach(entry => {
+        if (entry.video_location?.startsWith('blob:')) {
+          URL.revokeObjectURL(entry.video_location);
+        }
+        if (entry.acting_video_location?.startsWith('blob:')) {
+          URL.revokeObjectURL(entry.acting_video_location);
+        }
+      });
     };
   }, []);
 
@@ -33,8 +39,10 @@ const Admin: React.FC = () => {
     setIsLoading(true);
     try {
       const loadedEntries = videoDB.getAllEntries();
+      console.log('Loaded entries:', loadedEntries.length, 
+        'With responses:', loadedEntries.filter(e => e.acting_video_location).length);
+      
       setEntries(loadedEntries);
-      console.log('Loaded entries:', loadedEntries.length);
       
       if (loadedEntries.length === 0) {
         toast.info('No video entries found');
@@ -81,13 +89,11 @@ const Admin: React.FC = () => {
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this entry? This cannot be undone.')) {
       try {
-        // Get updated entries directly from localStorage to ensure consistency
         const currentEntries = videoDB.getAllEntries();
         const updatedEntries = currentEntries.filter(entry => entry.id !== id);
         localStorage.setItem('video_response_entries', JSON.stringify(updatedEntries));
         setEntries(updatedEntries);
         
-        // Clear selection if the deleted entry was selected
         if (id === selectedEntryId) {
           stopAllPlayback();
           setSelectedVideo(null);
@@ -110,7 +116,6 @@ const Admin: React.FC = () => {
     }
 
     if (isPlayingTogether) {
-      // If already playing, pause both videos
       originalVideoRef.current.pause();
       responseVideoRef.current.pause();
       setIsPlayingTogether(false);
@@ -119,15 +124,12 @@ const Admin: React.FC = () => {
       return;
     }
 
-    // Reset both videos to the beginning
     originalVideoRef.current.currentTime = 0;
     responseVideoRef.current.currentTime = 0;
     
-    // Ensure videos are unmuted when playing together
     originalVideoRef.current.muted = false;
-    responseVideoRef.current.muted = true; // Mute response video when playing together
-    
-    // Start playing both videos
+    responseVideoRef.current.muted = true;
+
     Promise.all([
       originalVideoRef.current.play().catch(error => {
         console.error('Error playing original video:', error);
@@ -149,34 +151,45 @@ const Admin: React.FC = () => {
     });
   };
 
-  // Select an entry
   const handleSelectEntry = (entry: VideoEntry) => {
     console.log('Selecting entry:', entry.id);
     
-    // Reset playback state
     stopAllPlayback();
     
-    // Update selected entry ID immediately
     setSelectedEntryId(entry.id);
     
-    // Force clean slate when selecting a new entry
     setSelectedVideo(null);
     setSelectedResponse(null);
     
-    // Small delay to ensure state is cleared before setting new values
+    if (!entry.video_location) {
+      toast.error('Entry is missing the original video');
+      return;
+    }
+    
+    console.log('Video info:', {
+      original: entry.video_location?.substring(0, 50),
+      response: entry.acting_video_location?.substring(0, 50),
+      hasResponse: !!entry.acting_video_location
+    });
+    
     setTimeout(() => {
-      console.log(`Setting video: ${entry.video_location}`);
       setSelectedVideo(entry.video_location);
       
       if (entry.acting_video_location) {
-        console.log(`Setting response: ${entry.acting_video_location}`);
         setSelectedResponse(entry.acting_video_location);
       }
     }, 100);
   };
 
   const renderVideoPlayer = (src: string | null, ref: React.RefObject<HTMLVideoElement>, label: string) => {
-    if (!src) return null;
+    if (!src) {
+      return (
+        <div className="bg-muted/30 rounded-lg p-6 text-center flex flex-col items-center justify-center">
+          <AlertCircle className="h-12 w-12 text-muted-foreground/50 mb-3" />
+          <p className="text-muted-foreground">No {label.toLowerCase()} available</p>
+        </div>
+      );
+    }
     
     return (
       <div className="bg-card rounded-lg shadow-sm p-4 border">
@@ -188,7 +201,7 @@ const Admin: React.FC = () => {
             autoPlay={false} 
             muted={isPlayingTogether && label === "Video Response"}
             videoRef={ref}
-            key={`${label}-${selectedEntryId}-${Date.now()}`}
+            key={`${label}-${selectedEntryId}-${src.substring(0, 20)}`}
           />
         </div>
       </div>

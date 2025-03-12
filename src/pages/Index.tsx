@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -21,7 +20,6 @@ const Index: React.FC = () => {
   const loadRandomVideo = useCallback(async () => {
     setIsLoading(true);
     
-    // Get a random video from the database
     const video = videoDB.getRandomPendingEntry();
     
     if (!video) {
@@ -32,24 +30,19 @@ const Index: React.FC = () => {
     
     console.log("Loading video:", video.video_location);
     
-    // Check if it's a blob URL
     if (video.video_location.startsWith('blob:')) {
-      // For blob URLs, we need to check if they're still valid
       try {
         const response = await fetch(video.video_location);
         if (!response.ok) {
           console.error("Blob URL is no longer valid:", video.video_location);
           toast.error("Video is no longer accessible. Trying another...");
           
-          // Mark as skipped to avoid this video in the future
           videoDB.markAsSkipped(video.id);
           
-          // Try another video
           loadRandomVideo();
           return;
         }
         
-        // Blob is valid, we can proceed
         setCurrentVideo(video);
         setNoVideosAvailable(false);
         setIsLoading(false);
@@ -57,14 +50,11 @@ const Index: React.FC = () => {
         console.error("Error checking blob URL:", err);
         toast.error("Video couldn't be accessed. Trying another...");
         
-        // Mark as skipped
         videoDB.markAsSkipped(video.id);
         
-        // Try another video
         loadRandomVideo();
       }
     } else {
-      // For regular URLs, we'll set it and let the VideoPlayer handle validation
       setCurrentVideo(video);
       setNoVideosAvailable(false);
       setIsLoading(false);
@@ -90,13 +80,21 @@ const Index: React.FC = () => {
   const handleVideoRecorded = useCallback((recordedVideo: RecordedVideo) => {
     if (!currentVideo) return;
     
-    // In a real app, you would upload this video to a server
-    // Here we'll just store the URL locally
-    videoDB.saveActingVideo(currentVideo.id, recordedVideo.url);
+    console.log('Video recorded, blob size:', recordedVideo.blob.size, 'URL:', recordedVideo.url);
     
-    toast.success('Your response has been saved!');
-    setIsRecording(false);
-    loadRandomVideo();
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64data = reader.result as string;
+      console.log('Converted video to base64, length:', base64data.length);
+      
+      videoDB.saveActingVideo(currentVideo.id, base64data);
+      
+      toast.success('Your response has been saved!');
+      setIsRecording(false);
+      loadRandomVideo();
+    };
+    
+    reader.readAsDataURL(recordedVideo.blob);
   }, [currentVideo, loadRandomVideo]);
 
   const handleCancelRecording = useCallback(() => {
