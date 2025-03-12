@@ -11,7 +11,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 const StorageSettings: React.FC = () => {
-  const [storageType, setStorageType] = useState<'local' | 'remote' | 'aws'>('local');
+  const [storageType, setStorageType] = useState<'local' | 'remote' | 'aws' | 'supabase'>('local');
   const [remoteUrl, setRemoteUrl] = useState('');
   const [apiKey, setApiKey] = useState('');
   const [awsRegion, setAwsRegion] = useState('');
@@ -88,11 +88,12 @@ const StorageSettings: React.FC = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
-        <Tabs defaultValue={storageType} onValueChange={(value) => setStorageType(value as 'local' | 'remote' | 'aws')}>
+        <Tabs defaultValue={storageType} onValueChange={(value) => setStorageType(value as 'local' | 'remote' | 'aws' | 'supabase')}>
           <TabsList className="mb-4">
             <TabsTrigger value="local">Browser Storage</TabsTrigger>
             <TabsTrigger value="remote">Custom Server</TabsTrigger>
             <TabsTrigger value="aws">AWS S3</TabsTrigger>
+            <TabsTrigger value="supabase">Supabase</TabsTrigger>
           </TabsList>
 
           <TabsContent value="local">
@@ -179,6 +180,23 @@ const StorageSettings: React.FC = () => {
                 <p className="text-xs text-muted-foreground">
                   Your AWS credentials are stored securely in your browser session and never sent to our servers
                 </p>
+              </div>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="supabase">
+            <div className="p-4 bg-muted/40 rounded-md">
+              <p className="text-sm mb-2">Videos will be stored in Supabase Storage.</p>
+              <p className="text-sm text-muted-foreground">
+                This option uses Supabase as both the database and storage solution, providing a more persistent and scalable option.
+              </p>
+              <div className="mt-4 text-sm bg-primary/10 p-3 rounded-md">
+                <p className="font-medium">Benefits:</p>
+                <ul className="list-disc pl-5 mt-1 space-y-1">
+                  <li>Data persists across devices and browsers</li>
+                  <li>Videos are stored in a secure cloud storage</li>
+                  <li>Better performance for larger video collections</li>
+                </ul>
               </div>
             </div>
           </TabsContent>

@@ -1,5 +1,6 @@
 
 import { VideoFile, StorageConfig } from './types';
+import { supabaseStorage } from './supabaseStorage';
 
 class RemoteVideoStorage {
   private readonly DEBUG = true;
@@ -67,7 +68,9 @@ class RemoteVideoStorage {
 
   // Upload a video to the storage
   async uploadVideo(videoFile: VideoFile): Promise<string> {
-    if (this.config.type === 'aws') {
+    if (this.config.type === 'supabase') {
+      return supabaseStorage.uploadVideo(videoFile);
+    } else if (this.config.type === 'aws') {
       return this.uploadToAWS(videoFile);
     } else if (this.config.type === 'remote' && this.config.remoteUrl) {
       return this.uploadToRemoteServer(videoFile);
@@ -173,12 +176,17 @@ class RemoteVideoStorage {
 
   // Get a video from the remote server
   async getVideoUrl(remoteUrl: string): Promise<string> {
+    if (this.config.type === 'supabase') {
+      return supabaseStorage.getVideoUrl(remoteUrl);
+    }
     return remoteUrl; // Remote URLs are already accessible
   }
 
   // Delete a video from the storage
   async deleteVideo(remoteUrl: string): Promise<boolean> {
-    if (this.config.type === 'aws') {
+    if (this.config.type === 'supabase') {
+      return supabaseStorage.deleteVideo(remoteUrl);
+    } else if (this.config.type === 'aws') {
       return this.deleteFromAWS(remoteUrl);
     } else if (this.config.type === 'remote' && this.config.remoteUrl) {
       return this.deleteFromRemoteServer(remoteUrl);

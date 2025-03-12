@@ -1,9 +1,10 @@
+
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { videoDB } from '@/lib/db';
+import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import Navigation from '@/components/Navigation';
 import { UploadCloud, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
@@ -66,11 +67,13 @@ const Upload: React.FC = () => {
     setUploading(true);
     
     try {
+      const db = databaseSwitcher.getDatabase();
+      
       for (const file of files) {
         const videoLocation = URL.createObjectURL(file);
         console.log(`Created blob URL for upload: ${videoLocation}`);
         
-        await videoDB.addEntry({
+        await db.addEntry({
           video_location: videoLocation,
           reviewer_name: reviewerName,
           acting_video_location: null,

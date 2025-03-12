@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { videoDB } from '@/lib/db';
+import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { VideoEntry, RecordedVideo } from '@/lib/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import WebcamRecorder from '@/components/WebcamRecorder';
@@ -20,43 +21,50 @@ const Index: React.FC = () => {
   const loadRandomVideo = useCallback(async () => {
     setIsLoading(true);
     
-    const video = videoDB.getRandomPendingEntry();
-    
-    if (!video) {
-      setNoVideosAvailable(true);
-      setIsLoading(false);
-      return;
-    }
-    
-    console.log("Loading video:", video.video_location);
-    
-    if (video.video_location.startsWith('blob:')) {
-      try {
-        const response = await fetch(video.video_location);
-        if (!response.ok) {
-          console.error("Blob URL is no longer valid:", video.video_location);
-          toast.error("Video is no longer accessible. Trying another...");
+    try {
+      const db = databaseSwitcher.getDatabase();
+      const video = await db.getRandomPendingEntry();
+      
+      if (!video) {
+        setNoVideosAvailable(true);
+        setIsLoading(false);
+        return;
+      }
+      
+      console.log("Loading video:", video.video_location);
+      
+      if (video.video_location.startsWith('blob:')) {
+        try {
+          const response = await fetch(video.video_location);
+          if (!response.ok) {
+            console.error("Blob URL is no longer valid:", video.video_location);
+            toast.error("Video is no longer accessible. Trying another...");
+            
+            await db.markAsSkipped(video.id);
+            
+            loadRandomVideo();
+            return;
+          }
           
-          videoDB.markAsSkipped(video.id);
+          setCurrentVideo(video);
+          setNoVideosAvailable(false);
+          setIsLoading(false);
+        } catch (err) {
+          console.error("Error checking blob URL:", err);
+          toast.error("Video couldn't be accessed. Trying another...");
+          
+          await db.markAsSkipped(video.id);
           
           loadRandomVideo();
-          return;
         }
-        
+      } else {
         setCurrentVideo(video);
         setNoVideosAvailable(false);
         setIsLoading(false);
-      } catch (err) {
-        console.error("Error checking blob URL:", err);
-        toast.error("Video couldn't be accessed. Trying another...");
-        
-        videoDB.markAsSkipped(video.id);
-        
-        loadRandomVideo();
       }
-    } else {
-      setCurrentVideo(video);
-      setNoVideosAvailable(false);
+    } catch (error) {
+      console.error("Error loading video:", error);
+      toast.error("Error loading video. Please try again.");
       setIsLoading(false);
     }
   }, []);
@@ -65,9 +73,10 @@ const Index: React.FC = () => {
     loadRandomVideo();
   }, [loadRandomVideo]);
 
-  const handleSkip = useCallback(() => {
+  const handleSkip = useCallback(async () => {
     if (currentVideo) {
-      videoDB.markAsSkipped(currentVideo.id);
+      const db = databaseSwitcher.getDatabase();
+      await db.markAsSkipped(currentVideo.id);
       toast.info('Video skipped. Loading another video...');
       loadRandomVideo();
     }
@@ -77,24 +86,22 @@ const Index: React.FC = () => {
     setIsRecording(true);
   }, []);
 
-  const handleVideoRecorded = useCallback((recordedVideo: RecordedVideo) => {
+  const handleVideoRecorded = useCallback(async (recordedVideo: RecordedVideo) => {
     if (!currentVideo) return;
     
     console.log('Video recorded, blob size:', recordedVideo.blob.size, 'URL:', recordedVideo.url);
     
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      const base64data = reader.result as string;
-      console.log('Converted video to base64, length:', base64data.length);
-      
-      videoDB.saveActingVideo(currentVideo.id, base64data);
+    try {
+      const db = databaseSwitcher.getDatabase();
+      await db.saveActingVideo(currentVideo.id, recordedVideo.url);
       
       toast.success('Your response has been saved!');
       setIsRecording(false);
       loadRandomVideo();
-    };
-    
-    reader.readAsDataURL(recordedVideo.blob);
+    } catch (error) {
+      console.error('Error saving video response:', error);
+      toast.error('Failed to save your response. Please try again.');
+    }
   }, [currentVideo, loadRandomVideo]);
 
   const handleCancelRecording = useCallback(() => {

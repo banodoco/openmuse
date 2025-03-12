@@ -7,6 +7,7 @@ export interface VideoEntry {
   skipped: boolean;
   created_at: string;
   admin_approved: boolean;
+  user_id?: string;
 }
 
 export interface RecordedVideo {
@@ -21,7 +22,7 @@ export interface VideoFile {
 
 // Storage configuration options
 export interface StorageConfig {
-  type: 'local' | 'remote' | 'aws';
+  type: 'local' | 'remote' | 'aws' | 'supabase';
   remoteUrl?: string;
   apiKey?: string;
   awsRegion?: string;
@@ -35,7 +36,4 @@ declare global {
   interface MediaRecorderEventMap {
     dataavailable: BlobEvent;
   }
-  
-  // The issue was here - we don't need to redeclare BlobEvent as it's already
-  // defined in the DOM lib. Just extending the existing type as needed.
 }
