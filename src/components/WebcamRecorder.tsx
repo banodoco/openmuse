@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
@@ -138,6 +137,9 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
       const url = URL.createObjectURL(blob);
       setPreviewUrl(url);
       setIsPreviewMode(true);
+      
+      // Add logging to confirm preview is created successfully
+      console.log('Preview created with URL:', url);
     }
   }, [recordedChunks]);
 
@@ -195,23 +197,46 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const handleSyncedPlayback = useCallback(() => {
     if (sourceVideoRef.current && previewVideoRef.current) {
       if (isSyncedPlaying) {
+        // If currently playing, pause both videos
         sourceVideoRef.current.pause();
         previewVideoRef.current.pause();
         setIsSyncedPlaying(false);
+        console.log('Both videos paused');
       } else {
+        // Reset both videos to the beginning
         sourceVideoRef.current.currentTime = 0;
         previewVideoRef.current.currentTime = 0;
+        
+        // Log video elements state before playing
+        console.log('Source video element:', sourceVideoRef.current);
+        console.log('Preview video element:', previewVideoRef.current);
+        console.log('Preview URL:', previewUrl);
+        
+        // Play both videos and ensure we catch any errors
         Promise.all([
-          sourceVideoRef.current.play(),
-          previewVideoRef.current.play()
+          sourceVideoRef.current.play().catch(e => {
+            console.error('Error playing source video:', e);
+            return Promise.reject(e);
+          }),
+          previewVideoRef.current.play().catch(e => {
+            console.error('Error playing preview video:', e);
+            return Promise.reject(e);
+          })
         ]).then(() => {
+          console.log('Both videos started playing successfully');
           setIsSyncedPlaying(true);
         }).catch(error => {
-          console.error('Error playing videos:', error);
+          console.error('Error playing one or both videos:', error);
+          toast.error('Could not play videos: ' + error.message);
         });
       }
+    } else {
+      console.error('Video refs not available:', { 
+        sourceRef: !!sourceVideoRef.current, 
+        previewRef: !!previewVideoRef.current 
+      });
     }
-  }, [isSyncedPlaying]);
+  }, [isSyncedPlaying, previewUrl]);
 
   // Effect to handle when recordedChunks updates after recording is complete
   useEffect(() => {
@@ -296,9 +321,10 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
             <video 
               ref={previewVideoRef}
               src={previewUrl} 
-              className="w-full h-full object-cover rounded-lg" 
+              className="w-full h-full object-cover rounded-lg"
+              controls
               playsInline
-              muted
+              muted={false}
             />
           ) : (
             <video
