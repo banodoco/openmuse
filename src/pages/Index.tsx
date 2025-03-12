@@ -28,12 +28,45 @@ const Index: React.FC = () => {
       if (!video) {
         setNoVideosAvailable(true);
       } else {
-        console.log("Loaded video:", video.video_location);
-        setCurrentVideo(video);
-        setNoVideosAvailable(false);
+        console.log("Loading video:", video.video_location);
+        
+        // Create a new Image object to verify the URL is valid
+        const testVideo = document.createElement('video');
+        testVideo.muted = true;
+        testVideo.src = video.video_location;
+        testVideo.onloadeddata = () => {
+          console.log("Video pre-validated successfully:", video.video_location);
+          setCurrentVideo(video);
+          setNoVideosAvailable(false);
+          setIsLoading(false);
+        };
+        testVideo.onerror = () => {
+          console.error("Video URL is invalid:", video.video_location);
+          toast.error("Video couldn't be loaded. Trying another...");
+          // Mark as skipped to avoid this video in the future
+          videoDB.markAsSkipped(video.id);
+          loadRandomVideo();
+        };
+        
+        // Set a timeout to handle cases where the video doesn't load or error
+        const timeoutId = setTimeout(() => {
+          if (!testVideo.error) {
+            console.log("Video pre-validation timed out, assuming success:", video.video_location);
+            setCurrentVideo(video);
+            setNoVideosAvailable(false);
+            setIsLoading(false);
+          }
+        }, 3000);
+        
+        // Clean up timeout on success or error
+        testVideo.onloadeddata = () => {
+          clearTimeout(timeoutId);
+          console.log("Video pre-validated successfully:", video.video_location);
+          setCurrentVideo(video);
+          setNoVideosAvailable(false);
+          setIsLoading(false);
+        };
       }
-      
-      setIsLoading(false);
     }, 600);
   }, []);
 
@@ -125,7 +158,7 @@ const Index: React.FC = () => {
                   Skip This Video
                 </Button>
                 <Button 
-                  onClick={handleStartRecording}
+                  onClick={() => setIsRecording(true)}
                   className={cn(
                     "gap-2 rounded-full transition-all duration-300",
                     "hover:bg-primary/90 hover:scale-[1.02]"
@@ -144,6 +177,7 @@ const Index: React.FC = () => {
                   controls
                   autoPlay
                   onLoadedData={handleVideoLoaded}
+                  muted={false}
                 />
               </div>
             </div>
