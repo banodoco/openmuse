@@ -3,7 +3,8 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Camera, CheckCircle, X, RefreshCw } from 'lucide-react';
+import { Camera, CheckCircle, X, RefreshCw, Play, Pause } from 'lucide-react';
+import { Slider } from '@/components/ui/slider';
 
 interface WebcamRecorderProps {
   onVideoRecorded: (video: RecordedVideo) => void;
@@ -28,6 +29,8 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [cameraPermission, setCameraPermission] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [sourceVideoDelay, setSourceVideoDelay] = useState<number>(0);
+  const [isSourceVideoPlaying, setIsSourceVideoPlaying] = useState(false);
   
   // Initialize webcam on mount
   useEffect(() => {
@@ -39,7 +42,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
             height: 720,
             facingMode: 'user'
           }, 
-          audio: true 
+          audio: false // Disable audio recording
         });
         
         if (webcamRef.current) {
@@ -50,7 +53,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
         setError(null);
       } catch (err) {
         setCameraPermission(false);
-        setError('Could not access camera or microphone');
+        setError('Could not access camera');
         console.error('Error accessing media devices:', err);
       }
     }
@@ -82,11 +85,21 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
           if (webcamRef.current && webcamRef.current.srcObject) {
             const stream = webcamRef.current.srcObject as MediaStream;
             mediaRecorderRef.current = new MediaRecorder(stream, {
-              mimeType: 'video/webm;codecs=vp9,opus'
+              mimeType: 'video/webm;codecs=vp9'
             });
             mediaRecorderRef.current.ondataavailable = handleDataAvailable;
             mediaRecorderRef.current.start();
             setIsRecording(true);
+            
+            // Play the source video after specified delay
+            if (sourceVideoRef.current && sourceSrc) {
+              setTimeout(() => {
+                if (sourceVideoRef.current) {
+                  sourceVideoRef.current.play();
+                  setIsSourceVideoPlaying(true);
+                }
+              }, sourceVideoDelay * 1000);
+            }
           }
           
           return null;
@@ -96,7 +109,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     }, 1000);
     
     return () => clearInterval(countdownInterval);
-  }, []);
+  }, [sourceVideoDelay, sourceSrc]);
 
   const handleDataAvailable = useCallback(({ data }: BlobEvent) => {
     if (data.size > 0) {
@@ -108,6 +121,12 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      
+      // Pause the source video
+      if (sourceVideoRef.current) {
+        sourceVideoRef.current.pause();
+        setIsSourceVideoPlaying(false);
+      }
       
       // Slight delay to ensure all chunks are processed
       setTimeout(() => {
@@ -138,6 +157,26 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     setIsPreviewMode(false);
   }, [previewUrl]);
 
+  const toggleSourceVideoPlayback = useCallback(() => {
+    if (sourceVideoRef.current) {
+      if (isSourceVideoPlaying) {
+        sourceVideoRef.current.pause();
+      } else {
+        sourceVideoRef.current.play();
+      }
+      setIsSourceVideoPlaying(!isSourceVideoPlaying);
+    }
+  }, [isSourceVideoPlaying]);
+
+  const resetSourceVideo = useCallback(() => {
+    if (sourceVideoRef.current) {
+      sourceVideoRef.current.currentTime = 0;
+      if (isSourceVideoPlaying) {
+        sourceVideoRef.current.play();
+      }
+    }
+  }, [isSourceVideoPlaying]);
+
   // If camera permission is denied
   if (cameraPermission === false) {
     return (
@@ -147,7 +186,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
         </div>
         <h2 className="text-xl font-medium">Camera Access Required</h2>
         <p className="text-muted-foreground text-center max-w-md">
-          Please allow access to your camera and microphone to record your response.
+          Please allow access to your camera to record your response.
         </p>
         <Button onClick={onCancel}>Go Back</Button>
       </div>
@@ -159,14 +198,55 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 h-full">
         {/* Source video (what the user is responding to) */}
         {sourceSrc && (
-          <div className="h-full rounded-lg overflow-hidden">
-            <video
-              ref={sourceVideoRef}
-              src={sourceSrc}
-              className="w-full h-full object-cover rounded-lg"
-              controls
-              playsInline
-            />
+          <div className="h-full flex flex-col">
+            <div className="rounded-lg overflow-hidden flex-1">
+              <video
+                ref={sourceVideoRef}
+                src={sourceSrc}
+                className="w-full h-full object-cover rounded-lg"
+                playsInline
+                muted
+                controls={!isRecording && !isPreviewMode}
+                onPlay={() => setIsSourceVideoPlaying(true)}
+                onPause={() => setIsSourceVideoPlaying(false)}
+              />
+            </div>
+            
+            {!isRecording && !isPreviewMode && (
+              <div className="mt-2 px-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-muted-foreground">
+                    Video delay: {sourceVideoDelay} {sourceVideoDelay === 1 ? 'second' : 'seconds'}
+                  </span>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={toggleSourceVideoPlayback}
+                      className="h-8 w-8 p-0 rounded-full"
+                    >
+                      {isSourceVideoPlaying ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={resetSourceVideo}
+                      className="h-8 w-8 p-0 rounded-full text-xs"
+                    >
+                      <span className="text-xs">0:00</span>
+                    </Button>
+                  </div>
+                </div>
+                <div className="py-2">
+                  <Slider 
+                    value={[sourceVideoDelay]} 
+                    onValueChange={(values) => setSourceVideoDelay(values[0])}
+                    max={5}
+                    step={1}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
         
