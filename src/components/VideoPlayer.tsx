@@ -34,10 +34,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   useEffect(() => {
-    if (!src) return;
+    if (!src) {
+      console.log('No source provided to VideoPlayer');
+      setError('No video source provided');
+      setIsLoading(false);
+      return;
+    }
+    
+    console.log(`Loading video: ${src}`);
     
     const video = videoRef?.current || internalVideoRef.current;
-    if (!video) return;
+    if (!video) {
+      console.error('Video element reference not available');
+      return;
+    }
     
     // Reset error state when changing sources
     setError(null);
@@ -57,49 +67,32 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       console.error(`Video error for ${src.substring(0, 30)}...: ${errorMsg}`);
       
-      // Special handling for blob URLs
       if (isBlobUrl(src)) {
-        setError(`Blob URL is no longer valid. The video may have expired or is not accessible in this context.`);
+        setError(`Cannot load blob URL. The video may have expired or is not accessible.`);
       } else {
         setError(errorMsg);
       }
       setIsLoading(false);
     };
     
-    // Simple direct approach
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('error', handleError);
     
     // Stop any current playback
     video.pause();
     
-    // Try to load the new video
+    // Set the video source directly - avoid fetch for blob URLs as they may not be accessible
     try {
-      // For blob URLs, we need special handling
-      if (isBlobUrl(src)) {
-        // Fetch the blob directly to validate it exists
-        fetch(src)
-          .then(response => {
-            if (!response.ok) throw new Error('Blob not accessible');
-            return response.blob();
-          })
-          .then(blob => {
-            // Create a new object URL from this blob to ensure it's valid in this context
-            const validBlobUrl = URL.createObjectURL(blob);
-            video.src = validBlobUrl;
-            video.load();
-            if (autoPlay) video.play().catch(e => console.warn('Autoplay prevented:', e));
-          })
-          .catch(err => {
-            console.error('Error fetching blob:', err);
-            setError('Could not access video blob. It may have expired.');
-            setIsLoading(false);
-          });
-      } else {
-        // Regular URL handling
-        video.src = src;
-        video.load();
-        if (autoPlay) video.play().catch(e => console.warn('Autoplay prevented:', e));
+      // For regular videos, just set the source
+      video.src = src;
+      video.load();
+      
+      // Auto-play if requested (and only after setting the source)
+      if (autoPlay) {
+        video.play().catch(e => {
+          console.warn('Autoplay prevented:', e);
+          // Don't treat autoplay prevention as an error
+        });
       }
     } catch (err) {
       console.error('Error setting up video:', err);
@@ -112,10 +105,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('error', handleError);
       
-      // If we created a blob URL, we should revoke it
-      if (video.src && video.src !== src && isBlobUrl(video.src)) {
-        URL.revokeObjectURL(video.src);
-      }
+      // Cleanup video element
+      video.pause();
+      video.src = '';
+      video.load();
     };
   }, [src, autoPlay, onLoadedData, videoRef]);
 
@@ -128,31 +121,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     video.pause();
     
-    // For blob URLs, we'll try to fetch it again
-    if (isBlobUrl(src)) {
-      fetch(src)
-        .then(response => {
-          if (!response.ok) throw new Error('Blob not accessible');
-          return response.blob();
-        })
-        .then(blob => {
-          const validBlobUrl = URL.createObjectURL(blob);
-          video.src = validBlobUrl;
-          video.load();
-          if (autoPlay) video.play().catch(e => console.warn('Autoplay prevented:', e));
-          toast.success('Video loaded successfully');
-        })
-        .catch(err => {
-          console.error('Error fetching blob on retry:', err);
-          setError('Could not access video blob. It may have expired.');
-          setIsLoading(false);
-          toast.error('Failed to load video');
-        });
-    } else {
-      // For regular URLs
-      video.src = src;
-      video.load();
-      if (autoPlay) video.play().catch(e => console.warn('Autoplay prevented:', e));
+    // Just try setting the source directly again
+    video.src = src;
+    video.load();
+    toast.info('Attempting to reload video...');
+    
+    if (autoPlay) {
+      video.play().catch(e => {
+        console.warn('Autoplay prevented on retry:', e);
+      });
     }
   };
 

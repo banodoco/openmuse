@@ -7,12 +7,26 @@ class VideoDatabase {
   private readonly VIDEO_KEY = 'video_response_entries';
   
   private getAll(): VideoEntry[] {
-    const entries = localStorage.getItem(this.VIDEO_KEY);
-    return entries ? JSON.parse(entries) : [];
+    try {
+      const entries = localStorage.getItem(this.VIDEO_KEY);
+      if (!entries) return [];
+      
+      const parsedEntries = JSON.parse(entries);
+      console.log(`Retrieved ${parsedEntries.length} entries from localStorage`);
+      return Array.isArray(parsedEntries) ? parsedEntries : [];
+    } catch (error) {
+      console.error('Error getting entries from localStorage:', error);
+      return [];
+    }
   }
   
   private save(entries: VideoEntry[]): void {
-    localStorage.setItem(this.VIDEO_KEY, JSON.stringify(entries));
+    try {
+      localStorage.setItem(this.VIDEO_KEY, JSON.stringify(entries));
+      console.log(`Saved ${entries.length} entries to localStorage`);
+    } catch (error) {
+      console.error('Error saving entries to localStorage:', error);
+    }
   }
   
   addEntry(entry: Omit<VideoEntry, 'id' | 'created_at'>): VideoEntry {
@@ -24,6 +38,7 @@ class VideoDatabase {
     };
     
     this.save([...entries, newEntry]);
+    console.log('Added new entry:', newEntry.id);
     return newEntry;
   }
   
@@ -43,12 +58,16 @@ class VideoDatabase {
     const entries = this.getAll();
     const index = entries.findIndex(entry => entry.id === id);
     
-    if (index === -1) return null;
+    if (index === -1) {
+      console.warn(`Entry with id ${id} not found for update`);
+      return null;
+    }
     
     const updatedEntry = { ...entries[index], ...update };
     entries[index] = updatedEntry;
     
     this.save(entries);
+    console.log(`Updated entry: ${id}`);
     return updatedEntry;
   }
   
@@ -61,11 +80,14 @@ class VideoDatabase {
   }
   
   getAllEntries(): VideoEntry[] {
-    return this.getAll();
+    const entries = this.getAll();
+    console.log(`Retrieved all ${entries.length} entries`);
+    return entries;
   }
   
   clearAllEntries(): void {
     this.save([]);
+    console.log('Cleared all entries');
   }
 }
 

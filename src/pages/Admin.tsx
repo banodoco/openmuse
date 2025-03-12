@@ -20,6 +20,16 @@ const Admin: React.FC = () => {
   useEffect(() => {
     // Refresh entries when component mounts
     handleRefresh();
+
+    // Stop playing when component unmounts
+    return () => {
+      if (originalVideoRef.current) {
+        originalVideoRef.current.pause();
+      }
+      if (responseVideoRef.current) {
+        responseVideoRef.current.pause();
+      }
+    };
   }, []);
 
   const handleRefresh = () => {
@@ -103,12 +113,23 @@ const Admin: React.FC = () => {
     });
   };
 
-  // Log when a video is selected for debugging
-  useEffect(() => {
-    if (selectedVideo) {
-      console.log('Preview URL:', selectedVideo);
-    }
-  }, [selectedVideo]);
+  // Select an entry
+  const handleSelectEntry = (entry: VideoEntry) => {
+    // Reset playback state
+    setIsPlayingTogether(false);
+    
+    // Force clean slate when selecting a new entry
+    setSelectedVideo(null);
+    setSelectedResponse(null);
+    
+    // Use setTimeout to ensure state updates before setting new values
+    setTimeout(() => {
+      setSelectedVideo(entry.video_location);
+      if (entry.acting_video_location) {
+        setSelectedResponse(entry.acting_video_location);
+      }
+    }, 50);
+  };
 
   return (
     <div className="min-h-screen flex flex-col bg-background animate-fade-in">
@@ -150,11 +171,7 @@ const Admin: React.FC = () => {
                           ? 'bg-primary/10 border-primary/30' 
                           : 'hover:bg-muted/50'
                       }`}
-                      onClick={() => {
-                        setSelectedVideo(entry.video_location);
-                        setSelectedResponse(entry.acting_video_location);
-                        setIsPlayingTogether(false);
-                      }}
+                      onClick={() => handleSelectEntry(entry)}
                     >
                       <div className="flex justify-between items-start mb-1">
                         <span className="font-medium truncate">
@@ -233,14 +250,16 @@ const Admin: React.FC = () => {
                     <div className="bg-card rounded-lg shadow-sm p-4 border">
                       <h3 className="text-md font-medium mb-3">Original Video</h3>
                       <div className="aspect-video w-full bg-black rounded-md overflow-hidden">
-                        <VideoPlayer 
-                          src={selectedVideo} 
-                          controls 
-                          autoPlay={false} 
-                          muted={isPlayingTogether}
-                          videoRef={originalVideoRef}
-                          key={`original-${selectedVideo}`}
-                        />
+                        {selectedVideo && (
+                          <VideoPlayer 
+                            src={selectedVideo}
+                            controls 
+                            autoPlay={false} 
+                            muted={isPlayingTogether}
+                            videoRef={originalVideoRef}
+                            key={`original-${Date.now()}`}
+                          />
+                        )}
                       </div>
                     </div>
                     
@@ -249,12 +268,12 @@ const Admin: React.FC = () => {
                         <h3 className="text-md font-medium mb-3">Video Response</h3>
                         <div className="aspect-video w-full bg-black rounded-md overflow-hidden">
                           <VideoPlayer 
-                            src={selectedResponse} 
+                            src={selectedResponse}
                             controls 
                             autoPlay={false} 
                             muted={isPlayingTogether}
                             videoRef={responseVideoRef}
-                            key={`response-${selectedResponse}`}
+                            key={`response-${Date.now()}`}
                           />
                         </div>
                       </div>
