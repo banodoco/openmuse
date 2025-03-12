@@ -24,6 +24,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [hasError, setHasError] = useState(false);
+  const loadingTimeoutRef = useRef<number | null>(null);
 
   useEffect(() => {
     const videoElement = videoRef.current;
@@ -51,16 +52,38 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsLoading(false);
     };
 
+    // Set up an aggressive timeout as a fallback
+    if (loadingTimeoutRef.current) {
+      window.clearTimeout(loadingTimeoutRef.current);
+    }
+
+    loadingTimeoutRef.current = window.setTimeout(() => {
+      console.log("Force loading complete after timeout");
+      setIsLoading(false);
+    }, 1000);
+
     videoElement.addEventListener('loadeddata', handleLoadedData);
     videoElement.addEventListener('error', handleError);
     videoElement.addEventListener('canplaythrough', handleCanPlayThrough);
     
     return () => {
+      if (loadingTimeoutRef.current) {
+        window.clearTimeout(loadingTimeoutRef.current);
+      }
       videoElement.removeEventListener('loadeddata', handleLoadedData);
       videoElement.removeEventListener('error', handleError);
       videoElement.removeEventListener('canplaythrough', handleCanPlayThrough);
     };
   }, [src, onLoadedData]);
+
+  // Get current playback info
+  const handleTimeUpdate = () => {
+    const video = videoRef.current;
+    if (video && isLoading && video.currentTime > 0) {
+      console.log("Video is playing, forcing loading complete");
+      setIsLoading(false);
+    }
+  };
 
   return (
     <div className="relative w-full h-full overflow-hidden rounded-lg">
@@ -92,8 +115,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ref={videoRef}
         src={src}
         className={cn(
-          "w-full h-full rounded-lg object-cover transition-opacity duration-300",
-          isLoading ? "opacity-0" : "opacity-100",
+          "w-full h-full rounded-lg object-cover",
           className
         )}
         autoPlay={autoPlay}
@@ -101,6 +123,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         loop={loop}
         controls={controls}
         playsInline
+        onTimeUpdate={handleTimeUpdate}
+        style={{ opacity: isLoading ? 0 : 1 }}
       />
     </div>
   );
