@@ -25,6 +25,7 @@ declare global {
     dataavailable: BlobEvent;
   }
   
+  // Fixed: Remove duplicate declaration that was causing the error
   interface BlobEvent extends Event {
     data: Blob;
   }
