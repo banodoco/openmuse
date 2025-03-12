@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { videoDB } from '@/lib/db';
 import Navigation from '@/components/Navigation';
-import { UploadCloud, Loader2, CheckCircle } from 'lucide-react';
+import { UploadCloud, Loader2, CheckCircle, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 
@@ -105,6 +105,10 @@ const Upload: React.FC = () => {
     }
   }, [files, reviewerName]);
 
+  // Determine if required fields are filled
+  const isNameFilled = reviewerName.trim().length > 0;
+  const areFilesFilled = files.length > 0;
+
   return (
     <div className="min-h-screen flex flex-col bg-background animate-fade-in">
       <Navigation />
@@ -119,16 +123,21 @@ const Upload: React.FC = () => {
           <div className="space-y-6">
             <div>
               <Label htmlFor="reviewer-name" className="text-sm font-medium mb-2 block">
-                Your Name
+                Your Name <span className="text-destructive">*</span>
               </Label>
               <Input
                 id="reviewer-name"
                 placeholder="Enter your name"
                 value={reviewerName}
                 onChange={(e) => setReviewerName(e.target.value)}
-                className="max-w-md"
+                className={cn("max-w-md", !isNameFilled && "border-destructive focus-visible:ring-destructive/50")}
                 disabled={uploading}
               />
+              {!isNameFilled && (
+                <p className="text-sm text-destructive mt-1 flex items-center gap-1">
+                  <Info className="h-3 w-3" /> Name is required
+                </p>
+              )}
             </div>
             
             <div
@@ -136,7 +145,8 @@ const Upload: React.FC = () => {
                 "border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-all duration-200",
                 "hover:border-primary/50 hover:bg-secondary/50",
                 "flex flex-col items-center justify-center gap-4",
-                uploading && "pointer-events-none opacity-60"
+                uploading && "pointer-events-none opacity-60",
+                !areFilesFilled && "border-destructive"
               )}
               onClick={() => fileInputRef.current?.click()}
               onDrop={handleDrop}
@@ -167,6 +177,11 @@ const Upload: React.FC = () => {
                     <p className="text-sm text-muted-foreground mt-1">
                       Upload the videos you want others to respond to
                     </p>
+                    {!areFilesFilled && (
+                      <p className="text-sm text-destructive mt-1 flex items-center gap-1 justify-center">
+                        <Info className="h-3 w-3" /> At least one video is required
+                      </p>
+                    )}
                   </div>
                 </>
               )}
@@ -197,7 +212,13 @@ const Upload: React.FC = () => {
               </div>
             )}
             
-            <div className="flex justify-end pt-4">
+            <div className="flex flex-col items-end pt-4">
+              {!isNameFilled || !areFilesFilled ? (
+                <p className="text-sm text-destructive mb-2 flex items-center gap-1">
+                  <Info className="h-3 w-3" /> Please fill in all required fields to enable upload
+                </p>
+              ) : null}
+              
               <Button
                 className="rounded-full px-8"
                 disabled={uploading || files.length === 0 || !reviewerName.trim()}
