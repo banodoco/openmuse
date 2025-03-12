@@ -32,8 +32,6 @@ declare global {
     dataavailable: BlobEvent;
   }
   
-  // Fixed: Remove duplicate declaration that was causing the error
-  interface BlobEvent extends Event {
-    data: Blob;
-  }
+  // The issue was here - we don't need to redeclare BlobEvent as it's already
+  // defined in the DOM lib. Just extending the existing type as needed.
 }
