@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,6 @@ import { cn } from '@/lib/utils';
 
 const Upload: React.FC = () => {
   const [uploading, setUploading] = useState(false);
-  const [uploaded, setUploaded] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
   const [reviewerName, setReviewerName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -68,14 +66,10 @@ const Upload: React.FC = () => {
     setUploading(true);
     
     try {
-      // In a real app, you would upload files to a server
-      // Here we'll just store them locally using URLs
       await Promise.all(files.map(file => {
         return new Promise<void>((resolve) => {
-          // Create a file URL for the video
           const videoLocation = URL.createObjectURL(file);
           
-          // Store in our database
           videoDB.addEntry({
             video_location: videoLocation,
             reviewer_name: reviewerName,
@@ -83,29 +77,24 @@ const Upload: React.FC = () => {
             skipped: false
           });
           
-          setTimeout(resolve, 500); // Simulate network delay
+          setTimeout(resolve, 500);
         });
       }));
       
-      setUploaded(true);
       toast.success(`${files.length} video${files.length > 1 ? 's' : ''} uploaded successfully!`);
       
-      // Reset form after 1.5 seconds
-      setTimeout(() => {
-        setFiles([]);
-        setReviewerName('');
-        setUploaded(false);
-        setUploading(false);
-      }, 1500);
+      setFiles([]);
+      setReviewerName('');
+      setUploading(false);
       
+      navigate('/');
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('An error occurred during upload. Please try again.');
       setUploading(false);
     }
-  }, [files, reviewerName]);
+  }, [files, reviewerName, navigate]);
 
-  // Determine if required fields are filled
   const isNameFilled = reviewerName.trim().length > 0;
   const areFilesFilled = files.length > 0;
 
