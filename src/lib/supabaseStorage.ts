@@ -1,7 +1,6 @@
 
 import { supabase } from './supabase';
 import { VideoFile } from './types';
-import { v4 as uuidv4 } from 'uuid';
 
 class SupabaseVideoStorage {
   private readonly DEBUG = true;
