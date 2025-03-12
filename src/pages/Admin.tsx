@@ -1,10 +1,10 @@
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { videoDB } from '@/lib/db';
 import { VideoEntry } from '@/lib/types';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { Eye, Trash, VideoIcon, Check, X, Play } from 'lucide-react';
+import { Eye, Trash, VideoIcon, Check, X, Play, PauseIcon } from 'lucide-react';
 import VideoPlayer from '@/components/VideoPlayer';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from 'sonner';
@@ -16,9 +16,15 @@ const Admin: React.FC = () => {
   const [isPlayingTogether, setIsPlayingTogether] = useState(false);
   const originalVideoRef = useRef<HTMLVideoElement>(null);
   const responseVideoRef = useRef<HTMLVideoElement>(null);
+  
+  useEffect(() => {
+    // Refresh entries when component mounts
+    handleRefresh();
+  }, []);
 
   const handleRefresh = () => {
     setEntries(videoDB.getAllEntries());
+    console.log('Retrieved entries:', videoDB.getAllEntries().length);
     toast.success('Data refreshed');
   };
 
@@ -28,18 +34,21 @@ const Admin: React.FC = () => {
       setEntries([]);
       setSelectedVideo(null);
       setSelectedResponse(null);
+      setIsPlayingTogether(false);
       toast.success('All entries cleared');
     }
   };
 
   const handleDelete = (id: string) => {
     if (window.confirm('Are you sure you want to delete this entry? This cannot be undone.')) {
-      const updatedEntries = entries.filter(entry => entry.id !== id);
+      // Get updated entries directly from localStorage to ensure consistency
+      const currentEntries = videoDB.getAllEntries();
+      const updatedEntries = currentEntries.filter(entry => entry.id !== id);
       localStorage.setItem('video_response_entries', JSON.stringify(updatedEntries));
       setEntries(updatedEntries);
       
       // Clear selection if the deleted entry was selected
-      const deletedEntry = entries.find(entry => entry.id === id);
+      const deletedEntry = currentEntries.find(entry => entry.id === id);
       if (deletedEntry) {
         if (deletedEntry.video_location === selectedVideo) {
           setSelectedVideo(null);
@@ -58,30 +67,48 @@ const Admin: React.FC = () => {
       return;
     }
 
+    if (isPlayingTogether) {
+      // If already playing, pause both videos
+      originalVideoRef.current.pause();
+      responseVideoRef.current.pause();
+      setIsPlayingTogether(false);
+      toast.info('Videos paused');
+      console.log('Both videos paused');
+      return;
+    }
+
     // Reset both videos to the beginning
     originalVideoRef.current.currentTime = 0;
     responseVideoRef.current.currentTime = 0;
     
     // Start playing both videos
-    const playPromise1 = originalVideoRef.current.play();
-    const playPromise2 = responseVideoRef.current.play();
-    
     Promise.all([
-      playPromise1.catch(error => {
+      originalVideoRef.current.play().catch(error => {
         console.error('Error playing original video:', error);
         toast.error('Could not play original video');
+        throw error;
       }),
-      playPromise2.catch(error => {
+      responseVideoRef.current.play().catch(error => {
         console.error('Error playing response video:', error);
         toast.error('Could not play response video');
+        throw error;
       })
     ]).then(() => {
       setIsPlayingTogether(true);
       toast.success('Playing videos together');
-    }).catch(() => {
+      console.log('Both videos started playing successfully');
+    }).catch((error) => {
+      console.error('Failed to play videos together:', error);
       setIsPlayingTogether(false);
     });
   };
+
+  // Log when a video is selected for debugging
+  useEffect(() => {
+    if (selectedVideo) {
+      console.log('Preview URL:', selectedVideo);
+    }
+  }, [selectedVideo]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background animate-fade-in">
@@ -186,10 +213,18 @@ const Admin: React.FC = () => {
                         variant="default" 
                         className="gap-2"
                         onClick={playVideosTogether}
-                        disabled={isPlayingTogether}
                       >
-                        <Play className="h-4 w-4" />
-                        Play Together
+                        {isPlayingTogether ? (
+                          <>
+                            <PauseIcon className="h-4 w-4" />
+                            Pause Videos
+                          </>
+                        ) : (
+                          <>
+                            <Play className="h-4 w-4" />
+                            Play Together
+                          </>
+                        )}
                       </Button>
                     )}
                   </div>
@@ -202,8 +237,9 @@ const Admin: React.FC = () => {
                           src={selectedVideo} 
                           controls 
                           autoPlay={false} 
-                          muted={false}
+                          muted={isPlayingTogether}
                           videoRef={originalVideoRef}
+                          key={`original-${selectedVideo}`}
                         />
                       </div>
                     </div>
@@ -216,8 +252,9 @@ const Admin: React.FC = () => {
                             src={selectedResponse} 
                             controls 
                             autoPlay={false} 
-                            muted={false} 
+                            muted={isPlayingTogether}
                             videoRef={responseVideoRef}
+                            key={`response-${selectedResponse}`}
                           />
                         </div>
                       </div>

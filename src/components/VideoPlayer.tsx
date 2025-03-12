@@ -140,11 +140,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           video.src = validBlobUrl;
           video.load();
           if (autoPlay) video.play().catch(e => console.warn('Autoplay prevented:', e));
+          toast.success('Video loaded successfully');
         })
         .catch(err => {
           console.error('Error fetching blob on retry:', err);
           setError('Could not access video blob. It may have expired.');
           setIsLoading(false);
+          toast.error('Failed to load video');
         });
     } else {
       // For regular URLs
@@ -164,9 +166,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       {error && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/10">
-          <div className="text-destructive text-center p-4 bg-white/90 rounded-lg shadow-lg">
-            <p>Error loading video</p>
-            <p className="text-xs text-muted-foreground mt-1 mb-2">{error}</p>
+          <div className="text-destructive text-center p-4 bg-white/90 rounded-lg shadow-lg max-w-[80%]">
+            <p className="font-medium">Error loading video</p>
+            <p className="text-xs text-muted-foreground mt-1 mb-2 break-words">{error}</p>
             <button 
               className="mt-2 text-sm font-medium bg-primary text-white px-3 py-1 rounded-md"
               onClick={handleRetry}
@@ -185,6 +187,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         loop={loop}
         controls={controls}
         playsInline
+        key={src} // Force recreation of video element when src changes
       >
         <source src={src} />
         Your browser does not support the video tag.
