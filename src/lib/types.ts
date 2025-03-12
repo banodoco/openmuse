@@ -18,3 +18,14 @@ export interface VideoFile {
   id: string;
   blob: Blob;
 }
+
+// Add custom event type for TypeScript
+declare global {
+  interface MediaRecorderEventMap {
+    dataavailable: BlobEvent;
+  }
+  
+  interface BlobEvent extends Event {
+    data: Blob;
+  }
+}

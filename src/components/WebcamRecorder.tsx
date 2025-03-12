@@ -86,33 +86,67 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
         if (prev === null || prev <= 1) {
           clearInterval(countdownInterval);
           
-          if (sourceVideoRef.current && sourceSrc) {
-            sourceVideoRef.current.play();
-            setIsSourceVideoPlaying(true);
+          if (webcamRef.current && webcamRef.current.srcObject) {
+            const stream = webcamRef.current.srcObject as MediaStream;
             
-            setTimeout(() => {
-              if (webcamRef.current && webcamRef.current.srcObject) {
-                const stream = webcamRef.current.srcObject as MediaStream;
-                mediaRecorderRef.current = new MediaRecorder(stream, {
-                  mimeType: 'video/webm;codecs=vp9'
-                });
+            try {
+              // Create MediaRecorder with appropriate options
+              mediaRecorderRef.current = new MediaRecorder(stream, {
+                mimeType: 'video/webm;codecs=vp9'
+              });
+              
+              console.log('MediaRecorder created successfully');
+              
+              // Set up the ondataavailable handler before starting
+              mediaRecorderRef.current.ondataavailable = handleDataAvailable;
+              
+              // Set up the onstop handler
+              mediaRecorderRef.current.onstop = () => {
+                console.log('MediaRecorder stopped, chunks:', recordedChunks.length);
+                recordingCompleteRef.current = true;
                 
-                // Set up the ondataavailable handler before starting
-                mediaRecorderRef.current.ondataavailable = handleDataAvailable;
-                
-                // Set up the onstop handler
-                mediaRecorderRef.current.onstop = () => {
-                  console.log('MediaRecorder stopped, chunks:', recordedChunks.length);
-                  recordingCompleteRef.current = true;
-                  
-                  // Create preview in the next tick to ensure all chunks are collected
-                  setTimeout(createPreviewFromChunks, 100);
-                };
-                
+                // Create preview in the next tick to ensure all chunks are collected
+                setTimeout(createPreviewFromChunks, 100);
+              };
+              
+              // Start playing source video if available
+              if (sourceVideoRef.current && sourceSrc) {
+                sourceVideoRef.current.currentTime = 0;
+                sourceVideoRef.current.play()
+                  .then(() => {
+                    setIsSourceVideoPlaying(true);
+                    console.log('Source video playing, starting recorder with delay:', recordingDelay);
+                    
+                    // Start recording after the specified delay
+                    setTimeout(() => {
+                      if (mediaRecorderRef.current) {
+                        mediaRecorderRef.current.start();
+                        setIsRecording(true);
+                        console.log('Recording started successfully');
+                      }
+                    }, recordingDelay * 1000);
+                  })
+                  .catch(err => {
+                    console.error('Error playing source video:', err);
+                    toast.error('Failed to play source video');
+                    
+                    // Start recording anyway
+                    if (mediaRecorderRef.current) {
+                      mediaRecorderRef.current.start();
+                      setIsRecording(true);
+                      console.log('Recording started (without source video)');
+                    }
+                  });
+              } else {
+                // If no source video, start recording immediately
                 mediaRecorderRef.current.start();
                 setIsRecording(true);
+                console.log('Recording started (no source video)');
               }
-            }, recordingDelay * 1000);
+            } catch (err) {
+              console.error('Failed to create MediaRecorder:', err);
+              toast.error('Failed to start recording');
+            }
           }
           
           return null;
@@ -122,12 +156,15 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     }, 1000);
     
     return () => clearInterval(countdownInterval);
-  }, [recordingDelay, sourceSrc]);
+  }, [recordingDelay, sourceSrc, handleDataAvailable, createPreviewFromChunks, recordedChunks.length]);
 
-  const handleDataAvailable = useCallback(({ data }: BlobEvent) => {
-    if (data.size > 0) {
-      setRecordedChunks(prev => [...prev, data]);
-      console.log('Data chunk received, size:', data.size);
+  const handleDataAvailable = useCallback((event: BlobEvent) => {
+    console.log('Data available event fired, data size:', event.data.size);
+    if (event.data && event.data.size > 0) {
+      setRecordedChunks(prev => {
+        console.log('Adding chunk, total chunks now:', prev.length + 1);
+        return [...prev, event.data];
+      });
     }
   }, []);
 
