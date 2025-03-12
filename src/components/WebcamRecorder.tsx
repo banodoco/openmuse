@@ -31,7 +31,9 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const [sourceVideoDelay, setSourceVideoDelay] = useState<number>(0);
   const [isSourceVideoPlaying, setIsSourceVideoPlaying] = useState(false);
   const [recordingDelay, setRecordingDelay] = useState<number>(0);
-  
+  const [isSyncedPlaying, setIsSyncedPlaying] = useState(false);
+  const previewVideoRef = useRef<HTMLVideoElement>(null);
+
   useEffect(() => {
     async function setupWebcam() {
       try {
@@ -114,6 +116,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
       setIsRecording(false);
+      setIsSyncedPlaying(false);
       
       if (sourceVideoRef.current) {
         sourceVideoRef.current.pause();
@@ -167,6 +170,27 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
       }
     }
   }, [isSourceVideoPlaying]);
+
+  const handleSyncedPlayback = useCallback(() => {
+    if (sourceVideoRef.current && previewVideoRef.current) {
+      if (isSyncedPlaying) {
+        sourceVideoRef.current.pause();
+        previewVideoRef.current.pause();
+        setIsSyncedPlaying(false);
+      } else {
+        sourceVideoRef.current.currentTime = 0;
+        previewVideoRef.current.currentTime = 0;
+        Promise.all([
+          sourceVideoRef.current.play(),
+          previewVideoRef.current.play()
+        ]).then(() => {
+          setIsSyncedPlaying(true);
+        }).catch(error => {
+          console.error('Error playing videos:', error);
+        });
+      }
+    }
+  }, [isSyncedPlaying]);
 
   if (cameraPermission === false) {
     return (
@@ -242,12 +266,11 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
         <div className="relative h-full rounded-lg overflow-hidden bg-black">
           {isPreviewMode && previewUrl ? (
             <video 
+              ref={previewVideoRef}
               src={previewUrl} 
               className="w-full h-full object-cover rounded-lg" 
-              controls 
-              autoPlay 
-              loop 
               playsInline
+              muted
             />
           ) : (
             <video
@@ -268,6 +291,28 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
           )}
         </div>
       </div>
+      
+      {isPreviewMode && (
+        <div className="mt-4 flex justify-center">
+          <Button
+            onClick={handleSyncedPlayback}
+            variant="outline"
+            className="rounded-full px-6"
+          >
+            {isSyncedPlaying ? (
+              <>
+                <Pause className="h-4 w-4 mr-2" />
+                <span>Pause Videos</span>
+              </>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-2" />
+                <span>Play Both Videos</span>
+              </>
+            )}
+          </Button>
+        </div>
+      )}
       
       <div className="mt-6 flex justify-center space-x-4">
         {isPreviewMode ? (
