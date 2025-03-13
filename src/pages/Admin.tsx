@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -9,15 +10,53 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StorageSettings from '@/components/StorageSettings';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import RequireAuth from '@/components/RequireAuth';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
+  const [filteredEntries, setFilteredEntries] = useState<VideoEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('videos');
+  
+  // Filter state
+  const [showApproved, setShowApproved] = useState(true);
+  const [showUnapproved, setShowUnapproved] = useState(true);
+  const [showResponded, setShowResponded] = useState(true);
+  const [showSkipped, setShowSkipped] = useState(true);
 
   useEffect(() => {
     loadEntries();
   }, []);
+
+  // Apply filters whenever entries or filter states change
+  useEffect(() => {
+    applyFilters();
+  }, [entries, showApproved, showUnapproved, showResponded, showSkipped]);
+
+  const applyFilters = () => {
+    let filtered = [...entries];
+    
+    // Filter by approval status
+    if (!showApproved) {
+      filtered = filtered.filter(entry => !entry.admin_approved);
+    }
+    if (!showUnapproved) {
+      filtered = filtered.filter(entry => entry.admin_approved);
+    }
+    
+    // Filter by response status
+    if (!showResponded) {
+      filtered = filtered.filter(entry => !entry.acting_video_location);
+    }
+    
+    // Filter by skipped status
+    if (!showSkipped) {
+      filtered = filtered.filter(entry => !entry.skipped);
+    }
+    
+    setFilteredEntries(filtered);
+  };
 
   const loadEntries = async () => {
     setIsLoading(true);
@@ -135,16 +174,52 @@ const Admin: React.FC = () => {
                   )}
                 </div>
               </div>
+              
+              {/* Filter toggles */}
+              <div className="flex flex-wrap gap-6 mb-6 p-4 bg-muted/50 rounded-lg">
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="filter-approved" 
+                    checked={showApproved} 
+                    onCheckedChange={(checked) => setShowApproved(checked as boolean)} 
+                  />
+                  <Label htmlFor="filter-approved">Approved</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="filter-unapproved" 
+                    checked={showUnapproved} 
+                    onCheckedChange={(checked) => setShowUnapproved(checked as boolean)} 
+                  />
+                  <Label htmlFor="filter-unapproved">Unapproved</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="filter-responded" 
+                    checked={showResponded} 
+                    onCheckedChange={(checked) => setShowResponded(checked as boolean)} 
+                  />
+                  <Label htmlFor="filter-responded">Responded</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="filter-skipped" 
+                    checked={showSkipped} 
+                    onCheckedChange={(checked) => setShowSkipped(checked as boolean)} 
+                  />
+                  <Label htmlFor="filter-skipped">Skipped</Label>
+                </div>
+              </div>
 
               {isLoading ? (
                 <p>Loading videos...</p>
-              ) : entries.length === 0 ? (
+              ) : filteredEntries.length === 0 ? (
                 <div className="text-center py-12">
-                  <p className="text-lg text-muted-foreground">No videos have been uploaded yet</p>
+                  <p className="text-lg text-muted-foreground">No videos match your current filters</p>
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {entries.map(entry => (
+                  {filteredEntries.map(entry => (
                     <div key={entry.id} className="border rounded-lg overflow-hidden bg-card">
                       <div className="p-4 border-b flex justify-between items-center">
                         <div>
