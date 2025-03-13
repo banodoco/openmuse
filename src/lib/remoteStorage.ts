@@ -20,6 +20,11 @@ class RemoteVideoStorage {
     return supabaseStorage.deleteVideo(remoteUrl);
   }
 
+  // Get storage configuration
+  getConfig() {
+    return { type: 'supabase' };
+  }
+
   // Utility methods for logging
   private log(...args: any[]): void {
     if (this.DEBUG) console.log('[RemoteStorage]', ...args);

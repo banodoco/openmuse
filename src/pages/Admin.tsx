@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -9,30 +8,15 @@ import StorageVideoPlayer from '@/components/StorageVideoPlayer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StorageSettings from '@/components/StorageSettings';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
-import { remoteStorage } from '@/lib/remoteStorage';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('videos');
-  const [storageType, setStorageType] = useState(remoteStorage.getConfig().type);
 
   useEffect(() => {
     loadEntries();
-  }, [storageType]);
-
-  // Listen for storage type changes to reload entries
-  useEffect(() => {
-    const storageListener = () => {
-      const newConfig = remoteStorage.getConfig();
-      if (newConfig.type !== storageType) {
-        setStorageType(newConfig.type);
-      }
-    };
-
-    window.addEventListener('storage', storageListener);
-    return () => window.removeEventListener('storage', storageListener);
-  }, [storageType]);
+  }, []);
 
   const loadEntries = async () => {
     setIsLoading(true);

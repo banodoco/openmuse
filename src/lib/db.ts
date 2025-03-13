@@ -1,4 +1,3 @@
-
 import { VideoEntry } from './types';
 import { videoStorage } from './storage';
 import { remoteStorage } from './remoteStorage';
@@ -58,34 +57,21 @@ class VideoDatabase {
         const response = await fetch(entry.video_location);
         const blob = await response.blob();
         
-        // Check storage configuration
-        const config = remoteStorage.getConfig();
-        
-        if (config.type === 'supabase') {
-          try {
-            // Upload to remote storage
-            const remoteUrl = await remoteStorage.uploadVideo({
-              id: `video_${id}`,
-              blob
-            });
-            
-            // Use the remote URL
-            videoLocation = remoteUrl;
-            this.log(`Saved video to remote storage: ${remoteUrl}`);
-          } catch (error) {
-            this.error('Failed to save to remote storage, falling back to local:', error);
-            
-            // Fall back to local storage
-            await videoStorage.saveVideo({
-              id: `video_${id}`,
-              blob
-            });
-            
-            videoLocation = `idb://video_${id}`;
-            this.log(`Saved video to IndexedDB with ID: video_${id}`);
-          }
-        } else {
-          // Save to local storage (IndexedDB)
+        // Always use remote storage (Supabase)
+        try {
+          // Upload to remote storage
+          const remoteUrl = await remoteStorage.uploadVideo({
+            id: `video_${id}`,
+            blob
+          });
+          
+          // Use the remote URL
+          videoLocation = remoteUrl;
+          this.log(`Saved video to remote storage: ${remoteUrl}`);
+        } catch (error) {
+          this.error('Failed to save to remote storage, falling back to local:', error);
+          
+          // Fall back to local storage
           await videoStorage.saveVideo({
             id: `video_${id}`,
             blob
@@ -141,34 +127,21 @@ class VideoDatabase {
         const response = await fetch(actingVideoLocation);
         const blob = await response.blob();
         
-        // Check storage configuration
-        const config = remoteStorage.getConfig();
-        
-        if (config.type === 'supabase') {
-          try {
-            // Upload to remote storage
-            const remoteUrl = await remoteStorage.uploadVideo({
-              id: `acting_${id}`,
-              blob
-            });
-            
-            // Use the remote URL
-            savedLocation = remoteUrl;
-            this.log(`Saved acting video to remote storage: ${remoteUrl}`);
-          } catch (error) {
-            this.error('Failed to save to remote storage, falling back to local:', error);
-            
-            // Fall back to local storage
-            await videoStorage.saveVideo({
-              id: `acting_${id}`,
-              blob
-            });
-            
-            savedLocation = `idb://acting_${id}`;
-            this.log(`Saved acting video to IndexedDB with ID: acting_${id}`);
-          }
-        } else {
-          // Save to local storage (IndexedDB)
+        // Always use remote storage (Supabase)
+        try {
+          // Upload to remote storage
+          const remoteUrl = await remoteStorage.uploadVideo({
+            id: `acting_${id}`,
+            blob
+          });
+          
+          // Use the remote URL
+          savedLocation = remoteUrl;
+          this.log(`Saved acting video to remote storage: ${remoteUrl}`);
+        } catch (error) {
+          this.error('Failed to save to remote storage, falling back to local:', error);
+          
+          // Fall back to local storage
           await videoStorage.saveVideo({
             id: `acting_${id}`,
             blob
