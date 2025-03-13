@@ -12,6 +12,47 @@ const Auth: React.FC = () => {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   
+  // Handle authentication from hash fragment (for OAuth redirects)
+  useEffect(() => {
+    const handleHashRedirect = async () => {
+      if (window.location.hash && window.location.hash.includes('access_token')) {
+        try {
+          // Convert hash parameters to a session
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          
+          if (accessToken && refreshToken) {
+            // Use the tokens to set the session
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            if (error) {
+              throw error;
+            }
+            
+            if (data.session) {
+              // Get the return URL from the query string or default to '/'
+              const searchParams = new URLSearchParams(location.search);
+              const returnUrl = searchParams.get('returnUrl') || '/';
+              
+              toast.success('Successfully signed in with Discord!');
+              navigate(returnUrl);
+              return;
+            }
+          }
+        } catch (error: any) {
+          console.error('Error processing auth hash:', error);
+          toast.error(`Authentication error: ${error.message}`);
+        }
+      }
+    };
+    
+    handleHashRedirect();
+  }, [navigate, location]);
+  
   // Check if user is already logged in
   useEffect(() => {
     const checkSession = async () => {
@@ -40,22 +81,6 @@ const Auth: React.FC = () => {
       subscription.unsubscribe();
     };
   }, [navigate, location]);
-  
-  // Check if this is a callback from OAuth provider
-  useEffect(() => {
-    if (window.location.hash.includes('access_token')) {
-      // This is a callback from OAuth provider, get the fragment
-      const params = new URLSearchParams(window.location.hash.substring(1));
-      const error = params.get('error');
-      const errorDescription = params.get('error_description');
-      
-      if (error) {
-        toast.error(`Authentication error: ${errorDescription || error}`);
-      } else {
-        toast.success('Successfully signed in with Discord!');
-      }
-    }
-  }, []);
   
   const handleDiscordSignIn = async () => {
     try {
