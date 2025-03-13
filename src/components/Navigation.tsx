@@ -1,12 +1,33 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { UploadCloud, Play, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
+import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const user = await getCurrentUser();
+        if (user) {
+          const adminStatus = await checkIsAdmin(user.id);
+          setIsAdmin(adminStatus);
+        }
+      } catch (error) {
+        console.error('Error checking admin status:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, []);
   
   const isActive = (path: string) => location.pathname === path;
   
@@ -26,10 +47,12 @@ const Navigation: React.FC = () => {
             <UploadCloud className="w-4 h-4 mr-2" />
             Upload
           </NavLink>
-          <NavLink to="/admin" active={isActive('/admin')}>
-            <LayoutDashboard className="w-4 h-4 mr-2" />
-            Admin
-          </NavLink>
+          {isAdmin && (
+            <NavLink to="/admin" active={isActive('/admin')}>
+              <LayoutDashboard className="w-4 h-4 mr-2" />
+              Admin
+            </NavLink>
+          )}
         </div>
         
         <AuthButton />
