@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -27,6 +28,15 @@ const Admin: React.FC = () => {
   const [showResponded, setShowResponded] = useState(true);
   const [showSkipped, setShowSkipped] = useState(true);
 
+  // Status counts
+  const [statusCounts, setStatusCounts] = useState({
+    approved: 0,
+    unapproved: 0,
+    responded: 0,
+    skipped: 0,
+    total: 0
+  });
+
   useEffect(() => {
     loadEntries();
   }, []);
@@ -36,6 +46,15 @@ const Admin: React.FC = () => {
   }, [entries, showApproved, showUnapproved, showResponded, showSkipped]);
 
   const applyFilters = () => {
+    // Count entries by status for statistics
+    const counts = {
+      approved: 0,
+      unapproved: 0,
+      responded: 0,
+      skipped: 0,
+      total: entries.length
+    };
+    
     const filtered = entries.filter(entry => {
       // Determine the single status for this entry
       let status: 'approved' | 'skipped' | 'responded' | 'unapproved';
@@ -43,18 +62,22 @@ const Admin: React.FC = () => {
       // Approved takes highest priority
       if (entry.admin_approved) {
         status = 'approved';
+        counts.approved++;
       }
       // Then Skipped
       else if (entry.skipped) {
         status = 'skipped';
+        counts.skipped++;
       }
       // Then Responded (has acting video)
       else if (entry.acting_video_location) {
         status = 'responded';
+        counts.responded++;
       }
       // Finally Unapproved (default state)
       else {
         status = 'unapproved';
+        counts.unapproved++;
       }
       
       // Check if we should show this status
@@ -67,6 +90,7 @@ const Admin: React.FC = () => {
     });
     
     setFilteredEntries(filtered);
+    setStatusCounts(counts);
     console.log('Filtered entries:', filtered.length, 'Filters:', { 
       showApproved, 
       showUnapproved, 
@@ -253,7 +277,7 @@ const Admin: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-6 mb-6 p-4 bg-muted/50 rounded-lg">
+              <div className="flex flex-wrap gap-6 mb-2 p-4 bg-muted/50 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="filter-approved" 
@@ -285,6 +309,39 @@ const Admin: React.FC = () => {
                     onCheckedChange={(checked) => setShowSkipped(checked as boolean)} 
                   />
                   <Label htmlFor="filter-skipped">Skipped</Label>
+                </div>
+              </div>
+
+              {/* Video count statistics */}
+              <div className="flex flex-wrap gap-4 mb-6 px-4 py-2 text-sm text-muted-foreground">
+                <div>
+                  Showing <span className="font-medium text-foreground">{filteredEntries.length}</span> of <span className="font-medium text-foreground">{statusCounts.total}</span> videos
+                </div>
+                <div className="flex gap-3">
+                  {showApproved && (
+                    <span className="flex items-center">
+                      <CheckCircle className="h-3 w-3 mr-1 text-primary" />
+                      {statusCounts.approved} approved
+                    </span>
+                  )}
+                  {showUnapproved && (
+                    <span className="flex items-center">
+                      <X className="h-3 w-3 mr-1 text-destructive" />
+                      {statusCounts.unapproved} unapproved
+                    </span>
+                  )}
+                  {showResponded && (
+                    <span className="flex items-center">
+                      <MessageCircle className="h-3 w-3 mr-1 text-muted-foreground" />
+                      {statusCounts.responded} responded
+                    </span>
+                  )}
+                  {showSkipped && (
+                    <span className="flex items-center">
+                      <SkipForward className="h-3 w-3 mr-1 text-secondary-foreground" />
+                      {statusCounts.skipped} skipped
+                    </span>
+                  )}
                 </div>
               </div>
 
