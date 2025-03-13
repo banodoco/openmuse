@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
@@ -59,7 +58,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
       setPreviewUrl(url);
       setIsPreviewMode(true);
       
-      // Add logging to confirm preview is created successfully
       console.log('Preview created with URL:', url);
     }
   }, [recordedChunks]);
@@ -117,26 +115,21 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
             const stream = webcamRef.current.srcObject as MediaStream;
             
             try {
-              // Create MediaRecorder with appropriate options
               mediaRecorderRef.current = new MediaRecorder(stream, {
                 mimeType: 'video/webm;codecs=vp9'
               });
               
               console.log('MediaRecorder created successfully');
               
-              // Set up the ondataavailable handler before starting
               mediaRecorderRef.current.ondataavailable = handleDataAvailable;
               
-              // Set up the onstop handler
               mediaRecorderRef.current.onstop = () => {
                 console.log('MediaRecorder stopped, chunks:', recordedChunks.length);
                 recordingCompleteRef.current = true;
                 
-                // Create preview in the next tick to ensure all chunks are collected
                 setTimeout(createPreviewFromChunks, 100);
               };
               
-              // Start playing source video if available
               if (sourceVideoRef.current && sourceSrc) {
                 sourceVideoRef.current.currentTime = 0;
                 sourceVideoRef.current.play()
@@ -144,7 +137,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
                     setIsSourceVideoPlaying(true);
                     console.log('Source video playing, starting recorder with delay:', recordingDelay);
                     
-                    // Start recording after the specified delay
                     setTimeout(() => {
                       if (mediaRecorderRef.current) {
                         mediaRecorderRef.current.start();
@@ -157,7 +149,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
                     console.error('Error playing source video:', err);
                     toast.error('Failed to play source video');
                     
-                    // Start recording anyway
                     if (mediaRecorderRef.current) {
                       mediaRecorderRef.current.start();
                       setIsRecording(true);
@@ -165,7 +156,6 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
                     }
                   });
               } else {
-                // If no source video, start recording immediately
                 mediaRecorderRef.current.start();
                 setIsRecording(true);
                 console.log('Recording started (no source video)');
@@ -239,22 +229,18 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   const handleSyncedPlayback = useCallback(() => {
     if (sourceVideoRef.current && previewVideoRef.current && previewUrl) {
       if (isSyncedPlaying) {
-        // If currently playing, pause both videos
         sourceVideoRef.current.pause();
         previewVideoRef.current.pause();
         setIsSyncedPlaying(false);
         console.log('Both videos paused');
       } else {
-        // Reset both videos to the beginning
         sourceVideoRef.current.currentTime = 0;
         previewVideoRef.current.currentTime = 0;
         
-        // Log video elements state before playing
         console.log('Source video element:', sourceVideoRef.current);
         console.log('Preview video element:', previewVideoRef.current);
         console.log('Preview URL:', previewUrl);
         
-        // Play both videos and ensure we catch any errors
         Promise.all([
           sourceVideoRef.current.play().catch(e => {
             console.error('Error playing source video:', e);
@@ -377,7 +363,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
               playsInline
               muted={false}
               autoPlay={false}
-              key={previewUrl} // Add key to force re-render when URL changes
+              key={previewUrl}
             />
           ) : (
             <video
@@ -450,6 +436,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
               <X className="h-4 w-4 mr-2" />
               <span>Cancel</span>
             </Button>
+            
             {onSkip && (
               <Button 
                 variant="outline" 
@@ -457,9 +444,10 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
                 className="flex items-center space-x-2 rounded-full px-6"
               >
                 <SkipForward className="h-4 w-4 mr-2" />
-                <span>Skip This Video</span>
+                <span>Skip</span>
               </Button>
             )}
+            
             {!isRecording ? (
               <Button 
                 onClick={handleStartRecording}
