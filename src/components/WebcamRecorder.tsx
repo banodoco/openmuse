@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
 import { cn } from '@/lib/utils';
-import { Camera, CheckCircle, X, RefreshCw, Play, Pause } from 'lucide-react';
+import { Camera, CheckCircle, X, RefreshCw, Play, Pause, SkipForward } from 'lucide-react';
 import { Slider } from '@/components/ui/slider';
 import { toast } from 'sonner';
 import StorageVideoPlayer from './StorageVideoPlayer';
@@ -11,6 +11,7 @@ import StorageVideoPlayer from './StorageVideoPlayer';
 interface WebcamRecorderProps {
   onVideoRecorded: (video: RecordedVideo) => void;
   onCancel: () => void;
+  onSkip?: () => void;
   className?: string;
   sourceSrc?: string;
 }
@@ -18,6 +19,7 @@ interface WebcamRecorderProps {
 const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
   onVideoRecorded,
   onCancel,
+  onSkip,
   className,
   sourceSrc,
 }) => {
@@ -448,6 +450,16 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
               <X className="h-4 w-4 mr-2" />
               <span>Cancel</span>
             </Button>
+            {onSkip && (
+              <Button 
+                variant="outline" 
+                onClick={onSkip}
+                className="flex items-center space-x-2 rounded-full px-6"
+              >
+                <SkipForward className="h-4 w-4 mr-2" />
+                <span>Skip This Video</span>
+              </Button>
+            )}
             {!isRecording ? (
               <Button 
                 onClick={handleStartRecording}

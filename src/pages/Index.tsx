@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -145,7 +144,6 @@ const Index: React.FC = () => {
             </div>
           )}
 
-          {/* Upload button - always visible */}
           <div className="mb-6">
             <Button 
               onClick={() => navigate('/upload')} 
@@ -176,6 +174,7 @@ const Index: React.FC = () => {
                 <WebcamRecorder
                   onVideoRecorded={handleVideoRecorded}
                   onCancel={handleCancelRecording}
+                  onSkip={handleSkip}
                   className="p-6"
                   sourceSrc={currentVideo.video_location}
                 />
