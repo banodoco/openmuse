@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -7,7 +8,7 @@ import VideoPlayer from '@/components/VideoPlayer';
 import WebcamRecorder from '@/components/WebcamRecorder';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
-import { VideoIcon, SkipForward, Loader2 } from 'lucide-react';
+import { VideoIcon, SkipForward, Loader2, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import RequireAuth from '@/components/RequireAuth';
 import { getCurrentUserProfile } from '@/lib/auth';
@@ -143,6 +144,18 @@ const Index: React.FC = () => {
               <p className="text-sm text-muted-foreground">Signed in as <span className="font-medium">{userProfile.username}</span></p>
             </div>
           )}
+
+          {/* Upload button - always visible */}
+          <div className="mb-6">
+            <Button 
+              onClick={() => navigate('/upload')} 
+              variant="outline"
+              className="rounded-full gap-2"
+            >
+              <UploadCloud className="h-4 w-4" />
+              Upload Videos
+            </Button>
+          </div>
           
           {isLoading ? (
             <div className="h-96 flex items-center justify-center animate-pulse-opacity">
@@ -155,9 +168,6 @@ const Index: React.FC = () => {
               <p className="text-muted-foreground mb-6 max-w-md">
                 There are no videos available for you to respond to at the moment.
               </p>
-              <Button onClick={() => navigate('/upload')} className="rounded-full px-6">
-                Upload Videos
-              </Button>
             </div>
           ) : isRecording && currentVideo ? (
             <div className="animate-scale-in">
