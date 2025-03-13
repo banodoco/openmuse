@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { RecordedVideo } from '@/lib/types';
@@ -382,7 +383,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
               autoPlay
               playsInline
               muted
-              className="w-full h-full object-cover rounded-lg transform scale-x-[-1]"
+              className="w-full h-full object-cover rounded-lg"
             />
           )}
           
