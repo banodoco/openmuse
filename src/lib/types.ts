@@ -20,9 +20,9 @@ export interface VideoFile {
   blob: Blob;
 }
 
-// Storage configuration options
+// Storage configuration options (simplified to only have supabase)
 export interface StorageConfig {
-  type: 'local' | 'supabase';
+  type: 'supabase';
 }
 
 // Add custom event type for TypeScript

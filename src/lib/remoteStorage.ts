@@ -5,7 +5,7 @@ import { supabaseStorage } from './supabaseStorage';
 class RemoteVideoStorage {
   private readonly DEBUG = true;
   private config: StorageConfig = {
-    type: 'local',
+    type: 'supabase',
   };
 
   constructor() {
@@ -15,14 +15,15 @@ class RemoteVideoStorage {
 
   // Configure storage settings
   configure(config: StorageConfig): void {
-    this.config = config;
-    localStorage.setItem('video_storage_config', JSON.stringify(config));
-    this.log(`Storage configured as ${config.type}`);
+    // Always use supabase regardless of what's passed
+    this.config = { type: 'supabase' };
+    localStorage.setItem('video_storage_config', JSON.stringify(this.config));
+    this.log(`Storage configured as ${this.config.type}`);
   }
 
   // Get current configuration
   getConfig(): StorageConfig {
-    return this.config;
+    return { type: 'supabase' };
   }
 
   // Load configuration from localStorage
@@ -30,8 +31,9 @@ class RemoteVideoStorage {
     try {
       const savedConfig = localStorage.getItem('video_storage_config');
       if (savedConfig) {
-        this.config = JSON.parse(savedConfig);
-        this.log(`Loaded storage config: ${this.config.type}`);
+        // Ignore the saved config and always use supabase
+        this.config = { type: 'supabase' };
+        this.log(`Using Supabase storage`);
       }
     } catch (error) {
       this.error('Failed to load storage configuration:', error);
@@ -40,28 +42,17 @@ class RemoteVideoStorage {
 
   // Upload a video to the storage
   async uploadVideo(videoFile: VideoFile): Promise<string> {
-    if (this.config.type === 'supabase') {
-      return supabaseStorage.uploadVideo(videoFile);
-    } else {
-      throw new Error('Remote storage not configured');
-    }
+    return supabaseStorage.uploadVideo(videoFile);
   }
 
   // Get a video from the remote server
   async getVideoUrl(remoteUrl: string): Promise<string> {
-    if (this.config.type === 'supabase') {
-      return supabaseStorage.getVideoUrl(remoteUrl);
-    }
-    return remoteUrl; // Remote URLs are already accessible
+    return supabaseStorage.getVideoUrl(remoteUrl);
   }
 
   // Delete a video from the storage
   async deleteVideo(remoteUrl: string): Promise<boolean> {
-    if (this.config.type === 'supabase') {
-      return supabaseStorage.deleteVideo(remoteUrl);
-    } else {
-      throw new Error('Remote storage not configured');
-    }
+    return supabaseStorage.deleteVideo(remoteUrl);
   }
 
   // Utility methods for logging
