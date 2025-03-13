@@ -11,6 +11,8 @@ import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import RequireAuth from '@/components/RequireAuth';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { downloadEntriesAsCsv } from '@/lib/csvUtils';
+import { Download } from 'lucide-react';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
@@ -28,25 +30,20 @@ const Admin: React.FC = () => {
     loadEntries();
   }, []);
 
-  // Apply filters whenever entries or filter states change
   useEffect(() => {
     applyFilters();
   }, [entries, showApproved, showUnapproved, showResponded, showSkipped]);
 
   const applyFilters = () => {
-    // Start with all entries
     let filtered = [...entries];
     
-    // Apply filters based on conditions
     filtered = filtered.filter(entry => {
-      // Check approval status
       const approvalMatch = 
         (showApproved && entry.admin_approved) || 
         (showUnapproved && !entry.admin_approved);
       
       if (!approvalMatch) return false;
       
-      // Check response status
       const hasResponse = Boolean(entry.acting_video_location);
       const isSkipped = entry.skipped;
       const isWaiting = !hasResponse && !isSkipped;
@@ -54,8 +51,8 @@ const Admin: React.FC = () => {
       const responseMatch = 
         (showResponded && hasResponse) ||
         (showSkipped && isSkipped) ||
-        (!showResponded && !showSkipped) || // If both are unchecked, include all responses
-        (showResponded && showSkipped); // If both are checked, include all responses
+        (!showResponded && !showSkipped) ||
+        (showResponded && showSkipped);
       
       return approvalMatch && responseMatch;
     });
@@ -77,7 +74,6 @@ const Admin: React.FC = () => {
       
       allEntries = await db.getAllEntries();
       
-      // Sort by date (newest first)
       allEntries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setEntries(allEntries);
       
@@ -143,6 +139,21 @@ const Admin: React.FC = () => {
     }
   };
 
+  const handleDownloadCsv = () => {
+    try {
+      downloadEntriesAsCsv(filteredEntries, {
+        showApproved,
+        showUnapproved,
+        showResponded,
+        showSkipped
+      });
+      toast.success('Download started');
+    } catch (error) {
+      console.error('Error downloading CSV:', error);
+      toast.error('Failed to download CSV');
+    }
+  };
+
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
@@ -174,6 +185,16 @@ const Admin: React.FC = () => {
                   >
                     Refresh
                   </Button>
+                  {filteredEntries.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadCsv}
+                    >
+                      <Download className="mr-1" size={16} />
+                      Download CSV
+                    </Button>
+                  )}
                   {entries.length > 0 && (
                     <Button 
                       variant="destructive" 
@@ -186,7 +207,6 @@ const Admin: React.FC = () => {
                 </div>
               </div>
               
-              {/* Filter toggles */}
               <div className="flex flex-wrap gap-6 mb-6 p-4 bg-muted/50 rounded-lg">
                 <div className="flex items-center space-x-2">
                   <Checkbox 
