@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -11,6 +12,14 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
+        // Check if there's a hash in the URL (from OAuth redirect)
+        if (window.location.hash) {
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          if (hashParams.get('error')) {
+            throw new Error(hashParams.get('error_description') || 'Authentication error');
+          }
+        }
+        
         // Process the OAuth callback
         const { data, error } = await supabase.auth.getSession();
         
@@ -19,6 +28,8 @@ const AuthCallback = () => {
         }
         
         if (data?.session) {
+          // Authentication successful
+          toast.success('Successfully signed in!');
           navigate('/');
         } else {
           navigate('/auth');
@@ -26,6 +37,7 @@ const AuthCallback = () => {
       } catch (err: any) {
         console.error('Error during auth callback:', err);
         setError(err.message || 'An error occurred during authentication');
+        toast.error(`Authentication error: ${err.message}`);
         setTimeout(() => navigate('/auth'), 3000);
       }
     };
