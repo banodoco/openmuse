@@ -113,7 +113,7 @@ const Upload: React.FC = () => {
           <div className="animate-slide-in">
             <h1 className="text-4xl font-bold tracking-tight mb-2">Upload Videos</h1>
             <p className="text-muted-foreground mb-8">
-              Upload videos for others to respond to with their acting.
+              Upload videos for others to respond to with their acting. Your videos will be shown to you first.
             </p>
             
             <div className="space-y-6">
