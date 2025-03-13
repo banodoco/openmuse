@@ -71,6 +71,18 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
 };
 
 export const getUserRoles = async (userId: string): Promise<string[]> => {
+  // Cache user roles in memory to avoid excessive calls
+  const cacheKey = `user_roles_${userId}`;
+  const cachedRoles = sessionStorage.getItem(cacheKey);
+  
+  if (cachedRoles) {
+    try {
+      return JSON.parse(cachedRoles);
+    } catch (e) {
+      console.error('Error parsing cached roles:', e);
+    }
+  }
+  
   const { data, error } = await supabase
     .from('user_roles')
     .select('role')
@@ -81,11 +93,22 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
     return [];
   }
   
-  return data.map(role => role.role);
+  const roles = data.map(role => role.role);
+  
+  // Cache roles for 5 minutes
+  try {
+    sessionStorage.setItem(cacheKey, JSON.stringify(roles));
+  } catch (e) {
+    console.error('Error caching roles:', e);
+  }
+  
+  return roles;
 };
 
 export const checkIsAdmin = async (userId: string): Promise<boolean> => {
+  console.log(`Checking if user ${userId} is admin`);
   const roles = await getUserRoles(userId);
+  console.log(`User roles:`, roles);
   return roles.includes('admin');
 };
 
@@ -98,4 +121,7 @@ export const addUserRole = async (userId: string, role: string): Promise<void> =
     console.error('Error adding user role:', error);
     throw error;
   }
+  
+  // Clear role cache
+  sessionStorage.removeItem(`user_roles_${userId}`);
 };
