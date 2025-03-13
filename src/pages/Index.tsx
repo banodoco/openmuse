@@ -51,7 +51,7 @@ const Index: React.FC = () => {
         return;
       }
       
-      console.log("Loading video:", video.video_location);
+      console.log("Loading video:", video.video_location, "Uploaded by:", video.reviewer_name);
       
       if (video.video_location.startsWith('blob:')) {
         try {

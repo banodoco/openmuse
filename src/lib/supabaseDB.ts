@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { VideoEntry } from './types';
 import { remoteStorage } from './remoteStorage';
@@ -9,13 +8,11 @@ class SupabaseVideoDatabase {
   private readonly DEBUG = true;
   private currentUserId: string | null = null;
   
-  // Set the current user ID
   setCurrentUserId(userId: string | null) {
     this.currentUserId = userId;
     this.log(`Current user ID set to: ${userId || 'none'}`);
   }
   
-  // Get all video entries
   async getAllEntries(): Promise<VideoEntry[]> {
     try {
       const { data, error } = await supabase
@@ -35,28 +32,23 @@ class SupabaseVideoDatabase {
     }
   }
   
-  // Add a new video entry
   async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
-    // Check if user is authenticated
     if (!this.currentUserId) {
       this.warn('User not authenticated, proceeding without user_id');
     }
     
     let videoLocation = entry.video_location;
     
-    // If it's a blob URL, fetch the blob and upload it
     if (entry.video_location.startsWith('blob:')) {
       try {
         const response = await fetch(entry.video_location);
         const blob = await response.blob();
         
-        // Create a VideoFile object
         const videoFile = {
           id: `video_${Date.now()}`,
           blob
         };
         
-        // Upload using remoteStorage
         videoLocation = await remoteStorage.uploadVideo(videoFile);
         this.log(`Saved video to Supabase Storage: ${videoLocation}`);
       } catch (error) {
@@ -66,14 +58,13 @@ class SupabaseVideoDatabase {
     }
     
     try {
-      // Insert into database with the current user ID
       const { data, error } = await supabase
         .from('video_entries')
         .insert({
           reviewer_name: entry.reviewer_name,
           video_location: videoLocation,
           skipped: entry.skipped || false,
-          user_id: this.currentUserId // Add user_id from the current session
+          user_id: this.currentUserId
         })
         .select()
         .single();
@@ -90,9 +81,33 @@ class SupabaseVideoDatabase {
     }
   }
   
-  // Get a random pending entry
   async getRandomPendingEntry(): Promise<VideoEntry | null> {
     try {
+      let userOwnVideos = null;
+      if (this.currentUserId) {
+        const { data: ownVideos, error: ownVideosError } = await supabase
+          .from('video_entries')
+          .select('*')
+          .is('acting_video_location', null)
+          .eq('skipped', false)
+          .eq('user_id', this.currentUserId)
+          .order('created_at', { ascending: false });
+        
+        if (ownVideosError) {
+          this.error('Error fetching user\'s own videos:', ownVideosError);
+        } else if (ownVideos && ownVideos.length > 0) {
+          userOwnVideos = ownVideos;
+          this.log(`Found ${ownVideos.length} of user's own pending videos`);
+        }
+      }
+      
+      if (userOwnVideos && userOwnVideos.length > 0) {
+        const randomIndex = Math.floor(Math.random() * userOwnVideos.length);
+        const selectedEntry = userOwnVideos[randomIndex] as VideoEntry;
+        this.log(`Selected random video from user's own uploads: ${selectedEntry.id}`);
+        return selectedEntry;
+      }
+      
       const { data, error } = await supabase
         .from('video_entries')
         .select('*')
@@ -119,25 +134,21 @@ class SupabaseVideoDatabase {
     }
   }
   
-  // Save an acting video
   async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
     this.log(`Saving acting video for entry ${id}`);
     
-    // Check if user is authenticated
     if (!this.currentUserId) {
       this.warn('User not authenticated when saving acting video');
     }
     
     let savedLocation = actingVideoLocation;
     
-    // If it's a blob URL, fetch the blob and save it
     if (actingVideoLocation.startsWith('blob:')) {
       try {
         const response = await fetch(actingVideoLocation);
         const blob = await response.blob();
         const fileName = `acting_${id}_${Date.now()}.webm`;
         
-        // Upload to Supabase Storage
         const { data: storageData, error: storageError } = await supabase.storage
           .from('videos')
           .upload(fileName, blob, {
@@ -149,7 +160,6 @@ class SupabaseVideoDatabase {
           throw storageError;
         }
         
-        // Get the public URL
         const { data: urlData } = supabase.storage
           .from('videos')
           .getPublicUrl(fileName);
@@ -167,7 +177,7 @@ class SupabaseVideoDatabase {
         .from('video_entries')
         .update({
           acting_video_location: savedLocation,
-          user_id: this.currentUserId || undefined // Add user_id from current session if available
+          user_id: this.currentUserId || undefined
         })
         .eq('id', id)
         .select()
@@ -185,7 +195,6 @@ class SupabaseVideoDatabase {
     }
   }
   
-  // Update an entry
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
     try {
       const { data, error } = await supabase
@@ -207,16 +216,13 @@ class SupabaseVideoDatabase {
     }
   }
   
-  // Mark an entry as skipped
   async markAsSkipped(id: string): Promise<VideoEntry | null> {
     return this.updateEntry(id, { skipped: true });
   }
   
-  // Set approval status (restricted to admin users)
   async setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null> {
     this.log(`Setting approval status for entry ${id} to ${approved}`);
     
-    // Check if the current user is an admin
     if (this.currentUserId) {
       const isAdmin = await checkIsAdmin(this.currentUserId);
       if (!isAdmin) {
@@ -231,10 +237,8 @@ class SupabaseVideoDatabase {
     return this.updateEntry(id, { admin_approved: approved });
   }
   
-  // Delete an entry (restricted to admin users)
   async deleteEntry(id: string): Promise<boolean> {
     try {
-      // Check if the current user is an admin
       if (this.currentUserId) {
         const isAdmin = await checkIsAdmin(this.currentUserId);
         if (!isAdmin) {
@@ -246,7 +250,6 @@ class SupabaseVideoDatabase {
         throw new Error('Authentication required to delete entries');
       }
       
-      // Get the entry first to retrieve file locations
       const { data: entry, error: fetchError } = await supabase
         .from('video_entries')
         .select('*')
@@ -257,10 +260,8 @@ class SupabaseVideoDatabase {
         throw fetchError;
       }
       
-      // Delete videos from storage if they're in Supabase Storage
       if (entry.video_location && entry.video_location.includes('supabase.co')) {
         try {
-          // Extract the file name from the URL
           const videoFileName = entry.video_location.split('/').pop();
           if (videoFileName) {
             await supabase.storage
@@ -275,7 +276,6 @@ class SupabaseVideoDatabase {
       
       if (entry.acting_video_location && entry.acting_video_location.includes('supabase.co')) {
         try {
-          // Extract the file name from the URL
           const actingFileName = entry.acting_video_location.split('/').pop();
           if (actingFileName) {
             await supabase.storage
@@ -288,7 +288,6 @@ class SupabaseVideoDatabase {
         }
       }
       
-      // Delete the entry
       const { error: deleteError } = await supabase
         .from('video_entries')
         .delete()
@@ -306,16 +305,13 @@ class SupabaseVideoDatabase {
     }
   }
   
-  // Get a video URL
   async getVideoUrl(videoLocation: string): Promise<string> {
-    // If it's already a Supabase URL, return it directly
     if (videoLocation.includes('supabase.co')) {
       return videoLocation;
     }
     
-    // For other types of storage, use the existing methods
     if (videoLocation.startsWith('idb://')) {
-      const videoId = videoLocation.substring(6); // Remove the 'idb://' prefix
+      const videoId = videoLocation.substring(6);
       try {
         const blob = await videoStorage.getVideo(videoId);
         if (blob) {
@@ -331,17 +327,14 @@ class SupabaseVideoDatabase {
         return '';
       }
     } else if (videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) {
-      // Return remote URLs as-is
       return videoLocation;
     }
     
     return videoLocation;
   }
   
-  // Clear all entries (restricted to admin users)
   async clearAllEntries(): Promise<void> {
     try {
-      // Check if the current user is an admin
       if (this.currentUserId) {
         const isAdmin = await checkIsAdmin(this.currentUserId);
         if (!isAdmin) {
@@ -353,7 +346,6 @@ class SupabaseVideoDatabase {
         throw new Error('Authentication required to clear all entries');
       }
       
-      // Get all entries to find video IDs
       const { data: entries, error: fetchError } = await supabase
         .from('video_entries')
         .select('*');
@@ -362,9 +354,7 @@ class SupabaseVideoDatabase {
         throw fetchError;
       }
       
-      // Delete all videos from Supabase Storage
       for (const entry of entries) {
-        // Original video
         if (entry.video_location && entry.video_location.includes('supabase.co')) {
           try {
             const videoFileName = entry.video_location.split('/').pop();
@@ -378,7 +368,6 @@ class SupabaseVideoDatabase {
           }
         }
         
-        // Acting video
         if (entry.acting_video_location && entry.acting_video_location.includes('supabase.co')) {
           try {
             const actingFileName = entry.acting_video_location.split('/').pop();
@@ -393,11 +382,10 @@ class SupabaseVideoDatabase {
         }
       }
       
-      // Delete all entries
       const { error: deleteError } = await supabase
         .from('video_entries')
         .delete()
-        .neq('id', 'placeholder'); // Delete all
+        .neq('id', 'placeholder');
       
       if (deleteError) {
         throw deleteError;
@@ -409,7 +397,6 @@ class SupabaseVideoDatabase {
     }
   }
   
-  // Utility methods for logging
   private log(...args: any[]): void {
     if (this.DEBUG) console.log('[SupabaseDB]', ...args);
   }
