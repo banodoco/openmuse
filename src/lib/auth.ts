@@ -3,10 +3,21 @@ import { supabase } from './supabase';
 import { UserProfile, UserRole } from './types';
 
 export const signInWithDiscord = async () => {
+  // Get the current URL but replace 'localhost:3000' with the actual origin if needed
+  let redirectUrl = `${window.location.origin}/auth/callback`;
+  
+  // If we're in development and using localhost, add a fallback for when
+  // Supabase redirects to localhost:3000 instead of our actual URL
+  if (!window.location.origin.includes('localhost:3000')) {
+    console.log('Setting up for potential localhost redirect...');
+    // Store the actual origin to check for it in Auth.tsx
+    localStorage.setItem('actual_auth_origin', window.location.origin);
+  }
+  
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'discord',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`
+      redirectTo: redirectUrl
     }
   });
   

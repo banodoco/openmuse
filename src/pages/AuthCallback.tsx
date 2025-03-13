@@ -12,15 +12,39 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
+        console.log('In AuthCallback, processing...');
+        
         // Check if there's a hash in the URL (from OAuth redirect)
         if (window.location.hash) {
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           if (hashParams.get('error')) {
             throw new Error(hashParams.get('error_description') || 'Authentication error');
           }
+          
+          // If we have an access token in the hash, process it
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          
+          if (accessToken && refreshToken) {
+            // Set the session directly
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken
+            });
+            
+            if (error) {
+              throw error;
+            }
+            
+            if (data.session) {
+              toast.success('Successfully signed in!');
+              navigate('/');
+              return;
+            }
+          }
         }
         
-        // Process the OAuth callback
+        // If no hash or no tokens, check if we're already authenticated
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {

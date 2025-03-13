@@ -15,8 +15,10 @@ const Auth: React.FC = () => {
   // Handle authentication from hash fragment (for OAuth redirects)
   useEffect(() => {
     const handleHashRedirect = async () => {
+      // Check if we have a hash with access token
       if (window.location.hash && window.location.hash.includes('access_token')) {
         try {
+          console.log('Processing auth hash...');
           // Convert hash parameters to a session
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const accessToken = hashParams.get('access_token');
@@ -34,13 +36,40 @@ const Auth: React.FC = () => {
             }
             
             if (data.session) {
-              // Get the return URL from the query string or default to '/'
-              const searchParams = new URLSearchParams(location.search);
-              const returnUrl = searchParams.get('returnUrl') || '/';
+              // Get the return URL from storage or query string or default to '/'
+              let returnUrl = '/';
               
-              toast.success('Successfully signed in with Discord!');
-              navigate(returnUrl);
-              return;
+              // Check if we saved an actual origin during sign-in
+              const actualOrigin = localStorage.getItem('actual_auth_origin');
+              if (actualOrigin) {
+                // We were redirected to localhost, but we need to navigate to the actual origin
+                console.log('Detected localhost redirect, navigating to saved origin...');
+                
+                // Clear the stored origin
+                localStorage.removeItem('actual_auth_origin');
+                
+                // If we have a returnUrl in the query string, use it
+                const searchParams = new URLSearchParams(location.search);
+                const queryReturnUrl = searchParams.get('returnUrl');
+                
+                if (queryReturnUrl) {
+                  returnUrl = queryReturnUrl;
+                }
+                
+                toast.success('Successfully signed in with Discord!');
+                
+                // Create the URL to redirect back to our actual app with the user logged in
+                window.location.href = `${actualOrigin}${returnUrl}`;
+                return;
+              } else {
+                // Normal case where we're not being redirected to localhost
+                const searchParams = new URLSearchParams(location.search);
+                returnUrl = searchParams.get('returnUrl') || '/';
+                
+                toast.success('Successfully signed in with Discord!');
+                navigate(returnUrl);
+                return;
+              }
             }
           }
         } catch (error: any) {
