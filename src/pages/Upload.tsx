@@ -9,6 +9,7 @@ import Navigation from '@/components/Navigation';
 import { UploadCloud, Loader2, Info } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { remoteStorage } from '@/lib/remoteStorage';
 
 const Upload: React.FC = () => {
   const [uploading, setUploading] = useState(false);
@@ -70,9 +71,17 @@ const Upload: React.FC = () => {
       const db = databaseSwitcher.getDatabase();
       
       for (const file of files) {
-        const videoLocation = URL.createObjectURL(file);
-        console.log(`Created blob URL for upload: ${videoLocation}`);
+        // Create a VideoFile object for uploading to Supabase storage
+        const videoFile = {
+          id: `video_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+          blob: file
+        };
         
+        // Upload to Supabase storage first
+        const videoLocation = await remoteStorage.uploadVideo(videoFile);
+        console.log(`Video uploaded to Supabase: ${videoLocation}`);
+        
+        // Now add the entry to the database with the Supabase URL
         await db.addEntry({
           video_location: videoLocation,
           reviewer_name: reviewerName,

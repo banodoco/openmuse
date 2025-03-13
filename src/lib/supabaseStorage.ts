@@ -14,7 +14,7 @@ class SupabaseVideoStorage {
       // Create a folder-like structure with video ID
       const filePath = `${videoFile.id}.webm`;
       
-      // Upload the file
+      // Upload the file (handle both Blob and File objects)
       const { data, error } = await supabase.storage
         .from(this.BUCKET_NAME)
         .upload(filePath, videoFile.blob, {

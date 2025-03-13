@@ -7,6 +7,7 @@ class RemoteVideoStorage {
 
   // Upload a video to the storage
   async uploadVideo(videoFile: VideoFile): Promise<string> {
+    this.log(`Uploading video: ${videoFile.id}`);
     return supabaseStorage.uploadVideo(videoFile);
   }
 
