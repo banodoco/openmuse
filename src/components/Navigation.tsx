@@ -30,6 +30,7 @@ const Navigation: React.FC = () => {
   }, []);
   
   const isActive = (path: string) => location.pathname === path;
+  const isAuthPage = location.pathname === '/auth';
   
   return (
     <nav className="w-full max-w-screen-xl mx-auto px-4 py-4 flex justify-between items-center">
@@ -38,22 +39,24 @@ const Navigation: React.FC = () => {
       </Link>
       
       <div className="flex items-center space-x-2">
-        <div className="flex space-x-2 mr-2">
-          <NavLink to="/" active={isActive('/')}>
-            <Play className="w-4 h-4 mr-2" />
-            Respond
-          </NavLink>
-          <NavLink to="/upload" active={isActive('/upload')}>
-            <UploadCloud className="w-4 h-4 mr-2" />
-            Upload
-          </NavLink>
-          {isAdmin && (
-            <NavLink to="/admin" active={isActive('/admin')}>
-              <LayoutDashboard className="w-4 h-4 mr-2" />
-              Admin
+        {!isAuthPage && (
+          <div className="flex space-x-2 mr-2">
+            <NavLink to="/" active={isActive('/')}>
+              <Play className="w-4 h-4 mr-2" />
+              Respond
             </NavLink>
-          )}
-        </div>
+            <NavLink to="/upload" active={isActive('/upload')}>
+              <UploadCloud className="w-4 h-4 mr-2" />
+              Upload
+            </NavLink>
+            {isAdmin && (
+              <NavLink to="/admin" active={isActive('/admin')}>
+                <LayoutDashboard className="w-4 h-4 mr-2" />
+                Admin
+              </NavLink>
+            )}
+          </div>
+        )}
         
         <AuthButton />
       </div>
