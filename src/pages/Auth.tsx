@@ -6,11 +6,30 @@ import { signInWithDiscord, getCurrentUser } from '@/lib/auth';
 import { toast } from 'sonner';
 import Navigation from '@/components/Navigation';
 import { supabase } from '@/lib/supabase';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Checkbox } from '@/components/ui/checkbox';
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
+  const [hasAcknowledged, setHasAcknowledged] = useState(false);
+  const [showConsent, setShowConsent] = useState(false);
+  
+  // Check if user has already acknowledged the data sharing notice
+  useEffect(() => {
+    const hasUserAcknowledged = localStorage.getItem('video_upload_consent') === 'true';
+    setHasAcknowledged(hasUserAcknowledged);
+    setShowConsent(!hasUserAcknowledged);
+  }, []);
+  
+  // Handle acknowledgment checkbox
+  const handleAcknowledgment = (checked: boolean) => {
+    setHasAcknowledged(checked);
+    if (checked) {
+      localStorage.setItem('video_upload_consent', 'true');
+    }
+  };
   
   // Handle authentication from hash fragment (for OAuth redirects)
   useEffect(() => {
@@ -135,10 +154,33 @@ const Auth: React.FC = () => {
             </p>
           </div>
           
+          {showConsent && (
+            <Alert className="my-4 bg-amber-50 border-amber-200">
+              <AlertDescription className="space-y-4">
+                <p className="text-amber-800">
+                  All videos you upload will be shared publicly as part of a dataset.
+                </p>
+                <div className="flex items-center space-x-2">
+                  <Checkbox
+                    id="consent"
+                    checked={hasAcknowledged}
+                    onCheckedChange={handleAcknowledgment}
+                  />
+                  <label
+                    htmlFor="consent"
+                    className="text-sm font-medium cursor-pointer"
+                  >
+                    I know
+                  </label>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <Button
             className="w-full flex items-center justify-center gap-2"
             onClick={handleDiscordSignIn}
-            disabled={isLoading}
+            disabled={isLoading || (showConsent && !hasAcknowledged)}
           >
             {isLoading ? (
               <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
