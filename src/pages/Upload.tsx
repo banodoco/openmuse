@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -15,24 +16,8 @@ import { getCurrentUserProfile } from '@/lib/auth';
 const Upload: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
-  const [reviewerName, setReviewerName] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
-  
-  React.useEffect(() => {
-    const loadUserProfile = async () => {
-      try {
-        const profile = await getCurrentUserProfile();
-        if (profile) {
-          setReviewerName(profile.username);
-        }
-      } catch (error) {
-        console.error('Error loading user profile:', error);
-      }
-    };
-    
-    loadUserProfile();
-  }, []);
 
   const handleSelectFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files.length > 0) {
@@ -76,15 +61,14 @@ const Upload: React.FC = () => {
       return;
     }
     
-    if (!reviewerName.trim()) {
-      toast.error('Please enter your name.');
-      return;
-    }
-    
     setUploading(true);
     
     try {
       const db = await databaseSwitcher.getDatabase();
+      const userProfile = await getCurrentUserProfile();
+      
+      // Use username from profile, or a default if not found
+      const reviewerName = userProfile?.username || 'Anonymous User';
       
       for (const file of files) {
         const videoFile = {
@@ -116,9 +100,8 @@ const Upload: React.FC = () => {
       toast.error('An error occurred during upload. Please try again.');
       setUploading(false);
     }
-  }, [files, reviewerName, navigate]);
+  }, [files, navigate]);
 
-  const isNameFilled = reviewerName.trim().length > 0;
   const areFilesFilled = files.length > 0;
 
   return (
@@ -134,25 +117,6 @@ const Upload: React.FC = () => {
             </p>
             
             <div className="space-y-6">
-              <div>
-                <Label htmlFor="reviewer-name" className="text-sm font-medium mb-2 block">
-                  Your Name <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  id="reviewer-name"
-                  placeholder="Enter your name"
-                  value={reviewerName}
-                  onChange={(e) => setReviewerName(e.target.value)}
-                  className={cn("max-w-md", !isNameFilled && "border-destructive focus-visible:ring-destructive/50")}
-                  disabled={uploading}
-                />
-                {!isNameFilled && (
-                  <p className="text-sm text-destructive mt-1 flex items-center gap-1">
-                    <Info className="h-3 w-3" /> Name is required
-                  </p>
-                )}
-              </div>
-              
               <div
                 className={cn(
                   "border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-all duration-200",
@@ -222,15 +186,15 @@ const Upload: React.FC = () => {
               )}
               
               <div className="flex flex-col items-end pt-4">
-                {!isNameFilled || !areFilesFilled ? (
+                {!areFilesFilled ? (
                   <p className="text-sm text-destructive mb-2 flex items-center gap-1">
-                    <Info className="h-3 w-3" /> Please fill in all required fields to enable upload
+                    <Info className="h-3 w-3" /> Please select at least one video to upload
                   </p>
                 ) : null}
                 
                 <Button
                   className="rounded-full px-8"
-                  disabled={uploading || files.length === 0 || !reviewerName.trim()}
+                  disabled={uploading || files.length === 0}
                   onClick={handleUpload}
                 >
                   {uploading ? (
