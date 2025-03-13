@@ -20,9 +20,31 @@ export interface VideoFile {
   blob: Blob;
 }
 
+export interface UserProfile {
+  id: string;
+  username: string;
+  avatar_url?: string;
+  created_at?: string;
+}
+
+export interface UserRole {
+  id: string;
+  user_id: string;
+  role: string;
+  created_at?: string;
+}
+
 // Storage configuration options (simplified)
 export interface StorageConfig {
   type: 'supabase';
+}
+
+// Session type for auth
+export interface Session {
+  user: {
+    id: string;
+    email?: string;
+  };
 }
 
 // Add custom event type for TypeScript

@@ -3,6 +3,7 @@ import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { UploadCloud, Play, LayoutDashboard } from 'lucide-react';
+import AuthButton from './AuthButton';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -15,19 +16,23 @@ const Navigation: React.FC = () => {
         VideoResponse
       </Link>
       
-      <div className="flex space-x-2">
-        <NavLink to="/" active={isActive('/')}>
-          <Play className="w-4 h-4 mr-2" />
-          Respond
-        </NavLink>
-        <NavLink to="/upload" active={isActive('/upload')}>
-          <UploadCloud className="w-4 h-4 mr-2" />
-          Upload
-        </NavLink>
-        <NavLink to="/admin" active={isActive('/admin')}>
-          <LayoutDashboard className="w-4 h-4 mr-2" />
-          Admin
-        </NavLink>
+      <div className="flex items-center space-x-2">
+        <div className="flex space-x-2 mr-2">
+          <NavLink to="/" active={isActive('/')}>
+            <Play className="w-4 h-4 mr-2" />
+            Respond
+          </NavLink>
+          <NavLink to="/upload" active={isActive('/upload')}>
+            <UploadCloud className="w-4 h-4 mr-2" />
+            Upload
+          </NavLink>
+          <NavLink to="/admin" active={isActive('/admin')}>
+            <LayoutDashboard className="w-4 h-4 mr-2" />
+            Admin
+          </NavLink>
+        </div>
+        
+        <AuthButton />
       </div>
     </nav>
   );

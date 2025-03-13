@@ -8,6 +8,7 @@ import StorageVideoPlayer from '@/components/StorageVideoPlayer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StorageSettings from '@/components/StorageSettings';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
+import RequireAuth from '@/components/RequireAuth';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
@@ -21,16 +22,10 @@ const Admin: React.FC = () => {
   const loadEntries = async () => {
     setIsLoading(true);
     try {
-      const db = databaseSwitcher.getDatabase();
+      const db = await databaseSwitcher.getDatabase();
       let allEntries;
       
-      if (db.getAllEntries.constructor.name === 'AsyncFunction') {
-        // Handle async getAllEntries for Supabase
-        allEntries = await db.getAllEntries();
-      } else {
-        // Handle sync getAllEntries for local storage
-        allEntries = db.getAllEntries();
-      }
+      allEntries = await db.getAllEntries();
       
       // Sort by date (newest first)
       allEntries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
@@ -48,16 +43,16 @@ const Admin: React.FC = () => {
 
   const handleApproveToggle = async (entry: VideoEntry) => {
     try {
-      const db = databaseSwitcher.getDatabase();
+      const db = await databaseSwitcher.getDatabase();
       const updatedEntry = await db.setApprovalStatus(entry.id, !entry.admin_approved);
       
       if (updatedEntry) {
         setEntries(entries.map(e => e.id === entry.id ? updatedEntry : e));
         toast.success(`Video ${updatedEntry.admin_approved ? 'approved' : 'unapproved'} successfully`);
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error toggling approval:', error);
-      toast.error('Failed to update approval status');
+      toast.error(error.message || 'Failed to update approval status');
     }
   };
 
@@ -67,7 +62,7 @@ const Admin: React.FC = () => {
     }
 
     try {
-      const db = databaseSwitcher.getDatabase();
+      const db = await databaseSwitcher.getDatabase();
       const success = await db.deleteEntry(entry.id);
       
       if (success) {
@@ -76,9 +71,9 @@ const Admin: React.FC = () => {
       } else {
         toast.error('Failed to delete video');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting entry:', error);
-      toast.error('Error deleting video');
+      toast.error(error.message || 'Error deleting video');
     }
   };
 
@@ -88,13 +83,13 @@ const Admin: React.FC = () => {
     }
 
     try {
-      const db = databaseSwitcher.getDatabase();
+      const db = await databaseSwitcher.getDatabase();
       await db.clearAllEntries();
       setEntries([]);
       toast.success('All videos deleted successfully');
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error clearing entries:', error);
-      toast.error('Failed to delete all videos');
+      toast.error(error.message || 'Failed to delete all videos');
     }
   };
 
@@ -104,113 +99,115 @@ const Admin: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      <Navigation />
+    <RequireAuth requireAdmin>
+      <div className="min-h-screen bg-background flex flex-col">
+        <Navigation />
 
-      <main className="container py-8 px-4 flex-1">
-        <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
-        <p className="text-muted-foreground mb-8">Manage video submissions and settings</p>
+        <main className="container py-8 px-4 flex-1">
+          <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
+          <p className="text-muted-foreground mb-8">Manage video submissions and settings</p>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="mb-6">
-            <TabsTrigger value="videos">Videos</TabsTrigger>
-            <TabsTrigger value="settings">Settings</TabsTrigger>
-          </TabsList>
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="mb-6">
+              <TabsTrigger value="videos">Videos</TabsTrigger>
+              <TabsTrigger value="settings">Settings</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="videos">
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-semibold">All Videos</h2>
-              <div className="flex gap-2">
-                <Button 
-                  variant="outline" 
-                  onClick={loadEntries}
-                  size="sm"
-                >
-                  Refresh
-                </Button>
-                {entries.length > 0 && (
+            <TabsContent value="videos">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">All Videos</h2>
+                <div className="flex gap-2">
                   <Button 
-                    variant="destructive" 
-                    onClick={handleClearAll}
+                    variant="outline" 
+                    onClick={loadEntries}
                     size="sm"
                   >
-                    Delete All
+                    Refresh
                   </Button>
-                )}
+                  {entries.length > 0 && (
+                    <Button 
+                      variant="destructive" 
+                      onClick={handleClearAll}
+                      size="sm"
+                    >
+                      Delete All
+                    </Button>
+                  )}
+                </div>
               </div>
-            </div>
 
-            {isLoading ? (
-              <p>Loading videos...</p>
-            ) : entries.length === 0 ? (
-              <div className="text-center py-12">
-                <p className="text-lg text-muted-foreground">No videos have been uploaded yet</p>
-              </div>
-            ) : (
-              <div className="space-y-8">
-                {entries.map(entry => (
-                  <div key={entry.id} className="border rounded-lg overflow-hidden bg-card">
-                    <div className="p-4 border-b flex justify-between items-center">
-                      <div>
-                        <h3 className="font-medium">{entry.reviewer_name}</h3>
-                        <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
-                      </div>
-                      <div className="flex space-x-2">
-                        <Button 
-                          variant={entry.admin_approved ? "outline" : "default"}
-                          size="sm"
-                          onClick={() => handleApproveToggle(entry)}
-                        >
-                          {entry.admin_approved ? "Unapprove" : "Approve"}
-                        </Button>
-                        <Button 
-                          variant="destructive" 
-                          size="sm"
-                          onClick={() => handleDeleteEntry(entry)}
-                        >
-                          Delete
-                        </Button>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-                      <div>
-                        <p className="text-sm font-medium mb-2">Original Video</p>
-                        <div className="rounded overflow-hidden bg-black aspect-video">
-                          <StorageVideoPlayer
-                            videoLocation={entry.video_location}
-                            className="w-full h-full"
-                            controls
-                          />
+              {isLoading ? (
+                <p>Loading videos...</p>
+              ) : entries.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-lg text-muted-foreground">No videos have been uploaded yet</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {entries.map(entry => (
+                    <div key={entry.id} className="border rounded-lg overflow-hidden bg-card">
+                      <div className="p-4 border-b flex justify-between items-center">
+                        <div>
+                          <h3 className="font-medium">{entry.reviewer_name}</h3>
+                          <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
+                        </div>
+                        <div className="flex space-x-2">
+                          <Button 
+                            variant={entry.admin_approved ? "outline" : "default"}
+                            size="sm"
+                            onClick={() => handleApproveToggle(entry)}
+                          >
+                            {entry.admin_approved ? "Unapprove" : "Approve"}
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="sm"
+                            onClick={() => handleDeleteEntry(entry)}
+                          >
+                            Delete
+                          </Button>
                         </div>
                       </div>
                       
-                      {entry.acting_video_location && (
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                         <div>
-                          <p className="text-sm font-medium mb-2">Response Video</p>
+                          <p className="text-sm font-medium mb-2">Original Video</p>
                           <div className="rounded overflow-hidden bg-black aspect-video">
                             <StorageVideoPlayer
-                              videoLocation={entry.acting_video_location}
+                              videoLocation={entry.video_location}
                               className="w-full h-full"
                               controls
                             />
                           </div>
                         </div>
-                      )}
+                        
+                        {entry.acting_video_location && (
+                          <div>
+                            <p className="text-sm font-medium mb-2">Response Video</p>
+                            <div className="rounded overflow-hidden bg-black aspect-video">
+                              <StorageVideoPlayer
+                                videoLocation={entry.acting_video_location}
+                                className="w-full h-full"
+                                controls
+                              />
+                            </div>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </TabsContent>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
 
-          <TabsContent value="settings">
-            <h2 className="text-2xl font-semibold mb-6">Application Settings</h2>
-            <StorageSettings onSettingsSaved={loadEntries} />
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+            <TabsContent value="settings">
+              <h2 className="text-2xl font-semibold mb-6">Application Settings</h2>
+              <StorageSettings onSettingsSaved={loadEntries} />
+            </TabsContent>
+          </Tabs>
+        </main>
+      </div>
+    </RequireAuth>
   );
 };
 

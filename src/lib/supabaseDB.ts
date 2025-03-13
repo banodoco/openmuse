@@ -1,10 +1,19 @@
+
 import { supabase } from './supabase';
 import { VideoEntry } from './types';
 import { remoteStorage } from './remoteStorage';
 import { videoStorage } from './storage';
+import { checkIsAdmin } from './auth';
 
 class SupabaseVideoDatabase {
   private readonly DEBUG = true;
+  private currentUserId: string | null = null;
+  
+  // Set the current user ID
+  setCurrentUserId(userId: string | null) {
+    this.currentUserId = userId;
+    this.log(`Current user ID set to: ${userId || 'none'}`);
+  }
   
   // Get all video entries
   async getAllEntries(): Promise<VideoEntry[]> {
@@ -28,6 +37,11 @@ class SupabaseVideoDatabase {
   
   // Add a new video entry
   async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+    // Check if user is authenticated
+    if (!this.currentUserId) {
+      this.warn('User not authenticated, proceeding without user_id');
+    }
+    
     let videoLocation = entry.video_location;
     
     // If it's a blob URL, fetch the blob and upload it
@@ -52,13 +66,14 @@ class SupabaseVideoDatabase {
     }
     
     try {
-      // Insert into database
+      // Insert into database with the current user ID
       const { data, error } = await supabase
         .from('video_entries')
         .insert({
           reviewer_name: entry.reviewer_name,
           video_location: videoLocation,
-          skipped: entry.skipped || false
+          skipped: entry.skipped || false,
+          user_id: this.currentUserId // Add user_id from the current session
         })
         .select()
         .single();
@@ -108,6 +123,11 @@ class SupabaseVideoDatabase {
   async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
     this.log(`Saving acting video for entry ${id}`);
     
+    // Check if user is authenticated
+    if (!this.currentUserId) {
+      this.warn('User not authenticated when saving acting video');
+    }
+    
     let savedLocation = actingVideoLocation;
     
     // If it's a blob URL, fetch the blob and save it
@@ -145,7 +165,10 @@ class SupabaseVideoDatabase {
     try {
       const { data, error } = await supabase
         .from('video_entries')
-        .update({ acting_video_location: savedLocation })
+        .update({
+          acting_video_location: savedLocation,
+          user_id: this.currentUserId || undefined // Add user_id from current session if available
+        })
         .eq('id', id)
         .select()
         .single();
@@ -189,15 +212,40 @@ class SupabaseVideoDatabase {
     return this.updateEntry(id, { skipped: true });
   }
   
-  // Set approval status
+  // Set approval status (restricted to admin users)
   async setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null> {
     this.log(`Setting approval status for entry ${id} to ${approved}`);
+    
+    // Check if the current user is an admin
+    if (this.currentUserId) {
+      const isAdmin = await checkIsAdmin(this.currentUserId);
+      if (!isAdmin) {
+        this.error('Non-admin user attempted to set approval status');
+        throw new Error('Permission denied: Only admins can change approval status');
+      }
+    } else {
+      this.error('Unauthenticated user attempted to set approval status');
+      throw new Error('Authentication required to change approval status');
+    }
+    
     return this.updateEntry(id, { admin_approved: approved });
   }
   
-  // Delete an entry
+  // Delete an entry (restricted to admin users)
   async deleteEntry(id: string): Promise<boolean> {
     try {
+      // Check if the current user is an admin
+      if (this.currentUserId) {
+        const isAdmin = await checkIsAdmin(this.currentUserId);
+        if (!isAdmin) {
+          this.error('Non-admin user attempted to delete entry');
+          throw new Error('Permission denied: Only admins can delete entries');
+        }
+      } else {
+        this.error('Unauthenticated user attempted to delete entry');
+        throw new Error('Authentication required to delete entries');
+      }
+      
       // Get the entry first to retrieve file locations
       const { data: entry, error: fetchError } = await supabase
         .from('video_entries')
@@ -290,9 +338,21 @@ class SupabaseVideoDatabase {
     return videoLocation;
   }
   
-  // Clear all entries
+  // Clear all entries (restricted to admin users)
   async clearAllEntries(): Promise<void> {
     try {
+      // Check if the current user is an admin
+      if (this.currentUserId) {
+        const isAdmin = await checkIsAdmin(this.currentUserId);
+        if (!isAdmin) {
+          this.error('Non-admin user attempted to clear all entries');
+          throw new Error('Permission denied: Only admins can clear all entries');
+        }
+      } else {
+        this.error('Unauthenticated user attempted to clear all entries');
+        throw new Error('Authentication required to clear all entries');
+      }
+      
       // Get all entries to find video IDs
       const { data: entries, error: fetchError } = await supabase
         .from('video_entries')
