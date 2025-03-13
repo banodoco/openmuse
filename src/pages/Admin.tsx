@@ -12,7 +12,8 @@ import RequireAuth from '@/components/RequireAuth';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { downloadEntriesAsCsv } from '@/lib/csvUtils';
-import { Download } from 'lucide-react';
+import { Download, CheckCircle, X, MessageCircle, SkipForward } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
@@ -167,6 +168,43 @@ const Admin: React.FC = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
+  const getEntryStatus = (entry: VideoEntry): {
+    status: 'approved' | 'skipped' | 'responded' | 'unapproved',
+    label: string,
+    icon: React.ReactNode,
+    variant: 'default' | 'secondary' | 'destructive' | 'outline'
+  } => {
+    if (entry.admin_approved) {
+      return {
+        status: 'approved',
+        label: 'Approved',
+        icon: <CheckCircle className="h-3 w-3 mr-1" />,
+        variant: 'default'
+      };
+    } else if (entry.skipped) {
+      return {
+        status: 'skipped',
+        label: 'Skipped',
+        icon: <SkipForward className="h-3 w-3 mr-1" />,
+        variant: 'secondary'
+      };
+    } else if (entry.acting_video_location) {
+      return {
+        status: 'responded',
+        label: 'Responded',
+        icon: <MessageCircle className="h-3 w-3 mr-1" />,
+        variant: 'outline'
+      };
+    } else {
+      return {
+        status: 'unapproved',
+        label: 'Unapproved',
+        icon: <X className="h-3 w-3 mr-1" />,
+        variant: 'destructive'
+      };
+    }
+  };
+
   return (
     <RequireAuth requireAdmin>
       <div className="min-h-screen bg-background flex flex-col">
@@ -258,58 +296,68 @@ const Admin: React.FC = () => {
                 </div>
               ) : (
                 <div className="space-y-8">
-                  {filteredEntries.map(entry => (
-                    <div key={entry.id} className="border rounded-lg overflow-hidden bg-card">
-                      <div className="p-4 border-b flex justify-between items-center">
-                        <div>
-                          <h3 className="font-medium">{entry.reviewer_name}</h3>
-                          <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
-                        </div>
-                        <div className="flex space-x-2">
-                          <Button 
-                            variant={entry.admin_approved ? "outline" : "default"}
-                            size="sm"
-                            onClick={() => handleApproveToggle(entry)}
-                          >
-                            {entry.admin_approved ? "Unapprove" : "Approve"}
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="sm"
-                            onClick={() => handleDeleteEntry(entry)}
-                          >
-                            Delete
-                          </Button>
-                        </div>
-                      </div>
-                      
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-                        <div>
-                          <p className="text-sm font-medium mb-2">Original Video</p>
-                          <div className="rounded overflow-hidden bg-black aspect-video">
-                            <StorageVideoPlayer
-                              videoLocation={entry.video_location}
-                              className="w-full h-full"
-                              controls
-                            />
+                  {filteredEntries.map(entry => {
+                    const { label, icon, variant } = getEntryStatus(entry);
+                    
+                    return (
+                      <div key={entry.id} className="border rounded-lg overflow-hidden bg-card">
+                        <div className="p-4 border-b flex justify-between items-center">
+                          <div className="flex items-center gap-3">
+                            <Badge variant={variant} className="flex items-center">
+                              {icon}
+                              {label}
+                            </Badge>
+                            <div>
+                              <h3 className="font-medium">{entry.reviewer_name}</h3>
+                              <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
+                            </div>
+                          </div>
+                          <div className="flex space-x-2">
+                            <Button 
+                              variant={entry.admin_approved ? "outline" : "default"}
+                              size="sm"
+                              onClick={() => handleApproveToggle(entry)}
+                            >
+                              {entry.admin_approved ? "Unapprove" : "Approve"}
+                            </Button>
+                            <Button 
+                              variant="destructive" 
+                              size="sm"
+                              onClick={() => handleDeleteEntry(entry)}
+                            >
+                              Delete
+                            </Button>
                           </div>
                         </div>
                         
-                        {entry.acting_video_location && (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
                           <div>
-                            <p className="text-sm font-medium mb-2">Response Video</p>
+                            <p className="text-sm font-medium mb-2">Original Video</p>
                             <div className="rounded overflow-hidden bg-black aspect-video">
                               <StorageVideoPlayer
-                                videoLocation={entry.acting_video_location}
+                                videoLocation={entry.video_location}
                                 className="w-full h-full"
                                 controls
                               />
                             </div>
                           </div>
-                        )}
+                          
+                          {entry.acting_video_location && (
+                            <div>
+                              <p className="text-sm font-medium mb-2">Response Video</p>
+                              <div className="rounded overflow-hidden bg-black aspect-video">
+                                <StorageVideoPlayer
+                                  videoLocation={entry.acting_video_location}
+                                  className="w-full h-full"
+                                  controls
+                                />
+                              </div>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </TabsContent>
