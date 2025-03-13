@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -35,53 +34,57 @@ const Admin: React.FC = () => {
   }, [entries, showApproved, showUnapproved, showResponded, showSkipped]);
 
   const applyFilters = () => {
-    let filtered = [...entries];
+    // Start with all entries
+    let result = [...entries];
     
-    // First filter by approval status
-    if (showApproved && showUnapproved) {
-      // Show all videos (no filtering by approval)
-    } else if (showApproved) {
-      // Only show approved videos
-      filtered = filtered.filter(entry => entry.admin_approved);
-    } else if (showUnapproved) {
-      // Only show unapproved videos
-      filtered = filtered.filter(entry => !entry.admin_approved);
-    } else {
-      // Nothing selected, show nothing
-      filtered = [];
+    // Apply approval filter
+    if (!showApproved && !showUnapproved) {
+      // If neither is checked, show nothing
+      result = [];
+    } else if (showApproved && !showUnapproved) {
+      // Only show approved
+      result = result.filter(entry => entry.admin_approved);
+    } else if (!showApproved && showUnapproved) {
+      // Only show unapproved
+      result = result.filter(entry => !entry.admin_approved);
     }
+    // If both are checked, no filtering by approval status
     
-    // Then filter by response status
-    const hasFilterResponse = showResponded || showSkipped || !showResponded;
-    if (hasFilterResponse) {
-      // Apply response filter only if we have videos left from approval filter
-      if (filtered.length > 0) {
-        let responseFiltered: VideoEntry[] = [];
-        
-        // Add videos with responses if selected
-        if (showResponded) {
-          responseFiltered = [...responseFiltered, ...filtered.filter(entry => entry.acting_video_location)];
-        }
-        
-        // Add videos that were skipped if selected
-        if (showSkipped) {
-          responseFiltered = [...responseFiltered, ...filtered.filter(entry => entry.skipped)];
-        }
-        
-        // Add videos waiting for a response
-        // (If "Responded" is unchecked, we should see videos awaiting a response)
-        if (!showResponded) {
-          responseFiltered = [...responseFiltered, ...filtered.filter(entry => 
-            !entry.acting_video_location && !entry.skipped
-          )];
-        }
-        
-        // Remove duplicates (in case a video matches multiple conditions)
-        filtered = Array.from(new Set(responseFiltered));
+    // Then apply response status filters
+    if (result.length > 0) {
+      // Create empty filtered array
+      const responseFiltered: VideoEntry[] = [];
+      
+      // Check each filter criterion separately
+      if (showResponded) {
+        // Add videos with responses
+        const responded = result.filter(entry => entry.acting_video_location);
+        responseFiltered.push(...responded);
+      }
+      
+      if (showSkipped) {
+        // Add skipped videos
+        const skipped = result.filter(entry => entry.skipped);
+        responseFiltered.push(...skipped);
+      }
+      
+      if (!showResponded && !showSkipped) {
+        // If neither responded nor skipped is checked, show nothing
+        result = [];
+      } else if (!showResponded) {
+        // If "Responded" is not checked, also include videos waiting for response
+        const waiting = result.filter(entry => !entry.acting_video_location && !entry.skipped);
+        responseFiltered.push(...waiting);
+      }
+      
+      // If both are checked, keep the original result from the approval filter
+      if (!showResponded || !showSkipped) {
+        // Convert to Set and back to array to remove duplicates
+        result = Array.from(new Set(responseFiltered));
       }
     }
     
-    setFilteredEntries(filtered);
+    setFilteredEntries(result);
   };
 
   const loadEntries = async () => {
