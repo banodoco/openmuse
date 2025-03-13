@@ -359,7 +359,7 @@ const WebcamRecorder: React.FC<WebcamRecorderProps> = ({
               ref={previewVideoRef}
               src={previewUrl} 
               className="w-full h-full object-cover rounded-lg"
-              controls
+              controls={false}
               playsInline
               muted={false}
               autoPlay={false}
