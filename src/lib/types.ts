@@ -22,13 +22,7 @@ export interface VideoFile {
 
 // Storage configuration options
 export interface StorageConfig {
-  type: 'local' | 'remote' | 'aws' | 'supabase';
-  remoteUrl?: string;
-  apiKey?: string;
-  awsRegion?: string;
-  awsBucket?: string;
-  awsAccessKey?: string;
-  awsSecretKey?: string;
+  type: 'local' | 'supabase';
 }
 
 // Add custom event type for TypeScript
