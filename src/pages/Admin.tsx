@@ -37,22 +37,31 @@ const Admin: React.FC = () => {
   const applyFilters = () => {
     let filtered = [...entries];
     
-    // Filter by approval status
-    if (!showApproved) {
-      filtered = filtered.filter(entry => !entry.admin_approved);
-    }
-    if (!showUnapproved) {
-      filtered = filtered.filter(entry => entry.admin_approved);
+    // Build a list of conditions that each entry must match any of
+    const approvalConditions = [];
+    if (showApproved) approvalConditions.push((entry: VideoEntry) => entry.admin_approved);
+    if (showUnapproved) approvalConditions.push((entry: VideoEntry) => !entry.admin_approved);
+    
+    // Filter by approval status (if any conditions are selected)
+    if (approvalConditions.length > 0) {
+      filtered = filtered.filter(entry => 
+        approvalConditions.some(condition => condition(entry))
+      );
     }
     
-    // Filter by response status
-    if (!showResponded) {
-      filtered = filtered.filter(entry => !entry.acting_video_location);
-    }
+    // Response filters
+    const responseConditions = [];
+    if (showResponded) responseConditions.push((entry: VideoEntry) => entry.acting_video_location);
+    if (showSkipped) responseConditions.push((entry: VideoEntry) => entry.skipped);
     
-    // Filter by skipped status
-    if (!showSkipped) {
-      filtered = filtered.filter(entry => !entry.skipped);
+    // Also show entries without responses if showResponded is false (these are waiting for response)
+    if (!showResponded) responseConditions.push((entry: VideoEntry) => !entry.acting_video_location && !entry.skipped);
+    
+    // Filter by response status (if any conditions are selected)
+    if (responseConditions.length > 0) {
+      filtered = filtered.filter(entry => 
+        responseConditions.some(condition => condition(entry))
+      );
     }
     
     setFilteredEntries(filtered);
