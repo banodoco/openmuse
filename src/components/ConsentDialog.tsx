@@ -10,26 +10,84 @@ import {
   DialogTitle,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 const ConsentDialog: React.FC = () => {
   const [open, setOpen] = useState(false);
   const [hasAcknowledged, setHasAcknowledged] = useState(false);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    const hasUserAcknowledged = localStorage.getItem('video_upload_consent') === 'true';
-    if (!hasUserAcknowledged) {
-      setOpen(true);
-    }
+    const checkUserConsent = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          return;
+        }
+        
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('video_upload_consent')
+          .eq('id', session.user.id)
+          .single();
+        
+        if (error) {
+          console.error('Error checking consent:', error);
+          // If there's an error, show the dialog to be safe
+          setOpen(true);
+          return;
+        }
+        
+        // Only show dialog if user hasn't given consent yet
+        if (!data.video_upload_consent) {
+          setOpen(true);
+        }
+      } catch (error) {
+        console.error('Error checking consent status:', error);
+        setOpen(true);
+      }
+    };
+    
+    checkUserConsent();
   }, []);
 
   const handleAcknowledgment = (checked: boolean) => {
     setHasAcknowledged(checked);
   };
 
-  const handleConfirm = () => {
-    if (hasAcknowledged) {
-      localStorage.setItem('video_upload_consent', 'true');
+  const handleConfirm = async () => {
+    if (!hasAcknowledged) return;
+    
+    try {
+      setLoading(true);
+      
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        toast.error('You must be logged in to continue');
+        return;
+      }
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ video_upload_consent: true })
+        .eq('id', session.user.id);
+      
+      if (error) {
+        console.error('Error saving consent:', error);
+        toast.error('Failed to save your consent. Please try again.');
+        return;
+      }
+      
       setOpen(false);
+      toast.success('Consent saved successfully');
+    } catch (error) {
+      console.error('Error saving consent:', error);
+      toast.error('An error occurred. Please try again.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,8 +120,11 @@ const ConsentDialog: React.FC = () => {
         <DialogFooter>
           <Button
             onClick={handleConfirm}
-            disabled={!hasAcknowledged}
+            disabled={!hasAcknowledged || loading}
           >
+            {loading ? (
+              <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full mr-2" />
+            ) : null}
             Continue
           </Button>
         </DialogFooter>

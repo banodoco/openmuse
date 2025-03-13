@@ -15,18 +15,21 @@ export type Database = {
           created_at: string
           id: string
           username: string
+          video_upload_consent: boolean | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
           id: string
           username: string
+          video_upload_consent?: boolean | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
           id?: string
           username?: string
+          video_upload_consent?: boolean | null
         }
         Relationships: []
       }
