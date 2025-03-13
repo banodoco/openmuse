@@ -8,10 +8,13 @@ class DatabaseSwitcher {
   // Get the appropriate database based on the current storage config
   getDatabase() {
     const config = remoteStorage.getConfig();
+    console.log('Current storage config:', config.type);
     
     if (config.type === 'supabase') {
+      console.log('Using Supabase database');
       return supabaseDB;
     } else {
+      console.log('Using local database');
       return videoDB;
     }
   }

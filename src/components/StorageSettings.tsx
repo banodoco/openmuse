@@ -7,7 +7,11 @@ import { StorageConfig } from '@/lib/types';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const StorageSettings: React.FC = () => {
+interface StorageSettingsProps {
+  onSettingsSaved?: () => void;
+}
+
+const StorageSettings: React.FC<StorageSettingsProps> = ({ onSettingsSaved }) => {
   const [storageType, setStorageType] = useState<'local' | 'supabase'>('local');
   const [isSaving, setIsSaving] = useState(false);
 
@@ -27,7 +31,15 @@ const StorageSettings: React.FC = () => {
       
       remoteStorage.configure(config);
       
+      // Trigger storage event to notify other components
+      window.dispatchEvent(new Event('storage'));
+      
       toast.success('Storage settings saved successfully');
+      
+      // Call the callback if provided
+      if (onSettingsSaved) {
+        onSettingsSaved();
+      }
     } catch (error) {
       console.error('Failed to save storage settings:', error);
       toast.error('Failed to save storage settings');

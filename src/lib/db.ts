@@ -61,7 +61,7 @@ class VideoDatabase {
         // Check storage configuration
         const config = remoteStorage.getConfig();
         
-        if (config.type === 'remote') {
+        if (config.type === 'supabase') {
           try {
             // Upload to remote storage
             const remoteUrl = await remoteStorage.uploadVideo({
@@ -144,7 +144,7 @@ class VideoDatabase {
         // Check storage configuration
         const config = remoteStorage.getConfig();
         
-        if (config.type === 'remote') {
+        if (config.type === 'supabase') {
           try {
             // Upload to remote storage
             const remoteUrl = await remoteStorage.uploadVideo({

@@ -8,28 +8,65 @@ import { toast } from 'sonner';
 import StorageVideoPlayer from '@/components/StorageVideoPlayer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import StorageSettings from '@/components/StorageSettings';
+import { databaseSwitcher } from '@/lib/databaseSwitcher';
+import { remoteStorage } from '@/lib/remoteStorage';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('videos');
+  const [storageType, setStorageType] = useState(remoteStorage.getConfig().type);
 
   useEffect(() => {
     loadEntries();
-  }, []);
+  }, [storageType]);
 
-  const loadEntries = () => {
+  // Listen for storage type changes to reload entries
+  useEffect(() => {
+    const storageListener = () => {
+      const newConfig = remoteStorage.getConfig();
+      if (newConfig.type !== storageType) {
+        setStorageType(newConfig.type);
+      }
+    };
+
+    window.addEventListener('storage', storageListener);
+    return () => window.removeEventListener('storage', storageListener);
+  }, [storageType]);
+
+  const loadEntries = async () => {
     setIsLoading(true);
-    const allEntries = videoDB.getAllEntries();
-    // Sort by date (newest first)
-    allEntries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-    setEntries(allEntries);
-    setIsLoading(false);
+    try {
+      const db = databaseSwitcher.getDatabase();
+      let allEntries;
+      
+      if (db.getAllEntries.constructor.name === 'AsyncFunction') {
+        // Handle async getAllEntries for Supabase
+        allEntries = await db.getAllEntries();
+      } else {
+        // Handle sync getAllEntries for local storage
+        allEntries = db.getAllEntries();
+      }
+      
+      // Sort by date (newest first)
+      allEntries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      setEntries(allEntries);
+      
+      console.log('Loaded entries from database:', allEntries.length, 'entries');
+    } catch (error) {
+      console.error('Error loading entries:', error);
+      toast.error('Failed to load videos');
+      setEntries([]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const handleApproveToggle = async (entry: VideoEntry) => {
     try {
-      const updatedEntry = videoDB.setApprovalStatus(entry.id, !entry.admin_approved);
+      const db = databaseSwitcher.getDatabase();
+      const updatedEntry = await db.setApprovalStatus(entry.id, !entry.admin_approved);
+      
       if (updatedEntry) {
         setEntries(entries.map(e => e.id === entry.id ? updatedEntry : e));
         toast.success(`Video ${updatedEntry.admin_approved ? 'approved' : 'unapproved'} successfully`);
@@ -46,7 +83,9 @@ const Admin: React.FC = () => {
     }
 
     try {
-      const success = await videoDB.deleteEntry(entry.id);
+      const db = databaseSwitcher.getDatabase();
+      const success = await db.deleteEntry(entry.id);
+      
       if (success) {
         setEntries(entries.filter(e => e.id !== entry.id));
         toast.success('Video deleted successfully');
@@ -65,7 +104,8 @@ const Admin: React.FC = () => {
     }
 
     try {
-      await videoDB.clearAllEntries();
+      const db = databaseSwitcher.getDatabase();
+      await db.clearAllEntries();
       setEntries([]);
       toast.success('All videos deleted successfully');
     } catch (error) {
@@ -96,15 +136,24 @@ const Admin: React.FC = () => {
           <TabsContent value="videos">
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-2xl font-semibold">All Videos</h2>
-              {entries.length > 0 && (
+              <div className="flex gap-2">
                 <Button 
-                  variant="destructive" 
-                  onClick={handleClearAll}
+                  variant="outline" 
+                  onClick={loadEntries}
                   size="sm"
                 >
-                  Delete All
+                  Refresh
                 </Button>
-              )}
+                {entries.length > 0 && (
+                  <Button 
+                    variant="destructive" 
+                    onClick={handleClearAll}
+                    size="sm"
+                  >
+                    Delete All
+                  </Button>
+                )}
+              </div>
             </div>
 
             {isLoading ? (
@@ -173,7 +222,7 @@ const Admin: React.FC = () => {
 
           <TabsContent value="settings">
             <h2 className="text-2xl font-semibold mb-6">Application Settings</h2>
-            <StorageSettings />
+            <StorageSettings onSettingsSaved={loadEntries} />
           </TabsContent>
         </Tabs>
       </main>
