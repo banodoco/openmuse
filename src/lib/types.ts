@@ -20,7 +20,7 @@ export interface VideoFile {
   blob: Blob;
 }
 
-// Storage configuration options (simplified to only have supabase)
+// Storage configuration options (simplified)
 export interface StorageConfig {
   type: 'supabase';
 }

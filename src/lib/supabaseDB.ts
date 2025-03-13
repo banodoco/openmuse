@@ -1,7 +1,5 @@
-
 import { supabase } from './supabase';
 import { VideoEntry } from './types';
-import { videoStorage } from './storage';
 import { remoteStorage } from './remoteStorage';
 
 class SupabaseVideoDatabase {
@@ -31,31 +29,20 @@ class SupabaseVideoDatabase {
   async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
     let videoLocation = entry.video_location;
     
-    // If it's a blob URL, fetch the blob and save it
+    // If it's a blob URL, fetch the blob and upload it
     if (entry.video_location.startsWith('blob:')) {
       try {
         const response = await fetch(entry.video_location);
         const blob = await response.blob();
-        const fileName = `video_${Date.now()}.webm`;
         
-        // Upload to Supabase Storage
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from('videos')
-          .upload(fileName, blob, {
-            contentType: 'video/webm',
-            upsert: true
-          });
+        // Create a VideoFile object
+        const videoFile = {
+          id: `video_${Date.now()}`,
+          blob
+        };
         
-        if (storageError) {
-          throw storageError;
-        }
-        
-        // Get the public URL
-        const { data: urlData } = supabase.storage
-          .from('videos')
-          .getPublicUrl(fileName);
-        
-        videoLocation = urlData.publicUrl;
+        // Upload using remoteStorage
+        videoLocation = await remoteStorage.uploadVideo(videoFile);
         this.log(`Saved video to Supabase Storage: ${videoLocation}`);
       } catch (error) {
         this.error('Failed to save video to Supabase Storage:', error);
@@ -64,18 +51,13 @@ class SupabaseVideoDatabase {
     }
     
     try {
-      // Get the current user if available
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData?.user?.id;
-      
       // Insert into database
       const { data, error } = await supabase
         .from('video_entries')
         .insert({
           reviewer_name: entry.reviewer_name,
           video_location: videoLocation,
-          skipped: entry.skipped,
-          user_id: userId
+          skipped: entry.skipped || false
         })
         .select()
         .single();

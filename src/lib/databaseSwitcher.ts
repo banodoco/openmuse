@@ -1,9 +1,8 @@
 
 import { supabaseDB } from './supabaseDB';
 
-// A wrapper that always uses Supabase database
+// A simple database provider that always returns Supabase database
 class DatabaseSwitcher {
-  // Always return the Supabase database
   getDatabase() {
     console.log('Using Supabase database');
     return supabaseDB;
