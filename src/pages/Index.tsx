@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,6 +7,7 @@ import { VideoEntry, RecordedVideo } from '@/lib/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import WebcamRecorder from '@/components/WebcamRecorder';
 import Navigation from '@/components/Navigation';
+import ConsentDialog from '@/components/ConsentDialog';
 import { toast } from 'sonner';
 import { VideoIcon, SkipForward, Loader2, UploadCloud } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -136,6 +138,7 @@ const Index: React.FC = () => {
     <RequireAuth>
       <div className="min-h-screen flex flex-col bg-background animate-fade-in">
         <Navigation />
+        <ConsentDialog />
         
         <main className="flex-1 container max-w-5xl py-8 px-4">
           {userProfile && (

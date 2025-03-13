@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -6,45 +5,23 @@ import { signInWithDiscord, getCurrentUser } from '@/lib/auth';
 import { toast } from 'sonner';
 import Navigation from '@/components/Navigation';
 import { supabase } from '@/lib/supabase';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Checkbox } from '@/components/ui/checkbox';
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
-  const [hasAcknowledged, setHasAcknowledged] = useState(false);
-  const [showConsent, setShowConsent] = useState(false);
-  
-  // Check if user has already acknowledged the data sharing notice
-  useEffect(() => {
-    const hasUserAcknowledged = localStorage.getItem('video_upload_consent') === 'true';
-    setHasAcknowledged(hasUserAcknowledged);
-    setShowConsent(!hasUserAcknowledged);
-  }, []);
-  
-  // Handle acknowledgment checkbox
-  const handleAcknowledgment = (checked: boolean) => {
-    setHasAcknowledged(checked);
-    if (checked) {
-      localStorage.setItem('video_upload_consent', 'true');
-    }
-  };
   
   // Handle authentication from hash fragment (for OAuth redirects)
   useEffect(() => {
     const handleHashRedirect = async () => {
-      // Check if we have a hash with access token
       if (window.location.hash && window.location.hash.includes('access_token')) {
         try {
           console.log('Processing auth hash...');
-          // Convert hash parameters to a session
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           const accessToken = hashParams.get('access_token');
           const refreshToken = hashParams.get('refresh_token');
           
           if (accessToken && refreshToken) {
-            // Use the tokens to set the session
             const { data, error } = await supabase.auth.setSession({
               access_token: accessToken,
               refresh_token: refreshToken
@@ -55,19 +32,12 @@ const Auth: React.FC = () => {
             }
             
             if (data.session) {
-              // Get the return URL from storage or query string or default to '/'
               let returnUrl = '/';
               
-              // Check if we saved an actual origin during sign-in
               const actualOrigin = localStorage.getItem('actual_auth_origin');
               if (actualOrigin) {
-                // We were redirected to localhost, but we need to navigate to the actual origin
-                console.log('Detected localhost redirect, navigating to saved origin...');
-                
-                // Clear the stored origin
                 localStorage.removeItem('actual_auth_origin');
                 
-                // If we have a returnUrl in the query string, use it
                 const searchParams = new URLSearchParams(location.search);
                 const queryReturnUrl = searchParams.get('returnUrl');
                 
@@ -77,11 +47,9 @@ const Auth: React.FC = () => {
                 
                 toast.success('Successfully signed in with Discord!');
                 
-                // Create the URL to redirect back to our actual app with the user logged in
                 window.location.href = `${actualOrigin}${returnUrl}`;
                 return;
               } else {
-                // Normal case where we're not being redirected to localhost
                 const searchParams = new URLSearchParams(location.search);
                 returnUrl = searchParams.get('returnUrl') || '/';
                 
@@ -106,7 +74,6 @@ const Auth: React.FC = () => {
     const checkSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
-        // Get the return URL from the query string or default to '/'
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
         navigate(returnUrl);
@@ -115,10 +82,8 @@ const Auth: React.FC = () => {
     
     checkSession();
     
-    // Listen for auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (session) {
-        // Get the return URL from the query string or default to '/'
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
         navigate(returnUrl);
@@ -154,33 +119,10 @@ const Auth: React.FC = () => {
             </p>
           </div>
           
-          {showConsent && (
-            <Alert className="my-4 bg-amber-50 border-amber-200">
-              <AlertDescription className="space-y-4">
-                <p className="text-amber-800">
-                  All videos you upload will be shared publicly as part of a dataset.
-                </p>
-                <div className="flex items-center space-x-2">
-                  <Checkbox
-                    id="consent"
-                    checked={hasAcknowledged}
-                    onCheckedChange={handleAcknowledgment}
-                  />
-                  <label
-                    htmlFor="consent"
-                    className="text-sm font-medium cursor-pointer"
-                  >
-                    I know
-                  </label>
-                </div>
-              </AlertDescription>
-            </Alert>
-          )}
-          
           <Button
             className="w-full flex items-center justify-center gap-2"
             onClick={handleDiscordSignIn}
-            disabled={isLoading || (showConsent && !hasAcknowledged)}
+            disabled={isLoading}
           >
             {isLoading ? (
               <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
