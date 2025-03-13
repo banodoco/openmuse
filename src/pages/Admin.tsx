@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -37,32 +38,43 @@ const Admin: React.FC = () => {
   const applyFilters = () => {
     let filtered = [...entries];
     
-    filtered = filtered.filter(entry => {
-      const approvalMatch = 
-        (showApproved && entry.admin_approved) || 
-        (showUnapproved && !entry.admin_approved);
+    // Filter by approval status (approved OR unapproved)
+    if (showApproved && !showUnapproved) {
+      filtered = filtered.filter(entry => entry.admin_approved === true);
+    } else if (!showApproved && showUnapproved) {
+      filtered = filtered.filter(entry => entry.admin_approved === false);
+    } else if (!showApproved && !showUnapproved) {
+      // If neither approval option is selected, show nothing
+      filtered = [];
+    }
+    
+    // Then filter by response status
+    if (filtered.length > 0) {
+      const tempFiltered: VideoEntry[] = [];
       
-      if (!approvalMatch) return false;
+      // Add entries that match response criteria
+      filtered.forEach(entry => {
+        const hasResponse = Boolean(entry.acting_video_location);
+        const isSkipped = entry.skipped;
+        
+        if ((showResponded && hasResponse) || (showSkipped && isSkipped) || 
+            (showResponded && !hasResponse && !isSkipped)) {
+          tempFiltered.push(entry);
+        }
+      });
       
-      const hasResponse = Boolean(entry.acting_video_location);
-      const isSkipped = entry.skipped;
-      const isWaiting = !hasResponse && !isSkipped;
-      
-      const responseMatch = 
-        (showResponded && hasResponse) ||
-        (showSkipped && isSkipped) ||
-        (!showResponded && !showSkipped) ||
-        (showResponded && showSkipped);
-      
-      return approvalMatch && responseMatch;
-    });
+      filtered = tempFiltered;
+    }
     
     setFilteredEntries(filtered);
     console.log('Filtered entries:', filtered.length, 'Filters:', { 
       showApproved, 
       showUnapproved, 
       showResponded, 
-      showSkipped 
+      showSkipped,
+      "entries with approved=true": entries.filter(e => e.admin_approved === true).length,
+      "entries with skipped=true": entries.filter(e => e.skipped === true).length,
+      "entries with both approved and skipped": entries.filter(e => e.admin_approved === true && e.skipped === true).length
     });
   };
 
