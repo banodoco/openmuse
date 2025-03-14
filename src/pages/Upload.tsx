@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -30,7 +29,7 @@ const Upload: React.FC = () => {
         return;
       }
       
-      setFiles(fileArray);
+      setFiles(prevFiles => [...prevFiles, ...fileArray]);
     }
   }, []);
 
@@ -47,7 +46,7 @@ const Upload: React.FC = () => {
         return;
       }
       
-      setFiles(fileArray);
+      setFiles(prevFiles => [...prevFiles, ...fileArray]);
     }
   }, []);
 
@@ -67,7 +66,6 @@ const Upload: React.FC = () => {
       const db = await databaseSwitcher.getDatabase();
       const userProfile = await getCurrentUserProfile();
       
-      // Use username from profile, or a default if not found
       const reviewerName = userProfile?.username || 'Anonymous User';
       
       for (const file of files) {
@@ -103,6 +101,10 @@ const Upload: React.FC = () => {
   }, [files, navigate]);
 
   const areFilesFilled = files.length > 0;
+
+  const removeFile = (indexToRemove: number) => {
+    setFiles(prevFiles => prevFiles.filter((_, index) => index !== indexToRemove));
+  };
 
   return (
     <RequireAuth>
@@ -148,7 +150,9 @@ const Upload: React.FC = () => {
                           : 'Drag videos here or click to browse'}
                       </h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Upload the videos you want others to respond to
+                        {files.length > 0 
+                          ? 'You can continue to add more videos' 
+                          : 'Upload the videos you want others to respond to'}
                       </p>
                       {!areFilesFilled && (
                         <p className="text-sm text-destructive mt-1 flex items-center gap-1 justify-center">
@@ -179,6 +183,17 @@ const Upload: React.FC = () => {
                         <span className="text-muted-foreground ml-2">
                           {(file.size / (1024 * 1024)).toFixed(2)} MB
                         </span>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="ml-2 h-8 w-8 p-0"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            removeFile(index);
+                          }}
+                        >
+                          <Info className="h-4 w-4" />
+                        </Button>
                       </li>
                     ))}
                   </ul>
