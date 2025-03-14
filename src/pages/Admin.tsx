@@ -13,7 +13,7 @@ import RequireAuth from '@/components/RequireAuth';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { downloadEntriesAsCsv } from '@/lib/csvUtils';
-import { Download, CheckCircle, X, MessageCircle, SkipForward } from 'lucide-react';
+import { Download, CheckCircle, X, MessageCircle, SkipForward, MessageSquareOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 
 const Admin: React.FC = () => {
@@ -27,6 +27,7 @@ const Admin: React.FC = () => {
   const [showUnapproved, setShowUnapproved] = useState(true);
   const [showResponded, setShowResponded] = useState(true);
   const [showSkipped, setShowSkipped] = useState(true);
+  const [showUnresponded, setShowUnresponded] = useState(true);
 
   // Status counts
   const [statusCounts, setStatusCounts] = useState({
@@ -34,6 +35,7 @@ const Admin: React.FC = () => {
     unapproved: 0,
     responded: 0,
     skipped: 0,
+    unresponded: 0,
     total: 0
   });
 
@@ -43,7 +45,7 @@ const Admin: React.FC = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [entries, showApproved, showUnapproved, showResponded, showSkipped]);
+  }, [entries, showApproved, showUnapproved, showResponded, showSkipped, showUnresponded]);
 
   const applyFilters = () => {
     // Count entries by status for statistics
@@ -52,12 +54,13 @@ const Admin: React.FC = () => {
       unapproved: 0,
       responded: 0,
       skipped: 0,
+      unresponded: 0,
       total: entries.length
     };
     
     const filtered = entries.filter(entry => {
       // Determine the single status for this entry
-      let status: 'approved' | 'skipped' | 'responded' | 'unapproved';
+      let status: 'approved' | 'skipped' | 'responded' | 'unapproved' | 'unresponded';
       
       // Approved takes highest priority
       if (entry.admin_approved) {
@@ -74,7 +77,12 @@ const Admin: React.FC = () => {
         status = 'responded';
         counts.responded++;
       }
-      // Finally Unapproved (default state)
+      // Then Unresponded (no response video yet and not approved/skipped)
+      else if (!entry.acting_video_location && !entry.admin_approved && !entry.skipped) {
+        status = 'unresponded';
+        counts.unresponded++;
+      }
+      // Finally Unapproved (default state for anything that doesn't fit above)
       else {
         status = 'unapproved';
         counts.unapproved++;
@@ -85,7 +93,8 @@ const Admin: React.FC = () => {
         (status === 'approved' && showApproved) ||
         (status === 'unapproved' && showUnapproved) ||
         (status === 'responded' && showResponded) ||
-        (status === 'skipped' && showSkipped)
+        (status === 'skipped' && showSkipped) ||
+        (status === 'unresponded' && showUnresponded)
       );
     });
     
@@ -95,7 +104,8 @@ const Admin: React.FC = () => {
       showApproved, 
       showUnapproved, 
       showResponded, 
-      showSkipped
+      showSkipped,
+      showUnresponded
     });
   };
 
@@ -193,10 +203,10 @@ const Admin: React.FC = () => {
   };
 
   const getEntryStatus = (entry: VideoEntry): {
-    status: 'approved' | 'skipped' | 'responded' | 'unapproved',
+    status: 'approved' | 'skipped' | 'responded' | 'unapproved' | 'unresponded',
     label: string,
     icon: React.ReactNode,
-    variant: 'default' | 'secondary' | 'destructive' | 'outline'
+    variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'warning'
   } => {
     if (entry.admin_approved) {
       return {
@@ -218,6 +228,13 @@ const Admin: React.FC = () => {
         label: 'Responded',
         icon: <MessageCircle className="h-3 w-3 mr-1" />,
         variant: 'outline'
+      };
+    } else if (!entry.acting_video_location && !entry.admin_approved && !entry.skipped) {
+      return {
+        status: 'unresponded',
+        label: 'Unresponded',
+        icon: <MessageSquareOff className="h-3 w-3 mr-1" />,
+        variant: 'warning'
       };
     } else {
       return {
@@ -304,6 +321,14 @@ const Admin: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox 
+                    id="filter-unresponded" 
+                    checked={showUnresponded} 
+                    onCheckedChange={(checked) => setShowUnresponded(checked as boolean)} 
+                  />
+                  <Label htmlFor="filter-unresponded">Unresponded</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
                     id="filter-skipped" 
                     checked={showSkipped} 
                     onCheckedChange={(checked) => setShowSkipped(checked as boolean)} 
@@ -334,6 +359,12 @@ const Admin: React.FC = () => {
                     <span className="flex items-center">
                       <MessageCircle className="h-3 w-3 mr-1 text-muted-foreground" />
                       {statusCounts.responded} responded
+                    </span>
+                  )}
+                  {showUnresponded && (
+                    <span className="flex items-center">
+                      <MessageSquareOff className="h-3 w-3 mr-1 text-amber-500" />
+                      {statusCounts.unresponded} unresponded
                     </span>
                   )}
                   {showSkipped && (
