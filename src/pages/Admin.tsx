@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -206,7 +205,7 @@ const Admin: React.FC = () => {
     status: 'approved' | 'skipped' | 'responded' | 'unapproved' | 'unresponded',
     label: string,
     icon: React.ReactNode,
-    variant: 'default' | 'secondary' | 'destructive' | 'outline' | 'warning'
+    variant: 'default' | 'secondary' | 'destructive' | 'outline'
   } => {
     if (entry.admin_approved) {
       return {
@@ -234,7 +233,7 @@ const Admin: React.FC = () => {
         status: 'unresponded',
         label: 'Unresponded',
         icon: <MessageSquareOff className="h-3 w-3 mr-1" />,
-        variant: 'warning'
+        variant: 'secondary'
       };
     } else {
       return {
