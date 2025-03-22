@@ -1,6 +1,6 @@
 
 import React, { useEffect, useState } from 'react';
-import { videoDB } from '@/lib/db';
+import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import VideoPlayer from './VideoPlayer';
 
 interface StorageVideoPlayerProps {
@@ -32,8 +32,11 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
         setLoading(true);
         setError(null);
         
+        // Get database instance
+        const db = await databaseSwitcher.getDatabase();
+        
         // Get the actual URL for the video
-        const url = await videoDB.getVideoUrl(videoLocation);
+        const url = await db.getVideoUrl(videoLocation);
         
         if (isMounted) {
           if (url) {
