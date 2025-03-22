@@ -14,6 +14,9 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('AuthButton');
 
 const AuthButton: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
@@ -27,7 +30,7 @@ const AuthButton: React.FC = () => {
     // Set up auth state listener FIRST
     subscription = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state change in AuthButton:', event);
+        logger.log('Auth state change in AuthButton:', event);
         
         if (!isActive) return;
         
@@ -37,7 +40,7 @@ const AuthButton: React.FC = () => {
             const profile = await getCurrentUserProfile();
             if (isActive) setUser(profile);
           } catch (error) {
-            console.error('Error loading user profile after auth change:', error);
+            logger.error('Error loading user profile after auth change:', error);
           } finally {
             if (isActive) setIsLoading(false);
           }
@@ -56,20 +59,20 @@ const AuthButton: React.FC = () => {
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Error getting session in AuthButton:', error);
+          logger.error('Error getting session in AuthButton:', error);
           if (isActive) setIsLoading(false);
           return;
         }
         
         if (session?.user) {
-          console.log('AuthButton: Session found, loading profile');
+          logger.log('AuthButton: Session found, loading profile');
           const profile = await getCurrentUserProfile();
           if (isActive) setUser(profile);
         } else {
-          console.log('AuthButton: No session found');
+          logger.log('AuthButton: No session found');
         }
       } catch (error) {
-        console.error('Error loading user profile:', error);
+        logger.error('Error loading user profile:', error);
       } finally {
         if (isActive) setIsLoading(false);
       }
@@ -78,7 +81,7 @@ const AuthButton: React.FC = () => {
     loadUserProfile();
     
     return () => {
-      console.log('AuthButton: Cleaning up');
+      logger.log('AuthButton: Cleaning up');
       isActive = false;
       if (subscription) subscription.unsubscribe();
     };
@@ -95,7 +98,7 @@ const AuthButton: React.FC = () => {
       setUser(null);
       navigate('/');
     } catch (error) {
-      console.error('Error signing out:', error);
+      logger.error('Error signing out:', error);
     } finally {
       setIsLoading(false);
     }
@@ -125,15 +128,21 @@ const AuthButton: React.FC = () => {
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2 border-2 shadow-sm hover:bg-secondary"
+        >
           <User className="h-4 w-4" />
           {user.username || 'User'}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
+      <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuLabel>My Account</DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem onClick={handleSignOut} className="text-destructive">
+        <DropdownMenuItem 
+          onClick={handleSignOut} 
+          className="text-destructive flex items-center cursor-pointer font-medium hover:bg-destructive/10"
+        >
           <LogOut className="h-4 w-4 mr-2" />
           Sign Out
         </DropdownMenuItem>
