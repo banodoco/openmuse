@@ -10,6 +10,7 @@ import Admin from "./pages/Admin";
 import Auth from "./pages/Auth";
 import AuthCallback from "./pages/AuthCallback";
 import NotFound from "./pages/NotFound";
+import VideoPage from "./pages/VideoPage";
 import { useEffect } from "react";
 import { migrateExistingVideos } from "./lib/migrationUtil";
 
@@ -35,6 +36,7 @@ const App = () => {
             <Route path="/admin" element={<Admin />} />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/assets/loras/:id" element={<VideoPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

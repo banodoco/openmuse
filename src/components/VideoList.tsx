@@ -4,7 +4,8 @@ import { VideoEntry } from '@/lib/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
-import { MessageSquareText, VideoIcon } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { MessageSquareText, VideoIcon, ExternalLink } from 'lucide-react';
 
 interface VideoListProps {
   videos: VideoEntry[];
@@ -41,13 +42,23 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onSelectVideo }) => {
                 <span className="font-medium">{video.reviewer_name}</span>
               </div>
             </CardContent>
-            <CardFooter className="pt-0 pb-4">
+            <CardFooter className="pt-0 pb-4 flex gap-2">
               <Button 
                 onClick={() => onSelectVideo(video)} 
-                className="w-full gap-2"
+                className="flex-1 gap-2"
               >
                 <MessageSquareText className="h-4 w-4" />
                 Respond
+              </Button>
+              <Button 
+                variant="outline"
+                asChild
+                className="gap-2"
+              >
+                <Link to={`/assets/loras/${video.id}`}>
+                  <ExternalLink className="h-4 w-4" />
+                  View
+                </Link>
               </Button>
             </CardFooter>
           </Card>
