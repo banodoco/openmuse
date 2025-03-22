@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { VideoEntry } from './types';
 import { remoteStorage } from './remoteStorage';

@@ -11,7 +11,7 @@ class DatabaseSwitcher {
       
       // Log current session status directly
       const { data: { session } } = await supabase.auth.getSession();
-      console.log(`DatabaseSwitcher: Direct session check: ${session?.user ? 'Authenticated' : 'Not authenticated'}`);
+      console.log(`DatabaseSwitcher: Direct session check: ${session?.user ? 'Authenticated as ' + session.user.id : 'Not authenticated'}`);
       
       // Get the current user
       const user = await getCurrentUser();
