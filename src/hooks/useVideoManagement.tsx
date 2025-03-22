@@ -3,6 +3,7 @@ import { useState, useCallback, useEffect } from 'react';
 import { VideoEntry, RecordedVideo } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { toast } from 'sonner';
+import { getCurrentUser } from '@/lib/auth';
 
 export const useVideoManagement = () => {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
@@ -10,19 +11,38 @@ export const useVideoManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
   const [noVideosAvailable, setNoVideosAvailable] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
+
+  // First check if user is authenticated
+  useEffect(() => {
+    const checkUser = async () => {
+      try {
+        const user = await getCurrentUser();
+        setUserId(user?.id || null);
+      } catch (error) {
+        console.error("Error checking user:", error);
+        setUserId(null);
+      }
+    };
+    
+    checkUser();
+  }, []);
 
   const loadAllPendingVideos = useCallback(async () => {
     setIsLoading(true);
+    console.log("Loading all pending videos, user ID:", userId);
     
     try {
       const db = await databaseSwitcher.getDatabase();
       const allEntries = await db.getAllEntries();
+      console.log("Loaded entries:", allEntries.length);
       
       // Filter for pending entries (no acting video and not skipped)
       const pendingEntries = allEntries.filter(
         entry => !entry.acting_video_location && !entry.skipped
       );
       
+      console.log("Pending entries:", pendingEntries.length);
       setVideos(pendingEntries);
       
       if (pendingEntries.length === 0) {
@@ -30,14 +50,13 @@ export const useVideoManagement = () => {
       } else {
         setNoVideosAvailable(false);
       }
-      
-      setIsLoading(false);
     } catch (error) {
       console.error("Error loading videos:", error);
       toast.error("Error loading videos. Please try again.");
+    } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userId]);
 
   useEffect(() => {
     loadAllPendingVideos();

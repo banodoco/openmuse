@@ -1,4 +1,3 @@
-
 import { supabase } from './supabase';
 import { UserProfile, UserRole } from './types';
 
@@ -39,14 +38,19 @@ export const signOut = async () => {
 };
 
 export const getCurrentUser = async () => {
-  const { data: { session }, error } = await supabase.auth.getSession();
-  
-  if (error) {
-    console.error('Error getting session:', error);
-    throw error;
+  try {
+    const { data: { session }, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Error getting session:', error);
+      return null;
+    }
+    
+    return session?.user || null;
+  } catch (error) {
+    console.error('Error in getCurrentUser:', error);
+    return null;
   }
-  
-  return session?.user || null;
 };
 
 export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {

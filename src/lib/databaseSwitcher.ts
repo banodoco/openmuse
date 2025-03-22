@@ -19,6 +19,7 @@ class DatabaseSwitcher {
       }
     } catch (error) {
       console.error('Error getting current user:', error);
+      supabaseDB.setCurrentUserId(null);
     }
     
     return supabaseDB;

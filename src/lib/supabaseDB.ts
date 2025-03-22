@@ -1,3 +1,4 @@
+
 import { supabase } from './supabase';
 import { VideoEntry } from './types';
 import { remoteStorage } from './remoteStorage';
@@ -15,17 +16,19 @@ class SupabaseVideoDatabase {
   
   async getAllEntries(): Promise<VideoEntry[]> {
     try {
+      this.log("Getting all entries from Supabase");
       const { data, error } = await supabase
         .from('video_entries')
         .select('*')
         .order('created_at', { ascending: false });
       
       if (error) {
+        this.error('Error getting entries from Supabase:', error);
         throw error;
       }
       
-      this.log(`Retrieved ${data.length} entries from Supabase`);
-      return data as VideoEntry[];
+      this.log(`Retrieved ${data?.length || 0} entries from Supabase`);
+      return data as VideoEntry[] || [];
     } catch (error) {
       this.error('Error getting entries from Supabase:', error);
       return [];
