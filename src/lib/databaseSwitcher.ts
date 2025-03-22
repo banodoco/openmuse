@@ -1,8 +1,9 @@
 
 import { supabaseDB } from './supabaseDB';
-import { getCurrentUser } from './auth';
+import { getCurrentUser, signOut } from './auth';
 import { supabase } from './supabase';
 import { Logger } from './logger';
+import { toast } from 'sonner';
 
 // A database provider that always returns Supabase database
 class DatabaseSwitcher {
@@ -10,6 +11,8 @@ class DatabaseSwitcher {
   private isCheckingAuth = false;
   private lastAuthCheck = 0;
   private authCheckCooldown = 5000; // 5 seconds cooldown between checks
+  private lastInvalidUserCheck = 0;
+  private invalidUserCheckCooldown = 30000; // 30 seconds between checking if user is still valid
   
   async getDatabase() {
     try {
@@ -36,8 +39,32 @@ class DatabaseSwitcher {
         }
         
         if (data.session?.user) {
-          this.logger.log(`User authenticated from session, ID: ${data.session.user.id}`);
-          supabaseDB.setCurrentUserId(data.session.user.id);
+          const userId = data.session.user.id;
+          this.logger.log(`User authenticated from session, ID: ${userId}`);
+          
+          // Periodically check if the user still exists in the database
+          if (now - this.lastInvalidUserCheck > this.invalidUserCheckCooldown) {
+            this.lastInvalidUserCheck = now;
+            this.logger.log("Validating user still exists in database");
+            
+            const { data: userExists, error: userCheckError } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('id', userId)
+              .single();
+            
+            if (userCheckError || !userExists) {
+              this.logger.error("User no longer exists in database:", userCheckError || "No profile found");
+              toast.error("Your session is no longer valid. Please sign in again.");
+              await signOut();
+              supabaseDB.setCurrentUserId(null);
+              return supabaseDB;
+            }
+            
+            this.logger.log("User validation successful");
+          }
+          
+          supabaseDB.setCurrentUserId(userId);
         } else {
           this.logger.log('Not authenticated, using anonymous access');
           supabaseDB.setCurrentUserId(null);

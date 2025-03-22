@@ -2,6 +2,7 @@
 import { supabase } from './supabase';
 import { UserProfile, UserRole } from './types';
 import { Logger } from './logger';
+import { toast } from 'sonner';
 
 const logger = new Logger('Auth');
 
@@ -46,6 +47,11 @@ export const signOut = async () => {
   
   // Clear any cached session data
   sessionStorage.clear();
+  localStorage.removeItem('sb-ujlwuvkrxlvoswwkerdf-auth-token');
+  
+  // Clear caches
+  userProfileCache.clear();
+  userRolesCache.clear();
   
   // Give the system time to process the sign out event
   await new Promise(resolve => setTimeout(resolve, 100));
@@ -61,13 +67,33 @@ export const getCurrentUser = async () => {
       return null;
     }
     
-    if (session?.user) {
-      logger.log('User found in session:', session.user.id);
-    } else {
+    if (!session?.user) {
       logger.log('No user in session');
+      return null;
     }
     
-    return session?.user || null;
+    // Check if user still exists in the database
+    const userId = session.user.id;
+    logger.log('User found in session:', userId);
+    
+    // Verify the user still exists
+    const { data: userExists, error: userCheckError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('id', userId)
+      .single();
+    
+    if (userCheckError || !userExists) {
+      logger.error('User no longer exists in database:', userCheckError || 'No profile found');
+      logger.log('Signing out invalid user');
+      
+      // Sign the user out as they no longer exist in the database
+      toast.error('Your session is no longer valid. Please sign in again.');
+      await signOut();
+      return null;
+    }
+    
+    return session.user;
   } catch (error) {
     logger.error('Error in getCurrentUser:', error);
     return null;
@@ -79,22 +105,23 @@ const userProfileCache = new Map<string, {profile: UserProfile | null, timestamp
 const PROFILE_CACHE_TTL = 60000; // 1 minute
 
 export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
-  const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-  
-  if (sessionError || !session) {
-    return null;
-  }
-  
-  const userId = session.user.id;
-  
-  // Check cache first
-  const now = Date.now();
-  const cachedData = userProfileCache.get(userId);
-  if (cachedData && now - cachedData.timestamp < PROFILE_CACHE_TTL) {
-    return cachedData.profile;
-  }
-  
   try {
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (sessionError || !session) {
+      return null;
+    }
+    
+    const userId = session.user.id;
+    
+    // Check cache first
+    const now = Date.now();
+    const cachedData = userProfileCache.get(userId);
+    if (cachedData && now - cachedData.timestamp < PROFILE_CACHE_TTL) {
+      return cachedData.profile;
+    }
+    
+    // Check if user still exists in database
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -103,6 +130,14 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
     
     if (error) {
       logger.error('Error getting user profile:', error);
+      
+      // If user profile doesn't exist, sign them out
+      if (error.code === 'PGRST116') {
+        logger.log('User profile not found, signing out');
+        toast.error('Your account information could not be found. Please sign in again.');
+        await signOut();
+      }
+      
       userProfileCache.set(userId, {profile: null, timestamp: now});
       return null;
     }
@@ -111,7 +146,7 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
     return data as UserProfile;
   } catch (error) {
     logger.error('Error in getCurrentUserProfile:', error);
-    userProfileCache.set(userId, {profile: null, timestamp: now});
+    userProfileCache.clear();
     return null;
   }
 };

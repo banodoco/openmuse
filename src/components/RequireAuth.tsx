@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { checkIsAdmin } from '@/lib/auth';
+import { checkIsAdmin, getCurrentUser, signOut } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -26,6 +26,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
 
   useEffect(() => {
     let isActive = true;
+    let authCheckTimeout: NodeJS.Timeout | null = null;
     let subscription: { unsubscribe: () => void; } | null = null;
     
     // Always skip checking for special paths to prevent loops
@@ -41,6 +42,62 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       return () => {}; // Empty cleanup for skipped routes
     }
     
+    // Set up auth state listener FIRST
+    subscription = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        logger.log('Auth state changed in RequireAuth:', event, session?.user?.id);
+        
+        if (!isActive) return;
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          try {
+            const user = session?.user;
+            if (user) {
+              // Check if user still exists in database
+              const { data: userExists, error: userCheckError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', user.id)
+                .single();
+              
+              if (userCheckError || !userExists) {
+                logger.error('User no longer exists in database, signing out');
+                toast.error('Your session is no longer valid. Please sign in again.');
+                await signOut();
+                if (isActive) {
+                  setIsAuthorized(allowUnauthenticated);
+                  setIsChecking(false);
+                }
+                return;
+              }
+              
+              if (requireAdmin) {
+                const isAdmin = await checkIsAdmin(user.id);
+                if (!isAdmin) {
+                  logger.log('User is not an admin');
+                  toast.error('You do not have admin access');
+                }
+                if (isActive) setIsAuthorized(isAdmin);
+              } else {
+                if (isActive) setIsAuthorized(true);
+              }
+            }
+          } catch (error) {
+            logger.error('Error in auth state change handler:', error);
+            if (isActive) setIsAuthorized(allowUnauthenticated);
+          } finally {
+            if (isActive) setIsChecking(false);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          if (isActive) {
+            setIsAuthorized(allowUnauthenticated);
+            setIsChecking(false);
+          }
+        }
+      }
+    ).data.subscription;
+    
+    // THEN check for existing session with a timeout to avoid hanging
     const checkAuth = async () => {
       try {
         if (!isActive) return;
@@ -56,62 +113,60 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
           return;
         }
         
-        // Get current session directly with a small timeout to avoid race conditions
-        setTimeout(async () => {
-          try {
-            const { data: { session }, error } = await supabase.auth.getSession();
+        // Get current session with a timeout to avoid hanging
+        authCheckTimeout = setTimeout(() => {
+          if (isActive && isChecking) {
+            logger.error('Auth check timed out, allowing access based on unauthenticated setting');
+            setIsAuthorized(allowUnauthenticated);
+            setIsChecking(false);
+          }
+        }, 5000); // 5 second timeout for auth check
+        
+        try {
+          const user = await getCurrentUser();
+          
+          if (!user) {
+            logger.log('RequireAuth: No user found in session');
             
-            if (error) {
-              logger.error('RequireAuth: Error getting session:', error);
-              if (isActive) {
-                setIsAuthorized(allowUnauthenticated);
-                setIsChecking(false);
-              }
-              return;
-            }
-            
-            const user = session?.user || null;
-            
-            if (!user) {
-              logger.log('RequireAuth: No user found in session');
-              
-              if (allowUnauthenticated) {
-                logger.log('RequireAuth: Allowing unauthenticated access');
-                if (isActive) setIsAuthorized(true);
-              } else {
-                logger.log('RequireAuth: Not authorized, will redirect to auth');
-                if (isActive) setIsAuthorized(false);
-              }
-              
-              if (isActive) setIsChecking(false);
-              return;
-            }
-            
-            logger.log('RequireAuth: User found in session:', user.id);
-            
-            if (requireAdmin) {
-              logger.log('RequireAuth: Admin check required');
-              const isAdmin = await checkIsAdmin(user.id);
-              
-              if (!isAdmin) {
-                logger.log('RequireAuth: User is not an admin');
-                toast.error('You do not have admin access');
-              }
-              
-              if (isActive) setIsAuthorized(isAdmin);
-            } else {
+            if (allowUnauthenticated) {
+              logger.log('RequireAuth: Allowing unauthenticated access');
               if (isActive) setIsAuthorized(true);
+            } else {
+              logger.log('RequireAuth: Not authorized, will redirect to auth');
+              if (isActive) setIsAuthorized(false);
             }
             
             if (isActive) setIsChecking(false);
-          } catch (error) {
-            logger.error('RequireAuth: Error in delayed auth check:', error);
-            if (isActive) {
-              setIsAuthorized(allowUnauthenticated);
-              setIsChecking(false);
-            }
+            return;
           }
-        }, 100); // Small delay to help avoid race conditions
+          
+          logger.log('RequireAuth: User found in session:', user.id);
+          
+          if (requireAdmin) {
+            logger.log('RequireAuth: Admin check required');
+            const isAdmin = await checkIsAdmin(user.id);
+            
+            if (!isAdmin) {
+              logger.log('RequireAuth: User is not an admin');
+              toast.error('You do not have admin access');
+            }
+            
+            if (isActive) setIsAuthorized(isAdmin);
+          } else {
+            if (isActive) setIsAuthorized(true);
+          }
+        } catch (error) {
+          logger.error('RequireAuth: Error in auth check:', error);
+          if (isActive) setIsAuthorized(allowUnauthenticated);
+        } finally {
+          // Clear timeout if auth check completes
+          if (authCheckTimeout) {
+            clearTimeout(authCheckTimeout);
+            authCheckTimeout = null;
+          }
+          
+          if (isActive) setIsChecking(false);
+        }
       } catch (error) {
         logger.error('RequireAuth: Error checking authorization:', error);
         if (isActive) {
@@ -121,43 +176,14 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       }
     };
     
-    // Only set up auth state listener for non-skipped paths
-    if (!shouldSkipCheck) {
-      subscription = supabase.auth.onAuthStateChange(
-        async (event, session) => {
-          logger.log('Auth state changed in RequireAuth:', event, session?.user?.id);
-          
-          if (!isActive) return;
-          
-          // For auth events, update auth state
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-            if (requireAdmin) {
-              const user = session?.user;
-              if (user) {
-                const isAdmin = await checkIsAdmin(user.id);
-                if (isActive) setIsAuthorized(isAdmin);
-              }
-            } else {
-              if (isActive) setIsAuthorized(true);
-            }
-            if (isActive) setIsChecking(false);
-          } else if (event === 'SIGNED_OUT') {
-            if (isActive) {
-              setIsAuthorized(allowUnauthenticated);
-              setIsChecking(false);
-            }
-          }
-        }
-      ).data.subscription;
-    }
-    
-    // Then check auth status
+    // Run auth check
     checkAuth();
     
     return () => {
       logger.log('RequireAuth: Cleaning up');
       isActive = false;
       if (subscription) subscription.unsubscribe();
+      if (authCheckTimeout) clearTimeout(authCheckTimeout);
     };
   }, [requireAdmin, allowUnauthenticated, location.pathname]);
 
