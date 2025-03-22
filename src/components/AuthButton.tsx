@@ -1,12 +1,11 @@
 
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { signInWithDiscord, signOut, getCurrentUserProfile } from '@/lib/auth';
+import { signOut, getCurrentUserProfile } from '@/lib/auth';
 import { useNavigate } from 'react-router-dom';
 import { UserProfile } from '@/lib/types';
 import { supabase } from '@/lib/supabase';
 import { LogOut, LogIn, User } from 'lucide-react';
-import { toast } from 'sonner';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -19,7 +18,6 @@ import {
 const AuthButton: React.FC = () => {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isAuthLoading, setIsAuthLoading] = useState(false);
   const navigate = useNavigate();
   
   useEffect(() => {
@@ -53,15 +51,8 @@ const AuthButton: React.FC = () => {
     };
   }, []);
   
-  const handleSignIn = async () => {
-    try {
-      setIsAuthLoading(true);
-      await signInWithDiscord();
-    } catch (error) {
-      console.error('Error signing in with Discord:', error);
-      toast.error('Failed to sign in with Discord');
-      setIsAuthLoading(false);
-    }
+  const handleSignIn = () => {
+    navigate('/auth');
   };
   
   const handleSignOut = async () => {
@@ -87,13 +78,8 @@ const AuthButton: React.FC = () => {
         variant="outline" 
         onClick={handleSignIn}
         className="flex items-center gap-2"
-        disabled={isAuthLoading}
       >
-        {isAuthLoading ? (
-          <div className="animate-spin h-4 w-4 border-2 border-primary border-t-transparent rounded-full" />
-        ) : (
-          <LogIn className="h-4 w-4" />
-        )}
+        <LogIn className="h-4 w-4" />
         Sign In
       </Button>
     );
