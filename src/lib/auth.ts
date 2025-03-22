@@ -8,11 +8,12 @@ export const signInWithDiscord = async () => {
   // If we're in development and using localhost, add a fallback for when
   // Supabase redirects to localhost:3000 instead of our actual URL
   if (!window.location.origin.includes('localhost:3000')) {
-    console.log('Setting up for potential localhost redirect...');
+    console.log('Auth: Setting up for potential localhost redirect...');
     // Store the actual origin to check for it in Auth.tsx
     localStorage.setItem('actual_auth_origin', window.location.origin);
   }
   
+  console.log('Auth: Sign in with Discord, redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'discord',
     options: {
@@ -21,7 +22,7 @@ export const signInWithDiscord = async () => {
   });
   
   if (error) {
-    console.error('Error signing in with Discord:', error);
+    console.error('Auth: Error signing in with Discord:', error);
     throw error;
   }
   
@@ -29,26 +30,36 @@ export const signInWithDiscord = async () => {
 };
 
 export const signOut = async () => {
+  console.log('Auth: Signing out');
   const { error } = await supabase.auth.signOut();
   
   if (error) {
-    console.error('Error signing out:', error);
+    console.error('Auth: Error signing out:', error);
     throw error;
   }
+  
+  console.log('Auth: Sign out successful');
 };
 
 export const getCurrentUser = async () => {
   try {
+    console.log('Auth: Getting current session');
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error) {
-      console.error('Error getting session:', error);
+      console.error('Auth: Error getting session:', error);
       return null;
+    }
+    
+    if (session?.user) {
+      console.log('Auth: User found in session:', session.user.id);
+    } else {
+      console.log('Auth: No user in session');
     }
     
     return session?.user || null;
   } catch (error) {
-    console.error('Error in getCurrentUser:', error);
+    console.error('Auth: Error in getCurrentUser:', error);
     return null;
   }
 };

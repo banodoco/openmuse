@@ -4,6 +4,7 @@ import { VideoEntry, RecordedVideo } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { toast } from 'sonner';
 import { getCurrentUser } from '@/lib/auth';
+import { supabase } from '@/lib/supabase';
 
 export const useVideoManagement = () => {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
@@ -17,41 +18,64 @@ export const useVideoManagement = () => {
   useEffect(() => {
     const checkUser = async () => {
       try {
+        console.log("useVideoManagement: Checking current user");
         const user = await getCurrentUser();
+        console.log("useVideoManagement: Current user:", user ? user.id : "not authenticated");
         setUserId(user?.id || null);
       } catch (error) {
-        console.error("Error checking user:", error);
+        console.error("useVideoManagement: Error checking user:", error);
         setUserId(null);
       }
     };
     
     checkUser();
+
+    // Also set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log("useVideoManagement: Auth state changed:", event);
+      if (event === 'SIGNED_IN' && session?.user) {
+        console.log("useVideoManagement: User signed in:", session.user.id);
+        setUserId(session.user.id);
+      } else if (event === 'SIGNED_OUT') {
+        console.log("useVideoManagement: User signed out");
+        setUserId(null);
+      }
+    });
+
+    return () => {
+      console.log("useVideoManagement: Cleaning up auth subscription");
+      subscription.unsubscribe();
+    };
   }, []);
 
   const loadAllPendingVideos = useCallback(async () => {
     setIsLoading(true);
-    console.log("Loading all pending videos, user ID:", userId);
+    console.log("useVideoManagement: Loading all pending videos, user ID:", userId);
     
     try {
+      console.log("useVideoManagement: Getting database from switcher");
       const db = await databaseSwitcher.getDatabase();
+      console.log("useVideoManagement: Got database, fetching all entries");
       const allEntries = await db.getAllEntries();
-      console.log("Loaded entries:", allEntries.length);
+      console.log("useVideoManagement: Loaded entries:", allEntries.length);
       
       // Filter for pending entries (no acting video and not skipped)
       const pendingEntries = allEntries.filter(
         entry => !entry.acting_video_location && !entry.skipped
       );
       
-      console.log("Pending entries:", pendingEntries.length);
+      console.log("useVideoManagement: Pending entries:", pendingEntries.length);
+      console.log("useVideoManagement: First few entries:", pendingEntries.slice(0, 3));
       setVideos(pendingEntries);
       
       if (pendingEntries.length === 0) {
+        console.log("useVideoManagement: No pending entries available");
         setNoVideosAvailable(true);
       } else {
         setNoVideosAvailable(false);
       }
     } catch (error) {
-      console.error("Error loading videos:", error);
+      console.error("useVideoManagement: Error loading videos:", error);
       toast.error("Error loading videos. Please try again.");
     } finally {
       setIsLoading(false);
@@ -59,6 +83,7 @@ export const useVideoManagement = () => {
   }, [userId]);
 
   useEffect(() => {
+    console.log("useVideoManagement: userId changed, reloading videos");
     loadAllPendingVideos();
   }, [loadAllPendingVideos]);
 
