@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { VideoEntry, RecordedVideo } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
