@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,14 @@ const VideoViewer: React.FC<VideoViewerProps> = ({
   onStartRecording,
   onVideoLoaded
 }) => {
+  useEffect(() => {
+    console.log("VideoViewer: Rendering with video:", {
+      id: video.id,
+      video_location: video.video_location.substring(0, 50) + '...',
+      reviewer_name: video.reviewer_name
+    });
+  }, [video]);
+
   return (
     <div className="animate-slide-in">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">

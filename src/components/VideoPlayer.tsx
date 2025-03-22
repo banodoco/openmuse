@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -28,6 +29,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [processedSrc, setProcessedSrc] = useState<string>('');
+
+  // Log source changes
+  useEffect(() => {
+    console.log(`[VideoPlayer] Source changed to: ${src?.substring(0, 30)}...`);
+  }, [src]);
 
   useEffect(() => {
     setError(null);

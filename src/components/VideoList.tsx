@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoPlayer from '@/components/VideoPlayer';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,17 @@ interface VideoListProps {
 }
 
 const VideoList: React.FC<VideoListProps> = ({ videos, onSelectVideo }) => {
+  useEffect(() => {
+    console.log(`VideoList: Rendering with ${videos.length} videos`);
+    if (videos.length > 0) {
+      console.log("VideoList: First video details:", {
+        id: videos[0].id,
+        video_location: videos[0].video_location.substring(0, 50) + '...',
+        reviewer_name: videos[0].reviewer_name
+      });
+    }
+  }, [videos]);
+
   // Function to get the appropriate icon based on category
   const getCategoryIcon = (category?: string) => {
     switch (category) {

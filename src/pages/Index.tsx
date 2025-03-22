@@ -36,14 +36,23 @@ const Index: React.FC = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
+    console.log("Index: Current video state:", currentVideo ? `Video ${currentVideo.id}` : "No video selected");
+    console.log("Index: Videos available:", videos.length);
+    console.log("Index: Component states - isLoading:", isLoading, "isRecording:", isRecording, "noVideosAvailable:", noVideosAvailable);
+  }, [videos, currentVideo, isLoading, isRecording, noVideosAvailable]);
+
+  useEffect(() => {
     const loadUserProfile = async () => {
       try {
         const profile = await getCurrentUserProfile();
         if (profile) {
+          console.log("Index: User profile loaded:", profile.username);
           setUserProfile({
             id: profile.id,
             username: profile.username
           });
+        } else {
+          console.log("Index: No user profile loaded");
         }
       } catch (error) {
         console.error('Error loading user profile:', error);
@@ -52,6 +61,21 @@ const Index: React.FC = () => {
     
     loadUserProfile();
   }, []);
+
+  // Check which section is going to be rendered
+  useEffect(() => {
+    if (isLoading) {
+      console.log("Index: Rendering loading state");
+    } else if (noVideosAvailable) {
+      console.log("Index: Rendering empty state (no videos)");
+    } else if (isRecording && currentVideo) {
+      console.log("Index: Rendering recorder");
+    } else if (currentVideo) {
+      console.log("Index: Rendering current video viewer");
+    } else {
+      console.log("Index: Rendering video list");
+    }
+  }, [isLoading, noVideosAvailable, isRecording, currentVideo]);
 
   return (
     <RequireAuth allowUnauthenticated={true}>
