@@ -13,6 +13,7 @@ import NotFound from "./pages/NotFound";
 import VideoPage from "./pages/VideoPage";
 import { useEffect } from "react";
 import { migrateExistingVideos } from "./lib/migrationUtil";
+import RequireAuth from "./components/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -31,9 +32,21 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/admin" element={<Admin />} />
+            <Route path="/" element={
+              <RequireAuth allowUnauthenticated>
+                <Index />
+              </RequireAuth>
+            } />
+            <Route path="/upload" element={
+              <RequireAuth>
+                <Upload />
+              </RequireAuth>
+            } />
+            <Route path="/admin" element={
+              <RequireAuth requireAdmin>
+                <Admin />
+              </RequireAuth>
+            } />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/assets/loras/:id" element={<VideoPage />} />

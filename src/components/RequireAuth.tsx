@@ -28,6 +28,14 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       return;
     }
     
+    // Check if path is a video page - these should always be accessible
+    if (location.pathname.startsWith('/assets/loras/')) {
+      console.log('Allowing access to video page without authentication');
+      setIsAuthorized(true);
+      setIsChecking(false);
+      return;
+    }
+    
     const checkAuth = async () => {
       try {
         setIsChecking(true);

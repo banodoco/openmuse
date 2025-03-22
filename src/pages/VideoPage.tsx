@@ -10,6 +10,7 @@ import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
+import { databaseSwitcher } from '@/lib/databaseSwitcher';
 
 const VideoPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,12 +29,16 @@ const VideoPage: React.FC = () => {
 
       try {
         setIsLoading(true);
-        const entries = await videoDB.getAllEntries();
+        // Use databaseSwitcher to get the correct database instance
+        const db = await databaseSwitcher.getDatabase();
+        const entries = await db.getAllEntries();
         const foundVideo = entries.find(entry => entry.id === id);
         
         if (foundVideo) {
+          console.log('Found video:', foundVideo);
           setVideo(foundVideo);
         } else {
+          console.error('Video not found with ID:', id);
           setError("Video not found");
         }
       } catch (err) {
