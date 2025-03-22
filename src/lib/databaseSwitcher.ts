@@ -1,12 +1,18 @@
 
 import { supabaseDB } from './supabaseDB';
 import { getCurrentUser } from './auth';
+import { supabase } from './supabase';
 
 // A database provider that always returns Supabase database
 class DatabaseSwitcher {
   async getDatabase() {
     try {
       console.log("DatabaseSwitcher: Getting current user");
+      
+      // Log current session status directly
+      const { data: { session } } = await supabase.auth.getSession();
+      console.log(`DatabaseSwitcher: Direct session check: ${session?.user ? 'Authenticated' : 'Not authenticated'}`);
+      
       // Get the current user
       const user = await getCurrentUser();
       

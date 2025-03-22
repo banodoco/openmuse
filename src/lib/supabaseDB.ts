@@ -17,6 +17,17 @@ class SupabaseVideoDatabase {
   async getAllEntries(): Promise<VideoEntry[]> {
     try {
       this.log("Getting all entries from Supabase");
+      
+      // See if we're authenticated and log that
+      const { data: { session } } = await supabase.auth.getSession();
+      this.log(`Auth check in getAllEntries: ${session?.user ? 'Authenticated as ' + session.user.id : 'Not authenticated'}`);
+      
+      // Log current user ID from the class instance
+      this.log(`Current user ID in instance: ${this.currentUserId || 'none'}`);
+      
+      // Build and log the query we're about to make
+      this.log("Executing Supabase query for video_entries");
+      
       const { data, error } = await supabase
         .from('video_entries')
         .select('*')
@@ -28,6 +39,10 @@ class SupabaseVideoDatabase {
       }
       
       this.log(`Retrieved ${data?.length || 0} entries from Supabase`);
+      if (data && data.length > 0) {
+        this.log(`First entry: ${JSON.stringify(data[0])}`);
+      }
+      
       return data as VideoEntry[] || [];
     } catch (error) {
       this.error('Error getting entries from Supabase:', error);

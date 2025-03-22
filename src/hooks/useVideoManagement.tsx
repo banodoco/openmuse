@@ -65,7 +65,12 @@ export const useVideoManagement = () => {
       );
       
       console.log("useVideoManagement: Pending entries:", pendingEntries.length);
-      console.log("useVideoManagement: First few entries:", pendingEntries.slice(0, 3));
+      if (pendingEntries.length > 0) {
+        console.log("useVideoManagement: First few entries:", pendingEntries.slice(0, 3));
+      } else {
+        console.log("useVideoManagement: No pending entries available");
+      }
+      
       setVideos(pendingEntries);
       
       if (pendingEntries.length === 0) {
