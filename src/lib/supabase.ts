@@ -10,7 +10,10 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
+    detectSessionInUrl: false, // Set to false to prevent detection in URL causing redirects
     flowType: 'implicit',
   }
 });
+
+// Export the client for backward compatibility
+export { supabase as supabaseClient };

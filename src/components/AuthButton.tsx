@@ -22,9 +22,10 @@ const AuthButton: React.FC = () => {
   
   useEffect(() => {
     let isActive = true; // For cleanup
+    let subscription: { unsubscribe: () => void; } | null = null;
     
     // Set up auth state listener FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    subscription = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state change in AuthButton:', event);
         
@@ -47,7 +48,7 @@ const AuthButton: React.FC = () => {
           }
         }
       }
-    );
+    ).data.subscription;
     
     // THEN check for existing session
     const loadUserProfile = async () => {
@@ -79,7 +80,7 @@ const AuthButton: React.FC = () => {
     return () => {
       console.log('AuthButton: Cleaning up');
       isActive = false;
-      subscription.unsubscribe();
+      if (subscription) subscription.unsubscribe();
     };
   }, []);
   
