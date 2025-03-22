@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -60,9 +59,9 @@ const Index: React.FC = () => {
         
         <main className="flex-1 container max-w-6xl py-8 px-4">
           <div className="flex flex-col items-center mb-8">
-            <h1 className="text-3xl font-bold text-center mb-4">Evaluate videos now</h1>
+            <h1 className="text-3xl font-bold text-center mb-4">Resources for open video models</h1>
             <p className="text-muted-foreground text-center max-w-2xl">
-              Watch videos and record your responses. Help others by providing feedback.
+              Curated resources for unlocking the artistic potential of open video models like Wan, Hunyuan and LTXV
             </p>
           </div>
           
