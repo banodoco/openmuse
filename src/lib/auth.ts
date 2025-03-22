@@ -1,5 +1,9 @@
+
 import { supabase } from './supabase';
 import { UserProfile, UserRole } from './types';
+import { Logger } from './logger';
+
+const logger = new Logger('Auth');
 
 export const signInWithDiscord = async () => {
   // Get the current URL but replace 'localhost:3000' with the actual origin if needed
@@ -8,12 +12,12 @@ export const signInWithDiscord = async () => {
   // If we're in development and using localhost, add a fallback for when
   // Supabase redirects to localhost:3000 instead of our actual URL
   if (!window.location.origin.includes('localhost:3000')) {
-    console.log('Auth: Setting up for potential localhost redirect...');
+    logger.log('Setting up for potential localhost redirect...');
     // Store the actual origin to check for it in Auth.tsx
     localStorage.setItem('actual_auth_origin', window.location.origin);
   }
   
-  console.log('Auth: Sign in with Discord, redirect URL:', redirectUrl);
+  logger.log('Sign in with Discord, redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'discord',
     options: {
@@ -22,7 +26,7 @@ export const signInWithDiscord = async () => {
   });
   
   if (error) {
-    console.error('Auth: Error signing in with Discord:', error);
+    logger.error('Error signing in with Discord:', error);
     throw error;
   }
   
@@ -30,36 +34,36 @@ export const signInWithDiscord = async () => {
 };
 
 export const signOut = async () => {
-  console.log('Auth: Signing out');
+  logger.log('Signing out');
   const { error } = await supabase.auth.signOut();
   
   if (error) {
-    console.error('Auth: Error signing out:', error);
+    logger.error('Error signing out:', error);
     throw error;
   }
   
-  console.log('Auth: Sign out successful');
+  logger.log('Sign out successful');
 };
 
 export const getCurrentUser = async () => {
   try {
-    console.log('Auth: Getting current session');
+    logger.log('Getting current session');
     const { data: { session }, error } = await supabase.auth.getSession();
     
     if (error) {
-      console.error('Auth: Error getting session:', error);
+      logger.error('Error getting session:', error);
       return null;
     }
     
     if (session?.user) {
-      console.log('Auth: User found in session:', session.user.id);
+      logger.log('User found in session:', session.user.id);
     } else {
-      console.log('Auth: No user in session');
+      logger.log('No user in session');
     }
     
     return session?.user || null;
   } catch (error) {
-    console.error('Auth: Error in getCurrentUser:', error);
+    logger.error('Error in getCurrentUser:', error);
     return null;
   }
 };
@@ -79,13 +83,13 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
       .single();
     
     if (error) {
-      console.error('Error getting user profile:', error);
+      logger.error('Error getting user profile:', error);
       return null;
     }
     
     return data as UserProfile;
   } catch (error) {
-    console.error('Error in getCurrentUserProfile:', error);
+    logger.error('Error in getCurrentUserProfile:', error);
     return null;
   }
 };
@@ -99,7 +103,7 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
     try {
       return JSON.parse(cachedRoles);
     } catch (e) {
-      console.error('Error parsing cached roles:', e);
+      logger.error('Error parsing cached roles:', e);
     }
   }
   
@@ -109,7 +113,7 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
     .eq('user_id', userId);
   
   if (error) {
-    console.error('Error getting user roles:', error);
+    logger.error('Error getting user roles:', error);
     return [];
   }
   
@@ -119,16 +123,16 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
   try {
     sessionStorage.setItem(cacheKey, JSON.stringify(roles));
   } catch (e) {
-    console.error('Error caching roles:', e);
+    logger.error('Error caching roles:', e);
   }
   
   return roles;
 };
 
 export const checkIsAdmin = async (userId: string): Promise<boolean> => {
-  console.log(`Checking if user ${userId} is admin`);
+  logger.log(`Checking if user ${userId} is admin`);
   const roles = await getUserRoles(userId);
-  console.log(`User roles:`, roles);
+  logger.log(`User roles:`, roles);
   return roles.includes('admin');
 };
 
@@ -138,7 +142,7 @@ export const addUserRole = async (userId: string, role: string): Promise<void> =
     .insert({ user_id: userId, role });
   
   if (error) {
-    console.error('Error adding user role:', error);
+    logger.error('Error adding user role:', error);
     throw error;
   }
   

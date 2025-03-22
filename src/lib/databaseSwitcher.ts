@@ -7,29 +7,52 @@ import { Logger } from './logger';
 // A database provider that always returns Supabase database
 class DatabaseSwitcher {
   private readonly logger = new Logger('DatabaseSwitcher');
+  private isCheckingAuth = false;
   
   async getDatabase() {
     try {
+      // Prevent multiple concurrent auth checks
+      if (this.isCheckingAuth) {
+        this.logger.log("Auth check already in progress, using current database state");
+        return supabaseDB;
+      }
+      
+      this.isCheckingAuth = true;
       this.logger.log("Getting current user");
       
       // Log current session status directly
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session }, error } = await supabase.auth.getSession();
+      
+      if (error) {
+        this.logger.error("Session check error:", error);
+        supabaseDB.setCurrentUserId(null);
+        this.isCheckingAuth = false;
+        return supabaseDB;
+      }
+      
       this.logger.log(`Direct session check: ${session?.user ? 'Authenticated as ' + session.user.id : 'Not authenticated'}`);
       
-      // Get the current user
-      const user = await getCurrentUser();
-      
-      // Set the user ID in the database instance if available
-      if (user) {
-        this.logger.log(`User authenticated, ID: ${user.id}`);
-        supabaseDB.setCurrentUserId(user.id);
+      // Use session user directly if available instead of making another call
+      if (session?.user) {
+        this.logger.log(`User authenticated from session, ID: ${session.user.id}`);
+        supabaseDB.setCurrentUserId(session.user.id);
       } else {
-        this.logger.log('Not authenticated, using anonymous access');
-        supabaseDB.setCurrentUserId(null);
+        // Fallback to getCurrentUser if needed
+        const user = await getCurrentUser();
+        
+        if (user) {
+          this.logger.log(`User authenticated from getCurrentUser, ID: ${user.id}`);
+          supabaseDB.setCurrentUserId(user.id);
+        } else {
+          this.logger.log('Not authenticated, using anonymous access');
+          supabaseDB.setCurrentUserId(null);
+        }
       }
     } catch (error) {
       this.logger.error('Error getting current user:', error);
       supabaseDB.setCurrentUserId(null);
+    } finally {
+      this.isCheckingAuth = false;
     }
     
     return supabaseDB;

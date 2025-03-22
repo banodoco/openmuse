@@ -5,6 +5,9 @@ import { checkIsAdmin } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('RequireAuth');
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -32,20 +35,20 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       location.pathname.startsWith('/assets/loras/');
     
     if (shouldSkipCheck) {
-      console.log(`RequireAuth: Skipping check for ${location.pathname}`);
+      logger.log(`RequireAuth: Skipping check for ${location.pathname}`);
       setIsAuthorized(true);
       setIsChecking(false);
-      return;
+      return () => {}; // Empty cleanup for skipped routes
     }
     
     const checkAuth = async () => {
       try {
         if (!isActive) return;
         
-        console.log('RequireAuth: Starting auth check');
+        logger.log('RequireAuth: Starting auth check');
         
         if (allowUnauthenticated) {
-          console.log('RequireAuth: Allowing unauthenticated access');
+          logger.log('RequireAuth: Allowing unauthenticated access');
           if (isActive) {
             setIsAuthorized(true);
             setIsChecking(false);
@@ -57,7 +60,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('RequireAuth: Error getting session:', error);
+          logger.error('RequireAuth: Error getting session:', error);
           if (isActive) {
             setIsAuthorized(allowUnauthenticated);
             setIsChecking(false);
@@ -68,13 +71,13 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
         const user = session?.user || null;
         
         if (!user) {
-          console.log('RequireAuth: No user found in session');
+          logger.log('RequireAuth: No user found in session');
           
           if (allowUnauthenticated) {
-            console.log('RequireAuth: Allowing unauthenticated access');
+            logger.log('RequireAuth: Allowing unauthenticated access');
             if (isActive) setIsAuthorized(true);
           } else {
-            console.log('RequireAuth: Not authorized, will redirect to auth');
+            logger.log('RequireAuth: Not authorized, will redirect to auth');
             if (isActive) setIsAuthorized(false);
           }
           
@@ -82,14 +85,14 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
           return;
         }
         
-        console.log('RequireAuth: User found in session:', user.id);
+        logger.log('RequireAuth: User found in session:', user.id);
         
         if (requireAdmin) {
-          console.log('RequireAuth: Admin check required');
+          logger.log('RequireAuth: Admin check required');
           const isAdmin = await checkIsAdmin(user.id);
           
           if (!isAdmin) {
-            console.log('RequireAuth: User is not an admin');
+            logger.log('RequireAuth: User is not an admin');
             toast.error('You do not have admin access');
           }
           
@@ -100,7 +103,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
         
         if (isActive) setIsChecking(false);
       } catch (error) {
-        console.error('RequireAuth: Error checking authorization:', error);
+        logger.error('RequireAuth: Error checking authorization:', error);
         if (isActive) {
           setIsAuthorized(allowUnauthenticated); 
           setIsChecking(false);
@@ -108,10 +111,10 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       }
     };
     
-    // Set up auth state listener first
+    // Only set up auth state listener for non-skipped paths
     subscription = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed in RequireAuth:', event, session?.user?.id);
+        logger.log('Auth state changed in RequireAuth:', event, session?.user?.id);
         
         if (!isActive) return;
         
@@ -140,7 +143,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     checkAuth();
     
     return () => {
-      console.log('RequireAuth: Cleaning up');
+      logger.log('RequireAuth: Cleaning up');
       isActive = false;
       if (subscription) subscription.unsubscribe();
     };
@@ -158,7 +161,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
 
   // If not authorized and not on the auth page, redirect
   if (isAuthorized === false) {
-    console.log('Not authorized, redirecting to auth page from:', location.pathname);
+    logger.log('Not authorized, redirecting to auth page from:', location.pathname);
     // Redirect to auth page with return URL
     return (
       <Navigate 
