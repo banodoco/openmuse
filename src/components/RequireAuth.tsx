@@ -4,6 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { supabase } from '@/lib/supabase';
 
 interface RequireAuthProps {
   children: React.ReactNode;
@@ -39,10 +40,13 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     const checkAuth = async () => {
       try {
         setIsChecking(true);
-        const user = await getCurrentUser();
+        
+        // Get current session directly to avoid repeated calls to getCurrentUser
+        const { data: { session } } = await supabase.auth.getSession();
+        const user = session?.user || null;
         
         if (!user) {
-          console.log('No user found');
+          console.log('No user found in session');
           
           if (allowUnauthenticated) {
             console.log('Allowing unauthenticated access');
@@ -55,6 +59,8 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
           setIsChecking(false);
           return;
         }
+        
+        console.log('User found in session:', user.id);
         
         if (requireAdmin) {
           console.log('Admin check required, checking if user is admin');
@@ -78,6 +84,27 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     };
     
     checkAuth();
+    
+    // Set up auth state listener to respond to auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state changed:', event);
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          checkAuth();
+        } else if (event === 'SIGNED_OUT') {
+          if (allowUnauthenticated) {
+            setIsAuthorized(true);
+          } else {
+            setIsAuthorized(false);
+          }
+          setIsChecking(false);
+        }
+      }
+    );
+    
+    return () => {
+      subscription.unsubscribe();
+    };
   }, [requireAdmin, allowUnauthenticated, location.pathname]);
 
   // Only show loading state during initial check

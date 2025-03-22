@@ -21,10 +21,34 @@ const AuthButton: React.FC = () => {
   const navigate = useNavigate();
   
   useEffect(() => {
+    // Set up auth state listener FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log('Auth state change in AuthButton:', event);
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          try {
+            const profile = await getCurrentUserProfile();
+            setUser(profile);
+          } catch (error) {
+            console.error('Error loading user profile after auth change:', error);
+          } finally {
+            setIsLoading(false);
+          }
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setIsLoading(false);
+        }
+      }
+    );
+    
+    // THEN check for existing session
     const loadUserProfile = async () => {
       try {
-        const profile = await getCurrentUserProfile();
-        setUser(profile);
+        const { data: { session } } = await supabase.auth.getSession();
+        if (session?.user) {
+          const profile = await getCurrentUserProfile();
+          setUser(profile);
+        }
       } catch (error) {
         console.error('Error loading user profile:', error);
       } finally {
@@ -33,18 +57,6 @@ const AuthButton: React.FC = () => {
     };
     
     loadUserProfile();
-    
-    // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event) => {
-        if (event === 'SIGNED_IN') {
-          const profile = await getCurrentUserProfile();
-          setUser(profile);
-        } else if (event === 'SIGNED_OUT') {
-          setUser(null);
-        }
-      }
-    );
     
     return () => {
       subscription.unsubscribe();

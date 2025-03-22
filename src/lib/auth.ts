@@ -56,18 +56,23 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
     return null;
   }
   
-  const { data, error } = await supabase
-    .from('profiles')
-    .select('*')
-    .eq('id', session.user.id)
-    .single();
-  
-  if (error || !data) {
-    console.error('Error getting user profile:', error);
+  try {
+    const { data, error } = await supabase
+      .from('profiles')
+      .select('*')
+      .eq('id', session.user.id)
+      .single();
+    
+    if (error) {
+      console.error('Error getting user profile:', error);
+      return null;
+    }
+    
+    return data as UserProfile;
+  } catch (error) {
+    console.error('Error in getCurrentUserProfile:', error);
     return null;
   }
-  
-  return data as UserProfile;
 };
 
 export const getUserRoles = async (userId: string): Promise<string[]> => {
