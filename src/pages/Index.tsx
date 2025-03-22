@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -58,9 +59,9 @@ const Index: React.FC = () => {
         <ConsentDialog />
         
         <main className="flex-1 container max-w-6xl py-8 px-4">
-          <div className="flex flex-col items-center mb-8">
-            <h1 className="text-3xl font-bold text-center mb-4">Resources for open video models</h1>
-            <p className="text-muted-foreground text-center max-w-2xl">
+          <div className="flex flex-col items-start mb-8">
+            <h1 className="text-3xl font-bold text-left mb-4 w-full">Resources for open video models</h1>
+            <p className="text-muted-foreground text-left max-w-2xl w-full">
               Curated resources for unlocking the artistic potential of open video models like Wan, Hunyuan and LTXV
             </p>
           </div>
