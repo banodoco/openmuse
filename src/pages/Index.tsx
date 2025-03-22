@@ -85,12 +85,6 @@ const Index: React.FC = () => {
           
           {isLoading ? (
             <LoadingState />
-          ) : !userProfile ? (
-            <EmptyState 
-              title="Sign in to evaluate videos"
-              description="Please sign in with Discord to start evaluating videos and providing feedback."
-              showSignIn={true}
-            />
           ) : noVideosAvailable ? (
             <EmptyState 
               title="No videos to respond to"
@@ -107,13 +101,17 @@ const Index: React.FC = () => {
             <VideoViewer
               video={currentVideo}
               onSkip={handleSkip}
-              onStartRecording={handleStartRecording}
+              onStartRecording={!userProfile ? 
+                () => navigate('/auth?returnUrl=/') : 
+                handleStartRecording}
               onVideoLoaded={handleVideoLoaded}
             />
           ) : (
             <VideoList 
               videos={videos} 
-              onSelectVideo={handleSelectVideo} 
+              onSelectVideo={!userProfile ? 
+                () => navigate('/auth?returnUrl=/') : 
+                handleSelectVideo} 
             />
           )}
         </main>
