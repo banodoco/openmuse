@@ -24,8 +24,8 @@ class SupabaseVideoDatabase {
       // Log current user ID from the class instance
       this.log(`Current user ID in instance: ${this.currentUserId || 'none'}`);
       
-      // Build and log the query we're about to make
-      this.log("Executing Supabase query for video_entries");
+      // Build and log the query we're about to make - fetch ALL videos regardless of user_id
+      this.log("Executing Supabase query for all video_entries");
       
       const { data, error } = await supabase
         .from('video_entries')
@@ -100,31 +100,8 @@ class SupabaseVideoDatabase {
   
   async getRandomPendingEntry(): Promise<VideoEntry | null> {
     try {
-      let userOwnVideos = null;
-      if (this.currentUserId) {
-        const { data: ownVideos, error: ownVideosError } = await supabase
-          .from('video_entries')
-          .select('*')
-          .is('acting_video_location', null)
-          .eq('skipped', false)
-          .eq('user_id', this.currentUserId)
-          .order('created_at', { ascending: false });
-        
-        if (ownVideosError) {
-          this.error('Error fetching user\'s own videos:', ownVideosError);
-        } else if (ownVideos && ownVideos.length > 0) {
-          userOwnVideos = ownVideos;
-          this.log(`Found ${ownVideos.length} of user's own pending videos`);
-        }
-      }
-      
-      if (userOwnVideos && userOwnVideos.length > 0) {
-        const randomIndex = Math.floor(Math.random() * userOwnVideos.length);
-        const selectedEntry = userOwnVideos[randomIndex] as VideoEntry;
-        this.log(`Selected random video from user's own uploads: ${selectedEntry.id}`);
-        return selectedEntry;
-      }
-      
+      // Remove the logic that prioritizes user's own videos
+      // Just get any pending entry regardless of user_id
       const { data, error } = await supabase
         .from('video_entries')
         .select('*')
