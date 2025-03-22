@@ -8,48 +8,46 @@ import { Logger } from './logger';
 class DatabaseSwitcher {
   private readonly logger = new Logger('DatabaseSwitcher');
   private isCheckingAuth = false;
+  private lastAuthCheck = 0;
+  private authCheckCooldown = 5000; // 5 seconds cooldown between checks
   
   async getDatabase() {
     try {
-      // Prevent multiple concurrent auth checks
-      if (this.isCheckingAuth) {
-        this.logger.log("Auth check already in progress, using current database state");
+      const now = Date.now();
+      
+      // Prevent too frequent auth checks
+      if (this.isCheckingAuth || (now - this.lastAuthCheck < this.authCheckCooldown)) {
+        this.logger.log("Auth check prevented (in progress or cooldown active), using current database state");
         return supabaseDB;
       }
       
       this.isCheckingAuth = true;
+      this.lastAuthCheck = now;
       this.logger.log("Getting current user");
       
-      // Log current session status directly
-      const { data: { session }, error } = await supabase.auth.getSession();
-      
-      if (error) {
-        this.logger.error("Session check error:", error);
-        supabaseDB.setCurrentUserId(null);
-        this.isCheckingAuth = false;
-        return supabaseDB;
-      }
-      
-      this.logger.log(`Direct session check: ${session?.user ? 'Authenticated as ' + session.user.id : 'Not authenticated'}`);
-      
-      // Use session user directly if available instead of making another call
-      if (session?.user) {
-        this.logger.log(`User authenticated from session, ID: ${session.user.id}`);
-        supabaseDB.setCurrentUserId(session.user.id);
-      } else {
-        // Fallback to getCurrentUser if needed
-        const user = await getCurrentUser();
+      // Simplified session check with proper error handling
+      try {
+        const { data, error } = await supabase.auth.getSession();
         
-        if (user) {
-          this.logger.log(`User authenticated from getCurrentUser, ID: ${user.id}`);
-          supabaseDB.setCurrentUserId(user.id);
+        if (error) {
+          this.logger.error("Session check error:", error);
+          supabaseDB.setCurrentUserId(null);
+          return supabaseDB;
+        }
+        
+        if (data.session?.user) {
+          this.logger.log(`User authenticated from session, ID: ${data.session.user.id}`);
+          supabaseDB.setCurrentUserId(data.session.user.id);
         } else {
           this.logger.log('Not authenticated, using anonymous access');
           supabaseDB.setCurrentUserId(null);
         }
+      } catch (sessionError) {
+        this.logger.error("Error checking session:", sessionError);
+        supabaseDB.setCurrentUserId(null);
       }
     } catch (error) {
-      this.logger.error('Error getting current user:', error);
+      this.logger.error('Error in getDatabase:', error);
       supabaseDB.setCurrentUserId(null);
     } finally {
       this.isCheckingAuth = false;

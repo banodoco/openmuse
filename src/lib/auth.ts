@@ -43,6 +43,12 @@ export const signOut = async () => {
   }
   
   logger.log('Sign out successful');
+  
+  // Clear any cached session data
+  sessionStorage.clear();
+  
+  // Give the system time to process the sign out event
+  await new Promise(resolve => setTimeout(resolve, 100));
 };
 
 export const getCurrentUser = async () => {
@@ -68,6 +74,10 @@ export const getCurrentUser = async () => {
   }
 };
 
+// Cache for user profiles to reduce database queries
+const userProfileCache = new Map<string, {profile: UserProfile | null, timestamp: number}>();
+const PROFILE_CACHE_TTL = 60000; // 1 minute
+
 export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
   const { data: { session }, error: sessionError } = await supabase.auth.getSession();
   
@@ -75,58 +85,70 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
     return null;
   }
   
+  const userId = session.user.id;
+  
+  // Check cache first
+  const now = Date.now();
+  const cachedData = userProfileCache.get(userId);
+  if (cachedData && now - cachedData.timestamp < PROFILE_CACHE_TTL) {
+    return cachedData.profile;
+  }
+  
   try {
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
-      .eq('id', session.user.id)
+      .eq('id', userId)
       .single();
     
     if (error) {
       logger.error('Error getting user profile:', error);
+      userProfileCache.set(userId, {profile: null, timestamp: now});
       return null;
     }
     
+    userProfileCache.set(userId, {profile: data as UserProfile, timestamp: now});
     return data as UserProfile;
   } catch (error) {
     logger.error('Error in getCurrentUserProfile:', error);
+    userProfileCache.set(userId, {profile: null, timestamp: now});
     return null;
   }
 };
 
+// Cache for user roles to reduce database queries
+const userRolesCache = new Map<string, {roles: string[], timestamp: number}>();
+const ROLES_CACHE_TTL = 300000; // 5 minutes
+
 export const getUserRoles = async (userId: string): Promise<string[]> => {
-  // Cache user roles in memory to avoid excessive calls
-  const cacheKey = `user_roles_${userId}`;
-  const cachedRoles = sessionStorage.getItem(cacheKey);
-  
-  if (cachedRoles) {
-    try {
-      return JSON.parse(cachedRoles);
-    } catch (e) {
-      logger.error('Error parsing cached roles:', e);
-    }
+  // Check cache first
+  const now = Date.now();
+  const cachedData = userRolesCache.get(userId);
+  if (cachedData && now - cachedData.timestamp < ROLES_CACHE_TTL) {
+    return cachedData.roles;
   }
   
-  const { data, error } = await supabase
-    .from('user_roles')
-    .select('role')
-    .eq('user_id', userId);
-  
-  if (error) {
-    logger.error('Error getting user roles:', error);
+  try {
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('role')
+      .eq('user_id', userId);
+    
+    if (error) {
+      logger.error('Error getting user roles:', error);
+      return [];
+    }
+    
+    const roles = data.map(role => role.role);
+    
+    // Cache roles
+    userRolesCache.set(userId, {roles, timestamp: now});
+    
+    return roles;
+  } catch (error) {
+    logger.error('Error in getUserRoles:', error);
     return [];
   }
-  
-  const roles = data.map(role => role.role);
-  
-  // Cache roles for 5 minutes
-  try {
-    sessionStorage.setItem(cacheKey, JSON.stringify(roles));
-  } catch (e) {
-    logger.error('Error caching roles:', e);
-  }
-  
-  return roles;
 };
 
 export const checkIsAdmin = async (userId: string): Promise<boolean> => {
@@ -147,5 +169,5 @@ export const addUserRole = async (userId: string, role: string): Promise<void> =
   }
   
   // Clear role cache
-  sessionStorage.removeItem(`user_roles_${userId}`);
+  userRolesCache.delete(userId);
 };
