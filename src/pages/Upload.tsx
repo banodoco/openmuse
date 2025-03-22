@@ -5,15 +5,24 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import Navigation from '@/components/Navigation';
-import { UploadCloud, Loader2, Info } from 'lucide-react';
+import { UploadCloud, Loader2, Info, Paintbrush, Layers, Sparkles } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { remoteStorage } from '@/lib/remoteStorage';
 import { getCurrentUserProfile } from '@/lib/auth';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 const Upload: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
+  const [category, setCategory] = useState<string>("generations"); // Default to "generations"
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -80,7 +89,8 @@ const Upload: React.FC = () => {
           video_location: videoLocation,
           reviewer_name: reviewerName,
           acting_video_location: null,
-          skipped: false
+          skipped: false,
+          category: category
         });
         
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -97,7 +107,7 @@ const Upload: React.FC = () => {
       toast.error('An error occurred during upload. Please try again.');
       setUploading(false);
     }
-  }, [files, navigate]);
+  }, [files, navigate, category]);
 
   const areFilesFilled = files.length > 0;
 
@@ -117,6 +127,29 @@ const Upload: React.FC = () => {
           </p>
           
           <div className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="category">Select a category for your videos</Label>
+              <ToggleGroup 
+                type="single" 
+                value={category}
+                onValueChange={(value) => value && setCategory(value)}
+                className="justify-start"
+              >
+                <ToggleGroupItem value="art" aria-label="Art">
+                  <Paintbrush className="h-4 w-4 mr-2" />
+                  Art
+                </ToggleGroupItem>
+                <ToggleGroupItem value="loras" aria-label="LoRAs">
+                  <Layers className="h-4 w-4 mr-2" />
+                  LoRAs
+                </ToggleGroupItem>
+                <ToggleGroupItem value="generations" aria-label="Generations">
+                  <Sparkles className="h-4 w-4 mr-2" />
+                  Generations
+                </ToggleGroupItem>
+              </ToggleGroup>
+            </div>
+            
             <div
               className={cn(
                 "border-2 border-dashed rounded-lg p-10 text-center cursor-pointer transition-all duration-200",

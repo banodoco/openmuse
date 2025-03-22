@@ -95,20 +95,11 @@ const Index: React.FC = () => {
                 View All
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="bg-card rounded-lg p-6 border border-border hover:shadow-md transition-shadow">
-                <h3 className="text-xl font-semibold mb-2">Video Art Fundamentals</h3>
-                <p className="text-muted-foreground mb-4">Learn the basics of creating compelling video art with AI models</p>
-                <div className="h-40 bg-gradient-to-r from-pink-500 to-yellow-500 rounded-md mb-4"></div>
-                <Button variant="outline" className="w-full">Explore</Button>
-              </div>
-              <div className="bg-card rounded-lg p-6 border border-border hover:shadow-md transition-shadow">
-                <h3 className="text-xl font-semibold mb-2">Creative Techniques</h3>
-                <p className="text-muted-foreground mb-4">Advanced methods for unique video art creation</p>
-                <div className="h-40 bg-gradient-to-r from-purple-500 to-blue-500 rounded-md mb-4"></div>
-                <Button variant="outline" className="w-full">Learn More</Button>
-              </div>
-            </div>
+            
+            <EmptyState 
+              title="No art videos available"
+              description="There are no art videos available at the moment. Upload some by clicking the 'Upload Videos' button above."
+            />
           </div>
           
           <Separator className="my-8" />
@@ -124,31 +115,16 @@ const Index: React.FC = () => {
                 View All
               </Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-card rounded-lg p-6 border border-border hover:shadow-md transition-shadow">
-                <h3 className="text-xl font-semibold mb-2">Custom LoRAs</h3>
-                <p className="text-muted-foreground mb-4">Create personalized video models with custom training</p>
-                <div className="h-32 bg-gradient-to-r from-green-400 to-teal-500 rounded-md mb-4"></div>
-                <Button variant="outline" className="w-full">Get Started</Button>
-              </div>
-              <div className="bg-card rounded-lg p-6 border border-border hover:shadow-md transition-shadow">
-                <h3 className="text-xl font-semibold mb-2">LoRA Library</h3>
-                <p className="text-muted-foreground mb-4">Explore pre-trained models for various styles</p>
-                <div className="h-32 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-md mb-4"></div>
-                <Button variant="outline" className="w-full">Browse</Button>
-              </div>
-              <div className="bg-card rounded-lg p-6 border border-border hover:shadow-md transition-shadow">
-                <h3 className="text-xl font-semibold mb-2">Training Guide</h3>
-                <p className="text-muted-foreground mb-4">Learn how to train effective LoRAs</p>
-                <div className="h-32 bg-gradient-to-r from-orange-400 to-red-500 rounded-md mb-4"></div>
-                <Button variant="outline" className="w-full">Read Guide</Button>
-              </div>
-            </div>
+            
+            <EmptyState 
+              title="No LoRA videos available"
+              description="There are no LoRA videos available at the moment. Upload some by clicking the 'Upload Videos' button above."
+            />
           </div>
           
           <Separator className="my-8" />
           
-          {/* Generations Section */}
+          {/* Generations Section - This is the converted "Available Videos" section */}
           <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold flex items-center">
@@ -159,48 +135,39 @@ const Index: React.FC = () => {
                 View All
               </Button>
             </div>
-            <div className="p-6 bg-card rounded-lg border border-border">
-              <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                {Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="rounded-md overflow-hidden bg-muted aspect-video hover:opacity-90 transition-opacity cursor-pointer">
-                    <div className="w-full h-full bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500"></div>
-                  </div>
-                ))}
-              </div>
-            </div>
+            
+            {isLoading ? (
+              <LoadingState />
+            ) : noVideosAvailable ? (
+              <EmptyState 
+                title="No generation videos available"
+                description="There are no generation videos available at the moment. Upload some by clicking the 'Upload Videos' button above."
+              />
+            ) : isRecording && currentVideo ? (
+              <RecorderWrapper
+                video={currentVideo}
+                onVideoRecorded={handleVideoRecorded}
+                onCancel={handleCancelRecording}
+                onSkip={handleSkip}
+              />
+            ) : currentVideo ? (
+              <VideoViewer
+                video={currentVideo}
+                onSkip={handleSkip}
+                onStartRecording={!userProfile ? 
+                  () => navigate('/auth?returnUrl=/') : 
+                  handleStartRecording}
+                onVideoLoaded={handleVideoLoaded}
+              />
+            ) : (
+              <VideoList 
+                videos={videos} 
+                onSelectVideo={!userProfile ? 
+                  () => navigate('/auth?returnUrl=/') : 
+                  handleSelectVideo} 
+              />
+            )}
           </div>
-          
-          {isLoading ? (
-            <LoadingState />
-          ) : noVideosAvailable ? (
-            <EmptyState 
-              title="No videos to respond to"
-              description="There are no videos available for you to respond to at the moment."
-            />
-          ) : isRecording && currentVideo ? (
-            <RecorderWrapper
-              video={currentVideo}
-              onVideoRecorded={handleVideoRecorded}
-              onCancel={handleCancelRecording}
-              onSkip={handleSkip}
-            />
-          ) : currentVideo ? (
-            <VideoViewer
-              video={currentVideo}
-              onSkip={handleSkip}
-              onStartRecording={!userProfile ? 
-                () => navigate('/auth?returnUrl=/') : 
-                handleStartRecording}
-              onVideoLoaded={handleVideoLoaded}
-            />
-          ) : (
-            <VideoList 
-              videos={videos} 
-              onSelectVideo={!userProfile ? 
-                () => navigate('/auth?returnUrl=/') : 
-                handleSelectVideo} 
-            />
-          )}
         </main>
       </div>
     </RequireAuth>

@@ -8,6 +8,7 @@ export interface VideoEntry {
   created_at: string;
   admin_approved: boolean;
   user_id?: string;
+  category?: string; // Add category field
 }
 
 export interface RecordedVideo {

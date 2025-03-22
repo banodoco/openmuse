@@ -5,7 +5,8 @@ import VideoPlayer from '@/components/VideoPlayer';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Link } from 'react-router-dom';
-import { MessageSquareText, VideoIcon, ExternalLink } from 'lucide-react';
+import { MessageSquareText, VideoIcon, ExternalLink, Paintbrush, Layers, Sparkles } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 
 interface VideoListProps {
   videos: VideoEntry[];
@@ -13,6 +14,32 @@ interface VideoListProps {
 }
 
 const VideoList: React.FC<VideoListProps> = ({ videos, onSelectVideo }) => {
+  // Function to get the appropriate icon based on category
+  const getCategoryIcon = (category?: string) => {
+    switch (category) {
+      case 'art':
+        return <Paintbrush className="h-3 w-3" />;
+      case 'loras':
+        return <Layers className="h-3 w-3" />;
+      case 'generations':
+      default:
+        return <Sparkles className="h-3 w-3" />;
+    }
+  };
+
+  // Function to get the category display name
+  const getCategoryDisplayName = (category?: string) => {
+    switch (category) {
+      case 'art':
+        return 'Art';
+      case 'loras':
+        return 'LoRAs';
+      case 'generations':
+      default:
+        return 'Generations';
+    }
+  };
+
   return (
     <div className="mt-4">
       <div className="flex items-center justify-between mb-6">
@@ -35,11 +62,19 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onSelectVideo }) => {
               />
             </div>
             <CardContent className="pt-4">
-              <div className="flex items-center mb-2">
-                <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
-                  <VideoIcon className="h-4 w-4 text-primary" />
+              <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center">
+                  <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                    <VideoIcon className="h-4 w-4 text-primary" />
+                  </div>
+                  <span className="font-medium">{video.reviewer_name}</span>
                 </div>
-                <span className="font-medium">{video.reviewer_name}</span>
+                {video.category && (
+                  <Badge variant="outline" className="flex items-center gap-1">
+                    {getCategoryIcon(video.category)}
+                    {getCategoryDisplayName(video.category)}
+                  </Badge>
+                )}
               </div>
             </CardContent>
             <CardFooter className="pt-0 pb-4 flex gap-2">
