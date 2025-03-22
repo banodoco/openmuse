@@ -22,9 +22,9 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
 
   useEffect(() => {
     // Don't check if we're already at the auth page to prevent loops
-    if (location.pathname === '/auth') {
+    if (location.pathname === '/auth' || location.pathname === '/auth/callback') {
       setIsChecking(false);
-      setIsAuthorized(true); // Allow access to auth page
+      setIsAuthorized(true); // Allow access to auth pages
       return;
     }
     
@@ -91,7 +91,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   }
 
   // If not authorized and not on the auth page, redirect
-  if (isAuthorized === false && location.pathname !== '/auth') {
+  if (isAuthorized === false && !location.pathname.startsWith('/auth')) {
     console.log('Not authorized, redirecting to auth page');
     // Redirect to auth page with return URL
     return (
