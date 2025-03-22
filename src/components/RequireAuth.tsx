@@ -25,7 +25,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
         const user = await getCurrentUser();
         
         if (!user) {
-          console.log('No user found, redirecting to auth');
+          console.log('No user found');
           setIsAuthorized(false);
           setIsChecking(false);
           return;
@@ -52,10 +52,10 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       }
     };
     
-    // Don't check if we're already at the auth page to prevent loops
-    if (location.pathname === '/auth') {
+    // Home page is publicly accessible
+    if (location.pathname === '/') {
       setIsChecking(false);
-      setIsAuthorized(true); // Allow access to auth page
+      setIsAuthorized(true);
     } else {
       checkAuth();
     }
@@ -71,16 +71,12 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     );
   }
 
-  // If not authorized and not on the auth page, redirect
-  if (isAuthorized === false && location.pathname !== '/auth') {
-    console.log('Not authorized, redirecting to auth page');
-    // Redirect to auth page with return URL
-    return (
-      <Navigate 
-        to={`/auth?returnUrl=${encodeURIComponent(location.pathname)}`} 
-        replace 
-      />
-    );
+  // If not authorized and not on the home page, redirect to home
+  if (isAuthorized === false && location.pathname !== '/') {
+    console.log('Not authorized, redirecting to home page');
+    // Redirect to home page
+    toast.error('Please sign in to access this page');
+    return <Navigate to="/" replace />;
   }
 
   return <>{children}</>;
