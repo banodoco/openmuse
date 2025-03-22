@@ -8,11 +8,13 @@ import { toast } from 'sonner';
 interface RequireAuthProps {
   children: React.ReactNode;
   requireAdmin?: boolean;
+  allowUnauthenticated?: boolean;
 }
 
 const RequireAuth: React.FC<RequireAuthProps> = ({ 
   children, 
-  requireAdmin = false 
+  requireAdmin = false,
+  allowUnauthenticated = false
 }) => {
   const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
   const [isChecking, setIsChecking] = useState(true);
@@ -25,7 +27,15 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
         const user = await getCurrentUser();
         
         if (!user) {
-          console.log('No user found, redirecting to auth');
+          console.log('No user found');
+          if (allowUnauthenticated) {
+            console.log('Allowing unauthenticated access');
+            setIsAuthorized(true);
+            setIsChecking(false);
+            return;
+          }
+          
+          console.log('Redirecting to auth');
           setIsAuthorized(false);
           setIsChecking(false);
           return;
@@ -59,7 +69,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     } else {
       checkAuth();
     }
-  }, [requireAdmin, location.pathname]);
+  }, [requireAdmin, allowUnauthenticated, location.pathname]);
 
   // Only show loading state during initial check
   if (isChecking) {

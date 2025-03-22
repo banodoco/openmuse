@@ -53,7 +53,7 @@ const Index: React.FC = () => {
   }, []);
 
   return (
-    <RequireAuth>
+    <RequireAuth allowUnauthenticated={true}>
       <div className="min-h-screen flex flex-col bg-background animate-fade-in">
         <Navigation />
         <ConsentDialog />
@@ -85,6 +85,11 @@ const Index: React.FC = () => {
           
           {isLoading ? (
             <LoadingState />
+          ) : !userProfile ? (
+            <EmptyState 
+              title="Sign in to evaluate videos"
+              description="Please sign in with Discord to start evaluating videos and providing feedback."
+            />
           ) : noVideosAvailable ? (
             <EmptyState 
               title="No videos to respond to"
