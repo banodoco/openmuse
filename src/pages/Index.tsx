@@ -9,12 +9,14 @@ import WebcamRecorder from '@/components/WebcamRecorder';
 import Navigation from '@/components/Navigation';
 import ConsentDialog from '@/components/ConsentDialog';
 import { toast } from 'sonner';
-import { VideoIcon, SkipForward, Loader2, UploadCloud } from 'lucide-react';
+import { VideoIcon, SkipForward, Loader2, UploadCloud, Grid2X2, MessageSquareText } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import RequireAuth from '@/components/RequireAuth';
 import { getCurrentUserProfile } from '@/lib/auth';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 
 const Index: React.FC = () => {
+  const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRecording, setIsRecording] = useState(false);
@@ -40,69 +42,52 @@ const Index: React.FC = () => {
     loadUserProfile();
   }, []);
 
-  const loadRandomVideo = useCallback(async () => {
+  const loadAllPendingVideos = useCallback(async () => {
     setIsLoading(true);
     
     try {
       const db = await databaseSwitcher.getDatabase();
-      const video = await db.getRandomPendingEntry();
+      const allEntries = await db.getAllEntries();
       
-      if (!video) {
+      // Filter for pending entries (no acting video and not skipped)
+      const pendingEntries = allEntries.filter(
+        entry => !entry.acting_video_location && !entry.skipped
+      );
+      
+      setVideos(pendingEntries);
+      
+      if (pendingEntries.length === 0) {
         setNoVideosAvailable(true);
-        setIsLoading(false);
-        return;
-      }
-      
-      console.log("Loading video:", video.video_location, "Uploaded by:", video.reviewer_name);
-      
-      if (video.video_location.startsWith('blob:')) {
-        try {
-          const response = await fetch(video.video_location);
-          if (!response.ok) {
-            console.error("Blob URL is no longer valid:", video.video_location);
-            toast.error("Video is no longer accessible. Trying another...");
-            
-            await db.markAsSkipped(video.id);
-            
-            loadRandomVideo();
-            return;
-          }
-          
-          setCurrentVideo(video);
-          setNoVideosAvailable(false);
-          setIsLoading(false);
-        } catch (err) {
-          console.error("Error checking blob URL:", err);
-          toast.error("Video couldn't be accessed. Trying another...");
-          
-          await db.markAsSkipped(video.id);
-          
-          loadRandomVideo();
-        }
       } else {
-        setCurrentVideo(video);
         setNoVideosAvailable(false);
-        setIsLoading(false);
       }
+      
+      setIsLoading(false);
     } catch (error) {
-      console.error("Error loading video:", error);
-      toast.error("Error loading video. Please try again.");
+      console.error("Error loading videos:", error);
+      toast.error("Error loading videos. Please try again.");
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    loadRandomVideo();
-  }, [loadRandomVideo]);
+    loadAllPendingVideos();
+  }, [loadAllPendingVideos]);
+
+  const handleSelectVideo = (video: VideoEntry) => {
+    setCurrentVideo(video);
+    setIsRecording(false);
+  };
 
   const handleSkip = useCallback(async () => {
     if (currentVideo) {
       const db = await databaseSwitcher.getDatabase();
       await db.markAsSkipped(currentVideo.id);
       toast.info('Video skipped. Loading another video...');
-      loadRandomVideo();
+      setCurrentVideo(null);
+      loadAllPendingVideos();
     }
-  }, [currentVideo, loadRandomVideo]);
+  }, [currentVideo, loadAllPendingVideos]);
 
   const handleStartRecording = useCallback(() => {
     setIsRecording(true);
@@ -119,12 +104,13 @@ const Index: React.FC = () => {
       
       toast.success('Your response has been saved!');
       setIsRecording(false);
-      loadRandomVideo();
+      setCurrentVideo(null);
+      loadAllPendingVideos();
     } catch (error) {
       console.error('Error saving video response:', error);
       toast.error('Failed to save your response. Please try again.');
     }
-  }, [currentVideo, loadRandomVideo]);
+  }, [currentVideo, loadAllPendingVideos]);
 
   const handleCancelRecording = useCallback(() => {
     setIsRecording(false);
@@ -140,7 +126,14 @@ const Index: React.FC = () => {
         <Navigation />
         <ConsentDialog />
         
-        <main className="flex-1 container max-w-5xl py-8 px-4">
+        <main className="flex-1 container max-w-6xl py-8 px-4">
+          <div className="flex flex-col items-center mb-8">
+            <h1 className="text-3xl font-bold text-center mb-4">Evaluate videos now</h1>
+            <p className="text-muted-foreground text-center max-w-2xl">
+              Watch videos and record your responses. Help others by providing feedback.
+            </p>
+          </div>
+          
           {userProfile && (
             <div className="mb-4">
               <p className="text-sm text-muted-foreground">Signed in as <span className="font-medium">{userProfile.username}</span></p>
@@ -227,7 +220,49 @@ const Index: React.FC = () => {
                 </div>
               </div>
             </div>
-          ) : null}
+          ) : (
+            <div className="mt-4">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold">Available Videos</h2>
+                <Button variant="outline" className="gap-2">
+                  <Grid2X2 className="h-4 w-4" />
+                  {videos.length} Videos
+                </Button>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {videos.map((video) => (
+                  <Card key={video.id} className="overflow-hidden hover:shadow-md transition-shadow">
+                    <div className="aspect-video overflow-hidden bg-black">
+                      <VideoPlayer
+                        src={video.video_location}
+                        controls
+                        muted
+                        className="w-full h-full"
+                      />
+                    </div>
+                    <CardContent className="pt-4">
+                      <div className="flex items-center mb-2">
+                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center mr-2">
+                          <VideoIcon className="h-4 w-4 text-primary" />
+                        </div>
+                        <span className="font-medium">{video.reviewer_name}</span>
+                      </div>
+                    </CardContent>
+                    <CardFooter className="pt-0 pb-4">
+                      <Button 
+                        onClick={() => handleSelectVideo(video)} 
+                        className="w-full gap-2"
+                      >
+                        <MessageSquareText className="h-4 w-4" />
+                        Respond
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                ))}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </RequireAuth>

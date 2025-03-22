@@ -34,13 +34,13 @@ const Navigation: React.FC = () => {
   
   return (
     <nav className="w-full max-w-screen-xl mx-auto px-4 py-4 flex justify-between items-center">
-      <Link to="/" className="text-2xl font-medium tracking-tight transition-opacity hover:opacity-80">
-        VideoResponse
-      </Link>
-      
-      <div className="flex items-center space-x-2">
+      <div className="flex items-center">
+        <Link to="/" className="text-2xl font-medium tracking-tight transition-opacity hover:opacity-80 mr-8">
+          VideoResponse
+        </Link>
+        
         {!isAuthPage && (
-          <div className="flex space-x-2 mr-2">
+          <div className="flex space-x-2">
             <NavLink to="/" active={isActive('/')}>
               <Play className="w-4 h-4 mr-2" />
               Respond
@@ -57,9 +57,9 @@ const Navigation: React.FC = () => {
             )}
           </div>
         )}
-        
-        <AuthButton />
       </div>
+      
+      <AuthButton />
     </nav>
   );
 };
