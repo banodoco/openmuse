@@ -89,6 +89,7 @@ const Index: React.FC = () => {
             <EmptyState 
               title="Sign in to evaluate videos"
               description="Please sign in with Discord to start evaluating videos and providing feedback."
+              showSignIn={true}
             />
           ) : noVideosAvailable ? (
             <EmptyState 

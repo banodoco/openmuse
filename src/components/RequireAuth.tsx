@@ -21,6 +21,13 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   const location = useLocation();
 
   useEffect(() => {
+    // Don't check if we're already at the auth page to prevent loops
+    if (location.pathname === '/auth') {
+      setIsChecking(false);
+      setIsAuthorized(true); // Allow access to auth page
+      return;
+    }
+    
     const checkAuth = async () => {
       try {
         setIsChecking(true);
@@ -28,15 +35,15 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
         
         if (!user) {
           console.log('No user found');
+          
           if (allowUnauthenticated) {
             console.log('Allowing unauthenticated access');
             setIsAuthorized(true);
-            setIsChecking(false);
-            return;
+          } else {
+            console.log('Redirecting to auth');
+            setIsAuthorized(false);
           }
           
-          console.log('Redirecting to auth');
-          setIsAuthorized(false);
           setIsChecking(false);
           return;
         }
@@ -62,13 +69,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       }
     };
     
-    // Don't check if we're already at the auth page to prevent loops
-    if (location.pathname === '/auth') {
-      setIsChecking(false);
-      setIsAuthorized(true); // Allow access to auth page
-    } else {
-      checkAuth();
-    }
+    checkAuth();
   }, [requireAdmin, allowUnauthenticated, location.pathname]);
 
   // Only show loading state during initial check
