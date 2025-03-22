@@ -1,18 +1,23 @@
 
 import { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 const AuthCallback = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     const handleAuthCallback = async () => {
       try {
         console.log('In AuthCallback, processing...');
+        
+        // Parse the URL parameters to get the returnUrl if present
+        const searchParams = new URLSearchParams(location.search);
+        const returnUrl = searchParams.get('returnUrl') || '/';
         
         // Check if there's a hash in the URL (from OAuth redirect)
         if (window.location.hash) {
@@ -38,7 +43,8 @@ const AuthCallback = () => {
             
             if (data.session) {
               toast.success('Successfully signed in!');
-              navigate('/');
+              // Delay redirect slightly to ensure state updates are processed
+              setTimeout(() => navigate(returnUrl), 500);
               return;
             }
           }
@@ -54,9 +60,11 @@ const AuthCallback = () => {
         if (data?.session) {
           // Authentication successful
           toast.success('Successfully signed in!');
-          navigate('/');
+          // Delay redirect slightly to ensure state updates are processed
+          setTimeout(() => navigate(returnUrl), 500);
         } else {
-          navigate('/auth');
+          // No session found, redirect to auth page with return URL preserved
+          navigate(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
         }
       } catch (err: any) {
         console.error('Error during auth callback:', err);
@@ -67,7 +75,7 @@ const AuthCallback = () => {
     };
     
     handleAuthCallback();
-  }, [navigate]);
+  }, [navigate, location]);
   
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">

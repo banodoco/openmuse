@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
+import { checkIsAdmin } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/lib/supabase';
@@ -37,11 +37,13 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       return;
     }
     
+    let isActive = true; // For cleanup to prevent state updates after unmount
+    
     const checkAuth = async () => {
       try {
-        setIsChecking(true);
+        if (!isActive) return;
         
-        // Get current session directly to avoid repeated calls to getCurrentUser
+        // Get current session directly
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user || null;
         
@@ -50,13 +52,13 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
           
           if (allowUnauthenticated) {
             console.log('Allowing unauthenticated access');
-            setIsAuthorized(true);
+            if (isActive) setIsAuthorized(true);
           } else {
             console.log('Redirecting to auth');
-            setIsAuthorized(false);
+            if (isActive) setIsAuthorized(false);
           }
           
-          setIsChecking(false);
+          if (isActive) setIsChecking(false);
           return;
         }
         
@@ -71,26 +73,28 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
             toast.error('You do not have admin access');
           }
           
-          setIsAuthorized(isAdmin);
+          if (isActive) setIsAuthorized(isAdmin);
         } else {
-          setIsAuthorized(true);
+          if (isActive) setIsAuthorized(true);
         }
       } catch (error) {
         console.error('Error checking authorization:', error);
-        setIsAuthorized(false);
+        if (isActive) setIsAuthorized(false);
       } finally {
-        setIsChecking(false);
+        if (isActive) setIsChecking(false);
       }
     };
     
-    checkAuth();
-    
-    // Set up auth state listener to respond to auth changes
+    // Set up auth state listener first to respond to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed:', event);
+        console.log('Auth state changed in RequireAuth:', event);
+        
+        if (!isActive) return;
+        
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          checkAuth();
+          setIsChecking(true);
+          await checkAuth();
         } else if (event === 'SIGNED_OUT') {
           if (allowUnauthenticated) {
             setIsAuthorized(true);
@@ -102,7 +106,11 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       }
     );
     
+    // Then check auth status
+    checkAuth();
+    
     return () => {
+      isActive = false;
       subscription.unsubscribe();
     };
   }, [requireAdmin, allowUnauthenticated, location.pathname]);

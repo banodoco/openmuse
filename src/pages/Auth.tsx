@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { signInWithDiscord, getCurrentUser } from '@/lib/auth';
+import { signInWithDiscord } from '@/lib/auth';
 import { toast } from 'sonner';
 import Navigation from '@/components/Navigation';
 import { supabase } from '@/lib/supabase';
@@ -11,79 +11,33 @@ const Auth: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
-  
-  // Handle authentication from hash fragment (for OAuth redirects)
-  useEffect(() => {
-    const handleHashRedirect = async () => {
-      if (window.location.hash && window.location.hash.includes('access_token')) {
-        try {
-          console.log('Processing auth hash...');
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
-          
-          if (accessToken && refreshToken) {
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
-            });
-            
-            if (error) {
-              throw error;
-            }
-            
-            if (data.session) {
-              let returnUrl = '/';
-              
-              const actualOrigin = localStorage.getItem('actual_auth_origin');
-              if (actualOrigin) {
-                localStorage.removeItem('actual_auth_origin');
-                
-                const searchParams = new URLSearchParams(location.search);
-                const queryReturnUrl = searchParams.get('returnUrl');
-                
-                if (queryReturnUrl) {
-                  returnUrl = queryReturnUrl;
-                }
-                
-                toast.success('Successfully signed in with Discord!');
-                
-                window.location.href = `${actualOrigin}${returnUrl}`;
-                return;
-              } else {
-                const searchParams = new URLSearchParams(location.search);
-                returnUrl = searchParams.get('returnUrl') || '/';
-                
-                toast.success('Successfully signed in with Discord!');
-                navigate(returnUrl);
-                return;
-              }
-            }
-          }
-        } catch (error: any) {
-          console.error('Error processing auth hash:', error);
-          toast.error(`Authentication error: ${error.message}`);
-        }
-      }
-    };
-    
-    handleHashRedirect();
-  }, [navigate, location]);
+  const [isCheckingSession, setIsCheckingSession] = useState(true);
   
   // Check if user is already logged in
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (session) {
-        const searchParams = new URLSearchParams(location.search);
-        const returnUrl = searchParams.get('returnUrl') || '/';
-        navigate(returnUrl);
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (session) {
+          console.log('User already has session, redirecting');
+          const searchParams = new URLSearchParams(location.search);
+          const returnUrl = searchParams.get('returnUrl') || '/';
+          navigate(returnUrl);
+        }
+      } catch (error) {
+        console.error('Error checking session:', error);
+      } finally {
+        setIsCheckingSession(false);
       }
     };
     
     checkSession();
     
+    // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      console.log('Auth state changed in Auth page:', event);
+      
       if (session) {
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
@@ -106,6 +60,21 @@ const Auth: React.FC = () => {
       setIsLoading(false);
     }
   };
+  
+  if (isCheckingSession) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navigation />
+        
+        <main className="flex-1 flex items-center justify-center p-4">
+          <div className="text-center">
+            <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
+            <p>Checking authentication status...</p>
+          </div>
+        </main>
+      </div>
+    );
+  }
   
   return (
     <div className="min-h-screen flex flex-col bg-background">
