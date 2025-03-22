@@ -15,20 +15,29 @@ const Auth: React.FC = () => {
   
   // Check if user is already logged in
   useEffect(() => {
+    let isActive = true; // For cleanup
+    
     const checkSession = async () => {
       try {
+        console.log('Auth page: Checking session');
         const { data: { session } } = await supabase.auth.getSession();
         
+        if (!isActive) return;
+        
         if (session) {
-          console.log('User already has session, redirecting');
+          console.log('Auth page: User already has session, redirecting');
           const searchParams = new URLSearchParams(location.search);
           const returnUrl = searchParams.get('returnUrl') || '/';
-          navigate(returnUrl);
+          navigate(returnUrl, { replace: true });
+        } else {
+          console.log('Auth page: No session found');
         }
       } catch (error) {
-        console.error('Error checking session:', error);
+        console.error('Auth page: Error checking session:', error);
       } finally {
-        setIsCheckingSession(false);
+        if (isActive) {
+          setIsCheckingSession(false);
+        }
       }
     };
     
@@ -38,22 +47,27 @@ const Auth: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       console.log('Auth state changed in Auth page:', event);
       
-      if (session) {
+      if (!isActive) return;
+      
+      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
-        navigate(returnUrl);
+        navigate(returnUrl, { replace: true });
       }
     });
     
     return () => {
+      console.log('Auth page: Cleaning up');
+      isActive = false;
       subscription.unsubscribe();
     };
-  }, [navigate, location]);
+  }, [navigate, location.search]);
   
   const handleDiscordSignIn = async () => {
     try {
       setIsLoading(true);
       await signInWithDiscord();
+      // Note: We don't need to navigate here as the redirect will happen automatically
     } catch (error) {
       console.error('Error signing in with Discord:', error);
       toast.error('Failed to sign in with Discord');

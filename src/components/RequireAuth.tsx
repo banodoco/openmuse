@@ -22,16 +22,14 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   const location = useLocation();
 
   useEffect(() => {
-    // Don't check if we're already at the auth page to prevent loops
-    if (location.pathname === '/auth' || location.pathname === '/auth/callback') {
-      setIsChecking(false);
-      setIsAuthorized(true); // Allow access to auth pages
-      return;
-    }
+    // Always skip checking for special paths to prevent loops
+    const shouldSkipCheck = 
+      location.pathname === '/auth' || 
+      location.pathname === '/auth/callback' ||
+      location.pathname.startsWith('/assets/loras/');
     
-    // Check if path is a video page - these should always be accessible
-    if (location.pathname.startsWith('/assets/loras/')) {
-      console.log('Allowing access to video page without authentication');
+    if (shouldSkipCheck) {
+      console.log(`RequireAuth: Skipping check for ${location.pathname}`);
       setIsAuthorized(true);
       setIsChecking(false);
       return;
@@ -43,18 +41,20 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       try {
         if (!isActive) return;
         
+        console.log('RequireAuth: Checking auth status');
+        
         // Get current session directly
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user || null;
         
         if (!user) {
-          console.log('No user found in session');
+          console.log('RequireAuth: No user found in session');
           
           if (allowUnauthenticated) {
-            console.log('Allowing unauthenticated access');
+            console.log('RequireAuth: Allowing unauthenticated access');
             if (isActive) setIsAuthorized(true);
           } else {
-            console.log('Redirecting to auth');
+            console.log('RequireAuth: Redirecting to auth');
             if (isActive) setIsAuthorized(false);
           }
           
@@ -62,14 +62,14 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
           return;
         }
         
-        console.log('User found in session:', user.id);
+        console.log('RequireAuth: User found in session:', user.id);
         
         if (requireAdmin) {
-          console.log('Admin check required, checking if user is admin');
+          console.log('RequireAuth: Admin check required');
           const isAdmin = await checkIsAdmin(user.id);
           
           if (!isAdmin) {
-            console.log('User is not an admin');
+            console.log('RequireAuth: User is not an admin');
             toast.error('You do not have admin access');
           }
           
@@ -78,17 +78,17 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
           if (isActive) setIsAuthorized(true);
         }
       } catch (error) {
-        console.error('Error checking authorization:', error);
+        console.error('RequireAuth: Error checking authorization:', error);
         if (isActive) setIsAuthorized(false);
       } finally {
         if (isActive) setIsChecking(false);
       }
     };
     
-    // Set up auth state listener first to respond to auth changes
+    // Set up auth state listener first
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('Auth state changed in RequireAuth:', event);
+        console.log('Auth state changed in RequireAuth:', event, session?.user?.id);
         
         if (!isActive) return;
         
@@ -110,6 +110,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     checkAuth();
     
     return () => {
+      console.log('RequireAuth: Cleaning up');
       isActive = false;
       subscription.unsubscribe();
     };
@@ -126,7 +127,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   }
 
   // If not authorized and not on the auth page, redirect
-  if (isAuthorized === false && !location.pathname.startsWith('/auth')) {
+  if (isAuthorized === false) {
     console.log('Not authorized, redirecting to auth page');
     // Redirect to auth page with return URL
     return (
