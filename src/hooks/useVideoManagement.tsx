@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from 'react';
 import { VideoEntry, RecordedVideo } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
@@ -137,6 +138,52 @@ export const useVideoManagement = () => {
     console.log("Video fully loaded and ready to play");
   }, []);
 
+  // CRUD operations for videos
+  const refetchVideos = useCallback(async () => {
+    await loadAllPendingVideos();
+    toast.success("Videos refreshed");
+  }, [loadAllPendingVideos]);
+
+  const deleteVideo = useCallback(async (id: string) => {
+    try {
+      const db = await databaseSwitcher.getDatabase();
+      await db.deleteEntry(id);
+      setVideos(prev => prev.filter(video => video.id !== id));
+      return true;
+    } catch (error) {
+      console.error("Error deleting video:", error);
+      throw error;
+    }
+  }, []);
+
+  const approveVideo = useCallback(async (id: string) => {
+    try {
+      const db = await databaseSwitcher.getDatabase();
+      const updatedVideo = await db.setApprovalStatus(id, true);
+      if (updatedVideo) {
+        setVideos(prev => prev.map(video => video.id === id ? { ...video, admin_approved: true } : video));
+      }
+      return updatedVideo;
+    } catch (error) {
+      console.error("Error approving video:", error);
+      throw error;
+    }
+  }, []);
+
+  const rejectVideo = useCallback(async (id: string) => {
+    try {
+      const db = await databaseSwitcher.getDatabase();
+      const updatedVideo = await db.setApprovalStatus(id, false);
+      if (updatedVideo) {
+        setVideos(prev => prev.map(video => video.id === id ? { ...video, admin_approved: false } : video));
+      }
+      return updatedVideo;
+    } catch (error) {
+      console.error("Error rejecting video:", error);
+      throw error;
+    }
+  }, []);
+
   return {
     videos,
     currentVideo,
@@ -148,6 +195,10 @@ export const useVideoManagement = () => {
     handleStartRecording,
     handleVideoRecorded,
     handleCancelRecording,
-    handleVideoLoaded
+    handleVideoLoaded,
+    refetchVideos,
+    deleteVideo,
+    approveVideo,
+    rejectVideo
   };
 };

@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -13,7 +14,7 @@ import {
 } from '@/components/ui/select';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import Navigation from '@/components/Navigation';
-import { UploadCloud, Loader2, Info, LockIcon, X, Edit, Plus, FileVideo } from 'lucide-react';
+import { UploadCloud, Loader2, Info, LockIcon, X, Edit, Plus, FileVideo, Check, Save } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { remoteStorage } from '@/lib/remoteStorage';
@@ -24,7 +25,6 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { VideoFile, VideoMetadata } from '@/lib/types';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 // Form schema for overall LoRA information
 const formSchema = z.object({
@@ -60,13 +60,13 @@ const videoMetadataSchema = z.object({
 
 interface VideoWithMetadata extends File {
   metadata?: VideoMetadata;
+  isEditing?: boolean;
 }
 
 const Upload: React.FC = () => {
   const [uploading, setUploading] = useState(false);
   const [files, setFiles] = useState<VideoWithMetadata[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [isEditingVideo, setIsEditingVideo] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -83,19 +83,7 @@ const Upload: React.FC = () => {
     },
   });
 
-  // Form for individual video metadata
-  const videoForm = useForm<z.infer<typeof videoMetadataSchema>>({
-    resolver: zodResolver(videoMetadataSchema),
-    defaultValues: {
-      title: "",
-      description: "",
-      creator: "self",
-      creatorName: "",
-    },
-  });
-  
   const creatorType = form.watch("creator");
-  const videoCreatorType = videoForm.watch("creator");
 
   useEffect(() => {
     // Check authentication status
@@ -180,37 +168,32 @@ const Upload: React.FC = () => {
     e.preventDefault();
   }, []);
 
-  const openEditVideoDialog = (index: number) => {
-    const file = files[index];
-    if (file && file.metadata) {
-      videoForm.reset({
-        title: file.metadata.title,
-        description: file.metadata.description || '',
-        creator: file.metadata.creator,
-        creatorName: file.metadata.creatorName || '',
-      });
-      setIsEditingVideo(index);
-    }
+  const toggleEditMode = (index: number) => {
+    setFiles(prevFiles => {
+      const newFiles = [...prevFiles];
+      newFiles[index].isEditing = !newFiles[index].isEditing;
+      return newFiles;
+    });
   };
 
-  const saveVideoMetadata = (data: z.infer<typeof videoMetadataSchema>) => {
-    if (isEditingVideo !== null) {
-      setFiles(prevFiles => {
-        const newFiles = [...prevFiles];
-        const file = newFiles[isEditingVideo];
-        if (file) {
-          file.metadata = {
-            title: data.title,
-            description: data.description,
-            creator: data.creator,
-            creatorName: data.creator === 'other' ? data.creatorName : undefined,
+  const updateVideoMetadata = (index: number, field: keyof VideoMetadata, value: string | 'self' | 'other') => {
+    setFiles(prevFiles => {
+      const newFiles = [...prevFiles];
+      if (newFiles[index].metadata) {
+        // Special handling for creator field
+        if (field === 'creator' && value === 'self' && newFiles[index].metadata) {
+          // If switching to 'self', remove creatorName
+          const { creatorName, ...rest } = newFiles[index].metadata;
+          newFiles[index].metadata = { ...rest, creator: value as 'self' | 'other' };
+        } else {
+          newFiles[index].metadata = { 
+            ...newFiles[index].metadata, 
+            [field]: value 
           };
         }
-        return newFiles;
-      });
-      setIsEditingVideo(null);
-      videoForm.reset();
-    }
+      }
+      return newFiles;
+    });
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
@@ -231,6 +214,9 @@ const Upload: React.FC = () => {
       toast.error('Please add titles to all videos before uploading.');
       return;
     }
+    
+    // Close any open editing states
+    setFiles(prevFiles => prevFiles.map(file => ({ ...file, isEditing: false })));
     
     setUploading(true);
     
@@ -529,50 +515,141 @@ const Upload: React.FC = () => {
                 </div>
               </div>
               
-              {/* List of selected videos with metadata */}
+              {/* List of selected videos with metadata - now with inline editing */}
               {files.length > 0 && (
                 <div className="animate-slide-in">
                   <h3 className="text-sm font-semibold mb-3">Selected videos:</h3>
-                  <ul className="space-y-2">
+                  <ul className="space-y-3">
                     {files.map((file, index) => (
-                      <li key={index} className="flex items-center text-sm bg-secondary/50 p-4 rounded-md">
-                        <FileVideo className="h-5 w-5 mr-2 text-muted-foreground" />
-                        <div className="flex-1 overflow-hidden">
-                          <div className="font-medium truncate">
-                            {file.metadata?.title || file.name}
-                          </div>
-                          {file.metadata?.description && (
-                            <div className="text-xs text-muted-foreground truncate">
-                              {file.metadata.description}
+                      <li key={index} className={cn(
+                          "bg-secondary/50 rounded-md overflow-hidden transition-all",
+                          file.isEditing ? "p-5 border border-primary" : "p-4"
+                        )}
+                      >
+                        {!file.isEditing ? (
+                          // View mode
+                          <div className="flex items-center text-sm">
+                            <FileVideo className="h-5 w-5 mr-2 text-muted-foreground" />
+                            <div className="flex-1 overflow-hidden">
+                              <div className="font-medium truncate">
+                                {file.metadata?.title || file.name}
+                              </div>
+                              {file.metadata?.description && (
+                                <div className="text-xs text-muted-foreground truncate">
+                                  {file.metadata.description}
+                                </div>
+                              )}
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {(file.size / (1024 * 1024)).toFixed(2)} MB • 
+                                {file.metadata?.creator === 'self' 
+                                  ? ' Created by you' 
+                                  : ` Created by ${file.metadata?.creatorName || 'someone else'}`}
+                              </div>
                             </div>
-                          )}
-                          <div className="text-xs text-muted-foreground mt-1">
-                            {(file.size / (1024 * 1024)).toFixed(2)} MB • 
-                            {file.metadata?.creator === 'self' 
-                              ? ' Created by you' 
-                              : ` Created by ${file.metadata?.creatorName || 'someone else'}`}
+                            <div className="flex gap-2">
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => toggleEditMode(index)}
+                                className="h-8 w-8 p-0"
+                                disabled={uploading}
+                              >
+                                <Edit className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => removeFile(index)}
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                disabled={uploading}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => openEditVideoDialog(index)}
-                            className="h-8 w-8 p-0"
-                            disabled={uploading}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeFile(index)}
-                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                            disabled={uploading}
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
+                        ) : (
+                          // Edit mode - inline form
+                          <div className="space-y-3">
+                            <div className="flex justify-between items-center mb-2">
+                              <div className="font-medium">Edit Video Details</div>
+                              <div className="flex gap-2">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleEditMode(index)}
+                                  className="h-8 w-8 p-0"
+                                >
+                                  <X className="h-4 w-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => toggleEditMode(index)}
+                                  className="h-8 w-8 p-0 text-primary"
+                                >
+                                  <Check className="h-4 w-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {/* Title field */}
+                            <div className="space-y-1">
+                              <Label htmlFor={`video-title-${index}`} className="text-xs">Title</Label>
+                              <Input
+                                id={`video-title-${index}`}
+                                value={file.metadata?.title || ''}
+                                onChange={(e) => updateVideoMetadata(index, 'title', e.target.value)}
+                                placeholder="Video title"
+                                className="h-9"
+                              />
+                            </div>
+                            
+                            {/* Description field */}
+                            <div className="space-y-1">
+                              <Label htmlFor={`video-description-${index}`} className="text-xs">Description (optional)</Label>
+                              <Textarea
+                                id={`video-description-${index}`}
+                                value={file.metadata?.description || ''}
+                                onChange={(e) => updateVideoMetadata(index, 'description', e.target.value)}
+                                placeholder="Describe this specific video"
+                                className="min-h-[60px]"
+                              />
+                            </div>
+                            
+                            {/* Creator field */}
+                            <div className="space-y-1">
+                              <Label className="text-xs">Who created this video?</Label>
+                              <RadioGroup
+                                value={file.metadata?.creator || 'self'}
+                                onValueChange={(value) => updateVideoMetadata(index, 'creator', value as 'self' | 'other')}
+                                className="flex flex-col space-y-1"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="self" id={`video-creator-self-${index}`} />
+                                  <Label htmlFor={`video-creator-self-${index}`} className="text-sm">I made this</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="other" id={`video-creator-other-${index}`} />
+                                  <Label htmlFor={`video-creator-other-${index}`} className="text-sm">Someone else made this</Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                            
+                            {/* Creator name field - conditional */}
+                            {file.metadata?.creator === 'other' && (
+                              <div className="space-y-1">
+                                <Label htmlFor={`video-creator-name-${index}`} className="text-xs">Creator's name</Label>
+                                <Input
+                                  id={`video-creator-name-${index}`}
+                                  value={file.metadata?.creatorName || ''}
+                                  onChange={(e) => updateVideoMetadata(index, 'creatorName', e.target.value)}
+                                  placeholder="Enter creator's name"
+                                  className="h-9"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </li>
                     ))}
                   </ul>
@@ -616,101 +693,6 @@ const Upload: React.FC = () => {
               </div>
             </form>
           </Form>
-          
-          {/* Video metadata editing dialog */}
-          <Dialog open={isEditingVideo !== null} onOpenChange={(open) => !open && setIsEditingVideo(null)}>
-            <DialogContent className="sm:max-w-md">
-              <DialogHeader>
-                <DialogTitle>Video Details</DialogTitle>
-              </DialogHeader>
-              
-              <Form {...videoForm}>
-                <form onSubmit={videoForm.handleSubmit(saveVideoMetadata)} className="space-y-4">
-                  {/* Video title */}
-                  <FormField
-                    control={videoForm.control}
-                    name="title"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Title</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Video title" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {/* Video description */}
-                  <FormField
-                    control={videoForm.control}
-                    name="description"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Description (optional)</FormLabel>
-                        <FormControl>
-                          <Textarea placeholder="Describe this specific video" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {/* Video creator */}
-                  <FormField
-                    control={videoForm.control}
-                    name="creator"
-                    render={({ field }) => (
-                      <FormItem className="space-y-3">
-                        <FormLabel>Was this video made by you or someone else?</FormLabel>
-                        <FormControl>
-                          <RadioGroup
-                            onValueChange={field.onChange}
-                            value={field.value}
-                            className="flex flex-col space-y-1"
-                          >
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="self" id="video-creator-self" />
-                              <Label htmlFor="video-creator-self">I made this</Label>
-                            </div>
-                            <div className="flex items-center space-x-2">
-                              <RadioGroupItem value="other" id="video-creator-other" />
-                              <Label htmlFor="video-creator-other">Someone else made this</Label>
-                            </div>
-                          </RadioGroup>
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  
-                  {/* Video creator name */}
-                  {videoCreatorType === "other" && (
-                    <FormField
-                      control={videoForm.control}
-                      name="creatorName"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Who made this video?</FormLabel>
-                          <FormControl>
-                            <Input placeholder="Creator's name" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                  
-                  <DialogFooter className="mt-6">
-                    <Button type="button" variant="outline" onClick={() => setIsEditingVideo(null)}>
-                      Cancel
-                    </Button>
-                    <Button type="submit">Save</Button>
-                  </DialogFooter>
-                </form>
-              </Form>
-            </DialogContent>
-          </Dialog>
         </div>
       </main>
     </div>
