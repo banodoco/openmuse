@@ -1,3 +1,4 @@
+
 export interface VideoFile {
   id: string;
   blob: Blob;
@@ -10,6 +11,8 @@ export interface VideoMetadata {
   creator: 'self' | 'someone_else';
   creatorName?: string;
   classification: 'art' | 'gen';
+  url?: string;
+  model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
 }
 
 export interface VideoEntry {
@@ -26,4 +29,12 @@ export interface VideoEntry {
 export interface RecordedVideo {
   blob: Blob;
   url: string;
+}
+
+export interface UserProfile {
+  id: string;
+  username?: string;
+  email?: string;
+  avatar_url?: string;
+  created_at?: string;
 }

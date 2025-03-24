@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { UploadCloud, Play, LayoutDashboard } from 'lucide-react';
+import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
 
@@ -41,13 +41,9 @@ const Navigation: React.FC = () => {
         
         {!isAuthPage && (
           <div className="flex space-x-2">
-            <NavLink to="/" active={isActive('/')}>
-              <Play className="w-4 h-4 mr-2" />
-              Respond
-            </NavLink>
             <NavLink to="/upload" active={isActive('/upload')}>
               <UploadCloud className="w-4 h-4 mr-2" />
-              Upload
+              Propose
             </NavLink>
             {isAdmin && (
               <NavLink to="/admin" active={isActive('/admin')}>

@@ -1,65 +1,68 @@
 
-import { videoDB } from './db';
-import { videoStorage } from './storage';
+import { supabase } from './supabase';
+import { databaseSwitcher } from './databaseSwitcher';
+import { Logger } from './logger';
 
-export async function migrateExistingVideos(): Promise<void> {
-  const entries = videoDB.getAllEntries();
-  let migratedCount = 0;
+const logger = new Logger('MigrationUtil');
 
-  console.log(`Found ${entries.length} entries to check for migration`);
+export const migrateExistingVideos = async (): Promise<void> => {
+  try {
+    // First check if the database is connected
+    const db = await databaseSwitcher.getDatabase();
+    if (!db) {
+      logger.error('No database available for migration');
+      return;
+    }
 
-  for (const entry of entries) {
-    let updated = false;
+    // Get all videos from Supabase
+    const { data: videos, error } = await supabase
+      .from('video_entries')
+      .select('*');
 
-    // Check if original video is a data URL and needs migration
-    if (entry.video_location && entry.video_location.startsWith('data:')) {
-      try {
-        // Convert data URL to blob
-        const response = await fetch(entry.video_location);
-        const blob = await response.blob();
-        
-        // Save to IndexedDB
-        await videoStorage.saveVideo({
-          id: `video_${entry.id}`,
-          blob
-        });
-        
-        // Update entry with new location
-        entry.video_location = `idb://video_${entry.id}`;
-        updated = true;
-        console.log(`Migrated original video for entry ${entry.id}`);
-      } catch (error) {
-        console.error(`Failed to migrate original video for entry ${entry.id}:`, error);
+    if (error) {
+      logger.error('Error fetching videos for migration:', error);
+      return;
+    }
+
+    if (!videos || videos.length === 0) {
+      logger.log('No videos to migrate');
+      return;
+    }
+
+    logger.log(`Found ${videos.length} videos to potentially migrate`);
+
+    // Count how many need migration
+    let migrationCount = 0;
+
+    // Process each video
+    for (const video of videos) {
+      // Check if video needs migration (doesn't have metadata)
+      if (!video.metadata) {
+        // Create basic metadata from existing fields
+        const basicMetadata = {
+          title: `Video from ${video.reviewer_name}`,
+          description: '',
+          creator: 'self' as const,
+          classification: 'art' as const
+        };
+
+        // Update the video with the new metadata
+        const { error: updateError } = await supabase
+          .from('video_entries')
+          .update({ metadata: basicMetadata })
+          .eq('id', video.id);
+
+        if (updateError) {
+          logger.error(`Error migrating video ${video.id}:`, updateError);
+        } else {
+          migrationCount++;
+          logger.log(`Migrated video ${video.id}`);
+        }
       }
     }
 
-    // Check if acting video is a data URL and needs migration
-    if (entry.acting_video_location && entry.acting_video_location.startsWith('data:')) {
-      try {
-        // Convert data URL to blob
-        const response = await fetch(entry.acting_video_location);
-        const blob = await response.blob();
-        
-        // Save to IndexedDB
-        await videoStorage.saveVideo({
-          id: `acting_${entry.id}`,
-          blob
-        });
-        
-        // Update entry with new location
-        entry.acting_video_location = `idb://acting_${entry.id}`;
-        updated = true;
-        console.log(`Migrated acting video for entry ${entry.id}`);
-      } catch (error) {
-        console.error(`Failed to migrate acting video for entry ${entry.id}:`, error);
-      }
-    }
-
-    if (updated) {
-      videoDB.updateEntry(entry.id, entry);
-      migratedCount++;
-    }
+    logger.log(`Migration complete. Migrated ${migrationCount} videos.`);
+  } catch (error) {
+    logger.error('Unexpected error during migration:', error);
   }
-
-  console.log(`Migration completed. Migrated ${migratedCount} entries.`);
-}
+};
