@@ -18,6 +18,15 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import VideoPreview from '@/components/VideoPreview';
 import { PlusCircle, X, Upload as UploadIcon } from 'lucide-react';
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
 
 const logger = new Logger('Upload');
 
@@ -26,6 +35,10 @@ interface VideoItem {
   id: string;
   file: File | null;
   url: string | null;
+}
+
+// Interface for the LoRA metadata
+interface LoRAMetadata {
   title: string;
   description: string;
   creator: 'self' | 'someone_else';
@@ -42,30 +55,32 @@ const Upload: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State for multiple videos
-  const [videos, setVideos] = useState<VideoItem[]>([{
-    id: crypto.randomUUID(),
-    file: null,
-    url: null,
+  // State for LoRA metadata
+  const [loraMetadata, setLoraMetadata] = useState<LoRAMetadata>({
     title: '',
     description: '',
     creator: 'self',
     creatorName: '',
     classification: 'gen',
     model: 'wan'
+  });
+  
+  // State for multiple videos
+  const [videos, setVideos] = useState<VideoItem[]>([{
+    id: crypto.randomUUID(),
+    file: null,
+    url: null
   }]);
+  
+  const updateLoraField = (field: keyof LoRAMetadata, value: any) => {
+    setLoraMetadata(prev => ({ ...prev, [field]: value }));
+  };
   
   const handleAddVideo = () => {
     setVideos([...videos, {
       id: crypto.randomUUID(),
       file: null,
-      url: null,
-      title: '',
-      description: '',
-      creator: 'self',
-      creatorName: '',
-      classification: 'gen',
-      model: 'wan'
+      url: null
     }]);
   };
   
@@ -103,6 +118,11 @@ const Upload: React.FC = () => {
       return;
     }
     
+    if (!loraMetadata.title) {
+      toast.error('Please enter a title for the LoRA');
+      return;
+    }
+    
     if (!termsAccepted) {
       toast.error('Please accept the terms and conditions');
       return;
@@ -114,17 +134,17 @@ const Upload: React.FC = () => {
       const db = await databaseSwitcher.getDatabase();
       const reviewerName = user?.email || nameInput;
       
-      // Submit each video
+      // Submit each video with the same LoRA metadata
       for (const video of videos) {
         if (!video.file) continue;
         
         const videoMetadata: VideoMetadata = {
-          title: video.title,
-          description: video.description,
-          creator: video.creator,
-          creatorName: video.creator === 'someone_else' ? video.creatorName : undefined,
-          classification: video.classification,
-          model: video.model
+          title: loraMetadata.title,
+          description: loraMetadata.description,
+          creator: loraMetadata.creator,
+          creatorName: loraMetadata.creator === 'someone_else' ? loraMetadata.creatorName : undefined,
+          classification: loraMetadata.classification,
+          model: loraMetadata.model
         };
         
         const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -175,10 +195,124 @@ const Upload: React.FC = () => {
             />
           </div>
           
+          {/* LoRA Information Section */}
+          <div className="p-6 border rounded-lg bg-card space-y-4">
+            <h2 className="text-xl font-semibold mb-4">LoRA Information</h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="lora-title">LoRA Title</Label>
+                  <Input
+                    type="text"
+                    id="lora-title"
+                    placeholder="Enter LoRA title"
+                    value={loraMetadata.title}
+                    onChange={(e) => updateLoraField('title', e.target.value)}
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <Label htmlFor="lora-description">Description</Label>
+                  <Textarea
+                    id="lora-description"
+                    placeholder="Enter LoRA description"
+                    value={loraMetadata.description}
+                    onChange={(e) => updateLoraField('description', e.target.value)}
+                  />
+                </div>
+                
+                <div>
+                  <Label>Creator</Label>
+                  <div className="flex items-center space-x-4">
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="creator-self"
+                        name="creator"
+                        value="self"
+                        checked={loraMetadata.creator === 'self'}
+                        onChange={() => updateLoraField('creator', 'self')}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor="creator-self">Self</label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <input
+                        type="radio"
+                        id="creator-someone-else"
+                        name="creator"
+                        value="someone_else"
+                        checked={loraMetadata.creator === 'someone_else'}
+                        onChange={() => updateLoraField('creator', 'someone_else')}
+                        className="h-4 w-4"
+                      />
+                      <label htmlFor="creator-someone-else">Someone Else</label>
+                    </div>
+                  </div>
+                  {loraMetadata.creator === 'someone_else' && (
+                    <div className="mt-2">
+                      <Label htmlFor="creatorName">Creator's Name</Label>
+                      <Input
+                        type="text"
+                        id="creatorName"
+                        placeholder="Enter creator's name"
+                        value={loraMetadata.creatorName}
+                        onChange={(e) => updateLoraField('creatorName', e.target.value)}
+                        required={loraMetadata.creator === 'someone_else'}
+                      />
+                    </div>
+                  )}
+                </div>
+              </div>
+              
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="classification">Classification</Label>
+                  <Select 
+                    value={loraMetadata.classification} 
+                    onValueChange={(value) => updateLoraField('classification', value as 'art' | 'gen')}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select classification" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="art">Art</SelectItem>
+                      <SelectItem value="gen">Gen</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div>
+                  <Label htmlFor="model">Model</Label>
+                  <Select 
+                    value={loraMetadata.model} 
+                    onValueChange={(value) => updateLoraField('model', value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Model" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="wan">Wan</SelectItem>
+                      <SelectItem value="hunyuan">Hunyuan</SelectItem>
+                      <SelectItem value="ltxv">LTXV</SelectItem>
+                      <SelectItem value="cogvideox">CogVideoX</SelectItem>
+                      <SelectItem value="animatediff">AnimateDiff</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          {/* Videos Section */}
+          <h2 className="text-xl font-semibold">Videos</h2>
+          
           {videos.map((video, index) => (
             <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold">Video {index + 1}</h2>
+                <h3 className="text-lg font-semibold">Video {index + 1}</h3>
                 {videos.length > 1 && (
                   <Button 
                     type="button"
@@ -202,117 +336,11 @@ const Upload: React.FC = () => {
                   />
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor={`title-${video.id}`}>Video Title</Label>
-                      <Input
-                        type="text"
-                        id={`title-${video.id}`}
-                        placeholder="Enter video title"
-                        value={video.title}
-                        onChange={(e) => updateVideoField(video.id, 'title', e.target.value)}
-                        required
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label htmlFor={`description-${video.id}`}>Video Description</Label>
-                      <Textarea
-                        id={`description-${video.id}`}
-                        placeholder="Enter video description"
-                        value={video.description}
-                        onChange={(e) => updateVideoField(video.id, 'description', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div>
-                      <Label>Creator</Label>
-                      <div className="flex items-center space-x-4">
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            id={`creator-self-${video.id}`}
-                            name={`creator-${video.id}`}
-                            value="self"
-                            checked={video.creator === 'self'}
-                            onChange={() => updateVideoField(video.id, 'creator', 'self')}
-                            className="h-4 w-4"
-                          />
-                          <label htmlFor={`creator-self-${video.id}`}>Self</label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <input
-                            type="radio"
-                            id={`creator-someone-else-${video.id}`}
-                            name={`creator-${video.id}`}
-                            value="someone_else"
-                            checked={video.creator === 'someone_else'}
-                            onChange={() => updateVideoField(video.id, 'creator', 'someone_else')}
-                            className="h-4 w-4"
-                          />
-                          <label htmlFor={`creator-someone-else-${video.id}`}>Someone Else</label>
-                        </div>
-                      </div>
-                      {video.creator === 'someone_else' && (
-                        <div className="mt-2">
-                          <Label htmlFor={`creatorName-${video.id}`}>Creator's Name</Label>
-                          <Input
-                            type="text"
-                            id={`creatorName-${video.id}`}
-                            placeholder="Enter creator's name"
-                            value={video.creatorName}
-                            onChange={(e) => updateVideoField(video.id, 'creatorName', e.target.value)}
-                            required={video.creator === 'someone_else'}
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor={`classification-${video.id}`}>Classification</Label>
-                      <Select 
-                        value={video.classification} 
-                        onValueChange={(value) => updateVideoField(video.id, 'classification', value as 'art' | 'gen')}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select classification" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="art">Art</SelectItem>
-                          <SelectItem value="gen">Gen</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    <div>
-                      <Label htmlFor={`model-${video.id}`}>Model</Label>
-                      <Select 
-                        value={video.model} 
-                        onValueChange={(value) => updateVideoField(video.id, 'model', value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}
-                      >
-                        <SelectTrigger className="w-full">
-                          <SelectValue placeholder="Select Model" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="wan">Wan</SelectItem>
-                          <SelectItem value="hunyuan">Hunyuan</SelectItem>
-                          <SelectItem value="ltxv">LTXV</SelectItem>
-                          <SelectItem value="cogvideox">CogVideoX</SelectItem>
-                          <SelectItem value="animatediff">AnimateDiff</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    
-                    <div className="w-full">
-                      <VideoPreview 
-                        file={video.file} 
-                        className="w-full"
-                      />
-                    </div>
-                  </div>
+                <div className="space-y-4">
+                  <VideoPreview 
+                    file={video.file} 
+                    className="w-full md:w-2/3 mx-auto"
+                  />
                 </div>
               )}
             </div>
