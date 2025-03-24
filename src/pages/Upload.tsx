@@ -17,7 +17,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import VideoPreview from '@/components/VideoPreview';
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, Upload as UploadIcon } from 'lucide-react';
 
 const logger = new Logger('Upload');
 
@@ -192,121 +192,129 @@ const Upload: React.FC = () => {
                 )}
               </div>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor={`title-${video.id}`}>Video Title</Label>
-                    <Input
-                      type="text"
-                      id={`title-${video.id}`}
-                      placeholder="Enter video title"
-                      value={video.title}
-                      onChange={(e) => updateVideoField(video.id, 'title', e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label htmlFor={`description-${video.id}`}>Video Description</Label>
-                    <Textarea
-                      id={`description-${video.id}`}
-                      placeholder="Enter video description"
-                      value={video.description}
-                      onChange={(e) => updateVideoField(video.id, 'description', e.target.value)}
-                    />
-                  </div>
-                  
-                  <div>
-                    <Label>Creator</Label>
-                    <div className="flex items-center space-x-4">
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          id={`creator-self-${video.id}`}
-                          name={`creator-${video.id}`}
-                          value="self"
-                          checked={video.creator === 'self'}
-                          onChange={() => updateVideoField(video.id, 'creator', 'self')}
-                          className="h-4 w-4"
-                        />
-                        <label htmlFor={`creator-self-${video.id}`}>Self</label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <input
-                          type="radio"
-                          id={`creator-someone-else-${video.id}`}
-                          name={`creator-${video.id}`}
-                          value="someone_else"
-                          checked={video.creator === 'someone_else'}
-                          onChange={() => updateVideoField(video.id, 'creator', 'someone_else')}
-                          className="h-4 w-4"
-                        />
-                        <label htmlFor={`creator-someone-else-${video.id}`}>Someone Else</label>
-                      </div>
+              {!video.file ? (
+                <div className="w-full flex justify-center">
+                  <VideoDropzone 
+                    id={video.id} 
+                    file={video.file} 
+                    url={video.url} 
+                    onDrop={handleVideoFileDrop(video.id)} 
+                  />
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor={`title-${video.id}`}>Video Title</Label>
+                      <Input
+                        type="text"
+                        id={`title-${video.id}`}
+                        placeholder="Enter video title"
+                        value={video.title}
+                        onChange={(e) => updateVideoField(video.id, 'title', e.target.value)}
+                        required
+                      />
                     </div>
-                    {video.creator === 'someone_else' && (
-                      <div className="mt-2">
-                        <Label htmlFor={`creatorName-${video.id}`}>Creator's Name</Label>
-                        <Input
-                          type="text"
-                          id={`creatorName-${video.id}`}
-                          placeholder="Enter creator's name"
-                          value={video.creatorName}
-                          onChange={(e) => updateVideoField(video.id, 'creatorName', e.target.value)}
-                          required={video.creator === 'someone_else'}
-                        />
+                    
+                    <div>
+                      <Label htmlFor={`description-${video.id}`}>Video Description</Label>
+                      <Textarea
+                        id={`description-${video.id}`}
+                        placeholder="Enter video description"
+                        value={video.description}
+                        onChange={(e) => updateVideoField(video.id, 'description', e.target.value)}
+                      />
+                    </div>
+                    
+                    <div>
+                      <Label>Creator</Label>
+                      <div className="flex items-center space-x-4">
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id={`creator-self-${video.id}`}
+                            name={`creator-${video.id}`}
+                            value="self"
+                            checked={video.creator === 'self'}
+                            onChange={() => updateVideoField(video.id, 'creator', 'self')}
+                            className="h-4 w-4"
+                          />
+                          <label htmlFor={`creator-self-${video.id}`}>Self</label>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <input
+                            type="radio"
+                            id={`creator-someone-else-${video.id}`}
+                            name={`creator-${video.id}`}
+                            value="someone_else"
+                            checked={video.creator === 'someone_else'}
+                            onChange={() => updateVideoField(video.id, 'creator', 'someone_else')}
+                            className="h-4 w-4"
+                          />
+                          <label htmlFor={`creator-someone-else-${video.id}`}>Someone Else</label>
+                        </div>
                       </div>
-                    )}
-                  </div>
-                </div>
-                
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor={`classification-${video.id}`}>Classification</Label>
-                    <Select 
-                      value={video.classification} 
-                      onValueChange={(value) => updateVideoField(video.id, 'classification', value as 'art' | 'gen')}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select classification" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="art">Art</SelectItem>
-                        <SelectItem value="gen">Gen</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div>
-                    <Label htmlFor={`model-${video.id}`}>Model</Label>
-                    <Select 
-                      value={video.model} 
-                      onValueChange={(value) => updateVideoField(video.id, 'model', value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}
-                    >
-                      <SelectTrigger className="w-full">
-                        <SelectValue placeholder="Select Model" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="wan">Wan</SelectItem>
-                        <SelectItem value="hunyuan">Hunyuan</SelectItem>
-                        <SelectItem value="ltxv">LTXV</SelectItem>
-                        <SelectItem value="cogvideox">CogVideoX</SelectItem>
-                        <SelectItem value="animatediff">AnimateDiff</SelectItem>
-                      </SelectContent>
-                    </Select>
+                      {video.creator === 'someone_else' && (
+                        <div className="mt-2">
+                          <Label htmlFor={`creatorName-${video.id}`}>Creator's Name</Label>
+                          <Input
+                            type="text"
+                            id={`creatorName-${video.id}`}
+                            placeholder="Enter creator's name"
+                            value={video.creatorName}
+                            onChange={(e) => updateVideoField(video.id, 'creatorName', e.target.value)}
+                            required={video.creator === 'someone_else'}
+                          />
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
-                  <div className="w-full">
-                    <Label htmlFor={`video-${video.id}`}>Video File</Label>
-                    <VideoDropzone 
-                      id={video.id} 
-                      file={video.file} 
-                      url={video.url} 
-                      onDrop={handleVideoFileDrop(video.id)} 
-                    />
+                  <div className="space-y-4">
+                    <div>
+                      <Label htmlFor={`classification-${video.id}`}>Classification</Label>
+                      <Select 
+                        value={video.classification} 
+                        onValueChange={(value) => updateVideoField(video.id, 'classification', value as 'art' | 'gen')}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select classification" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="art">Art</SelectItem>
+                          <SelectItem value="gen">Gen</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor={`model-${video.id}`}>Model</Label>
+                      <Select 
+                        value={video.model} 
+                        onValueChange={(value) => updateVideoField(video.id, 'model', value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}
+                      >
+                        <SelectTrigger className="w-full">
+                          <SelectValue placeholder="Select Model" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="wan">Wan</SelectItem>
+                          <SelectItem value="hunyuan">Hunyuan</SelectItem>
+                          <SelectItem value="ltxv">LTXV</SelectItem>
+                          <SelectItem value="cogvideox">CogVideoX</SelectItem>
+                          <SelectItem value="animatediff">AnimateDiff</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div className="w-full">
+                      <VideoPreview 
+                        file={video.file} 
+                        className="w-full"
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
           ))}
           
@@ -357,19 +365,22 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop }) 
   });
   
   return (
-    <div {...getRootProps()} className="dropzone mt-1 border-2 border-dashed rounded-md p-4 text-center cursor-pointer bg-muted/50">
+    <div 
+      {...getRootProps()} 
+      className="dropzone mt-1 border-2 border-dashed rounded-md p-8 text-center cursor-pointer bg-muted/50 w-full md:w-1/2"
+    >
       <input {...getInputProps()} id={`video-${id}`} />
-      {
-        isDragActive ?
-          <p>Drop the video here ...</p> :
-          <p>Drag 'n' drop a video here, or click to select a file</p>
-      }
-      {file && (
-        <div className="mt-2">
-          <p>Selected file: {file.name}</p>
-          <VideoPreview file={file} className="mt-2 mx-auto max-w-md" />
-        </div>
-      )}
+      <div className="flex flex-col items-center justify-center">
+        <UploadIcon className="h-12 w-12 text-muted-foreground mb-4" />
+        {
+          isDragActive ?
+            <p>Drop the video here ...</p> :
+            <>
+              <p className="text-lg font-medium mb-2">Drag 'n' drop a video here</p>
+              <p className="text-sm text-muted-foreground">or click to select a file</p>
+            </>
+        }
+      </div>
     </div>
   );
 };
