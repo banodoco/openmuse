@@ -45,11 +45,7 @@ const App = () => {
                 <Index />
               </RequireAuth>
             } />
-            <Route path="/upload" element={
-              <RequireAuth allowUnauthenticated>
-                <Upload />
-              </RequireAuth>
-            } />
+            <Route path="/upload" element={<Upload />} />
             <Route path="/admin" element={
               <RequireAuth requireAdmin>
                 <Admin />

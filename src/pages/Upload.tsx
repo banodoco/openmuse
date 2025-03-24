@@ -13,7 +13,7 @@ import {
 } from '@/components/ui/select';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import Navigation from '@/components/Navigation';
-import { UploadCloud, Loader2, Info, LockIcon, X, Edit, Plus, FileVideo, Check, Save } from 'lucide-react';
+import { UploadCloud, Loader2, Info, X, FileVideo, } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { remoteStorage } from '@/lib/remoteStorage';
@@ -104,12 +104,6 @@ const Upload: React.FC = () => {
   }, []);
 
   const handleSelectFiles = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!isAuthenticated) {
-      toast.error('Please sign in to upload videos');
-      navigate('/auth');
-      return;
-    }
-    
     if (e.target.files && e.target.files.length > 0) {
       const fileArray = Array.from(e.target.files).filter(
         file => file.type.startsWith('video/')
@@ -133,16 +127,10 @@ const Upload: React.FC = () => {
       
       setFiles(prevFiles => [...prevFiles, ...filesWithMetadata]);
     }
-  }, [isAuthenticated, navigate]);
+  }, []);
 
   const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
-    
-    if (!isAuthenticated) {
-      toast.error('Please sign in to upload videos');
-      navigate('/auth');
-      return;
-    }
     
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const fileArray = Array.from(e.dataTransfer.files).filter(
@@ -167,7 +155,7 @@ const Upload: React.FC = () => {
       
       setFiles(prevFiles => [...prevFiles, ...filesWithMetadata]);
     }
-  }, [isAuthenticated, navigate]);
+  }, []);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
@@ -202,12 +190,6 @@ const Upload: React.FC = () => {
   };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
-    if (!isAuthenticated) {
-      toast.error('Please sign in to upload videos');
-      navigate('/auth');
-      return;
-    }
-    
     if (files.length === 0) {
       toast.error('Please select at least one video file to upload.');
       return;
@@ -227,9 +209,21 @@ const Upload: React.FC = () => {
     
     try {
       const db = await databaseSwitcher.getDatabase();
-      const userProfile = await getCurrentUserProfile();
       
-      const reviewerName = userProfile?.username || 'Anonymous User';
+      // Try to get authenticated user's name, or use "Anonymous User" 
+      let reviewerName = "Anonymous User";
+      
+      if (isAuthenticated) {
+        try {
+          const userProfile = await getCurrentUserProfile();
+          if (userProfile?.username) {
+            reviewerName = userProfile.username;
+          }
+        } catch (error) {
+          console.error('Error getting user profile:', error);
+          // Continue with anonymous user
+        }
+      }
       
       // Overall LoRA metadata
       const loraMetadata = {
@@ -300,18 +294,6 @@ const Upload: React.FC = () => {
             Upload videos of your LoRA generation for others to respond to with their acting.
           </p>
           
-          {!isAuthenticated && (
-            <div className="bg-muted p-4 rounded-lg mb-6 flex items-center gap-3">
-              <LockIcon className="h-5 w-5 text-primary" />
-              <div>
-                <h3 className="font-medium">Authentication Required</h3>
-                <p className="text-sm text-muted-foreground">
-                  You need to <Button variant="link" className="p-0 h-auto" onClick={() => navigate('/auth')}>sign in</Button> to upload videos.
-                </p>
-              </div>
-            </div>
-          )}
-          
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               {/* LoRA Information section */}
@@ -329,7 +311,7 @@ const Upload: React.FC = () => {
                         <Input 
                           placeholder="Enter a catchy headline for your LoRA" 
                           {...field} 
-                          disabled={!isAuthenticated || uploading}
+                          disabled={uploading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -348,7 +330,7 @@ const Upload: React.FC = () => {
                         <Textarea 
                           placeholder="Describe your LoRA in a few sentences" 
                           {...field}
-                          disabled={!isAuthenticated || uploading}
+                          disabled={uploading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -368,7 +350,7 @@ const Upload: React.FC = () => {
                           onValueChange={field.onChange}
                           defaultValue={field.value}
                           className="flex flex-col space-y-1"
-                          disabled={!isAuthenticated || uploading}
+                          disabled={uploading}
                         >
                           <div className="flex items-center space-x-2">
                             <RadioGroupItem value="self" id="creator-self" />
@@ -397,7 +379,7 @@ const Upload: React.FC = () => {
                           <Input 
                             placeholder="Enter the creator's name" 
                             {...field} 
-                            disabled={!isAuthenticated || uploading}
+                            disabled={uploading}
                           />
                         </FormControl>
                         <FormMessage />
@@ -417,7 +399,7 @@ const Upload: React.FC = () => {
                         <Input 
                           placeholder="Link to the LoRA (e.g., Civitai page)" 
                           {...field} 
-                          disabled={!isAuthenticated || uploading}
+                          disabled={uploading}
                         />
                       </FormControl>
                       <FormMessage />
@@ -435,7 +417,7 @@ const Upload: React.FC = () => {
                       <Select 
                         onValueChange={field.onChange} 
                         defaultValue={field.value}
-                        disabled={!isAuthenticated || uploading}
+                        disabled={uploading}
                       >
                         <FormControl>
                           <SelectTrigger>
@@ -465,10 +447,9 @@ const Upload: React.FC = () => {
                     "hover:border-primary/50 hover:bg-secondary/50",
                     "flex flex-col items-center justify-center gap-4",
                     uploading && "pointer-events-none opacity-60",
-                    !areFilesFilled && isAuthenticated && "border-destructive",
-                    !isAuthenticated && "opacity-70 pointer-events-none"
+                    !areFilesFilled && "border-destructive"
                   )}
-                  onClick={() => isAuthenticated && fileInputRef.current?.click()}
+                  onClick={() => fileInputRef.current?.click()}
                   onDrop={handleDrop}
                   onDragOver={handleDragOver}
                 >
@@ -495,14 +476,9 @@ const Upload: React.FC = () => {
                             ? 'You can continue to add more videos' 
                             : 'Upload example videos showing your LoRA in action'}
                         </p>
-                        {!areFilesFilled && isAuthenticated && (
+                        {!areFilesFilled && (
                           <p className="text-sm text-destructive mt-1 flex items-center gap-1 justify-center">
                             <Info className="h-3 w-3" /> At least one video is required
-                          </p>
-                        )}
-                        {!isAuthenticated && (
-                          <p className="text-sm text-muted-foreground mt-1 flex items-center gap-1 justify-center">
-                            <LockIcon className="h-3 w-3" /> Sign in to upload videos
                           </p>
                         )}
                       </div>
@@ -515,12 +491,12 @@ const Upload: React.FC = () => {
                     multiple
                     onChange={handleSelectFiles}
                     className="hidden"
-                    disabled={uploading || !isAuthenticated}
+                    disabled={uploading}
                   />
                 </div>
               </div>
               
-              {/* List of selected videos with metadata - now with video preview */}
+              {/* List of selected videos with metadata */}
               {files.length > 0 && (
                 <div className="animate-slide-in">
                   <h3 className="text-sm font-semibold mb-3">Selected videos:</h3>
@@ -653,7 +629,7 @@ const Upload: React.FC = () => {
               )}
               
               <div className="flex flex-col items-end pt-4">
-                {!areFilesFilled && isAuthenticated ? (
+                {!areFilesFilled ? (
                   <p className="text-sm text-destructive mb-2 flex items-center gap-1">
                     <Info className="h-3 w-3" /> Please select at least one video to upload
                   </p>
@@ -661,7 +637,7 @@ const Upload: React.FC = () => {
                 
                 <Button
                   className="rounded-full px-8"
-                  disabled={uploading || files.length === 0 || !isAuthenticated}
+                  disabled={uploading || files.length === 0}
                   type="submit"
                 >
                   {uploading ? (
@@ -669,8 +645,6 @@ const Upload: React.FC = () => {
                       <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                       Uploading...
                     </>
-                  ) : !isAuthenticated ? (
-                    'Sign in to Upload'
                   ) : (
                     'Upload LoRA'
                   )}
