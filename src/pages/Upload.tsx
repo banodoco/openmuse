@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -42,7 +43,9 @@ const Upload: React.FC = () => {
   
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
-    accept: 'video/*'
+    accept: {
+      'video/*': []
+    }
   });
   
   const handleSubmit = async (event: React.FormEvent) => {
@@ -72,9 +75,12 @@ const Upload: React.FC = () => {
         model
       };
       
+      // Get user's email or name if available, otherwise use the nameInput field
+      const reviewerName = user?.email || nameInput;
+      
       const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
         video_location: videoUrl || 'error',
-        reviewer_name: user?.username || nameInput,
+        reviewer_name: reviewerName,
         skipped: false,
         user_id: user?.id || null,
         metadata: videoMetadata
