@@ -16,6 +16,7 @@ import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
+import VideoPreview from '@/components/VideoPreview';
 
 const logger = new Logger('Upload');
 
@@ -109,23 +110,6 @@ const Upload: React.FC = () => {
         </p>
         
         <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <Label htmlFor="video">Video File</Label>
-            <div {...getRootProps()} className="dropzone mt-1 border-2 border-dashed rounded-md p-4 text-center cursor-pointer bg-muted/50">
-              <input {...getInputProps()} id="video" />
-              {
-                isDragActive ?
-                  <p>Drop the video here ...</p> :
-                  <p>Drag 'n' drop a video here, or click to select a file</p>
-              }
-              {videoFile && (
-                <div className="mt-2">
-                  <p>Selected file: {videoFile.name}</p>
-                </div>
-              )}
-            </div>
-          </div>
-          
           <div>
             <Label htmlFor="name">Your Name</Label>
             <Input
@@ -239,6 +223,47 @@ const Upload: React.FC = () => {
               onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
             />
             <Label htmlFor="terms">I accept the terms and conditions</Label>
+          </div>
+          
+          {/* Moved Video File section to the bottom */}
+          <div>
+            <Label htmlFor="video">Video File</Label>
+            <div {...getRootProps()} className="dropzone mt-1 border-2 border-dashed rounded-md p-4 text-center cursor-pointer bg-muted/50">
+              <input {...getInputProps()} id="video" />
+              {
+                isDragActive ?
+                  <p>Drop the video here ...</p> :
+                  <p>Drag 'n' drop a video here, or click to select a file</p>
+              }
+              {videoFile && (
+                <div className="mt-2">
+                  <p>Selected file: {videoFile.name}</p>
+                  <VideoPreview file={videoFile} className="mt-2 mx-auto max-w-md" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Example Upload Section */}
+          <div className="mt-8 p-4 bg-muted/30 rounded-lg border border-muted">
+            <h3 className="text-lg font-medium mb-2">Example Upload</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-sm text-muted-foreground mb-2">Sample video with LoRA applied:</p>
+                <div className="aspect-video bg-muted rounded flex items-center justify-center">
+                  <p className="text-sm text-muted-foreground">Sample video preview</p>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-md font-medium mb-1">Sample Details</h4>
+                <ul className="text-sm space-y-1 text-muted-foreground">
+                  <li>Title: Cyberpunk City Animation</li>
+                  <li>Model: Wan</li>
+                  <li>Classification: Art</li>
+                  <li>Creator: John Doe</li>
+                </ul>
+              </div>
+            </div>
           </div>
           
           <Button type="submit" disabled={isSubmitting} size={isMobile ? "sm" : "default"}>
