@@ -37,6 +37,12 @@ export const signInWithDiscord = async () => {
 
 export const signOut = async () => {
   logger.log('Signing out');
+  
+  // Clear caches first in case the signOut fails
+  userProfileCache.clear();
+  userRolesCache.clear();
+  
+  // Sign out from Supabase
   const { error } = await supabase.auth.signOut({
     scope: 'global' // This ensures a complete sign out
   });
@@ -50,12 +56,22 @@ export const signOut = async () => {
   
   // Clear any cached session data
   sessionStorage.clear();
-  localStorage.removeItem('sb-ujlwuvkrxlvoswwkerdf-auth-token');
   
-  // Clear caches
-  userProfileCache.clear();
-  userRolesCache.clear();
+  // Clear Supabase's local storage items
+  // This ensures the auth state is completely reset
+  const keysToRemove = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+      keysToRemove.push(key);
+    }
+  }
   
-  // Give the system time to process the sign out event
-  await new Promise(resolve => setTimeout(resolve, 100));
+  // Remove each key in a separate loop to avoid index issues
+  for (const key of keysToRemove) {
+    localStorage.removeItem(key);
+  }
+  
+  // Wait briefly for auth state to update
+  await new Promise(resolve => setTimeout(resolve, 200));
 };
