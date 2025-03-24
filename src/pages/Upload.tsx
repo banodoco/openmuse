@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -515,145 +514,95 @@ const Upload: React.FC = () => {
                 </div>
               </div>
               
-              {/* List of selected videos with metadata - now with inline editing */}
+              {/* List of selected videos with metadata - now always in edit mode and with 2 columns */}
               {files.length > 0 && (
                 <div className="animate-slide-in">
                   <h3 className="text-sm font-semibold mb-3">Selected videos:</h3>
-                  <ul className="space-y-3">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {files.map((file, index) => (
-                      <li key={index} className={cn(
-                          "bg-secondary/50 rounded-md overflow-hidden transition-all",
-                          file.isEditing ? "p-5 border border-primary" : "p-4"
-                        )}
-                      >
-                        {!file.isEditing ? (
-                          // View mode
-                          <div className="flex items-center text-sm">
-                            <FileVideo className="h-5 w-5 mr-2 text-muted-foreground" />
-                            <div className="flex-1 overflow-hidden">
-                              <div className="font-medium truncate">
-                                {file.metadata?.title || file.name}
-                              </div>
-                              {file.metadata?.description && (
-                                <div className="text-xs text-muted-foreground truncate">
-                                  {file.metadata.description}
-                                </div>
-                              )}
-                              <div className="text-xs text-muted-foreground mt-1">
-                                {(file.size / (1024 * 1024)).toFixed(2)} MB • 
-                                {file.metadata?.creator === 'self' 
-                                  ? ' Created by you' 
-                                  : ` Created by ${file.metadata?.creatorName || 'someone else'}`}
-                              </div>
-                            </div>
-                            <div className="flex gap-2">
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => toggleEditMode(index)}
-                                className="h-8 w-8 p-0"
-                                disabled={uploading}
-                              >
-                                <Edit className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => removeFile(index)}
-                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
-                                disabled={uploading}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
+                      <div key={index} className="bg-secondary/50 rounded-md overflow-hidden p-5 border border-border">
+                        <div className="flex justify-between items-center mb-3">
+                          <div className="font-medium flex items-center">
+                            <FileVideo className="h-4 w-4 mr-2 text-muted-foreground" />
+                            <div className="text-sm truncate max-w-[180px]">{file.name}</div>
                           </div>
-                        ) : (
-                          // Edit mode - inline form
-                          <div className="space-y-3">
-                            <div className="flex justify-between items-center mb-2">
-                              <div className="font-medium">Edit Video Details</div>
-                              <div className="flex gap-2">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleEditMode(index)}
-                                  className="h-8 w-8 p-0"
-                                >
-                                  <X className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  onClick={() => toggleEditMode(index)}
-                                  className="h-8 w-8 p-0 text-primary"
-                                >
-                                  <Check className="h-4 w-4" />
-                                </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            disabled={uploading}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        
+                        <div className="space-y-3 text-sm">
+                          {/* Title field */}
+                          <div className="space-y-1">
+                            <Label htmlFor={`video-title-${index}`} className="text-xs">Title</Label>
+                            <Input
+                              id={`video-title-${index}`}
+                              value={file.metadata?.title || ''}
+                              onChange={(e) => updateVideoMetadata(index, 'title', e.target.value)}
+                              placeholder="Video title"
+                              className="h-9"
+                            />
+                          </div>
+                          
+                          {/* Description field */}
+                          <div className="space-y-1">
+                            <Label htmlFor={`video-description-${index}`} className="text-xs">Description (optional)</Label>
+                            <Textarea
+                              id={`video-description-${index}`}
+                              value={file.metadata?.description || ''}
+                              onChange={(e) => updateVideoMetadata(index, 'description', e.target.value)}
+                              placeholder="Describe this specific video"
+                              className="min-h-[60px]"
+                            />
+                          </div>
+                          
+                          {/* Creator field */}
+                          <div className="space-y-1">
+                            <Label className="text-xs">Who created this video?</Label>
+                            <RadioGroup
+                              value={file.metadata?.creator || 'self'}
+                              onValueChange={(value) => updateVideoMetadata(index, 'creator', value as 'self' | 'other')}
+                              className="flex flex-col space-y-1"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="self" id={`video-creator-self-${index}`} />
+                                <Label htmlFor={`video-creator-self-${index}`} className="text-sm">I made this</Label>
                               </div>
-                            </div>
-                            
-                            {/* Title field */}
+                              <div className="flex items-center space-x-2">
+                                <RadioGroupItem value="other" id={`video-creator-other-${index}`} />
+                                <Label htmlFor={`video-creator-other-${index}`} className="text-sm">Someone else made this</Label>
+                              </div>
+                            </RadioGroup>
+                          </div>
+                          
+                          {/* Creator name field - conditional */}
+                          {file.metadata?.creator === 'other' && (
                             <div className="space-y-1">
-                              <Label htmlFor={`video-title-${index}`} className="text-xs">Title</Label>
+                              <Label htmlFor={`video-creator-name-${index}`} className="text-xs">Creator's name</Label>
                               <Input
-                                id={`video-title-${index}`}
-                                value={file.metadata?.title || ''}
-                                onChange={(e) => updateVideoMetadata(index, 'title', e.target.value)}
-                                placeholder="Video title"
+                                id={`video-creator-name-${index}`}
+                                value={file.metadata?.creatorName || ''}
+                                onChange={(e) => updateVideoMetadata(index, 'creatorName', e.target.value)}
+                                placeholder="Enter creator's name"
                                 className="h-9"
                               />
                             </div>
-                            
-                            {/* Description field */}
-                            <div className="space-y-1">
-                              <Label htmlFor={`video-description-${index}`} className="text-xs">Description (optional)</Label>
-                              <Textarea
-                                id={`video-description-${index}`}
-                                value={file.metadata?.description || ''}
-                                onChange={(e) => updateVideoMetadata(index, 'description', e.target.value)}
-                                placeholder="Describe this specific video"
-                                className="min-h-[60px]"
-                              />
-                            </div>
-                            
-                            {/* Creator field */}
-                            <div className="space-y-1">
-                              <Label className="text-xs">Who created this video?</Label>
-                              <RadioGroup
-                                value={file.metadata?.creator || 'self'}
-                                onValueChange={(value) => updateVideoMetadata(index, 'creator', value as 'self' | 'other')}
-                                className="flex flex-col space-y-1"
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="self" id={`video-creator-self-${index}`} />
-                                  <Label htmlFor={`video-creator-self-${index}`} className="text-sm">I made this</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="other" id={`video-creator-other-${index}`} />
-                                  <Label htmlFor={`video-creator-other-${index}`} className="text-sm">Someone else made this</Label>
-                                </div>
-                              </RadioGroup>
-                            </div>
-                            
-                            {/* Creator name field - conditional */}
-                            {file.metadata?.creator === 'other' && (
-                              <div className="space-y-1">
-                                <Label htmlFor={`video-creator-name-${index}`} className="text-xs">Creator's name</Label>
-                                <Input
-                                  id={`video-creator-name-${index}`}
-                                  value={file.metadata?.creatorName || ''}
-                                  onChange={(e) => updateVideoMetadata(index, 'creatorName', e.target.value)}
-                                  placeholder="Enter creator's name"
-                                  className="h-9"
-                                />
-                              </div>
-                            )}
+                          )}
+                          
+                          <div className="text-xs text-muted-foreground pt-1">
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB
                           </div>
-                        )}
-                      </li>
+                        </div>
+                      </div>
                     ))}
-                  </ul>
-                  <div className="mt-2">
+                  </div>
+                  <div className="mt-4">
                     <Button
                       variant="outline"
                       size="sm"
