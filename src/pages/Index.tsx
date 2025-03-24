@@ -158,9 +158,7 @@ const Index = () => {
           </Button>
         </div>
         
-        {shouldShowLoading && (
-          <LoadingState>Loading videos...</LoadingState>
-        )}
+        {shouldShowLoading && <LoadingState text="Loading videos..." />}
         
         {shouldShowEmpty && (
           <EmptyState 
