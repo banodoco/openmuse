@@ -33,7 +33,7 @@ const formSchema = z.object({
   description: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
-  creator: z.enum(["self", "other"], {
+  creator: z.enum(["self", "someone_else"], {
     required_error: "Please specify who created this LoRA.",
   }),
   creatorName: z.string().optional(),
@@ -51,10 +51,13 @@ const videoMetadataSchema = z.object({
     message: "Title is required" 
   }),
   description: z.string().optional(),
-  creator: z.enum(["self", "other"], {
+  creator: z.enum(["self", "someone_else"], {
     required_error: "Please specify who created this video.",
   }),
   creatorName: z.string().optional(),
+  classification: z.enum(["art", "gen"], {
+    required_error: "Please classify this video.",
+  })
 });
 
 interface VideoWithMetadata extends File {
@@ -122,6 +125,7 @@ const Upload: React.FC = () => {
           title: file.name.split('.')[0], // Default title from filename
           description: '',
           creator: 'self',
+          classification: 'art', // Default classification
         };
         return videoFile;
       });
@@ -155,6 +159,7 @@ const Upload: React.FC = () => {
           title: file.name.split('.')[0], // Default title from filename
           description: '',
           creator: 'self',
+          classification: 'art', // Default classification
         };
         return videoFile;
       });
@@ -175,7 +180,7 @@ const Upload: React.FC = () => {
     });
   };
 
-  const updateVideoMetadata = (index: number, field: keyof VideoMetadata, value: string | 'self' | 'other') => {
+  const updateVideoMetadata = (index: number, field: keyof VideoMetadata, value: string | 'self' | 'someone_else' | 'art' | 'gen') => {
     setFiles(prevFiles => {
       const newFiles = [...prevFiles];
       if (newFiles[index].metadata) {
@@ -183,7 +188,7 @@ const Upload: React.FC = () => {
         if (field === 'creator' && value === 'self' && newFiles[index].metadata) {
           // If switching to 'self', remove creatorName
           const { creatorName, ...rest } = newFiles[index].metadata;
-          newFiles[index].metadata = { ...rest, creator: value as 'self' | 'other' };
+          newFiles[index].metadata = { ...rest, creator: value as 'self' | 'someone_else' };
         } else {
           newFiles[index].metadata = { 
             ...newFiles[index].metadata, 
@@ -230,7 +235,7 @@ const Upload: React.FC = () => {
         headline: values.headline,
         description: values.description,
         creator: values.creator,
-        creatorName: values.creator === 'other' ? values.creatorName : undefined,
+        creatorName: values.creator === 'someone_else' ? values.creatorName : undefined,
         url: values.url || undefined,
         model: values.model
       };
@@ -369,8 +374,8 @@ const Upload: React.FC = () => {
                             <Label htmlFor="creator-self">I made this</Label>
                           </div>
                           <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="other" id="creator-other" />
-                            <Label htmlFor="creator-other">Someone else made this</Label>
+                            <RadioGroupItem value="someone_else" id="creator-other" />
+                            <Label htmlFor="creator-other">Someone else</Label>
                           </div>
                         </RadioGroup>
                       </FormControl>
@@ -380,7 +385,7 @@ const Upload: React.FC = () => {
                 />
 
                 {/* Creator name field - conditional rendering based on creator selection */}
-                {creatorType === "other" && (
+                {creatorType === "someone_else" && (
                   <FormField
                     control={form.control}
                     name="creatorName"
@@ -562,27 +567,49 @@ const Upload: React.FC = () => {
                             />
                           </div>
                           
-                          {/* Creator field */}
-                          <div className="space-y-1">
-                            <Label className="text-xs">Who created this video?</Label>
-                            <RadioGroup
-                              value={file.metadata?.creator || 'self'}
-                              onValueChange={(value) => updateVideoMetadata(index, 'creator', value as 'self' | 'other')}
-                              className="flex flex-col space-y-1"
-                            >
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="self" id={`video-creator-self-${index}`} />
-                                <Label htmlFor={`video-creator-self-${index}`} className="text-sm">I made this</Label>
-                              </div>
-                              <div className="flex items-center space-x-2">
-                                <RadioGroupItem value="other" id={`video-creator-other-${index}`} />
-                                <Label htmlFor={`video-creator-other-${index}`} className="text-sm">Someone else made this</Label>
-                              </div>
-                            </RadioGroup>
+                          {/* Creator field and Classification field in a flex row */}
+                          <div className="grid grid-cols-2 gap-4">
+                            {/* Creator field */}
+                            <div className="space-y-1">
+                              <Label className="text-xs">Who created this video?</Label>
+                              <RadioGroup
+                                value={file.metadata?.creator || 'self'}
+                                onValueChange={(value) => updateVideoMetadata(index, 'creator', value as 'self' | 'someone_else')}
+                                className="flex flex-col space-y-1"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="self" id={`video-creator-self-${index}`} />
+                                  <Label htmlFor={`video-creator-self-${index}`} className="text-sm">I made this</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="someone_else" id={`video-creator-someone_else-${index}`} />
+                                  <Label htmlFor={`video-creator-someone_else-${index}`} className="text-sm">Someone else</Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
+                            
+                            {/* Classification field */}
+                            <div className="space-y-1">
+                              <Label className="text-xs">How would you roughly classify this?</Label>
+                              <RadioGroup
+                                value={file.metadata?.classification || 'art'}
+                                onValueChange={(value) => updateVideoMetadata(index, 'classification', value as 'art' | 'gen')}
+                                className="flex flex-col space-y-1"
+                              >
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="art" id={`video-classification-art-${index}`} />
+                                  <Label htmlFor={`video-classification-art-${index}`} className="text-sm">Art</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                  <RadioGroupItem value="gen" id={`video-classification-gen-${index}`} />
+                                  <Label htmlFor={`video-classification-gen-${index}`} className="text-sm">Gen</Label>
+                                </div>
+                              </RadioGroup>
+                            </div>
                           </div>
                           
                           {/* Creator name field - conditional */}
-                          {file.metadata?.creator === 'other' && (
+                          {file.metadata?.creator === 'someone_else' && (
                             <div className="space-y-1">
                               <Label htmlFor={`video-creator-name-${index}`} className="text-xs">Creator's name</Label>
                               <Input

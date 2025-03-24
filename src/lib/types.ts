@@ -14,10 +14,11 @@ export interface VideoEntry {
 export interface VideoMetadata {
   title: string;
   description?: string;
-  creator: 'self' | 'other';
+  creator: 'self' | 'someone_else';
   creatorName?: string;
   url?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  classification?: 'art' | 'gen';
 }
 
 export interface RecordedVideo {
