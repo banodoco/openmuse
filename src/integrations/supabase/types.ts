@@ -60,6 +60,7 @@ export type Database = {
           admin_approved: boolean | null
           created_at: string | null
           id: string
+          metadata: Json | null
           reviewer_name: string
           skipped: boolean | null
           user_id: string | null
@@ -70,6 +71,7 @@ export type Database = {
           admin_approved?: boolean | null
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           reviewer_name: string
           skipped?: boolean | null
           user_id?: string | null
@@ -80,6 +82,7 @@ export type Database = {
           admin_approved?: boolean | null
           created_at?: string | null
           id?: string
+          metadata?: Json | null
           reviewer_name?: string
           skipped?: boolean | null
           user_id?: string | null

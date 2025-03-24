@@ -50,8 +50,8 @@ class VideoUploadService {
         reviewer_name: reviewerName,
         skipped: false,
         admin_approved: false,
-        user_id: userId || null,
-        metadata: videoFile.metadata
+        user_id: userId || this.currentUserId,
+        metadata: videoFile.metadata || null
       };
       
       // Insert the entry into the database
@@ -92,7 +92,7 @@ class VideoUploadService {
           acting_video_location: entryData.acting_video_location,
           skipped: entryData.skipped || false,
           user_id: entryData.user_id || this.currentUserId,
-          metadata: entryData.metadata
+          metadata: entryData.metadata || null
         })
         .select()
         .single();
