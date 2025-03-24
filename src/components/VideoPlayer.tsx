@@ -12,6 +12,7 @@ interface VideoPlayerProps {
   controls?: boolean;
   onLoadedData?: () => void;
   videoRef?: React.RefObject<HTMLVideoElement>;
+  onError?: (message: string) => void;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -23,6 +24,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   controls = true,
   onLoadedData,
   videoRef,
+  onError,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
@@ -44,6 +46,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       console.log('[VideoPlayer] No source provided to VideoPlayer');
       setError('No video source provided');
       setIsLoading(false);
+      if (onError) onError('No video source provided');
       return;
     }
     
@@ -59,8 +62,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       console.error(`[VideoPlayer] Unsupported source format: ${src.substring(0, 30)}...`);
       setError('Unsupported video format');
       setIsLoading(false);
+      if (onError) onError('Unsupported video format');
     }
-  }, [src]);
+  }, [src, onError]);
 
   useEffect(() => {
     if (!processedSrc) {
@@ -99,18 +103,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       }
       
+      let errorMessage = errorMsg;
       if (processedSrc.startsWith('blob:')) {
-        setError(`Cannot load blob video. The URL may have expired since your last refresh.`);
+        errorMessage = `Cannot load blob video. The URL may have expired since your last refresh.`;
         details += 'Blob URLs are temporary and expire when the page is refreshed.\n';
       } else if (processedSrc.startsWith('data:')) {
-        setError(`Cannot load data URL video. The encoding may be incorrect.`);
+        errorMessage = `Cannot load data URL video. The encoding may be incorrect.`;
         details += 'Data URLs might be too large or improperly encoded.\n';
-      } else {
-        setError(errorMsg);
       }
       
+      setError(errorMessage);
       setErrorDetails(details);
       setIsLoading(false);
+      
+      if (onError) onError(errorMessage);
     };
     
     video.addEventListener('loadeddata', handleLoadedData);
@@ -129,8 +135,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     } catch (err) {
       console.error('[VideoPlayer] Error setting up video:', err);
-      setError(`Setup error: ${err}`);
+      const errorMessage = `Setup error: ${err}`;
+      setError(errorMessage);
       setIsLoading(false);
+      if (onError) onError(errorMessage);
     }
     
     return () => {
@@ -141,7 +149,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [processedSrc, autoPlay, onLoadedData, videoRef]);
+  }, [processedSrc, autoPlay, onLoadedData, videoRef, onError]);
 
   const handleRetry = () => {
     const video = videoRef?.current || internalVideoRef.current;
@@ -176,7 +184,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
       
-      {error && (
+      {error && !onError && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/10">
           <div className="text-destructive text-center p-4 bg-white/90 rounded-lg shadow-lg max-w-[80%]">
             <p className="font-medium">Error loading video</p>
