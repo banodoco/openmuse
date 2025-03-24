@@ -10,27 +10,14 @@ import { VideoEntry, VideoMetadata } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import VideoPreview from '@/components/VideoPreview';
-import { PlusCircle, X, Upload as UploadIcon } from 'lucide-react';
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from "@/components/ui/form";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { PlusCircle, X } from 'lucide-react';
 import VideoDropzoneComponent from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
-import LoRADetailsForm from '@/components/upload/LoRADetailsForm';
+import GlobalLoRADetailsForm from '@/components/upload/GlobalLoRADetailsForm';
 
 const logger = new Logger('Upload');
 
@@ -42,7 +29,10 @@ interface VideoMetadataForm {
   creatorName: string;
   classification: 'art' | 'gen';
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
-  // LoRA details
+}
+
+// Interface for global LoRA details
+interface LoRADetailsForm {
   loraName: string;
   loraDescription: string;
   baseModel: string;
@@ -75,14 +65,17 @@ const Upload: React.FC = () => {
     creatorName: '',
     classification: 'gen',
     model: 'wan',
-    // LoRA details
+  };
+  
+  // Global LoRA details
+  const [loraDetails, setLoraDetails] = useState<LoRADetailsForm>({
     loraName: '',
     loraDescription: '',
     baseModel: '',
     trainingSteps: '',
     resolution: '',
     trainingDataset: ''
-  };
+  });
   
   // State for multiple videos
   const [videos, setVideos] = useState<VideoItem[]>([{
@@ -104,6 +97,13 @@ const Upload: React.FC = () => {
         } : video
       )
     );
+  };
+  
+  const updateLoRADetails = (field: keyof LoRADetailsForm, value: string) => {
+    setLoraDetails(prev => ({
+      ...prev,
+      [field]: value
+    }));
   };
   
   const handleAddVideo = () => {
@@ -179,11 +179,8 @@ const Upload: React.FC = () => {
     }
     
     // Validate LoRA details
-    const missingLoRADetails = videos.filter(
-      video => video.file && !video.metadata.loraName
-    );
-    if (missingLoRADetails.length > 0) {
-      toast.error('Please provide LoRA details for all uploaded videos');
+    if (!loraDetails.loraName) {
+      toast.error('Please provide a LoRA name');
       return;
     }
     
@@ -198,7 +195,7 @@ const Upload: React.FC = () => {
       const db = await databaseSwitcher.getDatabase();
       const reviewerName = user?.email || nameInput;
       
-      // Submit each video with its own metadata
+      // Submit each video with its own metadata but shared LoRA details
       for (const video of videos) {
         if (!video.file) continue;
         
@@ -209,13 +206,13 @@ const Upload: React.FC = () => {
           creatorName: video.metadata.creator === 'someone_else' ? video.metadata.creatorName : undefined,
           classification: video.metadata.classification,
           model: video.metadata.model,
-          // Include LoRA details in the metadata
-          loraName: video.metadata.loraName,
-          loraDescription: video.metadata.loraDescription,
-          baseModel: video.metadata.baseModel,
-          trainingSteps: video.metadata.trainingSteps,
-          resolution: video.metadata.resolution,
-          trainingDataset: video.metadata.trainingDataset
+          // Include LoRA details from the global section
+          loraName: loraDetails.loraName,
+          loraDescription: loraDetails.loraDescription,
+          baseModel: loraDetails.baseModel,
+          trainingSteps: loraDetails.trainingSteps,
+          resolution: loraDetails.resolution,
+          trainingDataset: loraDetails.trainingDataset
         };
         
         const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -266,6 +263,15 @@ const Upload: React.FC = () => {
             />
           </div>
           
+          {/* Global LoRA Details Section */}
+          <div className="p-6 border rounded-lg bg-card space-y-4">
+            <h2 className="text-xl font-semibold">LoRA Details</h2>
+            <p className="text-sm text-muted-foreground mb-4">
+              These details will be applied to all videos in this upload.
+            </p>
+            <GlobalLoRADetailsForm loraDetails={loraDetails} updateLoRADetails={updateLoRADetails} />
+          </div>
+          
           {/* Videos Section */}
           <h2 className="text-xl font-semibold">Videos</h2>
           
@@ -302,14 +308,7 @@ const Upload: React.FC = () => {
                     className="w-full md:w-2/3 mx-auto"
                   />
                   
-                  {/* Rearranged sections to place LoRA details first */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    <LoRADetailsForm
-                      videoId={video.id}
-                      metadata={video.metadata}
-                      updateMetadata={updateVideoMetadata}
-                    />
-                    
+                  <div className="mt-4">
                     <VideoMetadataForm
                       videoId={video.id}
                       metadata={video.metadata}
