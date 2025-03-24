@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -27,7 +26,6 @@ import * as z from "zod";
 import { VideoFile, VideoMetadata } from '@/lib/types';
 import VideoPreview from '@/components/VideoPreview';
 
-// Form schema for overall LoRA information
 const formSchema = z.object({
   headline: z.string().min(3, {
     message: "Headline must be at least 3 characters.",
@@ -47,7 +45,6 @@ const formSchema = z.object({
   })
 });
 
-// Form schema for individual video metadata
 const videoMetadataSchema = z.object({
   title: z.string().min(1, { 
     message: "Title is required" 
@@ -74,7 +71,6 @@ const Upload: React.FC = () => {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
-  // Initialize form with react-hook-form and zod validation
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -90,7 +86,6 @@ const Upload: React.FC = () => {
   const creatorType = form.watch("creator");
 
   useEffect(() => {
-    // Check authentication status
     const checkAuth = async () => {
       try {
         const user = await getCurrentUser();
@@ -174,9 +169,7 @@ const Upload: React.FC = () => {
     setFiles(prevFiles => {
       const newFiles = [...prevFiles];
       if (newFiles[index].metadata) {
-        // Special handling for creator field
         if (field === 'creator' && value === 'self' && newFiles[index].metadata) {
-          // If switching to 'self', remove creatorName
           const { creatorName, ...rest } = newFiles[index].metadata;
           newFiles[index].metadata = { ...rest, creator: value as 'self' | 'someone_else' };
         } else {
@@ -196,14 +189,12 @@ const Upload: React.FC = () => {
       return;
     }
     
-    // Check if all videos have titles
     const missingTitles = files.some(file => !file.metadata?.title);
     if (missingTitles) {
       toast.error('Please add titles to all videos before uploading.');
       return;
     }
     
-    // Close any open editing states
     setFiles(prevFiles => prevFiles.map(file => ({ ...file, isEditing: false })));
     
     setUploading(true);
@@ -211,7 +202,6 @@ const Upload: React.FC = () => {
     try {
       const db = await databaseSwitcher.getDatabase();
       
-      // Try to get authenticated user's name, or use "Anonymous User" 
       let reviewerName = "Anonymous User";
       
       if (isAuthenticated) {
@@ -222,11 +212,9 @@ const Upload: React.FC = () => {
           }
         } catch (error) {
           console.error('Error getting user profile:', error);
-          // Continue with anonymous user
         }
       }
       
-      // Overall LoRA metadata
       const loraMetadata = {
         headline: values.headline,
         description: values.description,
@@ -237,17 +225,16 @@ const Upload: React.FC = () => {
       };
       
       for (const file of files) {
-        const videoBlob = await file.arrayBuffer().then(buffer => new Blob([buffer], { type: file.type }));
+        const blobFile = new Blob([file], { type: file.type });
         
         const videoFile: VideoFile = {
           id: `video_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-          blob: videoBlob,
+          blob: blobFile,
         };
         
         const videoLocation = await remoteStorage.uploadVideo(videoFile);
         console.log(`Video uploaded to Supabase: ${videoLocation}`);
         
-        // Combine LoRA-level metadata with individual video metadata
         const videoMetadata = {
           ...loraMetadata,
           ...file.metadata,
@@ -297,11 +284,9 @@ const Upload: React.FC = () => {
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* LoRA Information section */}
               <div className="bg-muted/30 p-6 rounded-lg border border-border space-y-4">
                 <h2 className="text-lg font-medium">LoRA Information</h2>
                 
-                {/* Headline field */}
                 <FormField
                   control={form.control}
                   name="headline"
@@ -320,7 +305,6 @@ const Upload: React.FC = () => {
                   )}
                 />
 
-                {/* Description field */}
                 <FormField
                   control={form.control}
                   name="description"
@@ -339,7 +323,6 @@ const Upload: React.FC = () => {
                   )}
                 />
 
-                {/* Creator field */}
                 <FormField
                   control={form.control}
                   name="creator"
@@ -368,7 +351,6 @@ const Upload: React.FC = () => {
                   )}
                 />
 
-                {/* Creator name field - conditional rendering based on creator selection */}
                 {creatorType === "someone_else" && (
                   <FormField
                     control={form.control}
@@ -389,7 +371,6 @@ const Upload: React.FC = () => {
                   />
                 )}
 
-                {/* URL field */}
                 <FormField
                   control={form.control}
                   name="url"
@@ -408,7 +389,6 @@ const Upload: React.FC = () => {
                   )}
                 />
 
-                {/* Model field */}
                 <FormField
                   control={form.control}
                   name="model"
@@ -439,7 +419,6 @@ const Upload: React.FC = () => {
                 />
               </div>
 
-              {/* File upload area */}
               <div className="space-y-2">
                 <Label>Example Files</Label>
                 <div
@@ -497,7 +476,6 @@ const Upload: React.FC = () => {
                 </div>
               </div>
               
-              {/* List of selected videos with metadata */}
               {files.length > 0 && (
                 <div className="animate-slide-in">
                   <h3 className="text-sm font-semibold mb-3">Selected videos:</h3>
@@ -521,14 +499,11 @@ const Upload: React.FC = () => {
                         </div>
                         
                         <div className="flex flex-col gap-4">
-                          {/* Video preview first */}
                           <div className="w-full">
                             <VideoPreview file={file} className="w-full h-full max-h-[180px]" />
                           </div>
                           
-                          {/* Form fields below the video */}
                           <div className="space-y-3 text-sm">
-                            {/* Title field */}
                             <div className="space-y-1">
                               <Label htmlFor={`video-title-${index}`} className="text-xs">Title</Label>
                               <Input
@@ -540,7 +515,6 @@ const Upload: React.FC = () => {
                               />
                             </div>
                             
-                            {/* Description field */}
                             <div className="space-y-1">
                               <Label htmlFor={`video-description-${index}`} className="text-xs">Description (optional)</Label>
                               <Textarea
@@ -552,9 +526,7 @@ const Upload: React.FC = () => {
                               />
                             </div>
                             
-                            {/* Creator and Classification fields side by side */}
                             <div className="grid grid-cols-2 gap-4">
-                              {/* Creator field */}
                               <div className="space-y-1">
                                 <Label className="text-xs">Who created this video?</Label>
                                 <RadioGroup
@@ -573,7 +545,6 @@ const Upload: React.FC = () => {
                                 </RadioGroup>
                               </div>
                               
-                              {/* Classification field */}
                               <div className="space-y-1">
                                 <Label className="text-xs">How would you roughly classify this?</Label>
                                 <RadioGroup
@@ -593,7 +564,6 @@ const Upload: React.FC = () => {
                               </div>
                             </div>
                             
-                            {/* Creator name field - conditional */}
                             {file.metadata?.creator === 'someone_else' && (
                               <div className="space-y-1">
                                 <Label htmlFor={`video-creator-name-${index}`} className="text-xs">Creator's name</Label>
@@ -629,28 +599,26 @@ const Upload: React.FC = () => {
                 </div>
               )}
               
-              <div className="flex flex-col items-end pt-4">
-                {!areFilesFilled ? (
-                  <p className="text-sm text-destructive mb-2 flex items-center gap-1">
-                    <Info className="h-3 w-3" /> Please select at least one video to upload
-                  </p>
-                ) : null}
-                
-                <Button
-                  className="rounded-full px-8"
-                  disabled={uploading || files.length === 0}
-                  type="submit"
-                >
-                  {uploading ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Uploading...
-                    </>
-                  ) : (
-                    'Upload LoRA'
-                  )}
-                </Button>
-              </div>
+              {!areFilesFilled ? (
+                <p className="text-sm text-destructive mb-2 flex items-center gap-1">
+                  <Info className="h-3 w-3" /> Please select at least one video to upload
+                </p>
+              ) : null}
+              
+              <Button
+                className="rounded-full px-8"
+                disabled={uploading || files.length === 0}
+                type="submit"
+              >
+                {uploading ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Uploading...
+                  </>
+                ) : (
+                  'Upload LoRA'
+                )}
+              </Button>
             </form>
           </Form>
         </div>
