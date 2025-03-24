@@ -27,24 +27,26 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const logger = new Logger('Upload');
 
-// Interface for a video item in the upload form
-interface VideoItem {
-  id: string;
-  file: File | null;
-  url: string | null;
-}
-
-// Interface for the LoRA metadata
-interface LoRAMetadata {
+// Interface for video metadata
+interface VideoMetadataForm {
   title: string;
   description: string;
   creator: 'self' | 'someone_else';
   creatorName: string;
   classification: 'art' | 'gen';
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+}
+
+// Interface for a video item in the upload form
+interface VideoItem {
+  id: string;
+  file: File | null;
+  url: string | null;
+  metadata: VideoMetadataForm;
 }
 
 const Upload: React.FC = () => {
@@ -55,32 +57,44 @@ const Upload: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // State for LoRA metadata
-  const [loraMetadata, setLoraMetadata] = useState<LoRAMetadata>({
+  // Initial empty video metadata
+  const initialMetadata: VideoMetadataForm = {
     title: '',
     description: '',
     creator: 'self',
     creatorName: '',
     classification: 'gen',
     model: 'wan'
-  });
+  };
   
   // State for multiple videos
   const [videos, setVideos] = useState<VideoItem[]>([{
     id: crypto.randomUUID(),
     file: null,
-    url: null
+    url: null,
+    metadata: initialMetadata
   }]);
   
-  const updateLoraField = (field: keyof LoRAMetadata, value: any) => {
-    setLoraMetadata(prev => ({ ...prev, [field]: value }));
+  const updateVideoMetadata = (id: string, field: keyof VideoMetadataForm, value: any) => {
+    setVideos(prev => 
+      prev.map(video => 
+        video.id === id ? { 
+          ...video, 
+          metadata: { 
+            ...video.metadata, 
+            [field]: value 
+          } 
+        } : video
+      )
+    );
   };
   
   const handleAddVideo = () => {
     setVideos([...videos, {
       id: crypto.randomUUID(),
       file: null,
-      url: null
+      url: null,
+      metadata: initialMetadata
     }]);
   };
   
@@ -129,8 +143,21 @@ const Upload: React.FC = () => {
       return;
     }
     
-    if (!loraMetadata.title) {
-      toast.error('Please enter a title for the LoRA');
+    // Validate if each uploaded video has title
+    const missingTitles = videos.filter(video => video.file && !video.metadata.title);
+    if (missingTitles.length > 0) {
+      toast.error('Please provide a title for all uploaded videos');
+      return;
+    }
+
+    // Validate if creator name is provided for "someone_else"
+    const missingCreatorName = videos.filter(
+      video => video.file && 
+      video.metadata.creator === 'someone_else' && 
+      !video.metadata.creatorName
+    );
+    if (missingCreatorName.length > 0) {
+      toast.error('Please provide the creator name for videos not created by you');
       return;
     }
     
@@ -145,17 +172,17 @@ const Upload: React.FC = () => {
       const db = await databaseSwitcher.getDatabase();
       const reviewerName = user?.email || nameInput;
       
-      // Submit each video with the same LoRA metadata
+      // Submit each video with its own metadata
       for (const video of videos) {
         if (!video.file) continue;
         
         const videoMetadata: VideoMetadata = {
-          title: loraMetadata.title,
-          description: loraMetadata.description,
-          creator: loraMetadata.creator,
-          creatorName: loraMetadata.creator === 'someone_else' ? loraMetadata.creatorName : undefined,
-          classification: loraMetadata.classification,
-          model: loraMetadata.model
+          title: video.metadata.title,
+          description: video.metadata.description,
+          creator: video.metadata.creator,
+          creatorName: video.metadata.creator === 'someone_else' ? video.metadata.creatorName : undefined,
+          classification: video.metadata.classification,
+          model: video.metadata.model
         };
         
         const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -188,7 +215,7 @@ const Upload: React.FC = () => {
       <Navigation />
       
       <main className="flex-1 container mx-auto p-4">
-        <h1 className="text-3xl font-bold tracking-tight mb-4">Propose a LoRA</h1>
+        <h1 className="text-3xl font-bold tracking-tight mb-4">Upload Videos</h1>
         <p className="text-muted-foreground mb-8">
           Submit your videos to be reviewed and added to the curated list.
         </p>
@@ -206,122 +233,11 @@ const Upload: React.FC = () => {
             />
           </div>
           
-          {/* LoRA Information Section */}
-          <div className="p-6 border rounded-lg bg-card space-y-4">
-            <h2 className="text-xl font-semibold mb-4">LoRA Information</h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="lora-title">LoRA Title</Label>
-                  <Input
-                    type="text"
-                    id="lora-title"
-                    placeholder="Enter LoRA title"
-                    value={loraMetadata.title}
-                    onChange={(e) => updateLoraField('title', e.target.value)}
-                    required
-                  />
-                </div>
-                
-                <div>
-                  <Label htmlFor="lora-description">Description</Label>
-                  <Textarea
-                    id="lora-description"
-                    placeholder="Enter LoRA description"
-                    value={loraMetadata.description}
-                    onChange={(e) => updateLoraField('description', e.target.value)}
-                  />
-                </div>
-                
-                <div>
-                  <Label>Creator</Label>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="creator-self"
-                        name="creator"
-                        value="self"
-                        checked={loraMetadata.creator === 'self'}
-                        onChange={() => updateLoraField('creator', 'self')}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor="creator-self">Self</label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <input
-                        type="radio"
-                        id="creator-someone-else"
-                        name="creator"
-                        value="someone_else"
-                        checked={loraMetadata.creator === 'someone_else'}
-                        onChange={() => updateLoraField('creator', 'someone_else')}
-                        className="h-4 w-4"
-                      />
-                      <label htmlFor="creator-someone-else">Someone Else</label>
-                    </div>
-                  </div>
-                  {loraMetadata.creator === 'someone_else' && (
-                    <div className="mt-2">
-                      <Label htmlFor="creatorName">Creator's Name</Label>
-                      <Input
-                        type="text"
-                        id="creatorName"
-                        placeholder="Enter creator's name"
-                        value={loraMetadata.creatorName}
-                        onChange={(e) => updateLoraField('creatorName', e.target.value)}
-                        required={loraMetadata.creator === 'someone_else'}
-                      />
-                    </div>
-                  )}
-                </div>
-              </div>
-              
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="classification">Classification</Label>
-                  <Select 
-                    value={loraMetadata.classification} 
-                    onValueChange={(value) => updateLoraField('classification', value as 'art' | 'gen')}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select classification" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="art">Art</SelectItem>
-                      <SelectItem value="gen">Gen</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <Label htmlFor="model">Model</Label>
-                  <Select 
-                    value={loraMetadata.model} 
-                    onValueChange={(value) => updateLoraField('model', value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}
-                  >
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder="Select Model" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="wan">Wan</SelectItem>
-                      <SelectItem value="hunyuan">Hunyuan</SelectItem>
-                      <SelectItem value="ltxv">LTXV</SelectItem>
-                      <SelectItem value="cogvideox">CogVideoX</SelectItem>
-                      <SelectItem value="animatediff">AnimateDiff</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
-            </div>
-          </div>
-          
           {/* Videos Section */}
           <h2 className="text-xl font-semibold">Videos</h2>
           
           {videos.map((video, index) => (
-            <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
+            <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4 mb-8">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-semibold">Video {index + 1}</h3>
                 {videos.length > 1 && (
@@ -347,11 +263,107 @@ const Upload: React.FC = () => {
                   />
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="space-y-6">
                   <VideoPreview 
                     file={video.file} 
                     className="w-full md:w-2/3 mx-auto"
                   />
+                  
+                  {/* Video Metadata Form (only shown after upload) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor={`video-title-${video.id}`}>Name</Label>
+                        <Input
+                          type="text"
+                          id={`video-title-${video.id}`}
+                          placeholder="Enter video title"
+                          value={video.metadata.title}
+                          onChange={(e) => updateVideoMetadata(video.id, 'title', e.target.value)}
+                          required
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor={`video-description-${video.id}`}>Description</Label>
+                        <Textarea
+                          id={`video-description-${video.id}`}
+                          placeholder="Enter video description"
+                          value={video.metadata.description}
+                          onChange={(e) => updateVideoMetadata(video.id, 'description', e.target.value)}
+                        />
+                      </div>
+                      
+                      <div>
+                        <Label className="block mb-2">Was this made by you or someone else?</Label>
+                        <RadioGroup 
+                          value={video.metadata.creator}
+                          onValueChange={(value) => updateVideoMetadata(video.id, 'creator', value)}
+                          className="flex flex-col space-y-1"
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="self" id={`creator-self-${video.id}`} />
+                            <Label htmlFor={`creator-self-${video.id}`}>Self</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="someone_else" id={`creator-someone-${video.id}`} />
+                            <Label htmlFor={`creator-someone-${video.id}`}>Someone else</Label>
+                          </div>
+                        </RadioGroup>
+                      </div>
+                      
+                      {video.metadata.creator === 'someone_else' && (
+                        <div>
+                          <Label htmlFor={`creator-name-${video.id}`}>Who?</Label>
+                          <Input
+                            type="text"
+                            id={`creator-name-${video.id}`}
+                            placeholder="Enter creator's name"
+                            value={video.metadata.creatorName}
+                            onChange={(e) => updateVideoMetadata(video.id, 'creatorName', e.target.value)}
+                            required={video.metadata.creator === 'someone_else'}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <Label htmlFor={`classification-${video.id}`}>How would you classify this?</Label>
+                        <Select 
+                          value={video.metadata.classification} 
+                          onValueChange={(value) => updateVideoMetadata(video.id, 'classification', value as 'art' | 'gen')}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select classification" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="art">Art</SelectItem>
+                            <SelectItem value="gen">Gen</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+
+                      <div>
+                        <Label htmlFor={`model-${video.id}`}>Model</Label>
+                        <Select 
+                          value={video.metadata.model} 
+                          onValueChange={(value) => updateVideoMetadata(video.id, 'model', value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}
+                        >
+                          <SelectTrigger className="w-full">
+                            <SelectValue placeholder="Select Model" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="wan">Wan</SelectItem>
+                            <SelectItem value="hunyuan">Hunyuan</SelectItem>
+                            <SelectItem value="ltxv">LTXV</SelectItem>
+                            <SelectItem value="cogvideox">CogVideoX</SelectItem>
+                            <SelectItem value="animatediff">AnimateDiff</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
             </div>
