@@ -16,8 +16,6 @@ import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
-import VideoPreview from '@/components/VideoPreview';
-import { Card } from '@/components/ui/card';
 
 const logger = new Logger('Upload');
 
@@ -247,54 +245,6 @@ const Upload: React.FC = () => {
             {isSubmitting ? 'Submitting...' : 'Submit Video'}
           </Button>
         </form>
-
-        {/* Example Upload Section */}
-        <div className="mt-12 mb-6">
-          <h2 className="text-2xl font-bold tracking-tight mb-4">Example Upload</h2>
-          <p className="text-muted-foreground mb-6">
-            Here's an example of a properly formatted video submission:
-          </p>
-          
-          <Card className="p-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div>
-                <h3 className="text-xl font-medium mb-2">Sample Video</h3>
-                <div className="rounded-md overflow-hidden aspect-video bg-muted/70 mb-4">
-                  <video
-                    src="https://example.com/sample-video.mp4"
-                    poster="/placeholder.svg"
-                    className="w-full h-full object-cover"
-                    controls
-                  />
-                </div>
-                <p className="text-sm text-muted-foreground">
-                  This example shows a high-quality, well-lit video with clear subject matter.
-                </p>
-              </div>
-              
-              <div>
-                <h3 className="text-xl font-medium mb-2">Submission Details</h3>
-                <ul className="space-y-2 text-sm">
-                  <li><strong>Title:</strong> "Seamless Pattern Generation"</li>
-                  <li><strong>Description:</strong> "A demonstration of pattern generation for textiles and fabric design using the Hunyuan model with custom parameters."</li>
-                  <li><strong>Creator:</strong> Self</li>
-                  <li><strong>Classification:</strong> Art</li>
-                  <li><strong>Model:</strong> Hunyuan</li>
-                </ul>
-                <div className="mt-4">
-                  <h4 className="font-medium text-sm mb-2">Tips for Good Submissions:</h4>
-                  <ul className="list-disc pl-5 text-sm text-muted-foreground space-y-1">
-                    <li>Use concise, descriptive titles</li>
-                    <li>Include relevant technical details in the description</li>
-                    <li>Ensure the video clearly demonstrates the technique</li>
-                    <li>Credit original creators when applicable</li>
-                    <li>Select the appropriate model and classification</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-          </Card>
-        </div>
       </main>
     </div>
   );
