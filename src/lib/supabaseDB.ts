@@ -49,6 +49,12 @@ class SupabaseVideoDatabase {
   async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
     return videoUploadService.addEntry(entry);
   }
+  
+  // Add the missing createEntry method as an alias for addEntry
+  async createEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+    this.logger.log('createEntry called, using addEntry method');
+    return this.addEntry(entry);
+  }
 }
 
 export const supabaseDB = new SupabaseVideoDatabase();
