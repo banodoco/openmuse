@@ -41,6 +41,15 @@ const AuthCallback = () => {
         const returnUrl = searchParams.get('returnUrl') || '/';
         logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
+        // Clear any existing tokens to prevent conflicts
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+            logger.log(`Removing old key: ${key}`);
+            localStorage.removeItem(key);
+          }
+        }
+        
         // Force a storage sync to ensure session tokens are saved correctly
         try {
           await localStorage.setItem('test-storage', 'test');

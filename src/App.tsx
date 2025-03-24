@@ -15,7 +15,15 @@ import { useEffect } from "react";
 import { migrateExistingVideos } from "./lib/migrationUtil";
 import RequireAuth from "./components/RequireAuth";
 
-const queryClient = new QueryClient();
+// Initialize the query client
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      retry: 1,
+      staleTime: 30000,
+    },
+  },
+});
 
 const App = () => {
   useEffect(() => {

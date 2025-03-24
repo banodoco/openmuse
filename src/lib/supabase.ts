@@ -10,10 +10,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    // Explicitly use localStorage for storage
     storage: typeof window !== 'undefined' ? localStorage : undefined,
-    // Use a consistent storage key that doesn't conflict with other apps
-    storageKey: 'sb:token',
+    storageKey: 'supabase-auth-token',
   },
   global: {
     headers: {
@@ -26,7 +24,7 @@ console.log("Supabase client initialized with auth configuration:", {
   persistSession: true,
   autoRefreshToken: true,
   detectSessionInUrl: true,
-  storageKey: 'sb:token'
+  storageKey: 'supabase-auth-token'
 });
 
 // For backward compatibility
