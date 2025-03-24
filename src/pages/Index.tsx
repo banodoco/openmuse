@@ -1,178 +1,213 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Button } from '@/components/ui/button';
-import Navigation from '@/components/Navigation';
-import ConsentDialog from '@/components/ConsentDialog';
-import { UploadCloud, Paintbrush, Layers, Sparkles } from 'lucide-react';
-import RequireAuth from '@/components/RequireAuth';
-import { getCurrentUserProfile } from '@/lib/auth';
-import { Separator } from '@/components/ui/separator';
 
-// Import our new components
+import React, { useEffect, useState } from 'react';
+import { VideoEntry } from '@/lib/types';
 import VideoList from '@/components/VideoList';
-import VideoViewer from '@/components/VideoViewer';
+import Navigation from '@/components/Navigation';
 import EmptyState from '@/components/EmptyState';
 import LoadingState from '@/components/LoadingState';
-import RecorderWrapper from '@/components/RecorderWrapper';
+import { useNavigate } from 'react-router-dom';
+import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 import { useVideoManagement } from '@/hooks/useVideoManagement';
+import { Button } from "@/components/ui/button";
+import { useMediaQuery } from '@/hooks/use-mobile';
+import { Logger } from '@/lib/logger';
 
-const Index: React.FC = () => {
-  const {
-    videos,
-    currentVideo,
-    isLoading,
-    isRecording,
-    noVideosAvailable,
-    handleSelectVideo,
-    handleSkip,
-    handleStartRecording,
-    handleVideoRecorded,
-    handleCancelRecording,
-    handleVideoLoaded
-  } = useVideoManagement();
+const logger = new Logger('Index');
 
-  const [userProfile, setUserProfile] = useState<{ id: string, username: string } | null>(null);
+const Index = () => {
+  const isMobile = useMediaQuery("(max-width: 768px)");
   const navigate = useNavigate();
-
+  const [videoFilter, setVideoFilter] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [userIsBusy, setUserIsBusy] = useState<boolean>(false);
+  
+  // Get video management functionality from the hook
+  const { 
+    videos, 
+    isLoading: videosLoading, 
+    error, 
+    refetchVideos,
+    deleteVideo,
+    approveVideo,
+    rejectVideo
+  } = useVideoManagement();
+  
   useEffect(() => {
-    console.log("Index: Current video state:", currentVideo ? `Video ${currentVideo.id}` : "No video selected");
-    console.log("Index: Videos available:", videos.length);
-    console.log("Index: Component states - isLoading:", isLoading, "isRecording:", isRecording, "noVideosAvailable:", noVideosAvailable);
-  }, [videos, currentVideo, isLoading, isRecording, noVideosAvailable]);
-
-  useEffect(() => {
-    const loadUserProfile = async () => {
+    const setupAuth = async () => {
       try {
-        const profile = await getCurrentUserProfile();
-        if (profile) {
-          console.log("Index: User profile loaded:", profile.username);
-          setUserProfile({
-            id: profile.id,
-            username: profile.username
-          });
-        } else {
-          console.log("Index: No user profile loaded");
+        logger.log('Index: Setting up auth listeners');
+        
+        // We'll update the loading state based on auth and data fetching
+        setIsLoading(true);
+        
+        // Listen for auth changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+          logger.log('Index: Auth state changed:', event);
+          
+          if (event === 'SIGNED_OUT') {
+            logger.log('Index: User signed out, redirecting to auth');
+            navigate('/auth');
+          }
+        });
+        
+        // Check session
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          logger.error('Index: Error checking session:', error);
+          throw error;
         }
+        
+        // If no session, we don't redirect since RequireAuth will handle that
+        logger.log('Index: Session check complete, has session:', !!data.session);
+        
+        setIsLoading(false);
+        
+        return () => {
+          subscription.unsubscribe();
+        };
       } catch (error) {
-        console.error('Error loading user profile:', error);
+        logger.error('Index: Error in auth setup:', error);
+        setIsLoading(false);
+        toast.error('Failed to check authentication status');
       }
     };
     
-    loadUserProfile();
-  }, []);
-
+    setupAuth();
+  }, [navigate]);
+  
+  // Handle deletion of a video
+  const handleDeleteVideo = async (id: string) => {
+    try {
+      setUserIsBusy(true);
+      await deleteVideo(id);
+      toast.success('Video deleted successfully');
+    } catch (error) {
+      logger.error('Error deleting video:', error);
+      toast.error('Failed to delete video');
+    } finally {
+      setUserIsBusy(false);
+    }
+  };
+  
+  // Handle approving a video
+  const handleApproveVideo = async (id: string) => {
+    try {
+      setUserIsBusy(true);
+      await approveVideo(id);
+      toast.success('Video approved successfully');
+    } catch (error) {
+      logger.error('Error approving video:', error);
+      toast.error('Failed to approve video');
+    } finally {
+      setUserIsBusy(false);
+    }
+  };
+  
+  // Handle rejecting a video
+  const handleRejectVideo = async (id: string) => {
+    try {
+      setUserIsBusy(true);
+      await rejectVideo(id);
+      toast.success('Video rejected successfully');
+    } catch (error) {
+      logger.error('Error rejecting video:', error);
+      toast.error('Failed to reject video');
+    } finally {
+      setUserIsBusy(false);
+    }
+  };
+  
+  // Determine if we should show loading state
+  const shouldShowLoading = isLoading || videosLoading;
+  
+  // Determine if we should show empty state
+  const shouldShowEmpty = !shouldShowLoading && (!videos || videos.length === 0);
+  
+  // Handle navigation to upload page
+  const handleNavigateToUpload = () => {
+    navigate('/upload');
+  };
+  
+  // Filtering videos based on the filter selection
+  const filteredVideos = videoFilter === "all" 
+    ? videos 
+    : videoFilter === "approved" 
+      ? videos?.filter(v => v.admin_approved) 
+      : videos?.filter(v => !v.admin_approved && !v.skipped);
+  
   return (
-    <RequireAuth allowUnauthenticated={true}>
-      <div className="min-h-screen flex flex-col bg-background animate-fade-in">
-        <Navigation />
-        <ConsentDialog />
-        
-        <main className="flex-1 container max-w-6xl py-8 px-4">
-          <div className="flex flex-col items-start mb-8">
-            <h1 className="text-3xl font-bold text-left mb-4 w-full">Curated LoRAs for open video models</h1>
-            <p className="text-muted-foreground text-left max-w-2xl w-full">
-              Curated resources for unlocking the artistic potential of open video models like Wan, Hunyuan and LTXV
+    <div className="flex flex-col min-h-screen bg-background">
+      <Navigation />
+      
+      <main className="flex-1 container mx-auto p-4">
+        <div className="mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">Video Responses</h1>
+            <p className="text-muted-foreground mt-1">
+              View and manage video responses from your platform
             </p>
           </div>
           
-          {userProfile && (
-            <div className="mb-4">
-              <p className="text-sm text-muted-foreground">Signed in as <span className="font-medium">{userProfile.username}</span></p>
-            </div>
-          )}
-
-          <div className="mb-6">
-            <Button 
-              onClick={() => navigate('/upload')} 
-              variant="outline"
-              className="rounded-full gap-2"
-            >
-              <UploadCloud className="h-4 w-4" />
-              Upload Videos
-            </Button>
-          </div>
-          
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold flex items-center">
-                <Paintbrush className="h-5 w-5 mr-2" />
-                Art
-              </h2>
-              <Button variant="outline" className="gap-2">
-                View All
+          <Button 
+            onClick={handleNavigateToUpload}
+            size={isMobile ? "sm" : "default"}
+            disabled={userIsBusy}
+          >
+            Record New Video
+          </Button>
+        </div>
+        
+        {shouldShowLoading && (
+          <LoadingState message="Loading videos..." />
+        )}
+        
+        {shouldShowEmpty && (
+          <EmptyState 
+            title="No videos yet" 
+            description="Get started by recording your first video response." 
+            action={{
+              label: "Record a Video",
+              onClick: handleNavigateToUpload
+            }}
+          />
+        )}
+        
+        {!shouldShowLoading && !shouldShowEmpty && (
+          <>
+            <div className="mb-4 flex items-center gap-2">
+              <select 
+                className="p-2 border rounded-md bg-background"
+                value={videoFilter}
+                onChange={(e) => setVideoFilter(e.target.value)}
+              >
+                <option value="all">All Videos</option>
+                <option value="approved">Approved Videos</option>
+                <option value="pending">Pending Videos</option>
+              </select>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={refetchVideos}
+                disabled={userIsBusy}
+              >
+                Refresh
               </Button>
             </div>
             
-            <EmptyState 
-              title="No art videos available"
-              description="There are no art videos available at the moment. Upload some by clicking the 'Upload Videos' button above."
+            <VideoList 
+              videos={filteredVideos || []} 
+              onDelete={handleDeleteVideo}
+              onApprove={handleApproveVideo}
+              onReject={handleRejectVideo}
+              refetchData={refetchVideos}
             />
-          </div>
-          
-          <Separator className="my-8" />
-          
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold flex items-center">
-                <Layers className="h-5 w-5 mr-2" />
-                LoRAs
-              </h2>
-              <Button variant="outline" className="gap-2">
-                View All
-              </Button>
-            </div>
-            
-            <EmptyState 
-              title="No LoRA videos available"
-              description="There are no LoRA videos available at the moment. Upload some by clicking the 'Upload Videos' button above."
-            />
-          </div>
-          
-          <Separator className="my-8" />
-          
-          <div className="mb-10">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-2xl font-bold flex items-center">
-                <Sparkles className="h-5 w-5 mr-2" />
-                Generations
-              </h2>
-              <Button variant="outline" className="gap-2">
-                View All
-              </Button>
-            </div>
-            
-            {isLoading ? (
-              <LoadingState />
-            ) : noVideosAvailable ? (
-              <EmptyState 
-                title="No generation videos available"
-                description="There are no generation videos available at the moment. Upload some by clicking the 'Upload Videos' button above."
-              />
-            ) : isRecording && currentVideo ? (
-              <RecorderWrapper
-                video={currentVideo}
-                onVideoRecorded={handleVideoRecorded}
-                onCancel={handleCancelRecording}
-                onSkip={handleSkip}
-              />
-            ) : currentVideo ? (
-              <VideoViewer
-                video={currentVideo}
-                onSkip={handleSkip}
-                onStartRecording={!userProfile ? 
-                  () => navigate('/auth?returnUrl=/') : 
-                  handleStartRecording}
-                onVideoLoaded={handleVideoLoaded}
-              />
-            ) : (
-              <VideoList 
-                videos={videos}
-              />
-            )}
-          </div>
-        </main>
-      </div>
-    </RequireAuth>
+          </>
+        )}
+      </main>
+    </div>
   );
 };
 
