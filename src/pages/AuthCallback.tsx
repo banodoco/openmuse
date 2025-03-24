@@ -57,45 +57,16 @@ const AuthCallback = () => {
           }
         }
         
-        // Check if we have a hash or code in the URL which indicates an OAuth response
-        if (window.location.hash || searchParams.get('code')) {
-          logger.log('AuthCallback: Found auth data, processing OAuth response');
-          
-          // Wait for the auth library to process the URL parameters
+        // Try both methods of session handling for maximum compatibility
+        
+        // Method 1: Let Supabase client auto-handle the hash (for implicit flow)
+        if (window.location.hash) {
+          logger.log('AuthCallback: Found hash, letting Supabase handle it');
+          // Wait a bit to allow Supabase to process the hash
           await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Use the exchange code flow for PKCE
-          const { data, error } = await supabase.auth.exchangeCodeForSession(
-            searchParams.get('code') || window.location.hash
-          );
-          
-          if (error) {
-            logger.error('Error exchanging code for session:', error);
-            throw error;
-          }
-          
-          if (data?.session) {
-            logger.log('AuthCallback: Session established via code exchange');
-            
-            // Ensure the session is stored properly
-            await supabase.auth.setSession(data.session);
-            
-            if (isActive) {
-              toast.success('Successfully signed in!');
-              
-              // Add a delay before redirecting to ensure state updates are processed
-              timeoutId = setTimeout(() => {
-                if (isActive) {
-                  logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
-                  navigate(returnUrl, { replace: true });
-                }
-              }, 1000);
-            }
-            return;
-          }
         }
         
-        // If we get here, try to get the session directly (fallback)
+        // Method 2: Use getSession to get the session directly
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
@@ -119,8 +90,76 @@ const AuthCallback = () => {
           return;
         }
         
-        // No session found through either method - likely an error
-        logger.error('AuthCallback: No session could be established');
+        // If we get here, try to manually set up session from fragment
+        if (window.location.hash) {
+          logger.log('AuthCallback: Trying to manually parse hash fragment');
+          
+          const hashParams = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = hashParams.get('access_token');
+          const refreshToken = hashParams.get('refresh_token');
+          
+          if (accessToken) {
+            logger.log('AuthCallback: Found access token in hash, trying to set session');
+            
+            try {
+              const { data, error } = await supabase.auth.setSession({
+                access_token: accessToken,
+                refresh_token: refreshToken || '',
+              });
+              
+              if (error) {
+                logger.error('Error setting session from hash:', error);
+                throw error;
+              }
+              
+              if (data.session) {
+                logger.log('AuthCallback: Session set from hash fragment');
+                
+                if (isActive) {
+                  toast.success('Successfully signed in!');
+                  
+                  timeoutId = setTimeout(() => {
+                    if (isActive) {
+                      logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
+                      navigate(returnUrl, { replace: true });
+                    }
+                  }, 1000);
+                }
+                return;
+              }
+            } catch (setSessionError) {
+              logger.error('Error in setSession:', setSessionError);
+            }
+          }
+        }
+        
+        // No session found through any method - try one more time with a delay
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const { data: retrySession, error: retryError } = await supabase.auth.getSession();
+        
+        if (retryError) {
+          logger.error('Error in retry getSession:', retryError);
+          throw retryError;
+        }
+        
+        if (retrySession?.session) {
+          logger.log('AuthCallback: Session found in retry getSession');
+          
+          if (isActive) {
+            toast.success('Successfully signed in!');
+            
+            timeoutId = setTimeout(() => {
+              if (isActive) {
+                logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
+                navigate(returnUrl, { replace: true });
+              }
+            }, 1000);
+          }
+          return;
+        }
+        
+        // If we still don't have a session, throw an error
+        logger.error('AuthCallback: No session could be established after all attempts');
         throw new Error('Failed to establish session after authentication callback');
         
       } catch (err: any) {

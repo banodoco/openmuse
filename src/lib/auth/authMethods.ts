@@ -14,7 +14,7 @@ export const signInWithDiscord = async () => {
     localStorage.removeItem('supabase.auth.token');
     localStorage.removeItem('supabase_auth_token');
     
-    // Clear any potential tokens that might conflict
+    // More thorough cleanup of local storage
     const keysToRemove = [];
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
@@ -25,6 +25,16 @@ export const signInWithDiscord = async () => {
     
     for (const key of keysToRemove) {
       localStorage.removeItem(key);
+    }
+    
+    // Make a deliberate attempt to sign out before starting a new auth flow
+    // This ensures no old session data conflicts with the new session
+    try {
+      await supabase.auth.signOut({ scope: 'global' });
+      await new Promise(resolve => setTimeout(resolve, 300)); // Short delay to ensure signout completes
+    } catch (signOutError) {
+      // Ignore errors during this preventative sign out
+      logger.log('Ignoring error during preventative sign out:', signOutError);
     }
     
     logger.log('Sign in with Discord, redirect URL:', redirectUrl);

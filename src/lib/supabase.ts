@@ -11,9 +11,9 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'pkce', // Use PKCE flow for better security
-    storageKey: 'supabase_auth_token', // Keep consistent storage key
-    debug: process.env.NODE_ENV === 'development', // Only debug in development
+    flowType: 'implicit', // Change to implicit flow which is more reliable for some OAuth providers
+    storageKey: 'supabase_auth_token',
+    debug: true, // Enable debug for troubleshooting
   },
   global: {
     headers: {
@@ -26,7 +26,7 @@ console.log("Supabase client initialized with auth configuration:", {
   persistSession: true,
   autoRefreshToken: true,
   detectSessionInUrl: true,
-  flowType: 'pkce'
+  flowType: 'implicit'
 });
 
 // For backward compatibility
