@@ -15,13 +15,33 @@ const Auth: React.FC = () => {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const [sessionChecked, setSessionChecked] = useState(false);
   
   // Check if user is already logged in
   useEffect(() => {
     let isActive = true; // For cleanup
-    let timeoutId: number | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
     
+    // Listen for auth state changes FIRST
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      logger.log('Auth state changed in Auth page:', event);
+      
+      if (!isActive) return;
+      
+      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        const searchParams = new URLSearchParams(location.search);
+        const returnUrl = searchParams.get('returnUrl') || '/';
+        
+        // Add a slight delay to ensure state is updated before navigation
+        timeoutId = setTimeout(() => {
+          if (isActive) {
+            logger.log(`Auth page: Auth state changed, redirecting to ${returnUrl}`);
+            navigate(returnUrl, { replace: true });
+          }
+        }, 300);
+      }
+    });
+    
+    // THEN check for existing session
     const checkSession = async () => {
       try {
         logger.log('Auth page: Checking session');
@@ -34,7 +54,6 @@ const Auth: React.FC = () => {
           logger.error('Auth page: Error checking session:', error);
           if (isActive) {
             setIsCheckingSession(false);
-            setSessionChecked(true);
           }
           return;
         }
@@ -46,7 +65,7 @@ const Auth: React.FC = () => {
             const returnUrl = searchParams.get('returnUrl') || '/';
             
             // Add a slight delay to ensure state is updated before navigation
-            timeoutId = window.setTimeout(() => {
+            timeoutId = setTimeout(() => {
               if (isActive) {
                 logger.log(`Auth page: Redirecting to ${returnUrl}`);
                 navigate(returnUrl, { replace: true });
@@ -57,50 +76,25 @@ const Auth: React.FC = () => {
           logger.log('Auth page: No session found, showing login form');
           if (isActive) {
             setIsCheckingSession(false);
-            setSessionChecked(true);
           }
         }
       } catch (error) {
         logger.error('Auth page: Error checking session:', error);
         if (isActive) {
           setIsCheckingSession(false);
-          setSessionChecked(true);
         }
       }
     };
     
-    // Only run the check once
-    if (!sessionChecked) {
-      checkSession();
-    }
-    
-    // Listen for auth state changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      logger.log('Auth state changed in Auth page:', event);
-      
-      if (!isActive) return;
-      
-      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        const searchParams = new URLSearchParams(location.search);
-        const returnUrl = searchParams.get('returnUrl') || '/';
-        
-        // Add a slight delay to ensure state is updated before navigation
-        timeoutId = window.setTimeout(() => {
-          if (isActive) {
-            logger.log(`Auth page: Auth state changed, redirecting to ${returnUrl}`);
-            navigate(returnUrl, { replace: true });
-          }
-        }, 300);
-      }
-    });
+    checkSession();
     
     return () => {
       logger.log('Auth page: Cleaning up');
       isActive = false;
-      if (timeoutId) window.clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
       subscription.unsubscribe();
     };
-  }, [navigate, location.search, sessionChecked]);
+  }, [navigate, location.search]);
   
   const handleDiscordSignIn = async () => {
     try {

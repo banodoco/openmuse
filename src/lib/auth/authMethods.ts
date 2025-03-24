@@ -21,7 +21,9 @@ export const signInWithDiscord = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'discord',
     options: {
-      redirectTo: redirectUrl
+      redirectTo: redirectUrl,
+      // Add explicit scopes to ensure we get the profile information
+      scopes: 'identify email',
     }
   });
   

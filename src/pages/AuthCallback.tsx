@@ -13,35 +13,21 @@ const AuthCallback = () => {
   const location = useLocation();
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(true);
-  const [processingComplete, setProcessingComplete] = useState(false);
   
   useEffect(() => {
     let isActive = true; // For cleanup
-    let timeoutId: number | null = null;
+    let timeoutId: NodeJS.Timeout | null = null;
     
     const handleAuthCallback = async () => {
-      if (processingComplete) return;
-      
       try {
-        logger.log('In AuthCallback, processing...');
+        logger.log('AuthCallback: Processing authentication callback');
         
         // Parse the URL parameters to get the returnUrl if present
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
         logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
-        // Check for hash in URL (from OAuth redirect)
-        if (window.location.hash) {
-          logger.log('AuthCallback: Found hash in URL');
-          
-          const hashParams = new URLSearchParams(window.location.hash.substring(1));
-          if (hashParams.get('error')) {
-            throw new Error(hashParams.get('error_description') || 'Authentication error');
-          }
-        }
-        
         // Check if we're already authenticated
-        logger.log('AuthCallback: Checking for existing session');
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -53,11 +39,10 @@ const AuthCallback = () => {
           logger.log('AuthCallback: Found session, authentication successful');
           
           if (isActive) {
-            setProcessingComplete(true);
             toast.success('Successfully signed in!');
             
-            // Delay redirect slightly to ensure state updates are processed
-            timeoutId = window.setTimeout(() => {
+            // Add a slight delay before redirecting to ensure state updates are processed
+            timeoutId = setTimeout(() => {
               if (isActive) {
                 logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
                 navigate(returnUrl, { replace: true });
@@ -65,33 +50,58 @@ const AuthCallback = () => {
             }, 500);
           }
         } else {
-          // No session found, redirect to auth page with return URL preserved
-          logger.log('AuthCallback: No session found, redirecting to auth');
+          // This is a fallback in case the hash exchange didn't result in a session
+          // Exchange the code for a session if there's a code in the URL
+          logger.log('AuthCallback: No session found, checking for auth code');
           
-          if (isActive) {
-            setProcessingComplete(true);
+          if (window.location.hash || searchParams.get('code')) {
+            logger.log('AuthCallback: Hash or code found, trying to exchange for session');
             
-            timeoutId = window.setTimeout(() => {
-              if (isActive) {
-                navigate(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`, { replace: true });
+            // The hash exchange is handled by Supabase auth internally via the onAuthStateChange event
+            // Just wait a bit to see if a session is established
+            timeoutId = setTimeout(async () => {
+              if (!isActive) return;
+              
+              // Check again for a session after a short delay
+              const { data: sessionData } = await supabase.auth.getSession();
+              
+              if (sessionData?.session) {
+                logger.log('AuthCallback: Session established after hash exchange');
+                toast.success('Successfully signed in!');
+                navigate(returnUrl, { replace: true });
+              } else {
+                logger.log('AuthCallback: No session after hash exchange, redirecting to auth');
+                toast.error('Authentication failed. Please try again.');
+                navigate('/auth', { replace: true });
               }
-            }, 300);
+            }, 2000);
+          } else {
+            // No hash, no code, and no session - redirect to auth page
+            logger.log('AuthCallback: No auth data found, redirecting to auth page');
+            
+            if (isActive) {
+              toast.error('Authentication failed. Please try again.');
+              timeoutId = setTimeout(() => {
+                if (isActive) {
+                  navigate('/auth', { replace: true });
+                }
+              }, 300);
+            }
           }
         }
       } catch (err: any) {
         logger.error('Error during auth callback:', err);
         
         if (isActive) {
-          setProcessingComplete(true);
           setError(err.message || 'An error occurred during authentication');
           toast.error(`Authentication error: ${err.message}`);
           
           // Redirect to auth page after a short delay
-          timeoutId = window.setTimeout(() => {
+          timeoutId = setTimeout(() => {
             if (isActive) {
               navigate('/auth', { replace: true });
             }
-          }, 2000);
+          }, 1000);
         }
       } finally {
         if (isActive) {
@@ -100,17 +110,15 @@ const AuthCallback = () => {
       }
     };
     
-    // Only run once
-    if (!processingComplete) {
-      handleAuthCallback();
-    }
+    // Run the auth callback handler
+    handleAuthCallback();
     
     return () => {
       logger.log('AuthCallback: Cleaning up');
       isActive = false;
-      if (timeoutId) window.clearTimeout(timeoutId);
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [navigate, location.search, processingComplete]);
+  }, [navigate, location.search]);
   
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
