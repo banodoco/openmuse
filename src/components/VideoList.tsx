@@ -1,19 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area"
-import {
-  Table,
-  TableBody,
-  TableCaption,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { MoreVertical, Edit, Trash2, Eye } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, Eye, FileVideo } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,7 +17,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox"
 import { toast } from 'sonner';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
-import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import {
@@ -35,8 +26,15 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
 
 interface VideoListProps {
   videos: VideoEntry[];
@@ -151,6 +149,27 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
     }
   };
 
+  const getStatusBadge = (status: boolean | null) => {
+    if (status === null) {
+      return <Badge variant="secondary">Pending</Badge>
+    } else if (status) {
+      return <Badge className="bg-green-500">Approved</Badge>
+    } else {
+      return <Badge variant="destructive">Rejected</Badge>
+    }
+  };
+
+  const formatModelName = (model: string) => {
+    switch (model) {
+      case 'wan': return 'Wan';
+      case 'hunyuan': return 'Hunyuan';
+      case 'ltxv': return 'LTXV';
+      case 'cogvideox': return 'CogVideoX';
+      case 'animatediff': return 'Animatediff';
+      default: return model;
+    }
+  };
+
   return (
     <div className="w-full">
       <div className="flex items-center justify-between mb-4">
@@ -173,98 +192,139 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
           </Button>
         </div>
       </div>
-      <ScrollArea>
-        <Table>
-          <TableCaption>A list of your proposed LoRAs.</TableCaption>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[50px]">
-                <Checkbox
-                  checked={selectAll}
-                  onCheckedChange={toggleSelectAll}
-                  aria-label="Select all"
-                />
-              </TableHead>
-              <TableHead>Title</TableHead>
-              <TableHead>Uploaded by</TableHead>
-              <TableHead>Model</TableHead>
-              <TableHead>Status</TableHead>
-              <TableHead className="text-right">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {filteredVideos.map((video) => (
-              <TableRow key={video.id}>
-                <TableCell className="font-medium">
+      
+      <div className="flex items-center space-x-2 mb-4">
+        <Checkbox
+          checked={selectAll}
+          onCheckedChange={toggleSelectAll}
+          id="select-all"
+        />
+        <label htmlFor="select-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+          Select All
+        </label>
+      </div>
+      
+      <ScrollArea className="h-[calc(100vh-220px)]">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {filteredVideos.map((video) => (
+            <Card key={video.id} className={cn(
+              "overflow-hidden transition-all",
+              selectedVideos.includes(video.id) && "ring-2 ring-primary"
+            )}>
+              <CardHeader className="pb-3 pt-4 px-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex-1 overflow-hidden">
+                    <CardTitle className="text-lg truncate">
+                      {video.metadata?.title || 'Untitled'}
+                    </CardTitle>
+                  </div>
                   <Checkbox
                     checked={selectedVideos.includes(video.id)}
                     onCheckedChange={() => toggleVideoSelection(video.id)}
-                    aria-label={`Select video ${video.id}`}
+                    className="ml-2"
                   />
-                </TableCell>
-                <TableCell className="font-medium">{video.metadata?.title || 'Untitled'}</TableCell>
-                <TableCell>{video.reviewer_name}</TableCell>
-                <TableCell>
-                  <span className="text-xs text-muted-foreground">
-                    {video.metadata?.model || 'Unknown model'}
-                  </span>
-                </TableCell>
-                <TableCell>
-                  {video.admin_approved === null ? (
-                    <Badge variant="secondary">Pending</Badge>
-                  ) : video.admin_approved ? (
-                    <Badge variant="success">Approved</Badge>
-                  ) : (
-                    <Badge variant="destructive">Rejected</Badge>
+                </div>
+                
+                <div className="flex items-center gap-2 mt-1">
+                  {video.metadata?.model && (
+                    <Badge variant="outline" className="rounded-sm">
+                      {formatModelName(video.metadata.model)}
+                    </Badge>
                   )}
-                </TableCell>
-                <TableCell className="text-right">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" className="h-8 w-8 p-0">
-                        <span className="sr-only">Open menu</span>
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                      <DropdownMenuItem onClick={() => navigate(`/videos/${video.id}`)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => navigate(`/edit/${video.id}`)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => onDelete(video.id)}>
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      {video.admin_approved === null && (
-                        <>
-                          <DropdownMenuItem onClick={() => onApprove(video.id)}>
-                            Approve
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => onReject(video.id)}>
-                            Reject
-                          </DropdownMenuItem>
-                        </>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </TableCell>
-              </TableRow>
-            ))}
-            {filteredVideos.length === 0 && (
-              <TableRow>
-                <TableCell colSpan={6} className="text-center">
-                  No videos found.
-                </TableCell>
-              </TableRow>
-            )}
-          </TableBody>
-        </Table>
+                  {getStatusBadge(video.admin_approved)}
+                </div>
+                
+                {video.metadata?.description && (
+                  <CardDescription className="line-clamp-2 mt-1">
+                    {video.metadata.description}
+                  </CardDescription>
+                )}
+              </CardHeader>
+              
+              <CardContent className="px-4 py-2 text-sm">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Created by:</span>
+                    <span className="font-medium">
+                      {video.metadata?.creator === 'self' 
+                        ? video.reviewer_name 
+                        : video.metadata?.creatorName || 'Unknown'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Uploaded by:</span>
+                    <span className="font-medium">{video.reviewer_name}</span>
+                  </div>
+                  
+                  {video.metadata?.url && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">URL:</span>
+                      <a 
+                        href={video.metadata.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline truncate max-w-[180px]"
+                      >
+                        {video.metadata.url}
+                      </a>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+              
+              <CardFooter className="px-4 py-3 border-t flex justify-between">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={() => navigate(`/videos/${video.id}`)}
+                >
+                  <Eye className="h-4 w-4 mr-1" /> View
+                </Button>
+                
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="ghost" size="sm">
+                      <MoreVertical className="h-4 w-4" />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                    <DropdownMenuItem onClick={() => navigate(`/edit/${video.id}`)}>
+                      <Edit className="mr-2 h-4 w-4" />
+                      Edit
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => onDelete(video.id)}>
+                      <Trash2 className="mr-2 h-4 w-4" />
+                      Delete
+                    </DropdownMenuItem>
+                    <DropdownMenuSeparator />
+                    {video.admin_approved === null && (
+                      <>
+                        <DropdownMenuItem onClick={() => onApprove(video.id)}>
+                          Approve
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={() => onReject(video.id)}>
+                          Reject
+                        </DropdownMenuItem>
+                      </>
+                    )}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              </CardFooter>
+            </Card>
+          ))}
+          
+          {filteredVideos.length === 0 && (
+            <div className="col-span-full text-center py-8">
+              <FileVideo className="h-12 w-12 mx-auto text-muted-foreground" />
+              <h3 className="mt-2 text-lg font-medium">No videos found</h3>
+              <p className="text-muted-foreground">
+                {filterText ? "Try a different search term" : "Upload some videos to get started"}
+              </p>
+            </div>
+          )}
+        </div>
       </ScrollArea>
     </div>
   );
