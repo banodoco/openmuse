@@ -42,9 +42,9 @@ const Index = () => {
       <AuthProvider onAuthStateChange={handleAuthStateChange}>
         <main className="flex-1 container mx-auto p-4">
           <PageHeader 
-            title="Video Responses"
-            description="View and manage video responses from your platform"
-            buttonText="Record New Video"
+            title="Curated LoRAs for open video models"
+            description="Discover and contribute to a collection of fine-tuned LoRAs for generating high-quality videos with open source models"
+            buttonText="Propose New LoRA"
             onButtonClick={handleNavigateToUpload}
             buttonSize={isMobile ? "sm" : "default"}
             buttonDisabled={isLoading}
