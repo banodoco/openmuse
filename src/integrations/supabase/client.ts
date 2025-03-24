@@ -18,3 +18,11 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     storageKey: 'supabase-auth-token',
   }
 });
+
+// Console log the auth configuration to verify it's working
+console.log('Supabase client initialized in client.ts with auth configuration:', {
+  persistSession: true,
+  autoRefreshToken: true,
+  detectSessionInUrl: true,
+  storageKey: 'supabase-auth-token'
+});

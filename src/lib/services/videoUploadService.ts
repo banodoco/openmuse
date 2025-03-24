@@ -1,140 +1,125 @@
 
 import { VideoEntry, VideoFile, VideoMetadata } from '../types';
-import { Logger } from '../logger';
-import { remoteStorage } from '../remoteStorage';
+import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
+import { Logger } from '../logger';
+
+const logger = new Logger('VideoUploadService');
 
 export class VideoUploadService {
-  private readonly logger = new Logger('VideoUploadService');
-  private currentUserId: string | null = null;
-  
-  setCurrentUserId(userId: string | null) {
-    this.currentUserId = userId;
-    this.logger.log(`Current user ID set to: ${userId || 'none'}`);
-  }
+  // Upload a new video file to the storage
+  public async uploadVideo(videoFile: VideoFile, reviewerName: string, userId?: string): Promise<VideoEntry | null> {
+    if (!videoFile || !videoFile.blob) {
+      logger.error('Attempted to upload a null or invalid video file');
+      throw new Error('Invalid video file');
+    }
 
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
-    if (!this.currentUserId) {
-      this.logger.warn('User not authenticated, proceeding without user_id');
-    }
-    
-    let videoLocation = entry.video_location;
-    
-    if (entry.video_location.startsWith('blob:')) {
-      try {
-        const response = await fetch(entry.video_location);
-        const blob = await response.blob();
-        
-        const videoFile = {
-          id: `video_${Date.now()}`,
-          blob
-        };
-        
-        videoLocation = await remoteStorage.uploadVideo(videoFile);
-        this.logger.log(`Saved video to Supabase Storage: ${videoLocation}`);
-      } catch (error) {
-        this.logger.error('Failed to save video to Supabase Storage:', error);
-        throw error;
-      }
-    }
-    
     try {
-      // Convert the metadata to a JSON string if it exists
-      const metadataString = entry.metadata ? JSON.stringify(entry.metadata) : null;
+      // Generate unique ID for the video
+      const videoId = videoFile.id || uuidv4();
+      const videoPath = `videos/${videoId}.webm`;
       
+      logger.log(`Uploading video to ${videoPath}`);
+      
+      // Upload the video file to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(videoPath, videoFile.blob, {
+          contentType: 'video/webm',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        logger.error('Error uploading video to storage:', uploadError);
+        throw uploadError;
+      }
+
+      logger.log(`Video uploaded successfully, creating entry for ${videoId}`);
+
+      // Create the database entry with the video path
+      const entry: Partial<VideoEntry> = {
+        id: videoId,
+        video_location: videoPath,
+        reviewer_name: reviewerName,
+        skipped: false,
+        admin_approved: false,
+      };
+      
+      // Add user ID if provided
+      if (userId) {
+        entry.user_id = userId;
+      }
+      
+      // Add metadata if available
+      if (videoFile.metadata) {
+        entry.metadata = videoFile.metadata;
+      }
+
+      // Insert the entry into the database
       const { data, error } = await supabase
         .from('video_entries')
-        .insert({
-          reviewer_name: entry.reviewer_name,
-          video_location: videoLocation,
-          skipped: entry.skipped || false,
-          user_id: this.currentUserId,
-          metadata: metadataString
-        })
+        .insert(entry)
         .select()
         .single();
-      
+
       if (error) {
+        logger.error('Error creating video entry in database:', error);
         throw error;
       }
-      
-      // Parse the metadata back from the string if it exists
-      if (data.metadata) {
-        try {
-          data.metadata = JSON.parse(data.metadata);
-        } catch (e) {
-          this.logger.error('Error parsing metadata:', e);
-        }
-      }
-      
-      this.logger.log(`Added new entry: ${data.id}`);
+
+      logger.log(`Video entry created successfully: ${videoId}`);
       return data as VideoEntry;
     } catch (error) {
-      this.logger.error('Error adding entry to Supabase:', error);
+      logger.error('Error in uploadVideo:', error);
       throw error;
     }
   }
   
-  async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
-    this.logger.log(`Saving acting video for entry ${id}`);
-    
-    if (!this.currentUserId) {
-      this.logger.warn('User not authenticated when saving acting video');
+  // Upload an acting video response
+  public async uploadActingVideo(originalVideoId: string, actingVideoFile: VideoFile): Promise<VideoEntry | null> {
+    if (!actingVideoFile || !actingVideoFile.blob) {
+      logger.error('Attempted to upload a null or invalid acting video file');
+      throw new Error('Invalid acting video file');
     }
-    
-    let savedLocation = actingVideoLocation;
-    
-    if (actingVideoLocation.startsWith('blob:')) {
-      try {
-        const response = await fetch(actingVideoLocation);
-        const blob = await response.blob();
-        const fileName = `acting_${id}_${Date.now()}.webm`;
-        
-        const { data: storageData, error: storageError } = await supabase.storage
-          .from('videos')
-          .upload(fileName, blob, {
-            contentType: 'video/webm',
-            upsert: true
-          });
-        
-        if (storageError) {
-          throw storageError;
-        }
-        
-        const { data: urlData } = supabase.storage
-          .from('videos')
-          .getPublicUrl(fileName);
-        
-        savedLocation = urlData.publicUrl;
-        this.logger.log(`Saved acting video to Supabase Storage: ${savedLocation}`);
-      } catch (error) {
-        this.logger.error('Failed to save acting video to Supabase Storage:', error);
-        throw error;
-      }
-    }
-    
+
     try {
+      const actingVideoPath = `acting-videos/${originalVideoId}.webm`;
+      
+      logger.log(`Uploading acting video to ${actingVideoPath}`);
+      
+      // Upload the acting video file
+      const { error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(actingVideoPath, actingVideoFile.blob, {
+          contentType: 'video/webm',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        logger.error('Error uploading acting video:', uploadError);
+        throw uploadError;
+      }
+
+      logger.log(`Acting video uploaded successfully, updating entry for ${originalVideoId}`);
+
+      // Update the database entry with the acting video path
       const { data, error } = await supabase
         .from('video_entries')
-        .update({
-          acting_video_location: savedLocation,
-          user_id: this.currentUserId || undefined
-        })
-        .eq('id', id)
+        .update({ acting_video_location: actingVideoPath })
+        .eq('id', originalVideoId)
         .select()
         .single();
-      
+
       if (error) {
+        logger.error('Error updating video entry with acting video:', error);
         throw error;
       }
-      
-      this.logger.log(`Updated entry with acting video: ${id}`);
+
+      logger.log(`Video entry updated with acting video: ${originalVideoId}`);
       return data as VideoEntry;
     } catch (error) {
-      this.logger.error('Error updating entry in Supabase:', error);
-      return null;
+      logger.error('Error in uploadActingVideo:', error);
+      throw error;
     }
   }
 }
-
-export const videoUploadService = new VideoUploadService();

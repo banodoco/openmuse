@@ -10,43 +10,35 @@ export const signInWithDiscord = async () => {
     // Get the current URL to use as redirect
     let redirectUrl = `${window.location.origin}/auth/callback`;
     
-    // Clear any previous auth state to prevent conflicts
-    localStorage.removeItem('supabase.auth.token');
-    localStorage.removeItem('supabase_auth_token');
-    
-    // More thorough cleanup of local storage
-    const keysToRemove = [];
+    // Clear the storage before signing in to prevent conflicts
+    logger.log('Cleaning up local storage before Discord login');
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth'))) {
-        keysToRemove.push(key);
+        if (key !== 'supabase-auth-token') {
+          logger.log(`Removing storage key: ${key}`);
+          localStorage.removeItem(key);
+        }
       }
     }
     
-    for (const key of keysToRemove) {
-      localStorage.removeItem(key);
-    }
-    
-    // Make a deliberate attempt to sign out before starting a new auth flow
-    // This ensures no old session data conflicts with the new session
+    // Force a sign out to ensure a clean slate
     try {
       await supabase.auth.signOut({ scope: 'global' });
-      await new Promise(resolve => setTimeout(resolve, 300)); // Short delay to ensure signout completes
+      // Allow time for sign out to complete
+      await new Promise(resolve => setTimeout(resolve, 500));
     } catch (signOutError) {
-      // Ignore errors during this preventative sign out
       logger.log('Ignoring error during preventative sign out:', signOutError);
     }
     
-    logger.log('Sign in with Discord, redirect URL:', redirectUrl);
+    logger.log('Starting Discord sign in, redirect URL:', redirectUrl);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
       options: {
         redirectTo: redirectUrl,
-        // Add explicit scopes to ensure we get the profile information
         scopes: 'identify email guilds',
         queryParams: {
-          // Ensure we get a fresh token each time
-          prompt: 'consent'
+          prompt: 'consent' 
         }
       }
     });
@@ -67,13 +59,13 @@ export const signOut = async () => {
   logger.log('Signing out');
   
   try {
-    // Clear caches first in case the signOut fails
+    // Clear caches first
     userProfileCache.clear();
     userRolesCache.clear();
     
     // Sign out from Supabase
     const { error } = await supabase.auth.signOut({
-      scope: 'global' // This ensures a complete sign out
+      scope: 'global'
     });
     
     if (error) {
@@ -81,30 +73,21 @@ export const signOut = async () => {
       throw error;
     }
     
-    logger.log('Sign out successful');
+    logger.log('Sign out successful, clearing storage');
     
-    // Clear any cached session data
+    // Clear session storage
     sessionStorage.clear();
     
-    // Clear Supabase's local storage items
-    // This ensures the auth state is completely reset
-    const keysToRemove = [];
+    // Clear Supabase related localStorage items
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth'))) {
-        keysToRemove.push(key);
+        logger.log(`Removing key: ${key}`);
+        localStorage.removeItem(key);
       }
     }
     
-    // Remove each key in a separate loop to avoid index issues
-    for (const key of keysToRemove) {
-      localStorage.removeItem(key);
-    }
-    
-    localStorage.removeItem('supabase_auth_token');
-    localStorage.removeItem('supabase.auth.token');
-    
-    // Wait briefly for auth state to update
+    // Wait for auth state to update
     await new Promise(resolve => setTimeout(resolve, 500));
     
     return true;

@@ -25,14 +25,9 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
         
         if (isMounted) onAuthStateChange(true);
         
-        // Force a storage sync to ensure session tokens are loaded correctly
-        try {
-          // Ensure localStorage is properly accessible first
-          localStorage.setItem('auth-check', 'true');
-          localStorage.removeItem('auth-check');
-        } catch (storageError) {
-          console.error('LocalStorage not accessible:', storageError);
-        }
+        // Check for the auth token
+        const hasToken = !!localStorage.getItem('supabase-auth-token');
+        logger.log(`Auth provider: supabase-auth-token exists: ${hasToken}`);
         
         // Set up auth state listener FIRST
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
@@ -43,13 +38,13 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
             navigate('/auth');
           }
           
-          // Force a storage sync to ensure session is properly stored
           if (event === 'SIGNED_IN' && typeof localStorage !== 'undefined') {
-            logger.log('User signed in, session should be persisted');
+            logger.log('User signed in, session should be persisted', session?.user?.id);
           }
         });
         
-        // Refresh session first to ensure it's valid
+        // THEN refresh session 
+        logger.log('Refreshing session');
         await supabase.auth.refreshSession();
         
         // THEN check for existing session
