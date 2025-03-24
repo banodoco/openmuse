@@ -7,12 +7,13 @@ const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 // Create a single Supabase client instance for the entire app
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   auth: {
-    storage: typeof window !== 'undefined' ? localStorage : undefined,
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'implicit', // Using implicit flow for more reliable OAuth
-    storageKey: 'supabase.auth.token', // Use a consistent storage key
+    // Explicitly use localStorage for storage
+    storage: typeof window !== 'undefined' ? localStorage : undefined,
+    // Use a consistent storage key that doesn't conflict with other apps
+    storageKey: 'supabase.auth.token',
   },
   global: {
     headers: {
@@ -25,7 +26,7 @@ console.log("Supabase client initialized with auth configuration:", {
   persistSession: true,
   autoRefreshToken: true,
   detectSessionInUrl: true,
-  flowType: 'implicit'
+  storageKey: 'supabase.auth.token'
 });
 
 // For backward compatibility
