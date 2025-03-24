@@ -101,10 +101,13 @@ const Upload: React.FC = () => {
   
   const handleVideoFileDrop = (id: string) => {
     return (acceptedFiles: File[]) => {
+      console.log("File dropped:", acceptedFiles);
       const file = acceptedFiles[0];
       if (file) {
+        const url = URL.createObjectURL(file);
+        console.log("Created URL:", url);
         updateVideoField(id, 'file', file);
-        updateVideoField(id, 'url', URL.createObjectURL(file));
+        updateVideoField(id, 'url', url);
       }
     };
   };
@@ -385,8 +388,14 @@ interface VideoDropzoneProps {
 }
 
 const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop }) => {
+  // Log props to make sure they're being passed correctly
+  console.log(`VideoDropzone props - id: ${id}, file: ${file ? 'present' : 'null'}, url: ${url}`);
+  
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop,
+    onDrop: (acceptedFiles) => {
+      console.log("Dropzone onDrop called with files:", acceptedFiles);
+      onDrop(acceptedFiles);
+    },
     accept: {
       'video/*': []
     }
