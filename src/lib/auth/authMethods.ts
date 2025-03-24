@@ -12,19 +12,12 @@ export const signInWithDiscord = async () => {
     
     // Clear the storage before signing in to prevent conflicts
     logger.log('Cleaning up local storage before Discord login');
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth'))) {
-        logger.log(`Removing storage key: ${key}`);
-        localStorage.removeItem(key);
-      }
-    }
     
     // Force a sign out to ensure a clean slate
     try {
-      await supabase.auth.signOut({ scope: 'global' });
+      await supabase.auth.signOut({ scope: 'local' });
       // Allow time for sign out to complete
-      await new Promise(resolve => setTimeout(resolve, 500));
+      await new Promise(resolve => setTimeout(resolve, 300));
     } catch (signOutError) {
       logger.log('Ignoring error during preventative sign out:', signOutError);
     }
@@ -76,17 +69,8 @@ export const signOut = async () => {
     // Clear session storage
     sessionStorage.clear();
     
-    // Clear Supabase related localStorage items
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth'))) {
-        logger.log(`Removing key: ${key}`);
-        localStorage.removeItem(key);
-      }
-    }
-    
     // Wait for auth state to update
-    await new Promise(resolve => setTimeout(resolve, 500));
+    await new Promise(resolve => setTimeout(resolve, 300));
     
     return true;
   } catch (error) {

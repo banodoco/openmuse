@@ -29,25 +29,23 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           logger.log('Auth state changed:', event, session?.user?.id);
           
+          // Store session in localStorage for debugging
+          if (session) {
+            logger.log('Storing session data for user:', session.user.id);
+          } else {
+            logger.log('No session available in auth state change');
+          }
+          
           if (event === 'SIGNED_OUT' && isMounted) {
             logger.log('User signed out, redirecting to auth');
             navigate('/auth');
           }
           
-          if (event === 'SIGNED_IN' && typeof localStorage !== 'undefined') {
-            logger.log('User signed in, session should be persisted', session?.user?.id);
+          if (event === 'SIGNED_IN' && isMounted) {
+            logger.log('User signed in, session is present:', !!session);
+            // No navigation here - let the callback handle it
           }
         });
-        
-        // THEN refresh session 
-        logger.log('Refreshing session');
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError) {
-          logger.error('Error refreshing session:', refreshError);
-        } else if (refreshData.session) {
-          logger.log('Session refreshed successfully:', refreshData.session.user.id);
-        }
         
         // THEN check for existing session
         const { data, error } = await supabase.auth.getSession();
@@ -57,7 +55,19 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
           throw error;
         }
         
-        logger.log('Session check complete, has session:', !!data.session);
+        logger.log('Session check complete, has session:', !!data.session, data.session?.user?.id);
+        
+        // LAST try refreshing the session if we have one
+        if (data.session) {
+          logger.log('Attempting to refresh existing session');
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+          
+          if (refreshError) {
+            logger.error('Error refreshing session:', refreshError);
+          } else if (refreshData.session) {
+            logger.log('Session refreshed successfully:', refreshData.session.user.id);
+          }
+        }
         
         if (isMounted) {
           onAuthStateChange(false);
