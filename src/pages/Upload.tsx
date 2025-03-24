@@ -520,8 +520,13 @@ const Upload: React.FC = () => {
                           </Button>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {/* Left column: Video form fields */}
+                        <div className="flex flex-col gap-4">
+                          {/* Video preview first */}
+                          <div className="w-full">
+                            <VideoPreview file={file} className="w-full h-full max-h-[180px]" />
+                          </div>
+                          
+                          {/* Form fields below the video */}
                           <div className="space-y-3 text-sm">
                             {/* Title field */}
                             <div className="space-y-1">
@@ -547,8 +552,8 @@ const Upload: React.FC = () => {
                               />
                             </div>
                             
-                            {/* Creator field and Classification field in a flex row */}
-                            <div className="grid grid-cols-2 gap-2">
+                            {/* Creator and Classification fields side by side */}
+                            <div className="grid grid-cols-2 gap-4">
                               {/* Creator field */}
                               <div className="space-y-1">
                                 <Label className="text-xs">Who created this video?</Label>
@@ -605,11 +610,6 @@ const Upload: React.FC = () => {
                             <div className="text-xs text-muted-foreground pt-1">
                               {(file.size / (1024 * 1024)).toFixed(2)} MB
                             </div>
-                          </div>
-                          
-                          {/* Right column: Video preview */}
-                          <div className="flex items-center justify-center">
-                            <VideoPreview file={file} className="w-full h-full max-h-[160px]" />
                           </div>
                         </div>
                       </div>
