@@ -10,7 +10,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true, // Enable automatic hash detection
+    flowType: 'implicit', // Use implicit flow for OAuth
     debug: true // Enable auth debugging
   }
 });

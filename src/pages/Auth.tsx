@@ -20,9 +20,18 @@ const Auth: React.FC = () => {
   useEffect(() => {
     let isActive = true; // For cleanup
     let timeoutId: NodeJS.Timeout | null = null;
+    let subscription: { unsubscribe: () => void; } | null = null;
+    
+    // Set a timeout to avoid hanging on session check
+    const sessionCheckTimeoutId = setTimeout(() => {
+      if (isActive && isCheckingSession) {
+        logger.log('Session check timed out, assuming no session');
+        setIsCheckingSession(false);
+      }
+    }, 5000);
     
     // Listen for auth state changes FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    subscription = supabase.auth.onAuthStateChange((event, session) => {
       logger.log('Auth state changed in Auth page:', event);
       
       if (!isActive) return;
@@ -39,7 +48,7 @@ const Auth: React.FC = () => {
           }
         }, 300);
       }
-    });
+    }).data.subscription;
     
     // THEN check for existing session
     const checkSession = async () => {
@@ -83,6 +92,10 @@ const Auth: React.FC = () => {
         if (isActive) {
           setIsCheckingSession(false);
         }
+      } finally {
+        if (sessionCheckTimeoutId) {
+          clearTimeout(sessionCheckTimeoutId);
+        }
       }
     };
     
@@ -92,7 +105,8 @@ const Auth: React.FC = () => {
       logger.log('Auth page: Cleaning up');
       isActive = false;
       if (timeoutId) clearTimeout(timeoutId);
-      subscription.unsubscribe();
+      if (sessionCheckTimeoutId) clearTimeout(sessionCheckTimeoutId);
+      if (subscription) subscription.unsubscribe();
     };
   }, [navigate, location.search]);
   

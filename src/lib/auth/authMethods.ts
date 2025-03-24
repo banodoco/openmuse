@@ -23,7 +23,7 @@ export const signInWithDiscord = async () => {
     options: {
       redirectTo: redirectUrl,
       // Add explicit scopes to ensure we get the profile information
-      scopes: 'identify email',
+      scopes: 'identify email guilds',
     }
   });
   
@@ -37,7 +37,9 @@ export const signInWithDiscord = async () => {
 
 export const signOut = async () => {
   logger.log('Signing out');
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase.auth.signOut({
+    scope: 'global' // This ensures a complete sign out
+  });
   
   if (error) {
     logger.error('Error signing out:', error);
