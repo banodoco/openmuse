@@ -302,15 +302,15 @@ const Upload: React.FC = () => {
                     className="w-full md:w-2/3 mx-auto"
                   />
                   
-                  {/* Video Metadata and LoRA Forms */}
+                  {/* Rearranged sections to place LoRA details first */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    <VideoMetadataForm
+                    <LoRADetailsForm
                       videoId={video.id}
                       metadata={video.metadata}
                       updateMetadata={updateVideoMetadata}
                     />
                     
-                    <LoRADetailsForm
+                    <VideoMetadataForm
                       videoId={video.id}
                       metadata={video.metadata}
                       updateMetadata={updateVideoMetadata}
