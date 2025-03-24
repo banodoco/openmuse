@@ -29,7 +29,6 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           logger.log('Auth state changed:', event, session?.user?.id);
           
-          // Store session in localStorage for debugging
           if (session) {
             logger.log('Storing session data for user:', session.user.id);
           } else {

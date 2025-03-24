@@ -1,6 +1,6 @@
 
-import { supabase } from '../supabase';
-import { Logger } from '../logger';
+import { supabase } from '@/integrations/supabase/client';
+import { Logger } from '@/lib/logger';
 import { userProfileCache, userRolesCache } from './cache';
 
 const logger = new Logger('AuthMethods');
@@ -10,8 +10,10 @@ export const signInWithDiscord = async () => {
     // Get the current URL to use as redirect
     let redirectUrl = `${window.location.origin}/auth/callback`;
     
-    // Clear the storage before signing in to prevent conflicts
-    logger.log('Cleaning up local storage before Discord login');
+    // Clear caches before signing in
+    logger.log('Cleaning up caches before Discord login');
+    userProfileCache.clear();
+    userRolesCache.clear();
     
     // Force a sign out to ensure a clean slate
     try {
@@ -28,8 +30,9 @@ export const signInWithDiscord = async () => {
       options: {
         redirectTo: redirectUrl,
         scopes: 'identify email guilds',
+        skipBrowserRedirect: false,
         queryParams: {
-          prompt: 'consent' 
+          prompt: 'consent'
         }
       }
     });
@@ -39,6 +42,7 @@ export const signInWithDiscord = async () => {
       throw error;
     }
     
+    logger.log('Sign in with Discord initiated successfully', data);
     return data;
   } catch (error) {
     logger.error('Error in signInWithDiscord:', error);
@@ -54,7 +58,7 @@ export const signOut = async () => {
     userProfileCache.clear();
     userRolesCache.clear();
     
-    // Sign out from Supabase
+    // Sign out from Supabase with global scope to clear all sessions
     const { error } = await supabase.auth.signOut({
       scope: 'global'
     });
@@ -64,10 +68,7 @@ export const signOut = async () => {
       throw error;
     }
     
-    logger.log('Sign out successful, clearing storage');
-    
-    // Clear session storage
-    sessionStorage.clear();
+    logger.log('Sign out successful');
     
     // Wait for auth state to update
     await new Promise(resolve => setTimeout(resolve, 300));

@@ -13,16 +13,15 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
   auth: {
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false,
+    detectSessionInUrl: true,
     storage: typeof window !== 'undefined' ? localStorage : undefined,
-    storageKey: 'supabase.auth.token',
   }
 });
 
-// Console log the auth configuration to verify it's working
+// Log initialization for debugging
 console.log('Supabase client initialized with auth configuration:', {
   persistSession: true,
   autoRefreshToken: true,
-  detectSessionInUrl: false,
-  storageKey: 'supabase.auth.token'
+  detectSessionInUrl: true,
+  storage: 'localStorage',
 });

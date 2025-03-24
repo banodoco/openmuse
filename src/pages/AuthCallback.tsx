@@ -30,92 +30,95 @@ const AuthCallback = () => {
     
     const handleAuthCallback = async () => {
       try {
-        logger.log('AuthCallback: Processing callback', { 
-          hash: !!window.location.hash,
-          hashLength: window.location.hash.length,
-          query: window.location.search
-        });
-        
         // Parse the URL parameters to get the returnUrl if present
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
-        logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
-        // Forcing a token exchange here to ensure we get a valid session
-        let sessionEstablished = false;
+        logger.log('AuthCallback: Processing callback', { 
+          hash: !!window.location.hash,
+          hashLength: window.location.hash.length,
+          query: window.location.search,
+          returnUrl
+        });
+
+        // Let Supabase handle the OAuth callback
+        // The supabase.auth.getSession() call below will trigger the internal processing
+        const { data, error } = await supabase.auth.getSession();
         
-        if (window.location.hash || window.location.search.includes('code=')) {
-          logger.log('AuthCallback: Detected auth response in URL');
-          
-          // Let Supabase automatically handle the token exchange
-          // Wait a bit to make sure Supabase has time to process the auth response
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          
-          // Now check if we have a session
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-          
-          if (sessionError) {
-            logger.error('Error getting session after auth response:', sessionError);
-            throw sessionError;
-          }
-          
-          if (sessionData?.session) {
-            logger.log('AuthCallback: Session established after token exchange', sessionData.session.user.id);
-            sessionEstablished = true;
-            
-            // Force refresh the token
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-            
-            if (refreshError) {
-              logger.error('Error refreshing token:', refreshError);
-            } else {
-              logger.log('Token refreshed successfully');
-            }
-            
-            if (isActive) {
-              toast.success('Successfully signed in!');
-              
-              // Wait briefly before redirecting to ensure auth state is properly propagated
-              timeoutId = setTimeout(() => {
-                if (isActive) {
-                  logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
-                  // Use replace: true to avoid browser back button issues
-                  navigate(returnUrl, { replace: true });
-                }
-              }, 1000);
-            }
-          }
+        if (error) {
+          logger.error('Error getting session during callback:', error);
+          throw error;
         }
         
-        // If we still don't have a session, try one last manual session check
-        if (!sessionEstablished) {
-          logger.log('AuthCallback: No session established via URL, trying direct session check');
+        if (data?.session) {
+          logger.log('AuthCallback: Session established after callback', {
+            userId: data.session.user.id,
+            expiresAt: data.session.expires_at
+          });
           
-          const { data: finalCheck, error: finalError } = await supabase.auth.getSession();
+          // Force refresh the session to ensure we have the latest tokens
+          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
           
-          if (finalError) {
-            logger.error('Error in final session check:', finalError);
-            throw finalError;
+          if (refreshError) {
+            logger.error('Error refreshing session:', refreshError);
+          } else if (refreshData.session) {
+            logger.log('Session refreshed successfully', {
+              userId: refreshData.session.user.id,
+              expiresAt: refreshData.session.expires_at
+            });
           }
           
-          if (finalCheck.session) {
-            logger.log('AuthCallback: Session found in final check', finalCheck.session.user.id);
+          if (isActive) {
+            toast.success('Successfully signed in!');
             
-            if (isActive) {
-              toast.success('Successfully signed in!');
+            // Wait briefly before redirecting to ensure auth state is properly propagated
+            timeoutId = setTimeout(() => {
+              if (isActive) {
+                logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
+                navigate(returnUrl, { replace: true });
+              }
+            }, 1000);
+          }
+        } else {
+          // If we don't have a session, try to detect the hash in URL
+          logger.log('No session found after initial check, checking for hash/code in URL');
+          
+          if (window.location.hash || window.location.search.includes('code=')) {
+            logger.log('Found hash or code in URL, waiting for Supabase to process it');
+            
+            // Wait a bit to allow Supabase to process the token
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Check again for a session
+            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            
+            if (sessionError) {
+              logger.error('Error in second session check:', sessionError);
+              throw sessionError;
+            }
+            
+            if (sessionData.session) {
+              logger.log('Session established in second check', {
+                userId: sessionData.session.user.id
+              });
               
-              // Wait briefly before redirecting
-              timeoutId = setTimeout(() => {
-                if (isActive) {
-                  logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
-                  navigate(returnUrl, { replace: true });
-                }
-              }, 1000);
+              if (isActive) {
+                toast.success('Successfully signed in!');
+                
+                timeoutId = setTimeout(() => {
+                  if (isActive) {
+                    logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
+                    navigate(returnUrl, { replace: true });
+                  }
+                }, 1000);
+              }
+            } else {
+              logger.error('No session established after OAuth callback');
+              throw new Error('Failed to establish authentication session. Please try again.');
             }
           } else {
-            // If we still don't have a session, throw an error
-            logger.error('AuthCallback: No session could be established');
-            throw new Error('Failed to establish authentication session. Please try again.');
+            logger.error('No hash or code found in URL, and no session established');
+            throw new Error('Invalid authentication response. Please try again.');
           }
         }
       } catch (err: any) {
