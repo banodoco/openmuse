@@ -37,6 +37,9 @@ const Auth: React.FC = () => {
       if (!isActive) return;
       
       if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
+        // Clear any potential localStorage issues
+        localStorage.removeItem('actual_auth_origin');
+        
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
         
@@ -46,7 +49,7 @@ const Auth: React.FC = () => {
             logger.log(`Auth page: Auth state changed, redirecting to ${returnUrl}`);
             navigate(returnUrl, { replace: true });
           }
-        }, 300);
+        }, 500);
       }
     }).data.subscription;
     
@@ -56,6 +59,9 @@ const Auth: React.FC = () => {
         logger.log('Auth page: Checking session');
         
         if (!isActive) return;
+        
+        // Force a session refresh to ensure we have the latest data
+        await supabase.auth.refreshSession();
         
         const { data: { session }, error } = await supabase.auth.getSession();
         
@@ -79,7 +85,7 @@ const Auth: React.FC = () => {
                 logger.log(`Auth page: Redirecting to ${returnUrl}`);
                 navigate(returnUrl, { replace: true });
               }
-            }, 300);
+            }, 500);
           }
         } else {
           logger.log('Auth page: No session found, showing login form');
@@ -114,6 +120,11 @@ const Auth: React.FC = () => {
     try {
       logger.log('Auth page: Starting Discord sign-in');
       setIsLoading(true);
+      
+      // Clear any potential localStorage issues
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase_auth_token');
+      
       await signInWithDiscord();
       // Note: We don't need to navigate here as the redirect will happen automatically
     } catch (error) {

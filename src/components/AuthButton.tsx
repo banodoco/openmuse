@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { signOut, getCurrentUserProfile } from '@/lib/auth';
@@ -48,6 +47,8 @@ const AuthButton: React.FC = () => {
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           try {
             setIsLoading(true);
+            // Add a short delay to ensure the session is fully established
+            await new Promise(resolve => setTimeout(resolve, 300));
             const profile = await getCurrentUserProfile();
             if (isActive) {
               setUser(profile);
@@ -90,6 +91,8 @@ const AuthButton: React.FC = () => {
         if (session?.user) {
           logger.log('AuthButton: Session found, loading profile for user:', session.user.id);
           try {
+            // Add a short delay to ensure the session is fully established
+            await new Promise(resolve => setTimeout(resolve, 300));
             const profile = await getCurrentUserProfile();
             if (isActive) {
               setUser(profile);

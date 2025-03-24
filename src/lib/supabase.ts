@@ -11,8 +11,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true,
-    flowType: 'implicit', // Use implicit flow for OAuth
-    storageKey: 'supabase_auth_token', // Set a specific key for storing auth state
+    flowType: 'pkce', // Change from implicit to PKCE for better security
+    storageKey: 'supabase_auth_token', // Keep consistent storage key
     debug: true, // Enable auth debugging in console
   },
   global: {

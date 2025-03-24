@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
@@ -26,7 +25,7 @@ const AuthCallback = () => {
         toast.error('Authentication timed out. Please try again.');
         navigate('/auth', { replace: true });
       }
-    }, 10000); // 10 seconds max wait
+    }, 15000); // Increase timeout to 15 seconds for slower connections
     
     const handleAuthCallback = async () => {
       try {
@@ -41,12 +40,16 @@ const AuthCallback = () => {
         const returnUrl = searchParams.get('returnUrl') || '/';
         logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
-        // Check if we have a hash in the URL which indicates an OAuth response
-        if (window.location.hash) {
-          logger.log('AuthCallback: Found hash, processing OAuth response');
+        // Force a session refresh to ensure we have the latest data
+        await supabase.auth.refreshSession();
+        
+        // Check if we have a hash or code in the URL which indicates an OAuth response
+        if (window.location.hash || searchParams.get('code')) {
+          logger.log('AuthCallback: Found auth data, processing OAuth response');
           
-          // The hash exchange is handled by Supabase auth automatically
-          // Use getSession directly to check if it worked
+          // Wait briefly to allow Supabase to process the auth callback
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
           const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
           
           if (sessionError) {
@@ -54,7 +57,7 @@ const AuthCallback = () => {
           }
           
           if (sessionData?.session) {
-            logger.log('AuthCallback: Session established after hash exchange');
+            logger.log('AuthCallback: Session established');
             if (isActive) {
               toast.success('Successfully signed in!');
               // Add a slight delay before redirecting to ensure state updates are processed
@@ -63,13 +66,13 @@ const AuthCallback = () => {
                   logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
                   navigate(returnUrl, { replace: true });
                 }
-              }, 500);
+              }, 800);
             }
             return;
           } else {
             // If no session established yet, try once more after a short delay
-            logger.log('AuthCallback: No session yet after hash, waiting briefly and trying again');
-            await new Promise(resolve => setTimeout(resolve, 1500));
+            logger.log('AuthCallback: No session yet, waiting and trying again');
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
             const { data: retrySessionData, error: retryError } = await supabase.auth.getSession();
             
@@ -86,41 +89,13 @@ const AuthCallback = () => {
                     logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
                     navigate(returnUrl, { replace: true });
                   }
-                }, 500);
+                }, 800);
               }
               return;
             } else {
               logger.error('AuthCallback: Still no session after retry');
               throw new Error('Failed to establish session after OAuth callback');
             }
-          }
-        } else if (searchParams.get('code')) {
-          // Handle the code-based flow if needed
-          logger.log('AuthCallback: Code flow detected, waiting for session establishment');
-          
-          // Wait a moment for the session to be established
-          await new Promise(resolve => setTimeout(resolve, 1500));
-          
-          const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
-          
-          if (sessionError) {
-            throw sessionError;
-          }
-          
-          if (sessionData?.session) {
-            logger.log('AuthCallback: Session established with code flow');
-            if (isActive) {
-              toast.success('Successfully signed in!');
-              timeoutId = setTimeout(() => {
-                if (isActive) {
-                  logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
-                  navigate(returnUrl, { replace: true });
-                }
-              }, 500);
-            }
-          } else {
-            logger.error('AuthCallback: No session established with code flow');
-            throw new Error('Failed to establish session with code flow');
           }
         } else {
           // No hash, no code, and no session - redirect to auth page
@@ -139,7 +114,7 @@ const AuthCallback = () => {
             if (isActive) {
               navigate('/auth', { replace: true });
             }
-          }, 1000);
+          }, 1500);
         }
       } finally {
         if (isActive) {

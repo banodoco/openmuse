@@ -19,6 +19,7 @@ export const signInWithDiscord = async () => {
   
   // Clear any previous auth state to prevent conflicts
   localStorage.removeItem('supabase.auth.token');
+  localStorage.removeItem('supabase_auth_token');
   
   logger.log('Sign in with Discord, redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
@@ -83,5 +84,5 @@ export const signOut = async () => {
   localStorage.removeItem('supabase.auth.token');
   
   // Wait briefly for auth state to update
-  await new Promise(resolve => setTimeout(resolve, 200));
+  await new Promise(resolve => setTimeout(resolve, 500));
 };
