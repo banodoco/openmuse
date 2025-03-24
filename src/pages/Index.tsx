@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import AuthProvider from '@/components/AuthProvider';
 import VideoManager from '@/components/VideoManager';
@@ -25,13 +25,13 @@ const Index = () => {
     rejectVideo
   } = useVideoManagement();
   
-  const handleNavigateToUpload = () => {
+  const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');
-  };
+  }, [navigate]);
   
-  const handleAuthStateChange = (isLoading: boolean) => {
+  const handleAuthStateChange = useCallback((isLoading: boolean) => {
     setIsAuthLoading(isLoading);
-  };
+  }, []);
   
   const isLoading = isAuthLoading || videosLoading;
   

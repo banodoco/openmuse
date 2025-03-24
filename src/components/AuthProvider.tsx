@@ -17,16 +17,18 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
   const [isInitializing, setIsInitializing] = useState(true);
   
   useEffect(() => {
+    let isMounted = true;
+    
     const setupAuth = async () => {
       try {
         logger.log('Setting up auth listeners');
         
-        onAuthStateChange(true);
+        if (isMounted) onAuthStateChange(true);
         
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           logger.log('Auth state changed:', event);
           
-          if (event === 'SIGNED_OUT') {
+          if (event === 'SIGNED_OUT' && isMounted) {
             logger.log('User signed out, redirecting to auth');
             navigate('/auth');
           }
@@ -41,21 +43,29 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
         
         logger.log('Session check complete, has session:', !!data.session);
         
-        onAuthStateChange(false);
-        setIsInitializing(false);
+        if (isMounted) {
+          onAuthStateChange(false);
+          setIsInitializing(false);
+        }
         
         return () => {
           subscription.unsubscribe();
         };
       } catch (error) {
         logger.error('Error in auth setup:', error);
-        onAuthStateChange(false);
-        setIsInitializing(false);
+        if (isMounted) {
+          onAuthStateChange(false);
+          setIsInitializing(false);
+        }
         toast.error('Failed to check authentication status');
       }
     };
     
     setupAuth();
+    
+    return () => {
+      isMounted = false;
+    };
   }, [navigate, onAuthStateChange]);
   
   if (isInitializing) {

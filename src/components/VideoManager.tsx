@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useCallback } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoList from '@/components/VideoList';
 import VideoFilter from '@/components/VideoFilter';
@@ -30,7 +30,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   const [videoFilter, setVideoFilter] = useState<string>("all");
   const [userIsBusy, setUserIsBusy] = useState<boolean>(false);
   
-  const handleDeleteVideo = async (id: string) => {
+  const handleDeleteVideo = useCallback(async (id: string) => {
     try {
       setUserIsBusy(true);
       await deleteVideo(id);
@@ -41,9 +41,9 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     } finally {
       setUserIsBusy(false);
     }
-  };
+  }, [deleteVideo]);
   
-  const handleApproveVideo = async (id: string) => {
+  const handleApproveVideo = useCallback(async (id: string) => {
     try {
       setUserIsBusy(true);
       await approveVideo(id);
@@ -54,9 +54,9 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     } finally {
       setUserIsBusy(false);
     }
-  };
+  }, [approveVideo]);
   
-  const handleRejectVideo = async (id: string) => {
+  const handleRejectVideo = useCallback(async (id: string) => {
     try {
       setUserIsBusy(true);
       await rejectVideo(id);
@@ -67,19 +67,13 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     } finally {
       setUserIsBusy(false);
     }
-  };
-  
-  const shouldShowEmpty = !isLoading && (!videos || videos.length === 0);
-  
-  const filteredVideos = videoFilter === "all" 
-    ? videos 
-    : videoFilter === "approved" 
-      ? videos?.filter(v => v.admin_approved) 
-      : videos?.filter(v => !v.admin_approved && !v.skipped);
+  }, [rejectVideo]);
   
   if (isLoading) {
     return <LoadingState text="Loading videos..." />;
   }
+  
+  const shouldShowEmpty = !videos || videos.length === 0;
   
   if (shouldShowEmpty) {
     return (
@@ -91,6 +85,12 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     );
   }
   
+  const filteredVideos = videoFilter === "all" 
+    ? videos 
+    : videoFilter === "approved" 
+      ? videos.filter(v => v.admin_approved) 
+      : videos.filter(v => !v.admin_approved && !v.skipped);
+  
   return (
     <>
       <VideoFilter 
@@ -101,7 +101,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
       />
       
       <VideoList 
-        videos={filteredVideos || []} 
+        videos={filteredVideos} 
         onDelete={handleDeleteVideo}
         onApprove={handleApproveVideo}
         onReject={handleRejectVideo}

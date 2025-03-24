@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Button } from "@/components/ui/button";
 
 interface PageHeaderProps {
@@ -11,7 +11,7 @@ interface PageHeaderProps {
   buttonSize?: "default" | "sm" | "lg" | "icon" | null;
 }
 
-const PageHeader: React.FC<PageHeaderProps> = ({ 
+const PageHeader: React.FC<PageHeaderProps> = memo(({ 
   title, 
   description, 
   buttonText, 
@@ -35,6 +35,8 @@ const PageHeader: React.FC<PageHeaderProps> = ({
       </Button>
     </div>
   );
-};
+});
+
+PageHeader.displayName = 'PageHeader';
 
 export default PageHeader;

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { memo } from 'react';
 import { Button } from "@/components/ui/button";
 
 interface VideoFilterProps {
@@ -9,7 +9,7 @@ interface VideoFilterProps {
   isDisabled: boolean;
 }
 
-const VideoFilter: React.FC<VideoFilterProps> = ({ 
+const VideoFilter: React.FC<VideoFilterProps> = memo(({ 
   videoFilter, 
   setVideoFilter, 
   onRefresh, 
@@ -38,6 +38,8 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
       </Button>
     </div>
   );
-};
+});
+
+VideoFilter.displayName = 'VideoFilter';
 
 export default VideoFilter;
