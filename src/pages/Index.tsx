@@ -10,13 +10,13 @@ import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useVideoManagement } from '@/hooks/useVideoManagement';
 import { Button } from "@/components/ui/button";
-import { useMediaQuery } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 
 const logger = new Logger('Index');
 
 const Index = () => {
-  const isMobile = useMediaQuery("(max-width: 768px)");
+  const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [videoFilter, setVideoFilter] = useState<string>("all");
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -26,7 +26,6 @@ const Index = () => {
   const { 
     videos, 
     isLoading: videosLoading, 
-    error, 
     refetchVideos,
     deleteVideo,
     approveVideo,
@@ -160,17 +159,14 @@ const Index = () => {
         </div>
         
         {shouldShowLoading && (
-          <LoadingState message="Loading videos..." />
+          <LoadingState>Loading videos...</LoadingState>
         )}
         
         {shouldShowEmpty && (
           <EmptyState 
             title="No videos yet" 
             description="Get started by recording your first video response." 
-            action={{
-              label: "Record a Video",
-              onClick: handleNavigateToUpload
-            }}
+            showSignIn={false}
           />
         )}
         

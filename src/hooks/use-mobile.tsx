@@ -1,3 +1,4 @@
+
 import * as React from "react"
 
 const MOBILE_BREAKPOINT = 768
@@ -17,3 +18,6 @@ export function useIsMobile() {
 
   return !!isMobile
 }
+
+// Add the useMediaQuery function as an alias to maintain compatibility
+export const useMediaQuery = useIsMobile;
