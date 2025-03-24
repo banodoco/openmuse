@@ -36,7 +36,6 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
           
           // Force a storage sync to ensure session is properly stored
           if (event === 'SIGNED_IN' && typeof localStorage !== 'undefined') {
-            // Log success but don't do anything else - the session should be stored automatically
             logger.log('User signed in, session should be persisted');
           }
         });

@@ -16,7 +16,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
     detectSessionInUrl: true,
     // Explicitly use localStorage for storage
     storage: typeof window !== 'undefined' ? localStorage : undefined,
-    // Use a consistent storage key that doesn't conflict with other apps
-    storageKey: 'supabase.auth.token',
+    // Use a consistent storage key that matches the main client
+    storageKey: 'sb:token',
   }
 });

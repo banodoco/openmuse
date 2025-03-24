@@ -41,6 +41,14 @@ const AuthCallback = () => {
         const returnUrl = searchParams.get('returnUrl') || '/';
         logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
+        // Force a storage sync to ensure session tokens are saved correctly
+        try {
+          await localStorage.setItem('test-storage', 'test');
+          localStorage.removeItem('test-storage');
+        } catch (storageErr) {
+          logger.error('Storage test failed:', storageErr);
+        }
+        
         // Handle hash fragment if present (implicit flow)
         if (window.location.hash) {
           logger.log('AuthCallback: Found hash fragment, processing...');
