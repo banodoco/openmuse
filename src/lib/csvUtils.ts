@@ -69,3 +69,18 @@ export const downloadCSV = (videos: VideoEntry[]): void => {
   link.click();
   document.body.removeChild(link);
 };
+
+/**
+ * Download entries as CSV with filters applied
+ */
+export const downloadEntriesAsCsv = (
+  videos: VideoEntry[], 
+  filters?: { 
+    showApproved?: boolean;
+    showUnapproved?: boolean;
+    showResponded?: boolean;
+    showSkipped?: boolean;
+  }
+): void => {
+  downloadCSV(videos);
+};

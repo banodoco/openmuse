@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -71,17 +72,7 @@ const Admin: React.FC = () => {
         status = 'skipped';
         counts.skipped++;
       }
-      // Then Responded (has acting video)
-      else if (entry.acting_video_location) {
-        status = 'responded';
-        counts.responded++;
-      }
-      // Then Unresponded (no response video yet and not approved/skipped)
-      else if (!entry.acting_video_location && !entry.admin_approved && !entry.skipped) {
-        status = 'unresponded';
-        counts.unresponded++;
-      }
-      // Finally Unapproved (default state for anything that doesn't fit above)
+      // Then any other video (Pending/Unapproved)
       else {
         status = 'unapproved';
         counts.unapproved++;
@@ -91,9 +82,7 @@ const Admin: React.FC = () => {
       return (
         (status === 'approved' && showApproved) ||
         (status === 'unapproved' && showUnapproved) ||
-        (status === 'responded' && showResponded) ||
-        (status === 'skipped' && showSkipped) ||
-        (status === 'unresponded' && showUnresponded)
+        (status === 'skipped' && showSkipped)
       );
     });
     
@@ -102,9 +91,7 @@ const Admin: React.FC = () => {
     console.log('Filtered entries:', filtered.length, 'Filters:', { 
       showApproved, 
       showUnapproved, 
-      showResponded, 
-      showSkipped,
-      showUnresponded
+      showSkipped
     });
   };
 
@@ -186,7 +173,6 @@ const Admin: React.FC = () => {
       downloadEntriesAsCsv(filteredEntries, {
         showApproved,
         showUnapproved,
-        showResponded,
         showSkipped
       });
       toast.success('Download started');
@@ -202,7 +188,7 @@ const Admin: React.FC = () => {
   };
 
   const getEntryStatus = (entry: VideoEntry): {
-    status: 'approved' | 'skipped' | 'responded' | 'unapproved' | 'unresponded',
+    status: 'approved' | 'skipped' | 'unapproved',
     label: string,
     icon: React.ReactNode,
     variant: 'default' | 'secondary' | 'destructive' | 'outline'
@@ -219,20 +205,6 @@ const Admin: React.FC = () => {
         status: 'skipped',
         label: 'Skipped',
         icon: <SkipForward className="h-3 w-3 mr-1" />,
-        variant: 'secondary'
-      };
-    } else if (entry.acting_video_location) {
-      return {
-        status: 'responded',
-        label: 'Responded',
-        icon: <MessageCircle className="h-3 w-3 mr-1" />,
-        variant: 'outline'
-      };
-    } else if (!entry.acting_video_location && !entry.admin_approved && !entry.skipped) {
-      return {
-        status: 'unresponded',
-        label: 'Unresponded',
-        icon: <MessageSquareOff className="h-3 w-3 mr-1" />,
         variant: 'secondary'
       };
     } else {
@@ -312,22 +284,6 @@ const Admin: React.FC = () => {
                 </div>
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="filter-responded" 
-                    checked={showResponded} 
-                    onCheckedChange={(checked) => setShowResponded(checked as boolean)} 
-                  />
-                  <Label htmlFor="filter-responded">Responded</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="filter-unresponded" 
-                    checked={showUnresponded} 
-                    onCheckedChange={(checked) => setShowUnresponded(checked as boolean)} 
-                  />
-                  <Label htmlFor="filter-unresponded">Unresponded</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
                     id="filter-skipped" 
                     checked={showSkipped} 
                     onCheckedChange={(checked) => setShowSkipped(checked as boolean)} 
@@ -352,18 +308,6 @@ const Admin: React.FC = () => {
                     <span className="flex items-center">
                       <X className="h-3 w-3 mr-1 text-destructive" />
                       {statusCounts.unapproved} unapproved
-                    </span>
-                  )}
-                  {showResponded && (
-                    <span className="flex items-center">
-                      <MessageCircle className="h-3 w-3 mr-1 text-muted-foreground" />
-                      {statusCounts.responded} responded
-                    </span>
-                  )}
-                  {showUnresponded && (
-                    <span className="flex items-center">
-                      <MessageSquareOff className="h-3 w-3 mr-1 text-amber-500" />
-                      {statusCounts.unresponded} unresponded
                     </span>
                   )}
                   {showSkipped && (
@@ -417,30 +361,15 @@ const Admin: React.FC = () => {
                           </div>
                         </div>
                         
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 p-4">
-                          <div>
-                            <p className="text-sm font-medium mb-2">Original Video</p>
-                            <div className="rounded overflow-hidden bg-black aspect-video">
-                              <StorageVideoPlayer
-                                videoLocation={entry.video_location}
-                                className="w-full h-full"
-                                controls
-                              />
-                            </div>
+                        <div className="p-4">
+                          <p className="text-sm font-medium mb-2">Original Video</p>
+                          <div className="rounded overflow-hidden bg-black aspect-video">
+                            <StorageVideoPlayer
+                              videoLocation={entry.video_location}
+                              className="w-full h-full"
+                              controls
+                            />
                           </div>
-                          
-                          {entry.acting_video_location && (
-                            <div>
-                              <p className="text-sm font-medium mb-2">Response Video</p>
-                              <div className="rounded overflow-hidden bg-black aspect-video">
-                                <StorageVideoPlayer
-                                  videoLocation={entry.acting_video_location}
-                                  className="w-full h-full"
-                                  controls
-                                />
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     );
