@@ -38,7 +38,7 @@ const App = () => {
               </RequireAuth>
             } />
             <Route path="/upload" element={
-              <RequireAuth>
+              <RequireAuth allowUnauthenticated>
                 <Upload />
               </RequireAuth>
             } />

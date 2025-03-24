@@ -17,6 +17,9 @@ export const signInWithDiscord = async () => {
     localStorage.setItem('actual_auth_origin', window.location.origin);
   }
   
+  // Clear any previous auth state to prevent conflicts
+  localStorage.removeItem('supabase.auth.token');
+  
   logger.log('Sign in with Discord, redirect URL:', redirectUrl);
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'discord',
@@ -24,6 +27,10 @@ export const signInWithDiscord = async () => {
       redirectTo: redirectUrl,
       // Add explicit scopes to ensure we get the profile information
       scopes: 'identify email guilds',
+      queryParams: {
+        // Ensure we get a fresh token each time
+        prompt: 'consent'
+      }
     }
   });
   
@@ -62,7 +69,7 @@ export const signOut = async () => {
   const keysToRemove = [];
   for (let i = 0; i < localStorage.length; i++) {
     const key = localStorage.key(i);
-    if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+    if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth'))) {
       keysToRemove.push(key);
     }
   }
@@ -71,6 +78,9 @@ export const signOut = async () => {
   for (const key of keysToRemove) {
     localStorage.removeItem(key);
   }
+  
+  localStorage.removeItem('supabase_auth_token');
+  localStorage.removeItem('supabase.auth.token');
   
   // Wait briefly for auth state to update
   await new Promise(resolve => setTimeout(resolve, 200));
