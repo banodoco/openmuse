@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -76,7 +75,6 @@ const Upload: React.FC = () => {
         model
       };
       
-      // Get user's email or name if available, otherwise use the nameInput field
       const reviewerName = user?.email || nameInput;
       
       const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -225,8 +223,7 @@ const Upload: React.FC = () => {
             <Label htmlFor="terms">I accept the terms and conditions</Label>
           </div>
           
-          {/* Moved Video File section to the bottom */}
-          <div>
+          <div className="w-full md:w-1/2">
             <Label htmlFor="video">Video File</Label>
             <div {...getRootProps()} className="dropzone mt-1 border-2 border-dashed rounded-md p-4 text-center cursor-pointer bg-muted/50">
               <input {...getInputProps()} id="video" />
@@ -241,28 +238,6 @@ const Upload: React.FC = () => {
                   <VideoPreview file={videoFile} className="mt-2 mx-auto max-w-md" />
                 </div>
               )}
-            </div>
-          </div>
-
-          {/* Example Upload Section */}
-          <div className="mt-8 p-4 bg-muted/30 rounded-lg border border-muted">
-            <h3 className="text-lg font-medium mb-2">Example Upload</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Sample video with LoRA applied:</p>
-                <div className="aspect-video bg-muted rounded flex items-center justify-center">
-                  <p className="text-sm text-muted-foreground">Sample video preview</p>
-                </div>
-              </div>
-              <div>
-                <h4 className="text-md font-medium mb-1">Sample Details</h4>
-                <ul className="text-sm space-y-1 text-muted-foreground">
-                  <li>Title: Cyberpunk City Animation</li>
-                  <li>Model: Wan</li>
-                  <li>Classification: Art</li>
-                  <li>Creator: John Doe</li>
-                </ul>
-              </div>
             </div>
           </div>
           
