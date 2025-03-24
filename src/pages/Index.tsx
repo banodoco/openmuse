@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -62,21 +61,6 @@ const Index: React.FC = () => {
     loadUserProfile();
   }, []);
 
-  // Check which section is going to be rendered
-  useEffect(() => {
-    if (isLoading) {
-      console.log("Index: Rendering loading state");
-    } else if (noVideosAvailable) {
-      console.log("Index: Rendering empty state (no videos)");
-    } else if (isRecording && currentVideo) {
-      console.log("Index: Rendering recorder");
-    } else if (currentVideo) {
-      console.log("Index: Rendering current video viewer");
-    } else {
-      console.log("Index: Rendering video list");
-    }
-  }, [isLoading, noVideosAvailable, isRecording, currentVideo]);
-
   return (
     <RequireAuth allowUnauthenticated={true}>
       <div className="min-h-screen flex flex-col bg-background animate-fade-in">
@@ -108,7 +92,6 @@ const Index: React.FC = () => {
             </Button>
           </div>
           
-          {/* Art Section */}
           <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold flex items-center">
@@ -128,7 +111,6 @@ const Index: React.FC = () => {
           
           <Separator className="my-8" />
           
-          {/* LoRAs Section */}
           <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold flex items-center">
@@ -148,7 +130,6 @@ const Index: React.FC = () => {
           
           <Separator className="my-8" />
           
-          {/* Generations Section - This is the converted "Available Videos" section */}
           <div className="mb-10">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-2xl font-bold flex items-center">
@@ -185,10 +166,7 @@ const Index: React.FC = () => {
               />
             ) : (
               <VideoList 
-                videos={videos} 
-                onSelectVideo={!userProfile ? 
-                  () => navigate('/auth?returnUrl=/') : 
-                  handleSelectVideo} 
+                videos={videos}
               />
             )}
           </div>
