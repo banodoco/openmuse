@@ -24,6 +24,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
 import { VideoFile, VideoMetadata } from '@/lib/types';
+import VideoPreview from '@/components/VideoPreview';
 
 // Form schema for overall LoRA information
 const formSchema = z.object({
@@ -519,7 +520,7 @@ const Upload: React.FC = () => {
                 </div>
               </div>
               
-              {/* List of selected videos with metadata - now always in edit mode and with 2 columns */}
+              {/* List of selected videos with metadata - now with video preview */}
               {files.length > 0 && (
                 <div className="animate-slide-in">
                   <h3 className="text-sm font-semibold mb-3">Selected videos:</h3>
@@ -542,88 +543,96 @@ const Upload: React.FC = () => {
                           </Button>
                         </div>
                         
-                        <div className="space-y-3 text-sm">
-                          {/* Title field */}
-                          <div className="space-y-1">
-                            <Label htmlFor={`video-title-${index}`} className="text-xs">Title</Label>
-                            <Input
-                              id={`video-title-${index}`}
-                              value={file.metadata?.title || ''}
-                              onChange={(e) => updateVideoMetadata(index, 'title', e.target.value)}
-                              placeholder="Video title"
-                              className="h-9"
-                            />
-                          </div>
-                          
-                          {/* Description field */}
-                          <div className="space-y-1">
-                            <Label htmlFor={`video-description-${index}`} className="text-xs">Description (optional)</Label>
-                            <Textarea
-                              id={`video-description-${index}`}
-                              value={file.metadata?.description || ''}
-                              onChange={(e) => updateVideoMetadata(index, 'description', e.target.value)}
-                              placeholder="Describe this specific video"
-                              className="min-h-[60px]"
-                            />
-                          </div>
-                          
-                          {/* Creator field and Classification field in a flex row */}
-                          <div className="grid grid-cols-2 gap-4">
-                            {/* Creator field */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Left column: Video form fields */}
+                          <div className="space-y-3 text-sm">
+                            {/* Title field */}
                             <div className="space-y-1">
-                              <Label className="text-xs">Who created this video?</Label>
-                              <RadioGroup
-                                value={file.metadata?.creator || 'self'}
-                                onValueChange={(value) => updateVideoMetadata(index, 'creator', value as 'self' | 'someone_else')}
-                                className="flex flex-col space-y-1"
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="self" id={`video-creator-self-${index}`} />
-                                  <Label htmlFor={`video-creator-self-${index}`} className="text-sm">I made this</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="someone_else" id={`video-creator-someone_else-${index}`} />
-                                  <Label htmlFor={`video-creator-someone_else-${index}`} className="text-sm">Someone else</Label>
-                                </div>
-                              </RadioGroup>
-                            </div>
-                            
-                            {/* Classification field */}
-                            <div className="space-y-1">
-                              <Label className="text-xs">How would you roughly classify this?</Label>
-                              <RadioGroup
-                                value={file.metadata?.classification || 'art'}
-                                onValueChange={(value) => updateVideoMetadata(index, 'classification', value as 'art' | 'gen')}
-                                className="flex flex-col space-y-1"
-                              >
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="art" id={`video-classification-art-${index}`} />
-                                  <Label htmlFor={`video-classification-art-${index}`} className="text-sm">Art</Label>
-                                </div>
-                                <div className="flex items-center space-x-2">
-                                  <RadioGroupItem value="gen" id={`video-classification-gen-${index}`} />
-                                  <Label htmlFor={`video-classification-gen-${index}`} className="text-sm">Gen</Label>
-                                </div>
-                              </RadioGroup>
-                            </div>
-                          </div>
-                          
-                          {/* Creator name field - conditional */}
-                          {file.metadata?.creator === 'someone_else' && (
-                            <div className="space-y-1">
-                              <Label htmlFor={`video-creator-name-${index}`} className="text-xs">Creator's name</Label>
+                              <Label htmlFor={`video-title-${index}`} className="text-xs">Title</Label>
                               <Input
-                                id={`video-creator-name-${index}`}
-                                value={file.metadata?.creatorName || ''}
-                                onChange={(e) => updateVideoMetadata(index, 'creatorName', e.target.value)}
-                                placeholder="Enter creator's name"
+                                id={`video-title-${index}`}
+                                value={file.metadata?.title || ''}
+                                onChange={(e) => updateVideoMetadata(index, 'title', e.target.value)}
+                                placeholder="Video title"
                                 className="h-9"
                               />
                             </div>
-                          )}
+                            
+                            {/* Description field */}
+                            <div className="space-y-1">
+                              <Label htmlFor={`video-description-${index}`} className="text-xs">Description (optional)</Label>
+                              <Textarea
+                                id={`video-description-${index}`}
+                                value={file.metadata?.description || ''}
+                                onChange={(e) => updateVideoMetadata(index, 'description', e.target.value)}
+                                placeholder="Describe this specific video"
+                                className="min-h-[60px]"
+                              />
+                            </div>
+                            
+                            {/* Creator field and Classification field in a flex row */}
+                            <div className="grid grid-cols-2 gap-2">
+                              {/* Creator field */}
+                              <div className="space-y-1">
+                                <Label className="text-xs">Who created this video?</Label>
+                                <RadioGroup
+                                  value={file.metadata?.creator || 'self'}
+                                  onValueChange={(value) => updateVideoMetadata(index, 'creator', value as 'self' | 'someone_else')}
+                                  className="flex flex-col space-y-1"
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="self" id={`video-creator-self-${index}`} />
+                                    <Label htmlFor={`video-creator-self-${index}`} className="text-sm">I made this</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="someone_else" id={`video-creator-someone_else-${index}`} />
+                                    <Label htmlFor={`video-creator-someone_else-${index}`} className="text-sm">Someone else</Label>
+                                  </div>
+                                </RadioGroup>
+                              </div>
+                              
+                              {/* Classification field */}
+                              <div className="space-y-1">
+                                <Label className="text-xs">How would you roughly classify this?</Label>
+                                <RadioGroup
+                                  value={file.metadata?.classification || 'art'}
+                                  onValueChange={(value) => updateVideoMetadata(index, 'classification', value as 'art' | 'gen')}
+                                  className="flex flex-col space-y-1"
+                                >
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="art" id={`video-classification-art-${index}`} />
+                                    <Label htmlFor={`video-classification-art-${index}`} className="text-sm">Art</Label>
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <RadioGroupItem value="gen" id={`video-classification-gen-${index}`} />
+                                    <Label htmlFor={`video-classification-gen-${index}`} className="text-sm">Gen</Label>
+                                  </div>
+                                </RadioGroup>
+                              </div>
+                            </div>
+                            
+                            {/* Creator name field - conditional */}
+                            {file.metadata?.creator === 'someone_else' && (
+                              <div className="space-y-1">
+                                <Label htmlFor={`video-creator-name-${index}`} className="text-xs">Creator's name</Label>
+                                <Input
+                                  id={`video-creator-name-${index}`}
+                                  value={file.metadata?.creatorName || ''}
+                                  onChange={(e) => updateVideoMetadata(index, 'creatorName', e.target.value)}
+                                  placeholder="Enter creator's name"
+                                  className="h-9"
+                                />
+                              </div>
+                            )}
+                            
+                            <div className="text-xs text-muted-foreground pt-1">
+                              {(file.size / (1024 * 1024)).toFixed(2)} MB
+                            </div>
+                          </div>
                           
-                          <div className="text-xs text-muted-foreground pt-1">
-                            {(file.size / (1024 * 1024)).toFixed(2)} MB
+                          {/* Right column: Video preview */}
+                          <div className="flex items-center justify-center">
+                            <VideoPreview file={file} className="w-full h-full max-h-[160px]" />
                           </div>
                         </div>
                       </div>
