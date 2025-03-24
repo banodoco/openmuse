@@ -1,5 +1,3 @@
-
-
 export interface VideoEntry {
   id: string;
   video_location: string;
@@ -9,6 +7,15 @@ export interface VideoEntry {
   created_at: string;
   admin_approved: boolean;
   user_id?: string;
+  metadata?: VideoMetadata;
+}
+
+export interface VideoMetadata {
+  title: string;
+  description?: string;
+  creator: 'self' | 'other';
+  creatorName?: string;
+  url?: string;
 }
 
 export interface RecordedVideo {
@@ -19,6 +26,7 @@ export interface RecordedVideo {
 export interface VideoFile {
   id: string;
   blob: Blob;
+  metadata?: VideoMetadata;
 }
 
 export interface UserProfile {
@@ -54,4 +62,3 @@ declare global {
     dataavailable: BlobEvent;
   }
 }
-

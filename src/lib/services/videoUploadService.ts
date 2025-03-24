@@ -1,5 +1,5 @@
 
-import { VideoEntry, VideoFile } from '../types';
+import { VideoEntry, VideoFile, VideoMetadata } from '../types';
 import { Logger } from '../logger';
 import { remoteStorage } from '../remoteStorage';
 import { supabase } from '../supabase';
@@ -13,7 +13,7 @@ export class VideoUploadService {
     this.logger.log(`Current user ID set to: ${userId || 'none'}`);
   }
 
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'> & { metadata?: string }): Promise<VideoEntry> {
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
     if (!this.currentUserId) {
       this.logger.warn('User not authenticated, proceeding without user_id');
     }
@@ -39,23 +39,32 @@ export class VideoUploadService {
     }
     
     try {
-      // Build the entry data, excluding metadata from the direct object
-      const { metadata, ...entryData } = entry;
+      // Convert the metadata to a JSON string if it exists
+      const metadataString = entry.metadata ? JSON.stringify(entry.metadata) : null;
       
       const { data, error } = await supabase
         .from('video_entries')
         .insert({
-          ...entryData,
           reviewer_name: entry.reviewer_name,
           video_location: videoLocation,
           skipped: entry.skipped || false,
-          user_id: this.currentUserId
+          user_id: this.currentUserId,
+          metadata: metadataString
         })
         .select()
         .single();
       
       if (error) {
         throw error;
+      }
+      
+      // Parse the metadata back from the string if it exists
+      if (data.metadata) {
+        try {
+          data.metadata = JSON.parse(data.metadata);
+        } catch (e) {
+          this.logger.error('Error parsing metadata:', e);
+        }
       }
       
       this.logger.log(`Added new entry: ${data.id}`);

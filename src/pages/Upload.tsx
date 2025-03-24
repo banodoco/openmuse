@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import Navigation from '@/components/Navigation';
-import { UploadCloud, Loader2, Info, LockIcon } from 'lucide-react';
+import { UploadCloud, Loader2, Info, LockIcon, X, Edit, Plus, FileVideo } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { remoteStorage } from '@/lib/remoteStorage';
@@ -17,8 +17,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
+import { VideoFile, VideoMetadata } from '@/lib/types';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
-// Form schema for LoRA uploads
+// Form schema for overall LoRA information
 const formSchema = z.object({
   headline: z.string().min(3, {
     message: "Headline must be at least 3 characters.",
@@ -35,10 +37,27 @@ const formSchema = z.object({
   }).optional().or(z.literal(''))
 });
 
+// Form schema for individual video metadata
+const videoMetadataSchema = z.object({
+  title: z.string().min(1, { 
+    message: "Title is required" 
+  }),
+  description: z.string().optional(),
+  creator: z.enum(["self", "other"], {
+    required_error: "Please specify who created this video.",
+  }),
+  creatorName: z.string().optional(),
+});
+
+interface VideoWithMetadata extends File {
+  metadata?: VideoMetadata;
+}
+
 const Upload: React.FC = () => {
   const [uploading, setUploading] = useState(false);
-  const [files, setFiles] = useState<File[]>([]);
+  const [files, setFiles] = useState<VideoWithMetadata[]>([]);
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [isEditingVideo, setIsEditingVideo] = useState<number | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -54,7 +73,19 @@ const Upload: React.FC = () => {
     },
   });
 
+  // Form for individual video metadata
+  const videoForm = useForm<z.infer<typeof videoMetadataSchema>>({
+    resolver: zodResolver(videoMetadataSchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      creator: "self",
+      creatorName: "",
+    },
+  });
+  
   const creatorType = form.watch("creator");
+  const videoCreatorType = videoForm.watch("creator");
 
   useEffect(() => {
     // Check authentication status
@@ -88,7 +119,17 @@ const Upload: React.FC = () => {
         return;
       }
       
-      setFiles(prevFiles => [...prevFiles, ...fileArray]);
+      const filesWithMetadata = fileArray.map(file => {
+        const videoFile = file as VideoWithMetadata;
+        videoFile.metadata = {
+          title: file.name.split('.')[0], // Default title from filename
+          description: '',
+          creator: 'self',
+        };
+        return videoFile;
+      });
+      
+      setFiles(prevFiles => [...prevFiles, ...filesWithMetadata]);
     }
   }, [isAuthenticated, navigate]);
 
@@ -111,13 +152,56 @@ const Upload: React.FC = () => {
         return;
       }
       
-      setFiles(prevFiles => [...prevFiles, ...fileArray]);
+      const filesWithMetadata = fileArray.map(file => {
+        const videoFile = file as VideoWithMetadata;
+        videoFile.metadata = {
+          title: file.name.split('.')[0], // Default title from filename
+          description: '',
+          creator: 'self',
+        };
+        return videoFile;
+      });
+      
+      setFiles(prevFiles => [...prevFiles, ...filesWithMetadata]);
     }
   }, [isAuthenticated, navigate]);
 
   const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
   }, []);
+
+  const openEditVideoDialog = (index: number) => {
+    const file = files[index];
+    if (file && file.metadata) {
+      videoForm.reset({
+        title: file.metadata.title,
+        description: file.metadata.description || '',
+        creator: file.metadata.creator,
+        creatorName: file.metadata.creatorName || '',
+      });
+      setIsEditingVideo(index);
+    }
+  };
+
+  const saveVideoMetadata = (data: z.infer<typeof videoMetadataSchema>) => {
+    if (isEditingVideo !== null) {
+      setFiles(prevFiles => {
+        const newFiles = [...prevFiles];
+        const file = newFiles[isEditingVideo];
+        if (file) {
+          file.metadata = {
+            title: data.title,
+            description: data.description,
+            creator: data.creator,
+            creatorName: data.creator === 'other' ? data.creatorName : undefined,
+          };
+        }
+        return newFiles;
+      });
+      setIsEditingVideo(null);
+      videoForm.reset();
+    }
+  };
 
   const onSubmit = async (values: z.infer<typeof formSchema>) => {
     if (!isAuthenticated) {
@@ -131,6 +215,13 @@ const Upload: React.FC = () => {
       return;
     }
     
+    // Check if all videos have titles
+    const missingTitles = files.some(file => !file.metadata?.title);
+    if (missingTitles) {
+      toast.error('Please add titles to all videos before uploading.');
+      return;
+    }
+    
     setUploading(true);
     
     try {
@@ -139,28 +230,38 @@ const Upload: React.FC = () => {
       
       const reviewerName = userProfile?.username || 'Anonymous User';
       
+      // Overall LoRA metadata
+      const loraMetadata = {
+        headline: values.headline,
+        description: values.description,
+        creator: values.creator,
+        creatorName: values.creator === 'other' ? values.creatorName : undefined,
+        url: values.url || undefined
+      };
+      
       for (const file of files) {
-        const videoFile = {
+        const videoBlob = await file.arrayBuffer().then(buffer => new Blob([buffer], { type: file.type }));
+        
+        const videoFile: VideoFile = {
           id: `video_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-          blob: file
+          blob: videoBlob,
         };
         
         const videoLocation = await remoteStorage.uploadVideo(videoFile);
         console.log(`Video uploaded to Supabase: ${videoLocation}`);
+        
+        // Combine LoRA-level metadata with individual video metadata
+        const videoMetadata = {
+          ...loraMetadata,
+          ...file.metadata,
+        };
         
         await db.addEntry({
           video_location: videoLocation,
           reviewer_name: reviewerName,
           acting_video_location: null,
           skipped: false,
-          // Store additional metadata in a format that can be parsed later
-          metadata: JSON.stringify({
-            headline: values.headline,
-            description: values.description,
-            creator: values.creator,
-            creatorName: values.creator === 'other' ? values.creatorName : null,
-            url: values.url || null
-          })
+          metadata: videoMetadata
         });
         
         await new Promise(resolve => setTimeout(resolve, 300));
@@ -211,84 +312,20 @@ const Upload: React.FC = () => {
           
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              {/* Headline field */}
-              <FormField
-                control={form.control}
-                name="headline"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Headline</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Enter a catchy headline for your LoRA" 
-                        {...field} 
-                        disabled={!isAuthenticated || uploading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Description field */}
-              <FormField
-                control={form.control}
-                name="description"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Short Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Describe your LoRA in a few sentences" 
-                        {...field}
-                        disabled={!isAuthenticated || uploading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Creator field */}
-              <FormField
-                control={form.control}
-                name="creator"
-                render={({ field }) => (
-                  <FormItem className="space-y-3">
-                    <FormLabel>Was this made by you or someone else?</FormLabel>
-                    <FormControl>
-                      <RadioGroup
-                        onValueChange={field.onChange}
-                        defaultValue={field.value}
-                        className="flex flex-col space-y-1"
-                        disabled={!isAuthenticated || uploading}
-                      >
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="self" id="creator-self" />
-                          <Label htmlFor="creator-self">I made this</Label>
-                        </div>
-                        <div className="flex items-center space-x-2">
-                          <RadioGroupItem value="other" id="creator-other" />
-                          <Label htmlFor="creator-other">Someone else made this</Label>
-                        </div>
-                      </RadioGroup>
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Creator name field - conditional rendering based on creator selection */}
-              {creatorType === "other" && (
+              {/* LoRA Information section */}
+              <div className="bg-muted/30 p-6 rounded-lg border border-border space-y-4">
+                <h2 className="text-lg font-medium">LoRA Information</h2>
+                
+                {/* Headline field */}
                 <FormField
                   control={form.control}
-                  name="creatorName"
+                  name="headline"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Who made this?</FormLabel>
+                      <FormLabel>Headline</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="Enter the creator's name" 
+                          placeholder="Enter a catchy headline for your LoRA" 
                           {...field} 
                           disabled={!isAuthenticated || uploading}
                         />
@@ -297,26 +334,95 @@ const Upload: React.FC = () => {
                     </FormItem>
                   )}
                 />
-              )}
 
-              {/* URL field */}
-              <FormField
-                control={form.control}
-                name="url"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>URL (optional)</FormLabel>
-                    <FormControl>
-                      <Input 
-                        placeholder="Link to the LoRA (e.g., Civitai page)" 
-                        {...field} 
-                        disabled={!isAuthenticated || uploading}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
+                {/* Description field */}
+                <FormField
+                  control={form.control}
+                  name="description"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Short Description</FormLabel>
+                      <FormControl>
+                        <Textarea 
+                          placeholder="Describe your LoRA in a few sentences" 
+                          {...field}
+                          disabled={!isAuthenticated || uploading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Creator field */}
+                <FormField
+                  control={form.control}
+                  name="creator"
+                  render={({ field }) => (
+                    <FormItem className="space-y-3">
+                      <FormLabel>Was this made by you or someone else?</FormLabel>
+                      <FormControl>
+                        <RadioGroup
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                          className="flex flex-col space-y-1"
+                          disabled={!isAuthenticated || uploading}
+                        >
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="self" id="creator-self" />
+                            <Label htmlFor="creator-self">I made this</Label>
+                          </div>
+                          <div className="flex items-center space-x-2">
+                            <RadioGroupItem value="other" id="creator-other" />
+                            <Label htmlFor="creator-other">Someone else made this</Label>
+                          </div>
+                        </RadioGroup>
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Creator name field - conditional rendering based on creator selection */}
+                {creatorType === "other" && (
+                  <FormField
+                    control={form.control}
+                    name="creatorName"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Who made this?</FormLabel>
+                        <FormControl>
+                          <Input 
+                            placeholder="Enter the creator's name" 
+                            {...field} 
+                            disabled={!isAuthenticated || uploading}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 )}
-              />
+
+                {/* URL field */}
+                <FormField
+                  control={form.control}
+                  name="url"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>URL (optional)</FormLabel>
+                      <FormControl>
+                        <Input 
+                          placeholder="Link to the LoRA (e.g., Civitai page)" 
+                          {...field} 
+                          disabled={!isAuthenticated || uploading}
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
 
               {/* File upload area */}
               <div className="space-y-2">
@@ -382,31 +488,64 @@ const Upload: React.FC = () => {
                 </div>
               </div>
               
+              {/* List of selected videos with metadata */}
               {files.length > 0 && (
                 <div className="animate-slide-in">
                   <h3 className="text-sm font-semibold mb-3">Selected videos:</h3>
                   <ul className="space-y-2">
                     {files.map((file, index) => (
-                      <li key={index} className="flex items-center text-sm bg-secondary/50 p-3 rounded-md">
-                        <span className="truncate flex-1">{file.name}</span>
-                        <span className="text-muted-foreground ml-2">
-                          {(file.size / (1024 * 1024)).toFixed(2)} MB
-                        </span>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="ml-2 h-8 w-8 p-0"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            removeFile(index);
-                          }}
-                          disabled={uploading}
-                        >
-                          <Info className="h-4 w-4" />
-                        </Button>
+                      <li key={index} className="flex items-center text-sm bg-secondary/50 p-4 rounded-md">
+                        <FileVideo className="h-5 w-5 mr-2 text-muted-foreground" />
+                        <div className="flex-1 overflow-hidden">
+                          <div className="font-medium truncate">
+                            {file.metadata?.title || file.name}
+                          </div>
+                          {file.metadata?.description && (
+                            <div className="text-xs text-muted-foreground truncate">
+                              {file.metadata.description}
+                            </div>
+                          )}
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {(file.size / (1024 * 1024)).toFixed(2)} MB • 
+                            {file.metadata?.creator === 'self' 
+                              ? ' Created by you' 
+                              : ` Created by ${file.metadata?.creatorName || 'someone else'}`}
+                          </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => openEditVideoDialog(index)}
+                            className="h-8 w-8 p-0"
+                            disabled={uploading}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeFile(index)}
+                            className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                            disabled={uploading}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-xs"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploading || !isAuthenticated}
+                    >
+                      <Plus className="h-3 w-3 mr-1" /> Add more videos
+                    </Button>
+                  </div>
                 </div>
               )}
               
@@ -436,6 +575,101 @@ const Upload: React.FC = () => {
               </div>
             </form>
           </Form>
+          
+          {/* Video metadata editing dialog */}
+          <Dialog open={isEditingVideo !== null} onOpenChange={(open) => !open && setIsEditingVideo(null)}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle>Video Details</DialogTitle>
+              </DialogHeader>
+              
+              <Form {...videoForm}>
+                <form onSubmit={videoForm.handleSubmit(saveVideoMetadata)} className="space-y-4">
+                  {/* Video title */}
+                  <FormField
+                    control={videoForm.control}
+                    name="title"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Title</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Video title" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Video description */}
+                  <FormField
+                    control={videoForm.control}
+                    name="description"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Description (optional)</FormLabel>
+                        <FormControl>
+                          <Textarea placeholder="Describe this specific video" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Video creator */}
+                  <FormField
+                    control={videoForm.control}
+                    name="creator"
+                    render={({ field }) => (
+                      <FormItem className="space-y-3">
+                        <FormLabel>Was this video made by you or someone else?</FormLabel>
+                        <FormControl>
+                          <RadioGroup
+                            onValueChange={field.onChange}
+                            value={field.value}
+                            className="flex flex-col space-y-1"
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="self" id="video-creator-self" />
+                              <Label htmlFor="video-creator-self">I made this</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="other" id="video-creator-other" />
+                              <Label htmlFor="video-creator-other">Someone else made this</Label>
+                            </div>
+                          </RadioGroup>
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  
+                  {/* Video creator name */}
+                  {videoCreatorType === "other" && (
+                    <FormField
+                      control={videoForm.control}
+                      name="creatorName"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Who made this video?</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Creator's name" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  )}
+                  
+                  <DialogFooter className="mt-6">
+                    <Button type="button" variant="outline" onClick={() => setIsEditingVideo(null)}>
+                      Cancel
+                    </Button>
+                    <Button type="submit">Save</Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </div>
       </main>
     </div>
