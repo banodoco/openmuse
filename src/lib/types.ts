@@ -13,6 +13,13 @@ export interface VideoMetadata {
   classification: 'art' | 'gen';
   url?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  // LoRA details
+  loraName?: string;
+  loraDescription?: string;
+  baseModel?: string;
+  trainingSteps?: string;
+  resolution?: string;
+  trainingDataset?: string;
 }
 
 export interface VideoEntry {

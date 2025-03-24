@@ -28,6 +28,9 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import VideoDropzoneComponent from '@/components/upload/VideoDropzone';
+import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
+import LoRADetailsForm from '@/components/upload/LoRADetailsForm';
 
 const logger = new Logger('Upload');
 
@@ -39,6 +42,13 @@ interface VideoMetadataForm {
   creatorName: string;
   classification: 'art' | 'gen';
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  // LoRA details
+  loraName: string;
+  loraDescription: string;
+  baseModel: string;
+  trainingSteps: string;
+  resolution: string;
+  trainingDataset: string;
 }
 
 // Interface for a video item in the upload form
@@ -64,7 +74,14 @@ const Upload: React.FC = () => {
     creator: 'self',
     creatorName: '',
     classification: 'gen',
-    model: 'wan'
+    model: 'wan',
+    // LoRA details
+    loraName: '',
+    loraDescription: '',
+    baseModel: '',
+    trainingSteps: '',
+    resolution: '',
+    trainingDataset: ''
   };
   
   // State for multiple videos
@@ -161,6 +178,15 @@ const Upload: React.FC = () => {
       return;
     }
     
+    // Validate LoRA details
+    const missingLoRADetails = videos.filter(
+      video => video.file && !video.metadata.loraName
+    );
+    if (missingLoRADetails.length > 0) {
+      toast.error('Please provide LoRA details for all uploaded videos');
+      return;
+    }
+    
     if (!termsAccepted) {
       toast.error('Please accept the terms and conditions');
       return;
@@ -182,7 +208,14 @@ const Upload: React.FC = () => {
           creator: video.metadata.creator,
           creatorName: video.metadata.creator === 'someone_else' ? video.metadata.creatorName : undefined,
           classification: video.metadata.classification,
-          model: video.metadata.model
+          model: video.metadata.model,
+          // Include LoRA details in the metadata
+          loraName: video.metadata.loraName,
+          loraDescription: video.metadata.loraDescription,
+          baseModel: video.metadata.baseModel,
+          trainingSteps: video.metadata.trainingSteps,
+          resolution: video.metadata.resolution,
+          trainingDataset: video.metadata.trainingDataset
         };
         
         const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -255,7 +288,7 @@ const Upload: React.FC = () => {
               
               {!video.file ? (
                 <div className="w-full flex justify-center">
-                  <VideoDropzone 
+                  <VideoDropzoneComponent 
                     id={video.id} 
                     file={video.file} 
                     url={video.url} 
@@ -269,100 +302,19 @@ const Upload: React.FC = () => {
                     className="w-full md:w-2/3 mx-auto"
                   />
                   
-                  {/* Video Metadata Form (only shown after upload) */}
+                  {/* Video Metadata and LoRA Forms */}
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor={`video-title-${video.id}`}>Name</Label>
-                        <Input
-                          type="text"
-                          id={`video-title-${video.id}`}
-                          placeholder="Enter video title"
-                          value={video.metadata.title}
-                          onChange={(e) => updateVideoMetadata(video.id, 'title', e.target.value)}
-                          required
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label htmlFor={`video-description-${video.id}`}>Description</Label>
-                        <Textarea
-                          id={`video-description-${video.id}`}
-                          placeholder="Enter video description"
-                          value={video.metadata.description}
-                          onChange={(e) => updateVideoMetadata(video.id, 'description', e.target.value)}
-                        />
-                      </div>
-                      
-                      <div>
-                        <Label className="block mb-2">Was this made by you or someone else?</Label>
-                        <RadioGroup 
-                          value={video.metadata.creator}
-                          onValueChange={(value) => updateVideoMetadata(video.id, 'creator', value)}
-                          className="flex flex-col space-y-1"
-                        >
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="self" id={`creator-self-${video.id}`} />
-                            <Label htmlFor={`creator-self-${video.id}`}>Self</Label>
-                          </div>
-                          <div className="flex items-center space-x-2">
-                            <RadioGroupItem value="someone_else" id={`creator-someone-${video.id}`} />
-                            <Label htmlFor={`creator-someone-${video.id}`}>Someone else</Label>
-                          </div>
-                        </RadioGroup>
-                      </div>
-                      
-                      {video.metadata.creator === 'someone_else' && (
-                        <div>
-                          <Label htmlFor={`creator-name-${video.id}`}>Who?</Label>
-                          <Input
-                            type="text"
-                            id={`creator-name-${video.id}`}
-                            placeholder="Enter creator's name"
-                            value={video.metadata.creatorName}
-                            onChange={(e) => updateVideoMetadata(video.id, 'creatorName', e.target.value)}
-                            required={video.metadata.creator === 'someone_else'}
-                          />
-                        </div>
-                      )}
-                    </div>
+                    <VideoMetadataForm
+                      videoId={video.id}
+                      metadata={video.metadata}
+                      updateMetadata={updateVideoMetadata}
+                    />
                     
-                    <div className="space-y-4">
-                      <div>
-                        <Label htmlFor={`classification-${video.id}`}>How would you classify this?</Label>
-                        <Select 
-                          value={video.metadata.classification} 
-                          onValueChange={(value) => updateVideoMetadata(video.id, 'classification', value as 'art' | 'gen')}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select classification" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="art">Art</SelectItem>
-                            <SelectItem value="gen">Gen</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-
-                      <div>
-                        <Label htmlFor={`model-${video.id}`}>Model</Label>
-                        <Select 
-                          value={video.metadata.model} 
-                          onValueChange={(value) => updateVideoMetadata(video.id, 'model', value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}
-                        >
-                          <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Select Model" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="wan">Wan</SelectItem>
-                            <SelectItem value="hunyuan">Hunyuan</SelectItem>
-                            <SelectItem value="ltxv">LTXV</SelectItem>
-                            <SelectItem value="cogvideox">CogVideoX</SelectItem>
-                            <SelectItem value="animatediff">AnimateDiff</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                    </div>
+                    <LoRADetailsForm
+                      videoId={video.id}
+                      metadata={video.metadata}
+                      updateMetadata={updateVideoMetadata}
+                    />
                   </div>
                 </div>
               )}
@@ -395,51 +347,6 @@ const Upload: React.FC = () => {
           </Button>
         </form>
       </main>
-    </div>
-  );
-};
-
-// Component for video dropzone to avoid repetition
-interface VideoDropzoneProps {
-  id: string;
-  file: File | null;
-  url: string | null;
-  onDrop: (acceptedFiles: File[]) => void;
-}
-
-const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop }) => {
-  // Log props to make sure they're being passed correctly
-  console.log(`VideoDropzone props - id: ${id}, file: ${file ? 'present' : 'null'}, url: ${url}`);
-  
-  const { getRootProps, getInputProps, isDragActive } = useDropzone({
-    onDrop: (acceptedFiles) => {
-      console.log("Dropzone onDrop called with files:", acceptedFiles);
-      if (acceptedFiles && acceptedFiles.length > 0) {
-        onDrop(acceptedFiles);
-      }
-    },
-    accept: {
-      'video/*': []
-    }
-  });
-  
-  return (
-    <div 
-      {...getRootProps()} 
-      className="dropzone mt-1 border-2 border-dashed rounded-md p-8 text-center cursor-pointer bg-muted/50 w-full md:w-1/2"
-    >
-      <input {...getInputProps()} id={`video-${id}`} />
-      <div className="flex flex-col items-center justify-center">
-        <UploadIcon className="h-12 w-12 text-muted-foreground mb-4" />
-        {
-          isDragActive ?
-            <p>Drop the video here ...</p> :
-            <>
-              <p className="text-lg font-medium mb-2">Drag 'n' drop a video here</p>
-              <p className="text-sm text-muted-foreground">or click to select a file</p>
-            </>
-        }
-      </div>
     </div>
   );
 };
