@@ -6,7 +6,14 @@ import { Logger } from '../logger';
 
 const logger = new Logger('VideoUploadService');
 
-export class VideoUploadService {
+class VideoUploadService {
+  private currentUserId: string | null = null;
+  
+  setCurrentUserId(userId: string | null) {
+    this.currentUserId = userId;
+    logger.log(`Current user ID set to: ${userId || 'none'}`);
+  }
+  
   // Upload a new video file to the storage
   public async uploadVideo(videoFile: VideoFile, reviewerName: string, userId?: string): Promise<VideoEntry | null> {
     if (!videoFile || !videoFile.blob) {
@@ -36,25 +43,17 @@ export class VideoUploadService {
 
       logger.log(`Video uploaded successfully, creating entry for ${videoId}`);
 
-      // Create the database entry with the video path
-      const entry: Partial<VideoEntry> = {
+      // Create the database entry with the video path - Note: Ensure all required fields are set
+      const entry = {
         id: videoId,
         video_location: videoPath,
         reviewer_name: reviewerName,
         skipped: false,
         admin_approved: false,
+        user_id: userId || null,
+        metadata: videoFile.metadata
       };
       
-      // Add user ID if provided
-      if (userId) {
-        entry.user_id = userId;
-      }
-      
-      // Add metadata if available
-      if (videoFile.metadata) {
-        entry.metadata = videoFile.metadata;
-      }
-
       // Insert the entry into the database
       const { data, error } = await supabase
         .from('video_entries')
@@ -71,6 +70,41 @@ export class VideoUploadService {
       return data as VideoEntry;
     } catch (error) {
       logger.error('Error in uploadVideo:', error);
+      throw error;
+    }
+  }
+  
+  // Add a new video entry to the database
+  public async addEntry(entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+    try {
+      logger.log(`Adding new entry: ${JSON.stringify(entryData)}`);
+      
+      // Ensure reviewer_name is present as it's required
+      if (!entryData.reviewer_name) {
+        throw new Error('Reviewer name is required for video entries');
+      }
+      
+      const { data, error } = await supabase
+        .from('video_entries')
+        .insert({
+          video_location: entryData.video_location,
+          reviewer_name: entryData.reviewer_name,
+          acting_video_location: entryData.acting_video_location,
+          skipped: entryData.skipped || false,
+          user_id: entryData.user_id || this.currentUserId,
+          metadata: entryData.metadata
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        logger.error('Error adding video entry:', error);
+        throw error;
+      }
+      
+      return data as VideoEntry;
+    } catch (error) {
+      logger.error('Error in addEntry:', error);
       throw error;
     }
   }
@@ -122,4 +156,31 @@ export class VideoUploadService {
       throw error;
     }
   }
+  
+  // Save an acting video path to an existing entry
+  public async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
+    try {
+      logger.log(`Saving acting video location ${actingVideoLocation} for entry ${id}`);
+      
+      const { data, error } = await supabase
+        .from('video_entries')
+        .update({ acting_video_location: actingVideoLocation })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (error) {
+        logger.error(`Error saving acting video for entry ${id}:`, error);
+        throw error;
+      }
+      
+      return data as VideoEntry;
+    } catch (error) {
+      logger.error('Error in saveActingVideo:', error);
+      throw error;
+    }
+  }
 }
+
+// Export a singleton instance
+export const videoUploadService = new VideoUploadService();
