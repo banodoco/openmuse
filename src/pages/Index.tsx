@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoList from '@/components/VideoList';
@@ -22,7 +21,6 @@ const Index = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [userIsBusy, setUserIsBusy] = useState<boolean>(false);
   
-  // Get video management functionality from the hook
   const { 
     videos, 
     isLoading: videosLoading, 
@@ -37,10 +35,8 @@ const Index = () => {
       try {
         logger.log('Index: Setting up auth listeners');
         
-        // We'll update the loading state based on auth and data fetching
         setIsLoading(true);
         
-        // Listen for auth changes
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           logger.log('Index: Auth state changed:', event);
           
@@ -50,7 +46,6 @@ const Index = () => {
           }
         });
         
-        // Check session
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -58,7 +53,6 @@ const Index = () => {
           throw error;
         }
         
-        // If no session, we don't redirect since RequireAuth will handle that
         logger.log('Index: Session check complete, has session:', !!data.session);
         
         setIsLoading(false);
@@ -76,7 +70,6 @@ const Index = () => {
     setupAuth();
   }, [navigate]);
   
-  // Handle deletion of a video
   const handleDeleteVideo = async (id: string) => {
     try {
       setUserIsBusy(true);
@@ -90,7 +83,6 @@ const Index = () => {
     }
   };
   
-  // Handle approving a video
   const handleApproveVideo = async (id: string) => {
     try {
       setUserIsBusy(true);
@@ -104,7 +96,6 @@ const Index = () => {
     }
   };
   
-  // Handle rejecting a video
   const handleRejectVideo = async (id: string) => {
     try {
       setUserIsBusy(true);
@@ -118,18 +109,14 @@ const Index = () => {
     }
   };
   
-  // Determine if we should show loading state
   const shouldShowLoading = isLoading || videosLoading;
   
-  // Determine if we should show empty state
   const shouldShowEmpty = !shouldShowLoading && (!videos || videos.length === 0);
   
-  // Handle navigation to upload page
   const handleNavigateToUpload = () => {
     navigate('/upload');
   };
   
-  // Filtering videos based on the filter selection
   const filteredVideos = videoFilter === "all" 
     ? videos 
     : videoFilter === "approved" 
