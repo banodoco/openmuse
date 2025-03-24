@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
@@ -42,40 +42,35 @@ const AuthCallback = () => {
         logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
         // Clear any existing tokens to prevent conflicts
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
-            logger.log(`Removing old key: ${key}`);
-            localStorage.removeItem(key);
-          }
-        }
-        
-        // Force a storage sync to ensure session tokens are saved correctly
         try {
-          await localStorage.setItem('test-storage', 'test');
-          localStorage.removeItem('test-storage');
-        } catch (storageErr) {
-          logger.error('Storage test failed:', storageErr);
-        }
-        
-        // Handle hash fragment if present (implicit flow)
-        if (window.location.hash) {
-          logger.log('AuthCallback: Found hash fragment, processing...');
-          
-          // Let Supabase handle the hash fragment
-          const { data, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            logger.error('Error processing auth callback with hash:', error);
-            throw error;
+          // Clean up any old Supabase tokens to prevent conflicts
+          for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && (key.startsWith('sb-') || key.includes('supabase'))) {
+              if (key !== 'supabase-auth-token') {
+                logger.log(`Removing old key: ${key}`);
+                localStorage.removeItem(key);
+              }
+            }
           }
           
-          if (data.session) {
-            logger.log('AuthCallback: Session established from hash fragment');
+          // Force a session refresh to ensure we have the latest session
+          await supabase.auth.refreshSession();
+          
+          // Get the current session
+          const { data, error: sessionError } = await supabase.auth.getSession();
+          
+          if (sessionError) {
+            logger.error('Error getting session:', sessionError);
+            throw sessionError;
+          }
+          
+          if (data?.session) {
+            logger.log('AuthCallback: Session found after refresh');
             
             if (isActive) {
               toast.success('Successfully signed in!');
-              
+              // Give time for toast to display before redirect
               timeoutId = setTimeout(() => {
                 if (isActive) {
                   logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
@@ -85,37 +80,48 @@ const AuthCallback = () => {
             }
             return;
           }
-        }
-        
-        // If no session yet, try to get it again after a delay
-        await new Promise(resolve => setTimeout(resolve, 2000));
-        const { data: retrySession, error: retryError } = await supabase.auth.getSession();
-        
-        if (retryError) {
-          logger.error('Error in retry getSession:', retryError);
-          throw retryError;
-        }
-        
-        if (retrySession?.session) {
-          logger.log('AuthCallback: Session found in retry getSession');
           
-          if (isActive) {
-            toast.success('Successfully signed in!');
+          // If we don't have a session from getSession(), try to exchange the auth code in the URL
+          if (window.location.hash || window.location.search.includes('code=')) {
+            logger.log('AuthCallback: Attempting to exchange auth code');
             
-            timeoutId = setTimeout(() => {
+            // Let Supabase automatically exchange the code via its URL detection
+            // This should trigger the onAuthStateChange event
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // Check again if we have a session after the exchange
+            const { data: refreshData, error: refreshError } = await supabase.auth.getSession();
+            
+            if (refreshError) {
+              logger.error('Error refreshing session:', refreshError);
+              throw refreshError;
+            }
+            
+            if (refreshData?.session) {
+              logger.log('AuthCallback: Session established after code exchange');
+              
               if (isActive) {
-                logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
-                navigate(returnUrl, { replace: true });
+                toast.success('Successfully signed in!');
+                
+                timeoutId = setTimeout(() => {
+                  if (isActive) {
+                    logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
+                    navigate(returnUrl, { replace: true });
+                  }
+                }, 1000);
               }
-            }, 1000);
+              return;
+            }
           }
-          return;
+          
+          // If we still don't have a session, throw an error
+          logger.error('AuthCallback: No session could be established');
+          throw new Error('Failed to establish authentication session. Please try again.');
+          
+        } catch (storageErr) {
+          logger.error('Storage error during authentication:', storageErr);
+          throw storageErr;
         }
-        
-        // If we still don't have a session, throw an error
-        logger.error('AuthCallback: No session could be established after all attempts');
-        throw new Error('Failed to establish session after authentication callback');
-        
       } catch (err: any) {
         logger.error('Error during auth callback:', err);
         

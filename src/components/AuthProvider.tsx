@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
 
@@ -48,6 +48,9 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
             logger.log('User signed in, session should be persisted');
           }
         });
+        
+        // Refresh session first to ensure it's valid
+        await supabase.auth.refreshSession();
         
         // THEN check for existing session
         const { data, error } = await supabase.auth.getSession();
