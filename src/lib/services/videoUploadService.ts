@@ -43,7 +43,7 @@ class VideoUploadService {
 
       logger.log(`Video uploaded successfully, creating entry for ${videoId}`);
 
-      // Create the database entry with the video path - Note: Ensure all required fields are set
+      // Create the database entry with the video path
       const entry = {
         id: videoId,
         video_location: videoPath,
@@ -54,10 +54,13 @@ class VideoUploadService {
         metadata: videoFile.metadata || null
       };
       
-      // Insert the entry into the database
+      // Insert the entry into the database - cast metadata to any to bypass type checking
       const { data, error } = await supabase
         .from('video_entries')
-        .insert(entry)
+        .insert({
+          ...entry,
+          metadata: entry.metadata as any
+        })
         .select()
         .single();
 
@@ -67,7 +70,12 @@ class VideoUploadService {
       }
 
       logger.log(`Video entry created successfully: ${videoId}`);
-      return data as VideoEntry;
+      
+      // Convert the response to our VideoEntry type
+      return {
+        ...data,
+        metadata: data.metadata as VideoEntry['metadata']
+      } as VideoEntry;
     } catch (error) {
       logger.error('Error in uploadVideo:', error);
       throw error;
@@ -92,7 +100,7 @@ class VideoUploadService {
           acting_video_location: entryData.acting_video_location,
           skipped: entryData.skipped || false,
           user_id: entryData.user_id || this.currentUserId,
-          metadata: entryData.metadata || null
+          metadata: entryData.metadata as any // Cast to any to bypass type checking
         })
         .select()
         .single();
@@ -102,7 +110,11 @@ class VideoUploadService {
         throw error;
       }
       
-      return data as VideoEntry;
+      // Convert the response to our VideoEntry type
+      return {
+        ...data,
+        metadata: data.metadata as VideoEntry['metadata']
+      } as VideoEntry;
     } catch (error) {
       logger.error('Error in addEntry:', error);
       throw error;
@@ -150,7 +162,12 @@ class VideoUploadService {
       }
 
       logger.log(`Video entry updated with acting video: ${originalVideoId}`);
-      return data as VideoEntry;
+      
+      // Convert the response to our VideoEntry type
+      return {
+        ...data,
+        metadata: data.metadata as VideoEntry['metadata']
+      } as VideoEntry;
     } catch (error) {
       logger.error('Error in uploadActingVideo:', error);
       throw error;
@@ -174,7 +191,11 @@ class VideoUploadService {
         throw error;
       }
       
-      return data as VideoEntry;
+      // Convert the response to our VideoEntry type
+      return {
+        ...data,
+        metadata: data.metadata as VideoEntry['metadata']
+      } as VideoEntry;
     } catch (error) {
       logger.error('Error in saveActingVideo:', error);
       throw error;

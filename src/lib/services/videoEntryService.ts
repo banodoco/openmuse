@@ -1,4 +1,3 @@
-
 import { supabase } from '../supabase';
 import { VideoEntry } from '../types';
 import { Logger } from '../logger';
@@ -42,7 +41,11 @@ export class VideoEntryService {
         this.logger.log(`First entry: ${JSON.stringify(data[0])}`);
       }
       
-      return data as VideoEntry[] || [];
+      // Convert the data to our VideoEntry type
+      return (data || []).map(entry => ({
+        ...entry,
+        metadata: entry.metadata as VideoEntry['metadata']
+      })) as VideoEntry[];
     } catch (error) {
       this.logger.error('Error getting entries from Supabase:', error);
       return [];
@@ -69,9 +72,14 @@ export class VideoEntryService {
       }
       
       const randomIndex = Math.floor(Math.random() * data.length);
-      const selectedEntry = data[randomIndex] as VideoEntry;
+      const selectedEntry = data[randomIndex];
       this.logger.log(`Selected random pending entry: ${selectedEntry.id}`);
-      return selectedEntry;
+      
+      // Convert to our VideoEntry type
+      return {
+        ...selectedEntry,
+        metadata: selectedEntry.metadata as VideoEntry['metadata']
+      } as VideoEntry;
     } catch (error) {
       this.logger.error('Error getting random entry from Supabase:', error);
       return null;
@@ -80,9 +88,15 @@ export class VideoEntryService {
   
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
     try {
+      // Convert our VideoEntry metadata to Json for Supabase
+      const supabaseUpdate = {
+        ...update,
+        metadata: update.metadata as any
+      };
+      
       const { data, error } = await supabase
         .from('video_entries')
-        .update(update)
+        .update(supabaseUpdate)
         .eq('id', id)
         .select()
         .single();
@@ -92,7 +106,12 @@ export class VideoEntryService {
       }
       
       this.logger.log(`Updated entry: ${id}`);
-      return data as VideoEntry;
+      
+      // Convert back to our VideoEntry type
+      return {
+        ...data,
+        metadata: data.metadata as VideoEntry['metadata']
+      } as VideoEntry;
     } catch (error) {
       this.logger.error(`Error updating entry ${id} in Supabase:`, error);
       return null;
@@ -254,3 +273,4 @@ export class VideoEntryService {
 }
 
 export const videoEntryService = new VideoEntryService();
+
