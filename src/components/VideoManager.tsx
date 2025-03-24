@@ -79,7 +79,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     return (
       <EmptyState 
         title="No videos yet" 
-        description="Get started by recording your first video response." 
+        description="Get started by uploading your first video." 
         showSignIn={false}
       />
     );

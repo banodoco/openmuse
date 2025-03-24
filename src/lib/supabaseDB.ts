@@ -1,3 +1,4 @@
+
 import { VideoEntry } from './types';
 import { videoEntryService } from './services/videoEntryService';
 import { videoUploadService } from './services/videoUploadService';
@@ -19,10 +20,6 @@ class SupabaseVideoDatabase {
   
   async getAllEntries(): Promise<VideoEntry[]> {
     return videoEntryService.getAllEntries();
-  }
-  
-  async getRandomPendingEntry(): Promise<VideoEntry | null> {
-    return videoEntryService.getRandomPendingEntry();
   }
   
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
@@ -51,10 +48,6 @@ class SupabaseVideoDatabase {
   
   async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
     return videoUploadService.addEntry(entry);
-  }
-  
-  async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
-    return videoUploadService.saveActingVideo(id, actingVideoLocation);
   }
 }
 

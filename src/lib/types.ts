@@ -1,14 +1,7 @@
-
-export interface VideoEntry {
+export interface VideoFile {
   id: string;
-  video_location: string;
-  reviewer_name: string;
-  acting_video_location: string | null;
-  skipped: boolean;
-  created_at: string;
-  admin_approved: boolean;
-  user_id?: string;
-  metadata?: VideoMetadata;
+  blob: Blob;
+  metadata?: any;
 }
 
 export interface VideoMetadata {
@@ -16,52 +9,21 @@ export interface VideoMetadata {
   description?: string;
   creator: 'self' | 'someone_else';
   creatorName?: string;
-  url?: string;
-  model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
-  classification?: 'art' | 'gen';
+  classification: 'art' | 'gen';
+}
+
+export interface VideoEntry {
+  id: string;
+  video_location: string;
+  reviewer_name: string;
+  skipped: boolean;
+  admin_approved: boolean;
+  created_at: string;
+  user_id?: string | null;
+  metadata?: VideoMetadata | null;
 }
 
 export interface RecordedVideo {
   blob: Blob;
   url: string;
-}
-
-export interface VideoFile {
-  id: string;
-  blob: Blob;
-  metadata?: VideoMetadata;
-}
-
-export interface UserProfile {
-  id: string;
-  username: string;
-  avatar_url?: string;
-  created_at?: string;
-}
-
-export interface UserRole {
-  id: string;
-  user_id: string;
-  role: string;
-  created_at?: string;
-}
-
-// Storage configuration options (simplified)
-export interface StorageConfig {
-  type: 'supabase';
-}
-
-// Session type for auth
-export interface Session {
-  user: {
-    id: string;
-    email?: string;
-  };
-}
-
-// Add custom event type for TypeScript
-declare global {
-  interface MediaRecorderEventMap {
-    dataavailable: BlobEvent;
-  }
 }

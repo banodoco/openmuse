@@ -1,3 +1,4 @@
+
 import { supabase } from '../supabase';
 import { VideoEntry } from '../types';
 import { Logger } from '../logger';
@@ -44,45 +45,11 @@ export class VideoEntryService {
       // Convert the data to our VideoEntry type
       return (data || []).map(entry => ({
         ...entry,
-        metadata: entry.metadata as VideoEntry['metadata']
+        metadata: entry.metadata as unknown as VideoEntry['metadata']
       })) as VideoEntry[];
     } catch (error) {
       this.logger.error('Error getting entries from Supabase:', error);
       return [];
-    }
-  }
-  
-  async getRandomPendingEntry(): Promise<VideoEntry | null> {
-    try {
-      // Get any pending entry regardless of user_id
-      const { data, error } = await supabase
-        .from('video_entries')
-        .select('*')
-        .is('acting_video_location', null)
-        .eq('skipped', false)
-        .order('created_at', { ascending: false });
-      
-      if (error) {
-        throw error;
-      }
-      
-      if (data.length === 0) {
-        this.logger.log('No pending entries found');
-        return null;
-      }
-      
-      const randomIndex = Math.floor(Math.random() * data.length);
-      const selectedEntry = data[randomIndex];
-      this.logger.log(`Selected random pending entry: ${selectedEntry.id}`);
-      
-      // Convert to our VideoEntry type
-      return {
-        ...selectedEntry,
-        metadata: selectedEntry.metadata as VideoEntry['metadata']
-      } as VideoEntry;
-    } catch (error) {
-      this.logger.error('Error getting random entry from Supabase:', error);
-      return null;
     }
   }
   
@@ -110,7 +77,7 @@ export class VideoEntryService {
       // Convert back to our VideoEntry type
       return {
         ...data,
-        metadata: data.metadata as VideoEntry['metadata']
+        metadata: data.metadata as unknown as VideoEntry['metadata']
       } as VideoEntry;
     } catch (error) {
       this.logger.error(`Error updating entry ${id} in Supabase:`, error);
@@ -176,20 +143,6 @@ export class VideoEntryService {
         }
       }
       
-      if (entry.acting_video_location && entry.acting_video_location.includes('supabase.co')) {
-        try {
-          const actingFileName = entry.acting_video_location.split('/').pop();
-          if (actingFileName) {
-            await supabase.storage
-              .from('videos')
-              .remove([actingFileName]);
-            this.logger.log(`Deleted acting video ${actingFileName} from Supabase Storage`);
-          }
-        } catch (storageError) {
-          this.logger.error(`Error deleting acting video from Supabase Storage:`, storageError);
-        }
-      }
-      
       const { error: deleteError } = await supabase
         .from('video_entries')
         .delete()
@@ -241,19 +194,6 @@ export class VideoEntryService {
             this.logger.error(`Error deleting video from Supabase Storage:`, storageError);
           }
         }
-        
-        if (entry.acting_video_location && entry.acting_video_location.includes('supabase.co')) {
-          try {
-            const actingFileName = entry.acting_video_location.split('/').pop();
-            if (actingFileName) {
-              await supabase.storage
-                .from('videos')
-                .remove([actingFileName]);
-            }
-          } catch (storageError) {
-            this.logger.error(`Error deleting acting video from Supabase Storage:`, storageError);
-          }
-        }
       }
       
       const { error: deleteError } = await supabase
@@ -273,4 +213,3 @@ export class VideoEntryService {
 }
 
 export const videoEntryService = new VideoEntryService();
-

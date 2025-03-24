@@ -1,5 +1,5 @@
 
-import { VideoEntry, VideoFile, VideoMetadata } from '../types';
+import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
 import { Logger } from '../logger';
@@ -74,7 +74,7 @@ class VideoUploadService {
       // Convert the response to our VideoEntry type
       return {
         ...data,
-        metadata: data.metadata as VideoEntry['metadata']
+        metadata: data.metadata as unknown as VideoEntry['metadata']
       } as VideoEntry;
     } catch (error) {
       logger.error('Error in uploadVideo:', error);
@@ -97,7 +97,6 @@ class VideoUploadService {
         .insert({
           video_location: entryData.video_location,
           reviewer_name: entryData.reviewer_name,
-          acting_video_location: entryData.acting_video_location,
           skipped: entryData.skipped || false,
           user_id: entryData.user_id || this.currentUserId,
           metadata: entryData.metadata as any // Cast to any to bypass type checking
@@ -113,91 +112,10 @@ class VideoUploadService {
       // Convert the response to our VideoEntry type
       return {
         ...data,
-        metadata: data.metadata as VideoEntry['metadata']
+        metadata: data.metadata as unknown as VideoEntry['metadata']
       } as VideoEntry;
     } catch (error) {
       logger.error('Error in addEntry:', error);
-      throw error;
-    }
-  }
-  
-  // Upload an acting video response
-  public async uploadActingVideo(originalVideoId: string, actingVideoFile: VideoFile): Promise<VideoEntry | null> {
-    if (!actingVideoFile || !actingVideoFile.blob) {
-      logger.error('Attempted to upload a null or invalid acting video file');
-      throw new Error('Invalid acting video file');
-    }
-
-    try {
-      const actingVideoPath = `acting-videos/${originalVideoId}.webm`;
-      
-      logger.log(`Uploading acting video to ${actingVideoPath}`);
-      
-      // Upload the acting video file
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(actingVideoPath, actingVideoFile.blob, {
-          contentType: 'video/webm',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        logger.error('Error uploading acting video:', uploadError);
-        throw uploadError;
-      }
-
-      logger.log(`Acting video uploaded successfully, updating entry for ${originalVideoId}`);
-
-      // Update the database entry with the acting video path
-      const { data, error } = await supabase
-        .from('video_entries')
-        .update({ acting_video_location: actingVideoPath })
-        .eq('id', originalVideoId)
-        .select()
-        .single();
-
-      if (error) {
-        logger.error('Error updating video entry with acting video:', error);
-        throw error;
-      }
-
-      logger.log(`Video entry updated with acting video: ${originalVideoId}`);
-      
-      // Convert the response to our VideoEntry type
-      return {
-        ...data,
-        metadata: data.metadata as VideoEntry['metadata']
-      } as VideoEntry;
-    } catch (error) {
-      logger.error('Error in uploadActingVideo:', error);
-      throw error;
-    }
-  }
-  
-  // Save an acting video path to an existing entry
-  public async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
-    try {
-      logger.log(`Saving acting video location ${actingVideoLocation} for entry ${id}`);
-      
-      const { data, error } = await supabase
-        .from('video_entries')
-        .update({ acting_video_location: actingVideoLocation })
-        .eq('id', id)
-        .select()
-        .single();
-      
-      if (error) {
-        logger.error(`Error saving acting video for entry ${id}:`, error);
-        throw error;
-      }
-      
-      // Convert the response to our VideoEntry type
-      return {
-        ...data,
-        metadata: data.metadata as VideoEntry['metadata']
-      } as VideoEntry;
-    } catch (error) {
-      logger.error('Error in saveActingVideo:', error);
       throw error;
     }
   }

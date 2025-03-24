@@ -117,19 +117,6 @@ const VideoPage: React.FC = () => {
               muted={false}
             />
           </div>
-          
-          {video.acting_video_location && (
-            <div className="p-6 border-t">
-              <h2 className="text-xl font-semibold mb-4">Response Video</h2>
-              <div className="aspect-video w-full">
-                <VideoPlayer 
-                  src={video.acting_video_location} 
-                  controls 
-                  muted={false}
-                />
-              </div>
-            </div>
-          )}
         </div>
       </main>
     </div>

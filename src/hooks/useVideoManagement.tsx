@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect } from 'react';
-import { VideoEntry, RecordedVideo } from '@/lib/types';
+import { VideoEntry } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { toast } from 'sonner';
 import { getCurrentUser } from '@/lib/auth';
@@ -8,10 +8,7 @@ import { supabase } from '@/lib/supabase';
 
 export const useVideoManagement = () => {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
-  const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isRecording, setIsRecording] = useState(false);
-  const [noVideosAvailable, setNoVideosAvailable] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
 
   // First check if user is authenticated
@@ -48,9 +45,9 @@ export const useVideoManagement = () => {
     };
   }, []);
 
-  const loadAllPendingVideos = useCallback(async () => {
+  const loadAllVideos = useCallback(async () => {
     setIsLoading(true);
-    console.log("useVideoManagement: Loading all pending videos, user ID:", userId);
+    console.log("useVideoManagement: Loading all videos, user ID:", userId);
     
     try {
       console.log("useVideoManagement: Getting database from switcher");
@@ -59,26 +56,7 @@ export const useVideoManagement = () => {
       const allEntries = await db.getAllEntries();
       console.log("useVideoManagement: Loaded entries:", allEntries.length);
       
-      // Filter for pending entries (no acting video and not skipped)
-      const pendingEntries = allEntries.filter(
-        entry => !entry.acting_video_location && !entry.skipped
-      );
-      
-      console.log("useVideoManagement: Pending entries:", pendingEntries.length);
-      if (pendingEntries.length > 0) {
-        console.log("useVideoManagement: First few entries:", pendingEntries.slice(0, 3));
-      } else {
-        console.log("useVideoManagement: No pending entries available");
-      }
-      
-      setVideos(pendingEntries);
-      
-      if (pendingEntries.length === 0) {
-        console.log("useVideoManagement: No pending entries available");
-        setNoVideosAvailable(true);
-      } else {
-        setNoVideosAvailable(false);
-      }
+      setVideos(allEntries);
     } catch (error) {
       console.error("useVideoManagement: Error loading videos:", error);
       toast.error("Error loading videos. Please try again.");
@@ -89,60 +67,14 @@ export const useVideoManagement = () => {
 
   useEffect(() => {
     console.log("useVideoManagement: userId changed, reloading videos");
-    loadAllPendingVideos();
-  }, [loadAllPendingVideos]);
-
-  const handleSelectVideo = useCallback((video: VideoEntry) => {
-    setCurrentVideo(video);
-    setIsRecording(false);
-  }, []);
-
-  const handleSkip = useCallback(async () => {
-    if (currentVideo) {
-      const db = await databaseSwitcher.getDatabase();
-      await db.markAsSkipped(currentVideo.id);
-      toast.info('Video skipped. Loading another video...');
-      setCurrentVideo(null);
-      loadAllPendingVideos();
-    }
-  }, [currentVideo, loadAllPendingVideos]);
-
-  const handleStartRecording = useCallback(() => {
-    setIsRecording(true);
-  }, []);
-
-  const handleVideoRecorded = useCallback(async (recordedVideo: RecordedVideo) => {
-    if (!currentVideo) return;
-    
-    console.log('Video recorded, blob size:', recordedVideo.blob.size, 'URL:', recordedVideo.url);
-    
-    try {
-      const db = await databaseSwitcher.getDatabase();
-      await db.saveActingVideo(currentVideo.id, recordedVideo.url);
-      
-      toast.success('Your response has been saved!');
-      setIsRecording(false);
-      setCurrentVideo(null);
-      loadAllPendingVideos();
-    } catch (error) {
-      console.error('Error saving video response:', error);
-      toast.error('Failed to save your response. Please try again.');
-    }
-  }, [currentVideo, loadAllPendingVideos]);
-
-  const handleCancelRecording = useCallback(() => {
-    setIsRecording(false);
-  }, []);
-
-  const handleVideoLoaded = useCallback(() => {
-    console.log("Video fully loaded and ready to play");
-  }, []);
+    loadAllVideos();
+  }, [loadAllVideos]);
 
   // CRUD operations for videos
   const refetchVideos = useCallback(async () => {
-    await loadAllPendingVideos();
+    await loadAllVideos();
     toast.success("Videos refreshed");
-  }, [loadAllPendingVideos]);
+  }, [loadAllVideos]);
 
   const deleteVideo = useCallback(async (id: string) => {
     try {
@@ -186,16 +118,7 @@ export const useVideoManagement = () => {
 
   return {
     videos,
-    currentVideo,
     isLoading,
-    isRecording,
-    noVideosAvailable,
-    handleSelectVideo,
-    handleSkip,
-    handleStartRecording,
-    handleVideoRecorded,
-    handleCancelRecording,
-    handleVideoLoaded,
     refetchVideos,
     deleteVideo,
     approveVideo,

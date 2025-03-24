@@ -1,3 +1,4 @@
+
 import { VideoEntry } from './types';
 import { videoStorage } from './storage';
 import { remoteStorage } from './remoteStorage';
@@ -99,66 +100,6 @@ class VideoDatabase {
     return newEntry;
   }
   
-  getRandomPendingEntry(): VideoEntry | null {
-    const entries = this.getAll();
-    const pendingEntries = entries.filter(
-      entry => !entry.acting_video_location && !entry.skipped
-    );
-    
-    if (pendingEntries.length === 0) {
-      this.log('No pending entries found');
-      return null;
-    }
-    
-    const randomIndex = Math.floor(Math.random() * pendingEntries.length);
-    const selectedEntry = pendingEntries[randomIndex];
-    this.log(`Selected random pending entry: ${selectedEntry.id}`);
-    return selectedEntry;
-  }
-  
-  async saveActingVideo(id: string, actingVideoLocation: string): Promise<VideoEntry | null> {
-    this.log(`Saving acting video for entry ${id}`);
-    
-    let savedLocation = actingVideoLocation;
-    
-    // If it's a blob URL, fetch the blob and save it
-    if (actingVideoLocation.startsWith('blob:')) {
-      try {
-        const response = await fetch(actingVideoLocation);
-        const blob = await response.blob();
-        
-        // Always use remote storage (Supabase)
-        try {
-          // Upload to remote storage
-          const remoteUrl = await remoteStorage.uploadVideo({
-            id: `acting_${id}`,
-            blob
-          });
-          
-          // Use the remote URL
-          savedLocation = remoteUrl;
-          this.log(`Saved acting video to remote storage: ${remoteUrl}`);
-        } catch (error) {
-          this.error('Failed to save to remote storage, falling back to local:', error);
-          
-          // Fall back to local storage
-          await videoStorage.saveVideo({
-            id: `acting_${id}`,
-            blob
-          });
-          
-          savedLocation = `idb://acting_${id}`;
-          this.log(`Saved acting video to IndexedDB with ID: acting_${id}`);
-        }
-      } catch (error) {
-        this.error('Failed to save acting video:', error);
-        throw error;
-      }
-    }
-    
-    return this.updateEntry(id, { acting_video_location: savedLocation });
-  }
-  
   updateEntry(id: string, update: Partial<VideoEntry>): VideoEntry | null {
     const entries = this.getAll();
     const index = entries.findIndex(entry => entry.id === id);
@@ -257,27 +198,6 @@ class VideoDatabase {
         await remoteStorage.deleteVideo(entry.video_location);
       } catch (error) {
         this.error(`Error deleting remote video:`, error);
-      }
-    }
-    
-    // Delete the acting video if it exists
-    if (entry.acting_video_location) {
-      if (entry.acting_video_location.startsWith('idb://')) {
-        // Local storage case
-        const actingVideoId = entry.acting_video_location.substring(6);
-        try {
-          await videoStorage.deleteVideo(actingVideoId);
-          this.log(`Deleted acting video ${actingVideoId} from storage`);
-        } catch (error) {
-          this.error(`Error deleting acting video ${actingVideoId}:`, error);
-        }
-      } else if (entry.acting_video_location.startsWith('http://') || entry.acting_video_location.startsWith('https://')) {
-        // Remote storage case
-        try {
-          await remoteStorage.deleteVideo(entry.acting_video_location);
-        } catch (error) {
-          this.error(`Error deleting remote acting video:`, error);
-        }
       }
     }
     
