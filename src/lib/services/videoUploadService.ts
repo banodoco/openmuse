@@ -13,7 +13,7 @@ export class VideoUploadService {
     this.logger.log(`Current user ID set to: ${userId || 'none'}`);
   }
 
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'> & { metadata?: string }): Promise<VideoEntry> {
     if (!this.currentUserId) {
       this.logger.warn('User not authenticated, proceeding without user_id');
     }
@@ -39,14 +39,17 @@ export class VideoUploadService {
     }
     
     try {
+      // Build the entry data, excluding metadata from the direct object
+      const { metadata, ...entryData } = entry;
+      
       const { data, error } = await supabase
         .from('video_entries')
         .insert({
+          ...entryData,
           reviewer_name: entry.reviewer_name,
           video_location: videoLocation,
           skipped: entry.skipped || false,
-          user_id: this.currentUserId,
-          category: entry.category // Include category field
+          user_id: this.currentUserId
         })
         .select()
         .single();

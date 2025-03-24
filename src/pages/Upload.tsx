@@ -7,7 +7,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import Navigation from '@/components/Navigation';
-import { UploadCloud, Loader2, Info, Paintbrush, Layers, Sparkles, LockIcon } from 'lucide-react';
+import { UploadCloud, Loader2, Info, LockIcon } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { remoteStorage } from '@/lib/remoteStorage';
@@ -17,14 +17,6 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from '@/components/ui/select';
-import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
 
 // Form schema for LoRA uploads
 const formSchema = z.object({
@@ -40,10 +32,7 @@ const formSchema = z.object({
   creatorName: z.string().optional(),
   url: z.string().url({
     message: "Please enter a valid URL.",
-  }).optional().or(z.literal('')),
-  category: z.string({
-    required_error: "Please select a category.",
-  })
+  }).optional().or(z.literal(''))
 });
 
 const Upload: React.FC = () => {
@@ -61,8 +50,7 @@ const Upload: React.FC = () => {
       description: "",
       creator: "self",
       creatorName: "",
-      url: "",
-      category: "loras" // Default to LoRAs
+      url: ""
     },
   });
 
@@ -165,7 +153,6 @@ const Upload: React.FC = () => {
           reviewer_name: reviewerName,
           acting_video_location: null,
           skipped: false,
-          category: values.category,
           // Store additional metadata in a format that can be parsed later
           metadata: JSON.stringify({
             headline: values.headline,
@@ -325,40 +312,6 @@ const Upload: React.FC = () => {
                         {...field} 
                         disabled={!isAuthenticated || uploading}
                       />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-
-              {/* Category selector */}
-              <FormField
-                control={form.control}
-                name="category"
-                render={({ field }) => (
-                  <FormItem className="space-y-2">
-                    <FormLabel>Category</FormLabel>
-                    <FormControl>
-                      <ToggleGroup 
-                        type="single" 
-                        value={field.value}
-                        onValueChange={(value) => value && field.onChange(value)}
-                        className="justify-start"
-                        disabled={!isAuthenticated || uploading}
-                      >
-                        <ToggleGroupItem value="art" aria-label="Art">
-                          <Paintbrush className="h-4 w-4 mr-2" />
-                          Art
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="loras" aria-label="LoRAs">
-                          <Layers className="h-4 w-4 mr-2" />
-                          LoRAs
-                        </ToggleGroupItem>
-                        <ToggleGroupItem value="generations" aria-label="Generations">
-                          <Sparkles className="h-4 w-4 mr-2" />
-                          Generations
-                        </ToggleGroupItem>
-                      </ToggleGroup>
                     </FormControl>
                     <FormMessage />
                   </FormItem>

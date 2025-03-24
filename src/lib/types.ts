@@ -1,4 +1,5 @@
 
+
 export interface VideoEntry {
   id: string;
   video_location: string;
@@ -8,7 +9,6 @@ export interface VideoEntry {
   created_at: string;
   admin_approved: boolean;
   user_id?: string;
-  category?: string; // Add category field
 }
 
 export interface RecordedVideo {
@@ -54,3 +54,4 @@ declare global {
     dataavailable: BlobEvent;
   }
 }
+
