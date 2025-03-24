@@ -94,9 +94,11 @@ const Upload: React.FC = () => {
   };
   
   const updateVideoField = (id: string, field: keyof VideoItem, value: any) => {
-    setVideos(videos.map(video => 
-      video.id === id ? { ...video, [field]: value } : video
-    ));
+    setVideos(prev => 
+      prev.map(video => 
+        video.id === id ? { ...video, [field]: value } : video
+      )
+    );
   };
   
   const handleVideoFileDrop = (id: string) => {
@@ -106,8 +108,14 @@ const Upload: React.FC = () => {
       if (file) {
         const url = URL.createObjectURL(file);
         console.log("Created URL:", url);
-        updateVideoField(id, 'file', file);
-        updateVideoField(id, 'url', url);
+        // Update the state with both file and url in one update
+        setVideos(prev => 
+          prev.map(video => 
+            video.id === id 
+              ? { ...video, file: file, url: url } 
+              : video
+          )
+        );
       }
     };
   };
@@ -394,7 +402,9 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop }) 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
       console.log("Dropzone onDrop called with files:", acceptedFiles);
-      onDrop(acceptedFiles);
+      if (acceptedFiles && acceptedFiles.length > 0) {
+        onDrop(acceptedFiles);
+      }
     },
     accept: {
       'video/*': []
