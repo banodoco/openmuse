@@ -60,9 +60,25 @@ const Auth: React.FC = () => {
         
         if (!isActive) return;
         
-        // Force a session refresh to ensure we have the latest data
-        await supabase.auth.refreshSession();
+        // Try a session refresh first
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
         
+        if (!refreshError && refreshData.session) {
+          logger.log('Auth page: Session refreshed, user is authenticated');
+          const searchParams = new URLSearchParams(location.search);
+          const returnUrl = searchParams.get('returnUrl') || '/';
+          
+          // Add a slight delay to ensure state is updated before navigation
+          timeoutId = setTimeout(() => {
+            if (isActive) {
+              logger.log(`Auth page: Redirecting to ${returnUrl} after refresh`);
+              navigate(returnUrl, { replace: true });
+            }
+          }, 500);
+          return;
+        }
+        
+        // Get the session
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {

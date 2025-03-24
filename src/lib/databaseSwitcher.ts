@@ -47,21 +47,28 @@ class DatabaseSwitcher {
             this.lastInvalidUserCheck = now;
             this.logger.log("Validating user still exists in database");
             
-            const { data: userExists, error: userCheckError } = await supabase
-              .from('profiles')
-              .select('id')
-              .eq('id', userId)
-              .single();
-            
-            if (userCheckError || !userExists) {
-              this.logger.error("User no longer exists in database:", userCheckError || "No profile found");
-              toast.error("Your session is no longer valid. Please sign in again.");
-              await signOut();
-              supabaseDB.setCurrentUserId(null);
-              return supabaseDB;
+            try {
+              const { data: userExists, error: userCheckError } = await supabase
+                .from('profiles')
+                .select('id')
+                .eq('id', userId)
+                .single();
+              
+              if (userCheckError) {
+                // Don't sign out on query errors, just log them
+                this.logger.error("Error checking if user exists:", userCheckError);
+              } else if (!userExists) {
+                this.logger.error("User no longer exists in database");
+                toast.error("Your session is no longer valid. Please sign in again.");
+                await signOut();
+                supabaseDB.setCurrentUserId(null);
+                return supabaseDB;
+              }
+              
+              this.logger.log("User validation successful");
+            } catch (validationError) {
+              this.logger.error("Error during user validation:", validationError);
             }
-            
-            this.logger.log("User validation successful");
           }
           
           supabaseDB.setCurrentUserId(userId);

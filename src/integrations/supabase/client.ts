@@ -20,7 +20,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 });
 
 // Console log the auth configuration to verify it's working
-console.log('Supabase client initialized in client.ts with auth configuration:', {
+console.log('Supabase client initialized with auth configuration:', {
   persistSession: true,
   autoRefreshToken: true,
   detectSessionInUrl: true,

@@ -15,10 +15,8 @@ export const signInWithDiscord = async () => {
     for (let i = 0; i < localStorage.length; i++) {
       const key = localStorage.key(i);
       if (key && (key.startsWith('sb-') || key.includes('supabase') || key.includes('auth'))) {
-        if (key !== 'supabase-auth-token') {
-          logger.log(`Removing storage key: ${key}`);
-          localStorage.removeItem(key);
-        }
+        logger.log(`Removing storage key: ${key}`);
+        localStorage.removeItem(key);
       }
     }
     

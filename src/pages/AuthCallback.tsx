@@ -41,11 +41,6 @@ const AuthCallback = () => {
         const returnUrl = searchParams.get('returnUrl') || '/';
         logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
-        // Make sure we're using the correct storage key
-        logger.log('Verifying supabase-auth-token exists in localStorage');
-        const hasToken = !!localStorage.getItem('supabase-auth-token');
-        logger.log(`supabase-auth-token exists: ${hasToken}`);
-        
         // First try getting the session directly
         const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
         
@@ -55,7 +50,7 @@ const AuthCallback = () => {
         }
         
         if (sessionData?.session) {
-          logger.log('AuthCallback: Session found');
+          logger.log('AuthCallback: Session found directly');
           
           if (isActive) {
             toast.success('Successfully signed in!');
@@ -74,34 +69,58 @@ const AuthCallback = () => {
         if (window.location.hash || window.location.search.includes('code=')) {
           logger.log('AuthCallback: Attempting to exchange auth code');
           
-          // Let Supabase automatically exchange the code
-          await new Promise(resolve => setTimeout(resolve, 2000));
-          
-          // Refresh the session
-          await supabase.auth.refreshSession();
-          
-          // Check again if we have a session
-          const { data: refreshData, error: refreshError } = await supabase.auth.getSession();
-          
-          if (refreshError) {
-            logger.error('Error refreshing session:', refreshError);
-            throw refreshError;
-          }
-          
-          if (refreshData?.session) {
-            logger.log('AuthCallback: Session established after code exchange');
+          try {
+            // Explicitly get the URL hash and parameters
+            const hash = window.location.hash.substring(1);
+            const query = window.location.search.substring(1);
+            const fullParams = hash || query;
             
-            if (isActive) {
-              toast.success('Successfully signed in!');
-              
-              timeoutId = setTimeout(() => {
-                if (isActive) {
-                  logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
-                  navigate(returnUrl, { replace: true });
-                }
-              }, 1000);
+            if (fullParams.includes('error=')) {
+              const errorParams = new URLSearchParams(fullParams);
+              const errorDescription = errorParams.get('error_description');
+              throw new Error(errorDescription || 'Authentication error');
             }
-            return;
+            
+            // Manually check for session after hash-based signin
+            await new Promise(resolve => setTimeout(resolve, 1000));
+            
+            // Refresh the session
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError) {
+              logger.error('Error refreshing session:', refreshError);
+              throw refreshError;
+            }
+            
+            if (refreshData.session) {
+              logger.log('AuthCallback: Session established after refresh');
+              
+              if (isActive) {
+                toast.success('Successfully signed in!');
+                
+                timeoutId = setTimeout(() => {
+                  if (isActive) {
+                    logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
+                    navigate(returnUrl, { replace: true });
+                  }
+                }, 1000);
+              }
+              return;
+            }
+            
+            // Final fallback for session
+            const { data: finalCheck } = await supabase.auth.getSession();
+            if (finalCheck.session) {
+              logger.log('AuthCallback: Session found in final check');
+              if (isActive) {
+                toast.success('Successfully signed in!');
+                navigate(returnUrl, { replace: true });
+              }
+              return;
+            }
+          } catch (error) {
+            logger.error('Error exchanging auth code:', error);
+            throw error;
           }
         }
         

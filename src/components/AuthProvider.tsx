@@ -25,10 +25,6 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
         
         if (isMounted) onAuthStateChange(true);
         
-        // Check for the auth token
-        const hasToken = !!localStorage.getItem('supabase-auth-token');
-        logger.log(`Auth provider: supabase-auth-token exists: ${hasToken}`);
-        
         // Set up auth state listener FIRST
         const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
           logger.log('Auth state changed:', event, session?.user?.id);
@@ -45,7 +41,13 @@ const AuthProvider: React.FC<AuthProviderProps> = ({ children, onAuthStateChange
         
         // THEN refresh session 
         logger.log('Refreshing session');
-        await supabase.auth.refreshSession();
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError) {
+          logger.error('Error refreshing session:', refreshError);
+        } else if (refreshData.session) {
+          logger.log('Session refreshed successfully:', refreshData.session.user.id);
+        }
         
         // THEN check for existing session
         const { data, error } = await supabase.auth.getSession();
