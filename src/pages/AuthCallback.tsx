@@ -4,6 +4,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from '@/lib/supabase';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('AuthCallback');
 
 const AuthCallback = () => {
   const navigate = useNavigate();
@@ -20,61 +23,25 @@ const AuthCallback = () => {
       if (processingComplete) return;
       
       try {
-        console.log('In AuthCallback, processing...');
+        logger.log('In AuthCallback, processing...');
         
         // Parse the URL parameters to get the returnUrl if present
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
-        console.log(`AuthCallback: Return URL is ${returnUrl}`);
+        logger.log(`AuthCallback: Return URL is ${returnUrl}`);
         
-        // Check if there's a hash in the URL (from OAuth redirect)
+        // Check for hash in URL (from OAuth redirect)
         if (window.location.hash) {
-          console.log('AuthCallback: Found hash in URL');
+          logger.log('AuthCallback: Found hash in URL');
           
           const hashParams = new URLSearchParams(window.location.hash.substring(1));
           if (hashParams.get('error')) {
             throw new Error(hashParams.get('error_description') || 'Authentication error');
           }
-          
-          // If we have an access token in the hash, process it
-          const accessToken = hashParams.get('access_token');
-          const refreshToken = hashParams.get('refresh_token');
-          
-          if (accessToken && refreshToken) {
-            console.log('AuthCallback: Found access and refresh tokens');
-            
-            // Set the session directly
-            const { data, error } = await supabase.auth.setSession({
-              access_token: accessToken,
-              refresh_token: refreshToken
-            });
-            
-            if (error) {
-              throw error;
-            }
-            
-            if (data.session) {
-              console.log('AuthCallback: Session set successfully');
-              
-              if (isActive) {
-                setProcessingComplete(true);
-                toast.success('Successfully signed in!');
-                
-                // Delay redirect slightly to ensure state updates are processed
-                timeoutId = window.setTimeout(() => {
-                  if (isActive) {
-                    console.log(`AuthCallback: Redirecting to ${returnUrl}`);
-                    navigate(returnUrl, { replace: true });
-                  }
-                }, 800);
-              }
-              return;
-            }
-          }
         }
         
-        // If no hash or no tokens, check if we're already authenticated
-        console.log('AuthCallback: Checking for existing session');
+        // Check if we're already authenticated
+        logger.log('AuthCallback: Checking for existing session');
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -83,7 +50,7 @@ const AuthCallback = () => {
         
         if (data?.session) {
           // Authentication successful
-          console.log('AuthCallback: Found existing session');
+          logger.log('AuthCallback: Found session, authentication successful');
           
           if (isActive) {
             setProcessingComplete(true);
@@ -92,14 +59,14 @@ const AuthCallback = () => {
             // Delay redirect slightly to ensure state updates are processed
             timeoutId = window.setTimeout(() => {
               if (isActive) {
-                console.log(`AuthCallback: Redirecting to ${returnUrl}`);
+                logger.log(`AuthCallback: Redirecting to ${returnUrl}`);
                 navigate(returnUrl, { replace: true });
               }
-            }, 800);
+            }, 500);
           }
         } else {
           // No session found, redirect to auth page with return URL preserved
-          console.log('AuthCallback: No session found, redirecting to auth');
+          logger.log('AuthCallback: No session found, redirecting to auth');
           
           if (isActive) {
             setProcessingComplete(true);
@@ -112,7 +79,7 @@ const AuthCallback = () => {
           }
         }
       } catch (err: any) {
-        console.error('Error during auth callback:', err);
+        logger.error('Error during auth callback:', err);
         
         if (isActive) {
           setProcessingComplete(true);
@@ -124,7 +91,7 @@ const AuthCallback = () => {
             if (isActive) {
               navigate('/auth', { replace: true });
             }
-          }, 3000);
+          }, 2000);
         }
       } finally {
         if (isActive) {
@@ -139,7 +106,7 @@ const AuthCallback = () => {
     }
     
     return () => {
-      console.log('AuthCallback: Cleaning up');
+      logger.log('AuthCallback: Cleaning up');
       isActive = false;
       if (timeoutId) window.clearTimeout(timeoutId);
     };

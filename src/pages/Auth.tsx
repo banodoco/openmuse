@@ -6,6 +6,9 @@ import { signInWithDiscord } from '@/lib/auth';
 import { toast } from 'sonner';
 import Navigation from '@/components/Navigation';
 import { supabase } from '@/lib/supabase';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('Auth');
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
@@ -21,14 +24,14 @@ const Auth: React.FC = () => {
     
     const checkSession = async () => {
       try {
-        console.log('Auth page: Checking session');
+        logger.log('Auth page: Checking session');
         
         if (!isActive) return;
         
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {
-          console.error('Auth page: Error checking session:', error);
+          logger.error('Auth page: Error checking session:', error);
           if (isActive) {
             setIsCheckingSession(false);
             setSessionChecked(true);
@@ -37,7 +40,7 @@ const Auth: React.FC = () => {
         }
         
         if (session) {
-          console.log('Auth page: User already has session, redirecting');
+          logger.log('Auth page: User already has session, redirecting');
           if (isActive) {
             const searchParams = new URLSearchParams(location.search);
             const returnUrl = searchParams.get('returnUrl') || '/';
@@ -45,20 +48,20 @@ const Auth: React.FC = () => {
             // Add a slight delay to ensure state is updated before navigation
             timeoutId = window.setTimeout(() => {
               if (isActive) {
-                console.log(`Auth page: Redirecting to ${returnUrl}`);
+                logger.log(`Auth page: Redirecting to ${returnUrl}`);
                 navigate(returnUrl, { replace: true });
               }
-            }, 100);
+            }, 300);
           }
         } else {
-          console.log('Auth page: No session found, showing login form');
+          logger.log('Auth page: No session found, showing login form');
           if (isActive) {
             setIsCheckingSession(false);
             setSessionChecked(true);
           }
         }
       } catch (error) {
-        console.error('Auth page: Error checking session:', error);
+        logger.error('Auth page: Error checking session:', error);
         if (isActive) {
           setIsCheckingSession(false);
           setSessionChecked(true);
@@ -73,7 +76,7 @@ const Auth: React.FC = () => {
     
     // Listen for auth state changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log('Auth state changed in Auth page:', event);
+      logger.log('Auth state changed in Auth page:', event);
       
       if (!isActive) return;
       
@@ -84,15 +87,15 @@ const Auth: React.FC = () => {
         // Add a slight delay to ensure state is updated before navigation
         timeoutId = window.setTimeout(() => {
           if (isActive) {
-            console.log(`Auth page: Auth state changed, redirecting to ${returnUrl}`);
+            logger.log(`Auth page: Auth state changed, redirecting to ${returnUrl}`);
             navigate(returnUrl, { replace: true });
           }
-        }, 100);
+        }, 300);
       }
     });
     
     return () => {
-      console.log('Auth page: Cleaning up');
+      logger.log('Auth page: Cleaning up');
       isActive = false;
       if (timeoutId) window.clearTimeout(timeoutId);
       subscription.unsubscribe();
@@ -101,12 +104,12 @@ const Auth: React.FC = () => {
   
   const handleDiscordSignIn = async () => {
     try {
-      console.log('Auth page: Starting Discord sign-in');
+      logger.log('Auth page: Starting Discord sign-in');
       setIsLoading(true);
       await signInWithDiscord();
       // Note: We don't need to navigate here as the redirect will happen automatically
     } catch (error) {
-      console.error('Error signing in with Discord:', error);
+      logger.error('Error signing in with Discord:', error);
       toast.error('Failed to sign in with Discord');
       setIsLoading(false);
     }
