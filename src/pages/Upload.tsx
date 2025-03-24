@@ -1,10 +1,16 @@
-
 import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from '@/components/ui/select';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import Navigation from '@/components/Navigation';
 import { UploadCloud, Loader2, Info, LockIcon, X, Edit, Plus, FileVideo } from 'lucide-react';
@@ -34,7 +40,10 @@ const formSchema = z.object({
   creatorName: z.string().optional(),
   url: z.string().url({
     message: "Please enter a valid URL.",
-  }).optional().or(z.literal(''))
+  }).optional().or(z.literal('')),
+  model: z.enum(["wan", "hunyuan", "ltxv", "cogvideox", "animatediff"], {
+    required_error: "Please select which model this LoRA is for.",
+  })
 });
 
 // Form schema for individual video metadata
@@ -69,7 +78,8 @@ const Upload: React.FC = () => {
       description: "",
       creator: "self",
       creatorName: "",
-      url: ""
+      url: "",
+      model: "wan"
     },
   });
 
@@ -236,7 +246,8 @@ const Upload: React.FC = () => {
         description: values.description,
         creator: values.creator,
         creatorName: values.creator === 'other' ? values.creatorName : undefined,
-        url: values.url || undefined
+        url: values.url || undefined,
+        model: values.model
       };
       
       for (const file of files) {
@@ -418,6 +429,36 @@ const Upload: React.FC = () => {
                           disabled={!isAuthenticated || uploading}
                         />
                       </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+
+                {/* Model field */}
+                <FormField
+                  control={form.control}
+                  name="model"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Which model is this for?</FormLabel>
+                      <Select 
+                        onValueChange={field.onChange} 
+                        defaultValue={field.value}
+                        disabled={!isAuthenticated || uploading}
+                      >
+                        <FormControl>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select a model" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="wan">Wan</SelectItem>
+                          <SelectItem value="hunyuan">Hunyuan</SelectItem>
+                          <SelectItem value="ltxv">LTXV</SelectItem>
+                          <SelectItem value="cogvideox">CogVideoX</SelectItem>
+                          <SelectItem value="animatediff">Animatediff</SelectItem>
+                        </SelectContent>
+                      </Select>
                       <FormMessage />
                     </FormItem>
                   )}

@@ -1,3 +1,4 @@
+
 export interface VideoEntry {
   id: string;
   video_location: string;
@@ -16,6 +17,7 @@ export interface VideoMetadata {
   creator: 'self' | 'other';
   creatorName?: string;
   url?: string;
+  model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
 }
 
 export interface RecordedVideo {
