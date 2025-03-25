@@ -14,10 +14,20 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, className }) => {
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Create object URL on mount instead of on click
+  useEffect(() => {
+    const url = URL.createObjectURL(file);
+    setObjectUrl(url);
+    
+    // Clean up object URL when component unmounts
+    return () => {
+      if (url) {
+        URL.revokeObjectURL(url);
+      }
+    };
+  }, [file]);
+
   const handlePreviewClick = () => {
-    if (!objectUrl) {
-      setObjectUrl(URL.createObjectURL(file));
-    }
     setIsPlaying(true);
   };
 
@@ -28,21 +38,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, className }) => {
 
   const handleRetry = () => {
     setError(null);
-    if (objectUrl) {
-      URL.revokeObjectURL(objectUrl);
-    }
-    setObjectUrl(URL.createObjectURL(file));
     setIsPlaying(true);
   };
-
-  // Clean up object URL when component unmounts
-  useEffect(() => {
-    return () => {
-      if (objectUrl) {
-        URL.revokeObjectURL(objectUrl);
-      }
-    };
-  }, [objectUrl]);
 
   return (
     <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
@@ -50,7 +47,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, className }) => {
         <VideoPlayer 
           src={objectUrl} 
           controls={true}
-          autoPlay={true}
+          autoPlay={false} // Changed from true to false
           className="w-full h-full object-cover"
           onError={(msg) => handleVideoError(msg)}
         />
