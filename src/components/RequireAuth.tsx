@@ -4,7 +4,7 @@ import { Navigate, useLocation } from 'react-router-dom';
 import { checkIsAdmin, getCurrentUser, signOut } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 
 const logger = new Logger('RequireAuth');
