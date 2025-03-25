@@ -56,7 +56,23 @@ export const useVideoManagement = () => {
       const allEntries = await db.getAllEntries();
       console.log("useVideoManagement: Loaded entries:", allEntries.length);
       
-      setVideos(allEntries);
+      // Transform entries to add isPrimary flag if needed
+      const transformedEntries = allEntries.map(entry => {
+        if (entry.metadata && entry.metadata.assetId) {
+          // Check if this is the primary media for its asset
+          const isPrimary = entry.metadata.isPrimary === true;
+          return {
+            ...entry,
+            metadata: {
+              ...entry.metadata,
+              isPrimary
+            }
+          };
+        }
+        return entry;
+      });
+      
+      setVideos(transformedEntries);
     } catch (error) {
       console.error("useVideoManagement: Error loading videos:", error);
       toast.error("Error loading videos. Please try again.");

@@ -1,17 +1,13 @@
-
-import React, { useState, useCallback } from 'react';
+import React from 'react';
 import { VideoEntry } from '@/lib/types';
-import VideoList from '@/components/VideoList';
-import VideoFilter from '@/components/VideoFilter';
-import EmptyState from '@/components/EmptyState';
-import LoadingState from '@/components/LoadingState';
-import { toast } from 'sonner';
-import { Logger } from '@/lib/logger';
-
-const logger = new Logger('VideoManager');
+import VideoList from './VideoList';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Skeleton } from '@/components/ui/skeleton';
+import { useAuth } from '@/hooks/useAuth';
+import { checkIsAdmin } from '@/lib/auth';
 
 interface VideoManagerProps {
-  videos: VideoEntry[] | undefined;
+  videos: VideoEntry[];
   isLoading: boolean;
   refetchVideos: () => void;
   deleteVideo: (id: string) => Promise<boolean>;
@@ -27,87 +23,157 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   approveVideo,
   rejectVideo
 }) => {
-  const [videoFilter, setVideoFilter] = useState<string>("all");
-  const [userIsBusy, setUserIsBusy] = useState<boolean>(false);
+  const { user } = useAuth();
+  const [isAdmin, setIsAdmin] = React.useState(false);
   
-  const handleDeleteVideo = useCallback(async (id: string) => {
+  // Sort videos to prioritize primary ones
+  const sortedVideos = React.useMemo(() => {
+    return [...videos].sort((a, b) => {
+      // Primary videos first
+      const aPrimary = a.metadata?.isPrimary === true;
+      const bPrimary = b.metadata?.isPrimary === true;
+      
+      if (aPrimary && !bPrimary) return -1;
+      if (!aPrimary && bPrimary) return 1;
+      
+      // Then by creation date (newest first)
+      const aDate = new Date(a.created_at).getTime();
+      const bDate = new Date(b.created_at).getTime();
+      return bDate - aDate;
+    });
+  }, [videos]);
+  
+  // Filter videos by approval status
+  const approvedVideos = sortedVideos.filter(video => video.admin_approved === true);
+  const pendingVideos = sortedVideos.filter(video => video.admin_approved === null);
+  const rejectedVideos = sortedVideos.filter(video => video.admin_approved === false);
+  
+  // Check if user is admin
+  React.useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user?.id) {
+        const adminStatus = await checkIsAdmin(user.id);
+        setIsAdmin(adminStatus);
+      } else {
+        setIsAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [user]);
+  
+  const handleDelete = async (id: string) => {
     try {
-      setUserIsBusy(true);
       await deleteVideo(id);
-      toast.success('Video deleted successfully');
+      refetchVideos();
     } catch (error) {
-      logger.error('Error deleting video:', error);
-      toast.error('Failed to delete video');
-    } finally {
-      setUserIsBusy(false);
+      console.error('Error deleting video:', error);
     }
-  }, [deleteVideo]);
+  };
   
-  const handleApproveVideo = useCallback(async (id: string) => {
+  const handleApprove = async (id: string) => {
     try {
-      setUserIsBusy(true);
       await approveVideo(id);
-      toast.success('Video approved successfully');
+      refetchVideos();
     } catch (error) {
-      logger.error('Error approving video:', error);
-      toast.error('Failed to approve video');
-    } finally {
-      setUserIsBusy(false);
+      console.error('Error approving video:', error);
     }
-  }, [approveVideo]);
+  };
   
-  const handleRejectVideo = useCallback(async (id: string) => {
+  const handleReject = async (id: string) => {
     try {
-      setUserIsBusy(true);
       await rejectVideo(id);
-      toast.success('Video rejected successfully');
+      refetchVideos();
     } catch (error) {
-      logger.error('Error rejecting video:', error);
-      toast.error('Failed to reject video');
-    } finally {
-      setUserIsBusy(false);
+      console.error('Error rejecting video:', error);
     }
-  }, [rejectVideo]);
+  };
   
   if (isLoading) {
-    return <LoadingState text="Loading videos..." />;
-  }
-  
-  const shouldShowEmpty = !videos || videos.length === 0;
-  
-  if (shouldShowEmpty) {
     return (
-      <EmptyState 
-        title="No videos yet" 
-        description="Get started by uploading your first video." 
-        showSignIn={false}
-      />
+      <div className="space-y-4 mt-8">
+        <Skeleton className="h-10 w-[200px]" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <Skeleton className="h-[300px] w-full rounded-xl" />
+          <Skeleton className="h-[300px] w-full rounded-xl" />
+          <Skeleton className="h-[300px] w-full rounded-xl" />
+          <Skeleton className="h-[300px] w-full rounded-xl" />
+        </div>
+      </div>
     );
   }
   
-  const filteredVideos = videoFilter === "all" 
-    ? videos 
-    : videoFilter === "approved" 
-      ? videos.filter(v => v.admin_approved) 
-      : videos.filter(v => !v.admin_approved && !v.skipped);
-  
   return (
-    <>
-      <VideoFilter 
-        videoFilter={videoFilter}
-        setVideoFilter={setVideoFilter}
-        onRefresh={refetchVideos}
-        isDisabled={userIsBusy}
-      />
-      
-      <VideoList 
-        videos={filteredVideos} 
-        onDelete={handleDeleteVideo}
-        onApprove={handleApproveVideo}
-        onReject={handleRejectVideo}
-        refetchData={refetchVideos}
-      />
-    </>
+    <div className="mt-8">
+      <Tabs defaultValue="approved">
+        <TabsList className="mb-4">
+          <TabsTrigger value="approved">
+            Approved ({approvedVideos.length})
+          </TabsTrigger>
+          {isAdmin && (
+            <TabsTrigger value="pending">
+              Pending ({pendingVideos.length})
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="rejected">
+              Rejected ({rejectedVideos.length})
+            </TabsTrigger>
+          )}
+          {isAdmin && (
+            <TabsTrigger value="all">
+              All ({videos.length})
+            </TabsTrigger>
+          )}
+        </TabsList>
+        
+        <TabsContent value="approved">
+          <VideoList
+            videos={approvedVideos}
+            onDelete={handleDelete}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            refetchData={refetchVideos}
+          />
+        </TabsContent>
+        
+        {isAdmin && (
+          <TabsContent value="pending">
+            <VideoList
+              videos={pendingVideos}
+              onDelete={handleDelete}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              refetchData={refetchVideos}
+            />
+          </TabsContent>
+        )}
+        
+        {isAdmin && (
+          <TabsContent value="rejected">
+            <VideoList
+              videos={rejectedVideos}
+              onDelete={handleDelete}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              refetchData={refetchVideos}
+            />
+          </TabsContent>
+        )}
+        
+        {isAdmin && (
+          <TabsContent value="all">
+            <VideoList
+              videos={sortedVideos}
+              onDelete={handleDelete}
+              onApprove={handleApprove}
+              onReject={handleReject}
+              refetchData={refetchVideos}
+            />
+          </TabsContent>
+        )}
+      </Tabs>
+    </div>
   );
 };
 

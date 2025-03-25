@@ -8,6 +8,7 @@ import { useNavigate } from 'react-router-dom';
 import { useVideoManagement } from '@/hooks/useVideoManagement';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
+import PrimaryVideoSorter from '@/components/PrimaryVideoSorter';
 
 const logger = new Logger('Index');
 
@@ -50,14 +51,18 @@ const Index = () => {
             buttonDisabled={isLoading}
           />
           
-          <VideoManager 
-            videos={videos}
-            isLoading={isLoading}
-            refetchVideos={refetchVideos}
-            deleteVideo={deleteVideo}
-            approveVideo={approveVideo}
-            rejectVideo={rejectVideo}
-          />
+          <PrimaryVideoSorter videos={videos}>
+            {(sortedVideos) => (
+              <VideoManager 
+                videos={sortedVideos}
+                isLoading={isLoading}
+                refetchVideos={refetchVideos}
+                deleteVideo={deleteVideo}
+                approveVideo={approveVideo}
+                rejectVideo={rejectVideo}
+              />
+            )}
+          </PrimaryVideoSorter>
         </main>
       </AuthProvider>
     </div>
