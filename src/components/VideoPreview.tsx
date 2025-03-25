@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useRef } from 'react';
 import { FileVideo, Play, AlertCircle } from 'lucide-react';
-import VideoPlayer from './VideoPlayer';
+import VideoPlayer from './video/VideoPlayer';
 import { Button } from './ui/button';
 
 interface VideoPreviewProps {

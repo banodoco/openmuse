@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
-import VideoPlayer from './VideoPlayer';
+import VideoPlayer from './video/VideoPlayer';
 
 interface StorageVideoPlayerProps {
   videoLocation: string;

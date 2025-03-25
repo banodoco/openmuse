@@ -1,11 +1,10 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { videoDB } from '@/lib/db';
 import { VideoEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import Navigation from '@/components/Navigation';
-import VideoPlayer from '@/components/VideoPlayer';
+import VideoPlayer from '@/components/video/VideoPlayer';
 import { ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
 import LoadingState from '@/components/LoadingState';
