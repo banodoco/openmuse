@@ -11,11 +11,12 @@ interface VideoPreviewProps {
 }
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
-  const [isPlaying, setIsPlaying] = useState(false);
+  const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
+  // Set isPlaying to true by default for external links
+  const [isPlaying, setIsPlaying] = useState(isExternalLink);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
-  const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const videoRef = useRef<HTMLVideoElement>(null);
   
   // Function to extract YouTube video ID
