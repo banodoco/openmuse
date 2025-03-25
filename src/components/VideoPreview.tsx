@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { FileVideo, Play, AlertCircle } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -12,18 +11,16 @@ interface VideoPreviewProps {
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
-  const [isPlaying, setIsPlaying] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(true);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
-  // Function to extract YouTube video ID
   const getYoutubeVideoId = (youtubeUrl: string): string | null => {
     if (!youtubeUrl) return null;
     
     let videoId = null;
-    // Standard YouTube URL
     if (youtubeUrl.includes('youtube.com/watch')) {
       try {
         const urlObj = new URL(youtubeUrl);
@@ -32,7 +29,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         console.error('Invalid YouTube URL', e);
       }
     } 
-    // Shortened YouTube URL
     else if (youtubeUrl.includes('youtu.be/')) {
       try {
         videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0];
@@ -44,27 +40,23 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     return videoId;
   };
   
-  // Create object URL on mount if file is provided
   useEffect(() => {
     if (file) {
       const fileUrl = URL.createObjectURL(file);
       setObjectUrl(fileUrl);
       
-      // Generate thumbnail/poster for the video
       if (videoRef.current) {
         videoRef.current.src = fileUrl;
         videoRef.current.currentTime = 0;
         videoRef.current.muted = true;
         videoRef.current.preload = 'metadata';
         
-        // When metadata is loaded, capture the first frame
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
             videoRef.current.currentTime = 0.1;
           }
         };
         
-        // When seeking is complete, capture the frame
         videoRef.current.onseeked = () => {
           try {
             const canvas = document.createElement('canvas');
@@ -83,37 +75,30 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         };
       }
       
-      // Clean up object URL when component unmounts
       return () => {
         if (fileUrl) {
           URL.revokeObjectURL(fileUrl);
         }
       };
     } else if (url) {
-      // Set YouTube thumbnail if it's a YouTube URL
       if (url.includes('youtube.com/') || url.includes('youtu.be/')) {
         const videoId = getYoutubeVideoId(url);
         if (videoId) {
-          // Use high-quality YouTube thumbnail
           setPosterUrl(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
         }
       } else if (!isExternalLink && url.includes('supabase.co')) {
-        // For Supabase-hosted videos, use them directly as objects for thumbnail generation
         setObjectUrl(url);
         
-        // Create a temporary video element to generate thumbnail
         const tempVideo = document.createElement('video');
         tempVideo.crossOrigin = "anonymous";
         tempVideo.src = url;
         tempVideo.muted = true;
         tempVideo.preload = 'metadata';
         
-        // When metadata is loaded, capture the first frame
         tempVideo.onloadedmetadata = () => {
           tempVideo.currentTime = 0.1;
         };
         
-        // When seeking is complete, capture the frame
         tempVideo.onseeked = () => {
           try {
             const canvas = document.createElement('canvas');
@@ -126,7 +111,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
               const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
               setPosterUrl(dataUrl);
               
-              // Clean up the temporary video element
               tempVideo.pause();
               tempVideo.src = '';
               tempVideo.load();
@@ -136,21 +120,17 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           }
         };
         
-        // Handle errors
         tempVideo.onerror = () => {
           console.error('Error loading video for thumbnail generation');
-          // Use default poster if we can't generate a thumbnail
           setPosterUrl(null);
         };
         
-        // Start loading to trigger events
         tempVideo.load();
       } else {
         setObjectUrl(url);
       }
     }
     
-    // Cleanup function
     return () => {
       if (file) {
         if (objectUrl) {
@@ -159,10 +139,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
       }
     };
   }, [file, url, isExternalLink]);
-
-  const handlePreviewClick = () => {
-    setIsPlaying(true);
-  };
 
   const handleVideoError = (errorMessage: string) => {
     setError(errorMessage);
@@ -174,25 +150,21 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     setIsPlaying(true);
   };
 
-  // If neither file nor URL is provided
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  // Extract YouTube/Vimeo video ID and generate embed URL
   const getEmbedUrl = () => {
     if (!url) return null;
     
     let embedUrl = null;
     
-    // YouTube format detection
     if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
       const youtubeId = getYoutubeVideoId(url);
       if (youtubeId) {
         embedUrl = `https://www.youtube.com/embed/${youtubeId}`;
       }
     } 
-    // Vimeo format detection 
     else if (url.includes('vimeo.com/')) {
       const vimeoId = url.split('/').pop()?.split('?')[0];
       if (vimeoId) {
@@ -203,7 +175,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     return embedUrl;
   };
 
-  // Create a hidden video element for thumbnail generation
   const hiddenVideoElement = (
     <video 
       ref={videoRef}
@@ -215,7 +186,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     </video>
   );
 
-  // For external links (YouTube, Vimeo)
   if (isExternalLink) {
     const embedUrl = getEmbedUrl();
     
@@ -224,7 +194,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         {hiddenVideoElement}
         {isPlaying && embedUrl ? (
           <iframe
-            src={embedUrl}
+            src={`${embedUrl}?autoplay=1&mute=1`}
             className="w-full h-full"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -234,7 +204,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         ) : (
           <div 
             className="w-full h-full flex flex-col items-center justify-center bg-muted/70 cursor-pointer"
-            onClick={handlePreviewClick}
+            onClick={() => setIsPlaying(true)}
             style={posterUrl ? {
               backgroundImage: `url(${posterUrl})`,
               backgroundSize: 'cover',
@@ -261,14 +231,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         <VideoPlayer 
           src={objectUrl} 
           controls={true}
-          autoPlay={false}
+          autoPlay={true}
+          muted={true}
           className="w-full h-full object-cover"
           onError={(msg) => handleVideoError(msg)}
+          poster={posterUrl || undefined}
         />
       ) : (
         <div 
           className="flex flex-col items-center justify-center w-full h-full bg-muted/70 cursor-pointer"
-          onClick={handlePreviewClick}
+          onClick={() => setIsPlaying(true)}
           style={posterUrl ? {
             backgroundImage: `url(${posterUrl})`,
             backgroundSize: 'cover',

@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -18,8 +17,8 @@ interface VideoPlayerProps {
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
-  autoPlay = false,
-  muted = false,
+  autoPlay = true,
+  muted = true,
   loop = false,
   className = '',
   controls = true,
@@ -35,15 +34,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [processedSrc, setProcessedSrc] = useState<string>('');
   const [posterImage, setPosterImage] = useState<string | null>(poster || null);
 
-  // Log source changes
   useEffect(() => {
     console.log(`[VideoPlayer] Source changed to: ${src?.substring(0, 30)}...`);
   }, [src]);
 
-  // Generate poster image if not provided and it's a video URL
   useEffect(() => {
     if (!poster && src && !src.startsWith('data:') && !posterImage) {
-      // Attempt to create a poster from the first frame
       const generatePoster = async () => {
         try {
           const video = document.createElement('video');
@@ -69,7 +65,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
                 setPosterImage(dataUrl);
               }
               
-              // Clean up
               video.pause();
               video.src = '';
               video.load();
@@ -138,6 +133,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       console.log(`[VideoPlayer] Video loaded successfully: ${processedSrc.substring(0, 30)}...`);
       setIsLoading(false);
       if (onLoadedData) onLoadedData();
+      
+      if (autoPlay) {
+        video.play().catch(e => {
+          console.warn('[VideoPlayer] Autoplay prevented:', e);
+          if (!muted) {
+            video.muted = true;
+            video.play().catch(e2 => {
+              console.warn('[VideoPlayer] Autoplay prevented even with mute:', e2);
+            });
+          }
+        });
+      }
     };
     
     const handleError = () => {
@@ -181,17 +188,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     try {
       video.src = processedSrc;
-      // If we have a poster image, set it on the video element
       if (posterImage) {
         video.poster = posterImage;
       }
       video.load();
-      
-      if (autoPlay) {
-        video.play().catch(e => {
-          console.warn('[VideoPlayer] Autoplay prevented:', e);
-        });
-      }
     } catch (err) {
       console.error('[VideoPlayer] Error setting up video:', err);
       const errorMessage = `Setup error: ${err}`;
@@ -208,7 +208,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [processedSrc, autoPlay, onLoadedData, videoRef, onError, posterImage]);
+  }, [processedSrc, autoPlay, muted, onLoadedData, videoRef, onError, posterImage]);
 
   const handleRetry = () => {
     const video = videoRef?.current || internalVideoRef.current;
@@ -268,7 +268,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
       
-      {/* If we have a poster image but video isn't loaded yet, show the poster as background */}
       {posterImage && isLoading && (
         <div 
           className="absolute inset-0 bg-cover bg-center"
