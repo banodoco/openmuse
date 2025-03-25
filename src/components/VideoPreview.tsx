@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { FileVideo, Play, AlertCircle, Link as LinkIcon } from 'lucide-react';
+import { FileVideo, Play, AlertCircle } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Button } from './ui/button';
 
@@ -12,8 +12,7 @@ interface VideoPreviewProps {
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
-  // Set isPlaying to true by default for external links
-  const [isPlaying, setIsPlaying] = useState(isExternalLink);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
@@ -98,11 +97,68 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           // Use high-quality YouTube thumbnail
           setPosterUrl(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
         }
+      } else if (!isExternalLink && url.includes('supabase.co')) {
+        // For Supabase-hosted videos, use them directly as objects for thumbnail generation
+        setObjectUrl(url);
+        
+        // Create a temporary video element to generate thumbnail
+        const tempVideo = document.createElement('video');
+        tempVideo.crossOrigin = "anonymous";
+        tempVideo.src = url;
+        tempVideo.muted = true;
+        tempVideo.preload = 'metadata';
+        
+        // When metadata is loaded, capture the first frame
+        tempVideo.onloadedmetadata = () => {
+          tempVideo.currentTime = 0.1;
+        };
+        
+        // When seeking is complete, capture the frame
+        tempVideo.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = tempVideo.videoWidth || 640;
+            canvas.height = tempVideo.videoHeight || 360;
+            const ctx = canvas.getContext('2d');
+            
+            if (ctx) {
+              ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              setPosterUrl(dataUrl);
+              
+              // Clean up the temporary video element
+              tempVideo.pause();
+              tempVideo.src = '';
+              tempVideo.load();
+            }
+          } catch (e) {
+            console.error('Error generating thumbnail:', e);
+          }
+        };
+        
+        // Handle errors
+        tempVideo.onerror = () => {
+          console.error('Error loading video for thumbnail generation');
+          // Use default poster if we can't generate a thumbnail
+          setPosterUrl(null);
+        };
+        
+        // Start loading to trigger events
+        tempVideo.load();
+      } else {
+        setObjectUrl(url);
       }
-      
-      setObjectUrl(url);
     }
-  }, [file, url]);
+    
+    // Cleanup function
+    return () => {
+      if (file) {
+        if (objectUrl) {
+          URL.revokeObjectURL(objectUrl);
+        }
+      }
+    };
+  }, [file, url, isExternalLink]);
 
   const handlePreviewClick = () => {
     setIsPlaying(true);

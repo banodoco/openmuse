@@ -13,6 +13,7 @@ interface VideoPlayerProps {
   onLoadedData?: () => void;
   videoRef?: React.RefObject<HTMLVideoElement>;
   onError?: (message: string) => void;
+  poster?: string;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -25,17 +26,71 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onLoadedData,
   videoRef,
   onError,
+  poster,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [processedSrc, setProcessedSrc] = useState<string>('');
+  const [posterImage, setPosterImage] = useState<string | null>(poster || null);
 
   // Log source changes
   useEffect(() => {
     console.log(`[VideoPlayer] Source changed to: ${src?.substring(0, 30)}...`);
   }, [src]);
+
+  // Generate poster image if not provided and it's a video URL
+  useEffect(() => {
+    if (!poster && src && !src.startsWith('data:') && !posterImage) {
+      // Attempt to create a poster from the first frame
+      const generatePoster = async () => {
+        try {
+          const video = document.createElement('video');
+          video.crossOrigin = 'anonymous';
+          video.src = src;
+          video.muted = true;
+          video.preload = 'metadata';
+          
+          video.onloadedmetadata = () => {
+            video.currentTime = 0.1;
+          };
+          
+          video.onseeked = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = video.videoWidth || 640;
+              canvas.height = video.videoHeight || 360;
+              const ctx = canvas.getContext('2d');
+              
+              if (ctx) {
+                ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                setPosterImage(dataUrl);
+              }
+              
+              // Clean up
+              video.pause();
+              video.src = '';
+              video.load();
+            } catch (e) {
+              console.error('[VideoPlayer] Error generating poster:', e);
+            }
+          };
+          
+          video.onerror = () => {
+            console.error('[VideoPlayer] Error loading video for poster generation');
+          };
+          
+          video.load();
+        } catch (e) {
+          console.error('[VideoPlayer] Error setting up poster generation:', e);
+        }
+      };
+      
+      generatePoster();
+    }
+  }, [src, poster, posterImage]);
 
   useEffect(() => {
     setError(null);
@@ -126,6 +181,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     try {
       video.src = processedSrc;
+      // If we have a poster image, set it on the video element
+      if (posterImage) {
+        video.poster = posterImage;
+      }
       video.load();
       
       if (autoPlay) {
@@ -149,7 +208,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [processedSrc, autoPlay, onLoadedData, videoRef, onError]);
+  }, [processedSrc, autoPlay, onLoadedData, videoRef, onError, posterImage]);
 
   const handleRetry = () => {
     const video = videoRef?.current || internalVideoRef.current;
@@ -209,6 +268,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         </div>
       )}
       
+      {/* If we have a poster image but video isn't loaded yet, show the poster as background */}
+      {posterImage && isLoading && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{ 
+            backgroundImage: `url(${posterImage})`,
+            zIndex: -1 
+          }}
+        />
+      )}
+      
       <video
         ref={videoRef || internalVideoRef}
         className={cn("w-full h-full object-cover", className)}
@@ -217,6 +287,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         loop={loop}
         controls={controls}
         playsInline
+        poster={posterImage || undefined}
       >
         <source src={src} />
         Your browser does not support the video tag.
