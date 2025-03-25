@@ -1,10 +1,12 @@
-import React from 'react';
+
+import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoList from './VideoList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
 import { checkIsAdmin } from '@/lib/auth';
+import VideoFilter from './VideoFilter';
 
 interface VideoManagerProps {
   videos: VideoEntry[];
@@ -25,6 +27,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
 }) => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = React.useState(false);
+  const [videoFilter, setVideoFilter] = useState('all');
   
   // Sort videos to prioritize primary ones
   const sortedVideos = React.useMemo(() => {
@@ -43,7 +46,21 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     });
   }, [videos]);
   
-  // Filter videos by approval status
+  // Filter videos based on the selected filter
+  const filteredVideos = React.useMemo(() => {
+    if (videoFilter === 'all') {
+      return sortedVideos;
+    } else if (videoFilter === 'approved') {
+      return sortedVideos.filter(video => video.admin_approved === true);
+    } else if (videoFilter === 'pending') {
+      return sortedVideos.filter(video => video.admin_approved === null);
+    } else if (videoFilter === 'rejected') {
+      return sortedVideos.filter(video => video.admin_approved === false);
+    }
+    return sortedVideos;
+  }, [sortedVideos, videoFilter]);
+  
+  // For tabs display
   const approvedVideos = sortedVideos.filter(video => video.admin_approved === true);
   const pendingVideos = sortedVideos.filter(video => video.admin_approved === null);
   const rejectedVideos = sortedVideos.filter(video => video.admin_approved === false);
@@ -103,29 +120,62 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     );
   }
   
+  // Render filtered videos directly if not admin
+  if (!isAdmin) {
+    return (
+      <div className="mt-8">
+        <VideoFilter
+          videoFilter={videoFilter}
+          setVideoFilter={setVideoFilter}
+          onRefresh={refetchVideos}
+          isDisabled={isLoading}
+        />
+        <VideoList
+          videos={filteredVideos}
+          onDelete={handleDelete}
+          onApprove={handleApprove}
+          onReject={handleReject}
+          refetchData={refetchVideos}
+        />
+      </div>
+    );
+  }
+  
+  // Render tabs if admin
   return (
     <div className="mt-8">
-      <Tabs defaultValue="approved">
+      <VideoFilter
+        videoFilter={videoFilter}
+        setVideoFilter={setVideoFilter}
+        onRefresh={refetchVideos}
+        isDisabled={isLoading}
+      />
+      
+      <Tabs defaultValue="all" className="mt-4">
         <TabsList className="mb-4">
+          <TabsTrigger value="all">
+            All ({videos.length})
+          </TabsTrigger>
           <TabsTrigger value="approved">
             Approved ({approvedVideos.length})
           </TabsTrigger>
-          {isAdmin && (
-            <TabsTrigger value="pending">
-              Pending ({pendingVideos.length})
-            </TabsTrigger>
-          )}
-          {isAdmin && (
-            <TabsTrigger value="rejected">
-              Rejected ({rejectedVideos.length})
-            </TabsTrigger>
-          )}
-          {isAdmin && (
-            <TabsTrigger value="all">
-              All ({videos.length})
-            </TabsTrigger>
-          )}
+          <TabsTrigger value="pending">
+            Pending ({pendingVideos.length})
+          </TabsTrigger>
+          <TabsTrigger value="rejected">
+            Rejected ({rejectedVideos.length})
+          </TabsTrigger>
         </TabsList>
+        
+        <TabsContent value="all">
+          <VideoList
+            videos={filteredVideos}
+            onDelete={handleDelete}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            refetchData={refetchVideos}
+          />
+        </TabsContent>
         
         <TabsContent value="approved">
           <VideoList
@@ -137,41 +187,25 @@ const VideoManager: React.FC<VideoManagerProps> = ({
           />
         </TabsContent>
         
-        {isAdmin && (
-          <TabsContent value="pending">
-            <VideoList
-              videos={pendingVideos}
-              onDelete={handleDelete}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              refetchData={refetchVideos}
-            />
-          </TabsContent>
-        )}
+        <TabsContent value="pending">
+          <VideoList
+            videos={pendingVideos}
+            onDelete={handleDelete}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            refetchData={refetchVideos}
+          />
+        </TabsContent>
         
-        {isAdmin && (
-          <TabsContent value="rejected">
-            <VideoList
-              videos={rejectedVideos}
-              onDelete={handleDelete}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              refetchData={refetchVideos}
-            />
-          </TabsContent>
-        )}
-        
-        {isAdmin && (
-          <TabsContent value="all">
-            <VideoList
-              videos={sortedVideos}
-              onDelete={handleDelete}
-              onApprove={handleApprove}
-              onReject={handleReject}
-              refetchData={refetchVideos}
-            />
-          </TabsContent>
-        )}
+        <TabsContent value="rejected">
+          <VideoList
+            videos={rejectedVideos}
+            onDelete={handleDelete}
+            onApprove={handleApprove}
+            onReject={handleReject}
+            refetchData={refetchVideos}
+          />
+        </TabsContent>
       </Tabs>
     </div>
   );
