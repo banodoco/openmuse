@@ -152,15 +152,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     setIsPlaying(true);
   };
 
-  // Add hover handlers for the video playback
-  const handleMouseEnter = () => {
-    setIsPlaying(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsPlaying(false);
-  };
-
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
@@ -204,8 +195,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
       <div 
         ref={previewRef}
         className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
+        onMouseEnter={() => setIsPlaying(true)}
+        onMouseLeave={() => setIsPlaying(false)}
       >
         {hiddenVideoElement}
         {isPlaying && embedUrl ? (
@@ -244,15 +235,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
     >
       {hiddenVideoElement}
-      {isPlaying && objectUrl ? (
+      {objectUrl ? (
         <VideoPlayer 
           src={objectUrl} 
-          controls={true}
-          autoPlay={true}
+          controls={false}
+          autoPlay={false}
           muted={true}
           className="w-full h-full object-cover"
           onError={(msg) => handleVideoError(msg)}
@@ -262,7 +251,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
       ) : (
         <div 
           className="flex flex-col items-center justify-center w-full h-full bg-muted/70 cursor-pointer"
-          onClick={() => setIsPlaying(true)}
           style={posterUrl ? {
             backgroundImage: `url(${posterUrl})`,
             backgroundSize: 'cover',

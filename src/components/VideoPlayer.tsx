@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -18,7 +19,7 @@ interface VideoPlayerProps {
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
-  autoPlay = true,
+  autoPlay = false,
   muted = true,
   loop = false,
   className = '',
@@ -41,6 +42,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     console.log(`[VideoPlayer] Source changed to: ${src?.substring(0, 30)}...`);
   }, [src]);
 
+  // Set up hover event handlers
   useEffect(() => {
     if (!playOnHover) return;
     
@@ -60,6 +62,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleMouseLeave = () => {
       if (!video.paused) {
         video.pause();
+        // Reset to the beginning for a consistent preview
+        video.currentTime = 0;
       }
     };
     
@@ -119,6 +123,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsLoading(false);
       if (onLoadedData) onLoadedData();
       
+      // Don't autoplay if we're using hover to play
       if (autoPlay && !playOnHover) {
         video.play().catch(e => {
           console.warn('[VideoPlayer] Autoplay prevented:', e);
@@ -169,9 +174,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('error', handleError);
     
+    // Always pause first to ensure consistent state
     video.pause();
     
     try {
+      video.preload = "auto"; // Ensure video preloads
       video.src = processedSrc;
       if (posterImage) {
         video.poster = posterImage;
@@ -272,6 +279,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         controls={controls}
         playsInline
         poster={posterImage || undefined}
+        preload="metadata"
       >
         <source src={src} />
         Your browser does not support the video tag.

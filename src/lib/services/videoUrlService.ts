@@ -15,6 +15,8 @@ export class VideoUrlService {
     
     // For Supabase URLs, return directly
     if (videoLocation.includes('supabase.co')) {
+      // Still cache it for consistency
+      this.urlCache.set(videoLocation, videoLocation);
       return videoLocation;
     }
     
@@ -42,15 +44,17 @@ export class VideoUrlService {
     } 
     // For regular HTTP URLs
     else if (videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) {
-      // No transformation needed for regular URLs
+      // Cache the URL for consistency
+      this.urlCache.set(videoLocation, videoLocation);
       return videoLocation;
     }
     // For blob URLs, just return as is
     else if (videoLocation.startsWith('blob:')) {
+      // Don't cache blob URLs as they're already ephemeral
       return videoLocation;
     }
     
-    // Default case
+    // Default case - return as is but don't cache
     return videoLocation;
   }
   

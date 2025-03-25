@@ -18,7 +18,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   className,
   controls = true,
   autoPlay = false,
-  muted = false,
+  muted = true,
   loop = false,
   playOnHover = false
 }) => {
