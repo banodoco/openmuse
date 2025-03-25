@@ -32,7 +32,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   videos, 
   setVideos 
 }) => {
-  // Initial empty video metadata
   const initialMetadata: VideoMetadataForm = {
     title: '',
     description: '',
@@ -42,19 +41,15 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     isPrimary: false,
   };
 
-  // Ensure only one primary video is selected
   React.useEffect(() => {
     const primaryCount = videos.filter(v => v.metadata.isPrimary).length;
     
-    // If no video is set as primary and we have videos, set the first one as primary
     if (primaryCount === 0 && videos.length > 0) {
       setVideos(prev => prev.map((video, index) => 
         index === 0 ? { ...video, metadata: { ...video.metadata, isPrimary: true } } : video
       ));
     }
-    // If multiple videos are set as primary, keep only the most recently selected one
     else if (primaryCount > 1) {
-      // Find the most recently selected primary video (last one in the array with isPrimary=true)
       const lastPrimaryIndex = [...videos].reverse().findIndex(v => v.metadata.isPrimary);
       if (lastPrimaryIndex !== -1) {
         const actualIndex = videos.length - 1 - lastPrimaryIndex;
@@ -80,13 +75,10 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       return;
     }
     
-    // Check if removing the primary video
     const isRemovingPrimary = videos.find(v => v.id === id)?.metadata.isPrimary;
     
-    // Remove the video
     const updatedVideos = videos.filter(video => video.id !== id);
     
-    // If we removed the primary video, set the first remaining video as primary
     if (isRemovingPrimary && updatedVideos.length > 0) {
       updatedVideos[0].metadata.isPrimary = true;
     }
@@ -95,7 +87,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: keyof VideoMetadataForm, value: any) => {
-    // If setting a video as primary, unset all others
     if (field === 'isPrimary' && value === true) {
       setVideos(prev => 
         prev.map(video => 
@@ -127,12 +118,10 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         const url = URL.createObjectURL(file);
         console.log("Created URL:", url);
         
-        // Extract filename without extension to use as default title
         const fileName = file.name;
         const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
         const defaultTitle = fileNameWithoutExtension || fileName;
         
-        // Update the state with file, url, and default title
         setVideos(prev => 
           prev.map(video => 
             video.id === id 
@@ -156,11 +145,9 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     return (linkUrl: string) => {
       console.log("Link added:", linkUrl);
       
-      // Extract video title from URL
       let defaultTitle = '';
       
       try {
-        // For YouTube links, try to extract the video ID or use the URL
         if (linkUrl.includes('youtube.com/') || linkUrl.includes('youtu.be/')) {
           const url = new URL(linkUrl);
           const videoId = url.searchParams.get('v') || 
@@ -168,23 +155,19 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                           'YouTube Video';
           defaultTitle = `YouTube Video - ${videoId}`;
         } 
-        // For Vimeo links
         else if (linkUrl.includes('vimeo.com/')) {
           const videoId = linkUrl.split('/').pop() || 'Vimeo Video';
           defaultTitle = `Vimeo Video - ${videoId}`;
         }
-        // For direct video links
         else {
           const fileName = linkUrl.split('/').pop() || 'Video';
           const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
           defaultTitle = fileNameWithoutExtension || fileName;
         }
       } catch (e) {
-        // If URL parsing fails, use a generic title
         defaultTitle = 'External Video';
       }
       
-      // Update the state with the video URL
       setVideos(prev => 
         prev.map(video => 
           video.id === id 
@@ -243,43 +226,25 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
               </div>
             ) : (
               <div className="space-y-6">
-                {video.file ? (
-                  <div className="relative">
-                    <VideoPreview 
-                      file={video.file} 
-                      className="w-full mx-auto"
-                    />
-                    <div className="absolute top-2 right-2">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleRemoveVideoFile(video.id)}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
+                <div className="relative">
+                  <VideoPreview 
+                    file={video.file} 
+                    url={video.url}
+                    className="w-full mx-auto"
+                    aspectRatio={16/9}
+                  />
+                  <div className="absolute top-2 right-2">
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleRemoveVideoFile(video.id)}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
                   </div>
-                ) : video.url ? (
-                  <div className="relative">
-                    <VideoPreview 
-                      url={video.url} 
-                      className="w-full mx-auto"
-                    />
-                    <div className="absolute top-2 right-2">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleRemoveVideoFile(video.id)}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
+                </div>
                 
                 <div className="mt-4">
                   <VideoMetadataForm

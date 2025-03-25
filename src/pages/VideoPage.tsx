@@ -10,6 +10,7 @@ import { toast } from 'sonner';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 const VideoPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -108,14 +109,15 @@ const VideoPage: React.FC = () => {
         </div>
         
         <div className="bg-card shadow-md rounded-lg overflow-hidden">
-          <div className="aspect-video w-full">
+          <AspectRatio ratio={16/9}>
             <VideoPlayer 
               src={video.video_location} 
               controls
               onLoadedData={handleVideoLoaded}
               muted={false}
+              className="w-full h-full object-cover"
             />
-          </div>
+          </AspectRatio>
         </div>
       </main>
     </div>
