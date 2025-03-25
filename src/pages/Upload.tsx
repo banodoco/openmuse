@@ -211,6 +211,14 @@ const Upload: React.FC = () => {
     };
   };
   
+  const handleRemoveVideoFile = (id: string) => {
+    setVideos(prev => 
+      prev.map(video => 
+        video.id === id ? { ...video, file: null, url: null } : video
+      )
+    );
+  };
+  
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
@@ -438,16 +446,39 @@ const Upload: React.FC = () => {
                 ) : (
                   <div className="space-y-6">
                     {video.file ? (
-                      <VideoPreview 
-                        file={video.file} 
-                        className="w-full mx-auto"
-                      />
+                      <div className="relative">
+                        <VideoPreview 
+                          file={video.file} 
+                          className="w-full mx-auto"
+                        />
+                        <div className="absolute top-2 right-2">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRemoveVideoFile(video.id)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Remove
+                          </Button>
+                        </div>
+                      </div>
                     ) : video.url ? (
-                      <div className="w-full aspect-video flex flex-col items-center justify-center bg-muted/50 rounded-md overflow-hidden">
-                        <LinkIcon className="h-12 w-12 text-muted-foreground mb-2" />
-                        <div className="text-center px-4">
-                          <p className="text-sm font-medium mb-1 break-all">{video.url}</p>
-                          <p className="text-xs text-muted-foreground">External video link</p>
+                      <div className="relative">
+                        <VideoPreview 
+                          url={video.url} 
+                          className="w-full mx-auto"
+                        />
+                        <div className="absolute top-2 right-2">
+                          <Button
+                            type="button"
+                            variant="destructive"
+                            size="sm"
+                            onClick={() => handleRemoveVideoFile(video.id)}
+                          >
+                            <X className="h-4 w-4 mr-1" />
+                            Remove
+                          </Button>
                         </div>
                       </div>
                     ) : null}

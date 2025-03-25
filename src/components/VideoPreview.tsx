@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { FileVideo, Play, AlertCircle, Link as LinkIcon } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Button } from './ui/button';
@@ -14,13 +14,48 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
+  const videoRef = useRef<HTMLVideoElement>(null);
   
   // Create object URL on mount if file is provided
   useEffect(() => {
     if (file) {
       const fileUrl = URL.createObjectURL(file);
       setObjectUrl(fileUrl);
+      
+      // Generate thumbnail/poster for the video
+      if (videoRef.current) {
+        videoRef.current.src = fileUrl;
+        videoRef.current.currentTime = 0;
+        videoRef.current.muted = true;
+        videoRef.current.preload = 'metadata';
+        
+        // When metadata is loaded, capture the first frame
+        videoRef.current.onloadedmetadata = () => {
+          if (videoRef.current) {
+            videoRef.current.currentTime = 0.1;
+          }
+        };
+        
+        // When seeking is complete, capture the frame
+        videoRef.current.onseeked = () => {
+          try {
+            const canvas = document.createElement('canvas');
+            canvas.width = videoRef.current?.videoWidth || 640;
+            canvas.height = videoRef.current?.videoHeight || 360;
+            const ctx = canvas.getContext('2d');
+            
+            if (ctx && videoRef.current) {
+              ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              setPosterUrl(dataUrl);
+            }
+          } catch (e) {
+            console.error('Error generating thumbnail:', e);
+          }
+        };
+      }
       
       // Clean up object URL when component unmounts
       return () => {
@@ -79,12 +114,25 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     return embedUrl;
   };
 
+  // Create a hidden video element for thumbnail generation
+  const hiddenVideoElement = (
+    <video 
+      ref={videoRef}
+      style={{ display: 'none' }}
+      muted
+      playsInline
+    >
+      {file && <source src={URL.createObjectURL(file)} />}
+    </video>
+  );
+
   // For external links (YouTube, Vimeo)
   if (isExternalLink) {
     const embedUrl = getEmbedUrl();
     
     return (
       <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
+        {hiddenVideoElement}
         {isPlaying && embedUrl ? (
           <iframe
             src={embedUrl}
@@ -114,6 +162,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
 
   return (
     <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
+      {hiddenVideoElement}
       {isPlaying && objectUrl ? (
         <VideoPlayer 
           src={objectUrl} 
@@ -126,11 +175,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         <div 
           className="flex flex-col items-center justify-center w-full h-full bg-muted/70 cursor-pointer"
           onClick={handlePreviewClick}
+          style={posterUrl ? {
+            backgroundImage: `url(${posterUrl})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          } : {}}
         >
           <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
             <Play className="h-6 w-6 text-white" />
           </div>
-          <div className="mt-2 text-xs text-muted-foreground flex items-center">
+          <div className="mt-2 text-xs text-muted-foreground flex items-center bg-black/50 px-2 py-1 rounded">
             <FileVideo className="h-3 w-3 mr-1" />
             Preview
           </div>

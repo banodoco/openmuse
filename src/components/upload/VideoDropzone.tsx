@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload as UploadIcon, Link as LinkIcon } from 'lucide-react';
+import { Upload as UploadIcon, Link as LinkIcon, X } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
@@ -12,9 +12,17 @@ interface VideoDropzoneProps {
   url: string | null;
   onDrop: (acceptedFiles: File[]) => void;
   onLinkAdded?: (link: string) => void;
+  onRemove?: () => void;
 }
 
-const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop, onLinkAdded }) => {
+const VideoDropzone: React.FC<VideoDropzoneProps> = ({ 
+  id, 
+  file, 
+  url, 
+  onDrop, 
+  onLinkAdded, 
+  onRemove 
+}) => {
   // Log props to make sure they're being passed correctly
   console.log(`VideoDropzone props - id: ${id}, file: ${file ? 'present' : 'null'}, url: ${url}`);
   
@@ -61,6 +69,12 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop, on
       setShowLinkInput(false);
     }
   };
+
+  const handleRemoveVideo = () => {
+    if (onRemove) {
+      onRemove();
+    }
+  };
   
   // Prevent nested form issue by using a div instead
   if (showLinkInput) {
@@ -90,6 +104,24 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop, on
         <p className="text-xs text-muted-foreground mt-3">
           Supported: YouTube, Vimeo, or direct video links (.mp4, .webm, etc.)
         </p>
+      </div>
+    );
+  }
+  
+  // If a file or URL is already selected, add a remove button
+  if (file || url) {
+    return (
+      <div className="w-full">
+        <Button 
+          type="button" 
+          variant="destructive" 
+          size="sm" 
+          onClick={handleRemoveVideo}
+          className="mb-2"
+        >
+          <X className="h-4 w-4 mr-2" />
+          Remove Video
+        </Button>
       </div>
     );
   }
