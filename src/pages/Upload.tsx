@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -25,20 +24,20 @@ const logger = new Logger('Upload');
 interface VideoMetadataForm {
   title: string;
   description: string;
-  creator: 'self' | 'someone_else';
-  creatorName: string;
   classification: 'art' | 'gen';
-  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
 }
 
 // Interface for global LoRA details
 interface LoRADetailsForm {
   loraName: string;
   loraDescription: string;
+  creator: 'self' | 'someone_else';
+  creatorName: string;
   baseModel: string;
   trainingSteps: string;
   resolution: string;
   trainingDataset: string;
+  model: string;
 }
 
 // Interface for a video item in the upload form
@@ -61,20 +60,20 @@ const Upload: React.FC = () => {
   const initialMetadata: VideoMetadataForm = {
     title: '',
     description: '',
-    creator: 'self',
-    creatorName: '',
     classification: 'gen',
-    model: 'wan',
   };
   
   // Global LoRA details
   const [loraDetails, setLoraDetails] = useState<LoRADetailsForm>({
     loraName: '',
     loraDescription: '',
+    creator: 'self',
+    creatorName: '',
     baseModel: '',
     trainingSteps: '',
     resolution: '',
-    trainingDataset: ''
+    trainingDataset: '',
+    model: 'wan'
   });
   
   // State for multiple videos
@@ -167,20 +166,15 @@ const Upload: React.FC = () => {
       return;
     }
 
-    // Validate if creator name is provided for "someone_else"
-    const missingCreatorName = videos.filter(
-      video => video.file && 
-      video.metadata.creator === 'someone_else' && 
-      !video.metadata.creatorName
-    );
-    if (missingCreatorName.length > 0) {
-      toast.error('Please provide the creator name for videos not created by you');
-      return;
-    }
-    
     // Validate LoRA details
     if (!loraDetails.loraName) {
       toast.error('Please provide a LoRA name');
+      return;
+    }
+    
+    // Validate if creator name is provided for "someone_else"
+    if (loraDetails.creator === 'someone_else' && !loraDetails.creatorName) {
+      toast.error('Please provide the creator name for the LoRA');
       return;
     }
     
@@ -192,7 +186,7 @@ const Upload: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      const db = await databaseSwitcher.getDatabase();
+      const db = await videoDB;
       const reviewerName = user?.email || nameInput;
       
       // Submit each video with its own metadata but shared LoRA details
@@ -202,11 +196,11 @@ const Upload: React.FC = () => {
         const videoMetadata: VideoMetadata = {
           title: video.metadata.title,
           description: video.metadata.description,
-          creator: video.metadata.creator,
-          creatorName: video.metadata.creator === 'someone_else' ? video.metadata.creatorName : undefined,
           classification: video.metadata.classification,
-          model: video.metadata.model,
           // Include LoRA details from the global section
+          creator: loraDetails.creator,
+          creatorName: loraDetails.creator === 'someone_else' ? loraDetails.creatorName : undefined,
+          model: loraDetails.model,
           loraName: loraDetails.loraName,
           loraDescription: loraDetails.loraDescription,
           baseModel: loraDetails.baseModel,
