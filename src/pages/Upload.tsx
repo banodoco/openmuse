@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -135,11 +134,25 @@ const Upload: React.FC = () => {
       if (file) {
         const url = URL.createObjectURL(file);
         console.log("Created URL:", url);
-        // Update the state with both file and url in one update
+        
+        // Extract filename without extension to use as default title
+        const fileName = file.name;
+        const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
+        const defaultTitle = fileNameWithoutExtension || fileName;
+        
+        // Update the state with file, url, and default title
         setVideos(prev => 
           prev.map(video => 
             video.id === id 
-              ? { ...video, file: file, url: url } 
+              ? { 
+                  ...video, 
+                  file: file, 
+                  url: url,
+                  metadata: {
+                    ...video.metadata,
+                    title: defaultTitle
+                  }
+                } 
               : video
           )
         );
