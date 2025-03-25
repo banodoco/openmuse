@@ -26,6 +26,8 @@ interface VideoMetadataForm {
   title: string;
   description: string;
   classification: 'art' | 'gen';
+  creator: 'self' | 'someone_else';
+  creatorName: string;
 }
 
 // Interface for global LoRA details
@@ -62,6 +64,8 @@ const Upload: React.FC = () => {
     title: '',
     description: '',
     classification: 'gen',
+    creator: 'self',
+    creatorName: '',
   };
   
   // Global LoRA details
@@ -179,6 +183,15 @@ const Upload: React.FC = () => {
       return;
     }
     
+    // Validate if creator name is provided for "someone_else" for each video
+    const missingCreatorNames = videos.filter(
+      video => video.file && video.metadata.creator === 'someone_else' && !video.metadata.creatorName
+    );
+    if (missingCreatorNames.length > 0) {
+      toast.error('Please provide the creator name for all videos created by someone else');
+      return;
+    }
+
     if (!termsAccepted) {
       toast.error('Please accept the terms and conditions');
       return;
@@ -198,9 +211,10 @@ const Upload: React.FC = () => {
           title: video.metadata.title,
           description: video.metadata.description,
           classification: video.metadata.classification,
+          // Use video-specific creator information
+          creator: video.metadata.creator,
+          creatorName: video.metadata.creator === 'someone_else' ? video.metadata.creatorName : undefined,
           // Include LoRA details from the global section
-          creator: loraDetails.creator,
-          creatorName: loraDetails.creator === 'someone_else' ? loraDetails.creatorName : undefined,
           model: loraDetails.model,
           loraName: loraDetails.loraName,
           loraDescription: loraDetails.loraDescription,

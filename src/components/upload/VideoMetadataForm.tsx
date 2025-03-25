@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 interface VideoMetadataFormProps {
   videoId: string;
@@ -11,6 +12,8 @@ interface VideoMetadataFormProps {
     title: string;
     description: string;
     classification: 'art' | 'gen';
+    creator: 'self' | 'someone_else';
+    creatorName: string;
   };
   updateMetadata: (id: string, field: string, value: any) => void;
 }
@@ -41,6 +44,38 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ videoId, metadata
           onChange={(e) => updateMetadata(videoId, 'description', e.target.value)}
         />
       </div>
+      
+      <div>
+        <Label className="block mb-2">Was this made by you or someone else?</Label>
+        <RadioGroup 
+          value={metadata.creator}
+          onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
+          className="flex flex-col space-y-1"
+        >
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="self" id={`video-creator-self-${videoId}`} />
+            <Label htmlFor={`video-creator-self-${videoId}`}>Me</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="someone_else" id={`video-creator-someone-${videoId}`} />
+            <Label htmlFor={`video-creator-someone-${videoId}`}>Someone else</Label>
+          </div>
+        </RadioGroup>
+      </div>
+      
+      {metadata.creator === 'someone_else' && (
+        <div>
+          <Label htmlFor={`video-creator-name-${videoId}`}>Who?</Label>
+          <Input
+            type="text"
+            id={`video-creator-name-${videoId}`}
+            placeholder="Enter creator's name"
+            value={metadata.creatorName}
+            onChange={(e) => updateMetadata(videoId, 'creatorName', e.target.value)}
+            required={metadata.creator === 'someone_else'}
+          />
+        </div>
+      )}
       
       <div>
         <Label htmlFor={`classification-${videoId}`}>How would you classify this?</Label>
