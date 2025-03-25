@@ -1,4 +1,3 @@
-
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -36,11 +35,7 @@ interface LoRADetailsForm {
   loraDescription: string;
   creator: 'self' | 'someone_else';
   creatorName: string;
-  baseModel: string;
-  trainingSteps: string;
-  resolution: string;
-  trainingDataset: string;
-  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'; // Update to use the union type instead of string
+  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
 }
 
 // Interface for a video item in the upload form
@@ -74,11 +69,7 @@ const Upload: React.FC = () => {
     loraDescription: '',
     creator: 'self',
     creatorName: '',
-    baseModel: '',
-    trainingSteps: '',
-    resolution: '',
-    trainingDataset: '',
-    model: 'wan' // Using a valid value from the union type
+    model: 'wan'
   });
   
   // State for multiple videos
@@ -200,7 +191,7 @@ const Upload: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      const db = videoDB; // Remove the await since videoDB is not a promise
+      const db = videoDB;
       const reviewerName = user?.email || nameInput;
       
       // Submit each video with its own metadata but shared LoRA details
@@ -211,17 +202,11 @@ const Upload: React.FC = () => {
           title: video.metadata.title,
           description: video.metadata.description,
           classification: video.metadata.classification,
-          // Use video-specific creator information
           creator: video.metadata.creator,
           creatorName: video.metadata.creator === 'someone_else' ? video.metadata.creatorName : undefined,
-          // Include LoRA details from the global section
           model: loraDetails.model,
           loraName: loraDetails.loraName,
-          loraDescription: loraDetails.loraDescription,
-          baseModel: loraDetails.baseModel,
-          trainingSteps: loraDetails.trainingSteps,
-          resolution: loraDetails.resolution,
-          trainingDataset: loraDetails.trainingDataset
+          loraDescription: loraDetails.loraDescription
         };
         
         const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -232,7 +217,6 @@ const Upload: React.FC = () => {
           metadata: videoMetadata
         };
         
-        // Use addEntry instead of createEntry as it's the correct method name in the VideoDB class
         await db.addEntry(newEntry);
       }
       

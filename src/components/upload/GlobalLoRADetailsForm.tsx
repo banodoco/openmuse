@@ -11,11 +11,7 @@ interface LoRADetailsForm {
   loraDescription: string;
   creator: 'self' | 'someone_else';
   creatorName: string;
-  baseModel: string;
-  trainingSteps: string;
-  resolution: string;
-  trainingDataset: string;
-  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'; // Ensure this matches the types in the VideoMetadata interface
+  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
 }
 
 interface GlobalLoRADetailsFormProps {
@@ -87,17 +83,6 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
       
       <div className="space-y-4">
         <div>
-          <Label htmlFor="base-model">Base Model</Label>
-          <Input
-            type="text"
-            id="base-model"
-            placeholder="Enter base model"
-            value={loraDetails.baseModel}
-            onChange={(e) => updateLoRADetails('baseModel', e.target.value)}
-          />
-        </div>
-        
-        <div>
           <Label htmlFor="lora-model">Which model was this trained on?</Label>
           <Select 
             value={loraDetails.model} 
@@ -114,38 +99,6 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
               <SelectItem value="animatediff">AnimateDiff</SelectItem>
             </SelectContent>
           </Select>
-        </div>
-        
-        <div>
-          <Label htmlFor="training-steps">Training Steps</Label>
-          <Input
-            type="text"
-            id="training-steps"
-            placeholder="Enter training steps"
-            value={loraDetails.trainingSteps}
-            onChange={(e) => updateLoRADetails('trainingSteps', e.target.value)}
-          />
-        </div>
-        
-        <div>
-          <Label htmlFor="resolution">Resolution</Label>
-          <Input
-            type="text"
-            id="resolution"
-            placeholder="e.g., 512x512"
-            value={loraDetails.resolution}
-            onChange={(e) => updateLoRADetails('resolution', e.target.value)}
-          />
-        </div>
-        
-        <div>
-          <Label htmlFor="training-dataset">Training Dataset</Label>
-          <Textarea
-            id="training-dataset"
-            placeholder="Enter training dataset details"
-            value={loraDetails.trainingDataset}
-            onChange={(e) => updateLoRADetails('trainingDataset', e.target.value)}
-          />
         </div>
       </div>
     </div>
