@@ -1,7 +1,7 @@
 
 import { supabaseDB } from './supabaseDB';
 import { getCurrentUser, signOut } from './auth';
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Logger } from './logger';
 import { toast } from 'sonner';
 

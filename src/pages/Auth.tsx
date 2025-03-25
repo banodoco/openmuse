@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { signInWithDiscord } from '@/lib/auth';
 import { toast } from 'sonner';
 import Navigation from '@/components/Navigation';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 
 const logger = new Logger('Auth');

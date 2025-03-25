@@ -1,10 +1,9 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { toast } from 'sonner';
 import { getCurrentUser } from '@/lib/auth';
-import { supabase } from '@/lib/supabase';
+import { supabase } from '@/integrations/supabase/client';
 
 export const useVideoManagement = () => {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
