@@ -5,24 +5,33 @@ import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
 import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
 import StandardVideoPreview from './video/StandardVideoPreview';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface VideoPreviewProps {
   file?: File;
   url?: string;
   className?: string;
   onLoad?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  aspectRatio?: number;
 }
 
 /**
  * VideoPreview component for displaying video previews with thumbnail generation
  * and play on hover functionality.
  */
-const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, onLoad }) => {
+const VideoPreview: React.FC<VideoPreviewProps> = ({ 
+  file, 
+  url, 
+  className, 
+  onLoad,
+  aspectRatio = 16/9
+}) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(aspectRatio);
   const previewRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -55,8 +64,29 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, onLoa
     setPosterUrl(thumbnailUrl);
   };
 
+  const handleVideoLoaded = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.currentTarget;
+    if (video.videoWidth && video.videoHeight) {
+      const ratio = video.videoWidth / video.videoHeight;
+      // Only update if significantly different to avoid flickering
+      if (Math.abs(ratio - videoAspectRatio) > 0.1) {
+        setVideoAspectRatio(ratio);
+      }
+    }
+    
+    if (onLoad) {
+      onLoad(event);
+    }
+  };
+
   if (!file && !url) {
-    return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
+    return (
+      <AspectRatio ratio={aspectRatio} className={`bg-muted rounded-md ${className}`}>
+        <div className="flex items-center justify-center w-full h-full">
+          <span>No video source</span>
+        </div>
+      </AspectRatio>
+    );
   }
 
   return (
@@ -78,13 +108,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, onLoa
           isPlaying={isPlaying}
           posterUrl={posterUrl}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
+          aspectRatio={videoAspectRatio}
         />
       ) : (
         <StandardVideoPreview 
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
-          onLoad={onLoad}
+          onLoad={handleVideoLoaded}
+          aspectRatio={videoAspectRatio}
         />
       )}
 

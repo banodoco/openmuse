@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import VideoPlayer from './video/VideoPlayer';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface StorageVideoPlayerProps {
   videoLocation: string;
@@ -11,6 +12,7 @@ interface StorageVideoPlayerProps {
   muted?: boolean;
   loop?: boolean;
   playOnHover?: boolean;
+  aspectRatio?: number;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
@@ -20,11 +22,13 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   autoPlay = false,
   muted = true,
   loop = false,
-  playOnHover = false
+  playOnHover = false,
+  aspectRatio = 16/9
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [videoAspectRatio, setVideoAspectRatio] = useState<number>(aspectRatio);
 
   useEffect(() => {
     let isMounted = true;
@@ -70,24 +74,46 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
     };
   }, [videoLocation]);
 
+  const handleVideoLoaded = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.currentTarget;
+    if (video.videoWidth && video.videoHeight) {
+      const ratio = video.videoWidth / video.videoHeight;
+      // Only update if significantly different to avoid flickering
+      if (Math.abs(ratio - videoAspectRatio) > 0.1) {
+        setVideoAspectRatio(ratio);
+      }
+    }
+  };
+
   if (loading) {
-    return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
+    return (
+      <AspectRatio ratio={aspectRatio} className="bg-secondary/30 rounded-lg">
+        <div className="flex items-center justify-center h-full">Loading video...</div>
+      </AspectRatio>
+    );
   }
 
   if (error) {
-    return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg text-destructive">{error}</div>;
+    return (
+      <AspectRatio ratio={aspectRatio} className="bg-secondary/30 rounded-lg">
+        <div className="flex items-center justify-center h-full text-destructive">{error}</div>
+      </AspectRatio>
+    );
   }
 
   return (
-    <VideoPlayer
-      src={videoUrl}
-      className={className}
-      controls={controls}
-      autoPlay={autoPlay}
-      muted={muted}
-      loop={loop}
-      playOnHover={playOnHover}
-    />
+    <AspectRatio ratio={videoAspectRatio} className="overflow-hidden">
+      <VideoPlayer
+        src={videoUrl}
+        className={className}
+        controls={controls}
+        autoPlay={autoPlay}
+        muted={muted}
+        loop={loop}
+        playOnHover={playOnHover}
+        onLoadedData={handleVideoLoaded}
+      />
+    </AspectRatio>
   );
 };
 
