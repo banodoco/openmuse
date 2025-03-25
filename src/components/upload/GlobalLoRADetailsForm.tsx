@@ -15,7 +15,7 @@ interface LoRADetailsForm {
   trainingSteps: string;
   resolution: string;
   trainingDataset: string;
-  model: string;
+  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'; // Ensure this matches the types in the VideoMetadata interface
 }
 
 interface GlobalLoRADetailsFormProps {
@@ -101,7 +101,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
           <Label htmlFor="lora-model">Which model was this trained on?</Label>
           <Select 
             value={loraDetails.model} 
-            onValueChange={(value) => updateLoRADetails('model', value)}
+            onValueChange={(value: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff') => updateLoRADetails('model', value)}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select Model" />

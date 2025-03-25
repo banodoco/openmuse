@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -37,7 +38,7 @@ interface LoRADetailsForm {
   trainingSteps: string;
   resolution: string;
   trainingDataset: string;
-  model: string;
+  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'; // Update to use the union type instead of string
 }
 
 // Interface for a video item in the upload form
@@ -73,7 +74,7 @@ const Upload: React.FC = () => {
     trainingSteps: '',
     resolution: '',
     trainingDataset: '',
-    model: 'wan'
+    model: 'wan' // Using a valid value from the union type
   });
   
   // State for multiple videos
@@ -186,7 +187,7 @@ const Upload: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      const db = await videoDB;
+      const db = videoDB; // Remove the await since videoDB is not a promise
       const reviewerName = user?.email || nameInput;
       
       // Submit each video with its own metadata but shared LoRA details
@@ -217,7 +218,8 @@ const Upload: React.FC = () => {
           metadata: videoMetadata
         };
         
-        await db.createEntry(newEntry);
+        // Use addEntry instead of createEntry as it's the correct method name in the VideoDB class
+        await db.addEntry(newEntry);
       }
       
       const message = videos.filter(v => v.file).length > 1 
