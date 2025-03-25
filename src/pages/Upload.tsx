@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -269,50 +270,52 @@ const Upload: React.FC = () => {
           {/* Videos Section */}
           <h2 className="text-xl font-semibold">Videos</h2>
           
-          {videos.map((video, index) => (
-            <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4 mb-8">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold">Video {index + 1}</h3>
-                {videos.length > 1 && (
-                  <Button 
-                    type="button"
-                    variant="ghost" 
-                    size="sm" 
-                    onClick={() => handleRemoveVideo(video.id)}
-                  >
-                    <X className="h-4 w-4 mr-1" />
-                    Remove
-                  </Button>
-                )}
-              </div>
-              
-              {!video.file ? (
-                <div className="w-full flex justify-center">
-                  <VideoDropzoneComponent 
-                    id={video.id} 
-                    file={video.file} 
-                    url={video.url} 
-                    onDrop={handleVideoFileDrop(video.id)} 
-                  />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {videos.map((video, index) => (
+              <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
+                <div className="flex justify-between items-center mb-4">
+                  <h3 className="text-lg font-semibold">Video {index + 1}</h3>
+                  {videos.length > 1 && (
+                    <Button 
+                      type="button"
+                      variant="ghost" 
+                      size="sm" 
+                      onClick={() => handleRemoveVideo(video.id)}
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remove
+                    </Button>
+                  )}
                 </div>
-              ) : (
-                <div className="space-y-6">
-                  <VideoPreview 
-                    file={video.file} 
-                    className="w-full md:w-2/3 mx-auto"
-                  />
-                  
-                  <div className="mt-4">
-                    <VideoMetadataForm
-                      videoId={video.id}
-                      metadata={video.metadata}
-                      updateMetadata={updateVideoMetadata}
+                
+                {!video.file ? (
+                  <div className="w-full flex justify-center">
+                    <VideoDropzoneComponent 
+                      id={video.id} 
+                      file={video.file} 
+                      url={video.url} 
+                      onDrop={handleVideoFileDrop(video.id)} 
                     />
                   </div>
-                </div>
-              )}
-            </div>
-          ))}
+                ) : (
+                  <div className="space-y-6">
+                    <VideoPreview 
+                      file={video.file} 
+                      className="w-full mx-auto"
+                    />
+                    
+                    <div className="mt-4">
+                      <VideoMetadataForm
+                        videoId={video.id}
+                        metadata={video.metadata}
+                        updateMetadata={updateVideoMetadata}
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
           
           <div className="flex justify-center">
             <Button 
