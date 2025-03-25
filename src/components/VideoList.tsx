@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { MoreVertical, Edit, Trash2, Eye, FileVideo } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, Eye, FileVideo, Star } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -51,7 +50,6 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Automatically update selectAll when videos change
     if (videos && videos.length > 0) {
       setSelectAll(selectedVideos.length === videos.length);
     } else {
@@ -100,7 +98,7 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
       toast.success('Selected videos deleted successfully.');
       setSelectedVideos([]);
       setSelectAll(false);
-      refetchData(); // Refresh the video list
+      refetchData();
     } catch (error) {
       console.error('Error deleting selected videos:', error);
       toast.error('Failed to delete selected videos.');
@@ -213,7 +211,10 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
             )}>
               <CardHeader className="pb-3 pt-4 px-4">
                 <div className="flex items-center justify-between">
-                  <div className="flex-1 overflow-hidden">
+                  <div className="flex-1 overflow-hidden flex items-center gap-2">
+                    {video.metadata?.isPrimary && (
+                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                    )}
                     <CardTitle className="text-lg truncate">
                       {video.metadata?.title || 'Untitled'}
                     </CardTitle>
@@ -232,6 +233,11 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
                     </Badge>
                   )}
                   {getStatusBadge(video.admin_approved)}
+                  {video.metadata?.isPrimary && (
+                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                      Primary
+                    </Badge>
+                  )}
                 </div>
                 
                 {video.metadata?.description && (

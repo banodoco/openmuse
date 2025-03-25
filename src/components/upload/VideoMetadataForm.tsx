@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface VideoMetadataFormProps {
   videoId: string;
@@ -14,11 +15,18 @@ interface VideoMetadataFormProps {
     classification: 'art' | 'gen';
     creator: 'self' | 'someone_else';
     creatorName: string;
+    isPrimary?: boolean;
   };
   updateMetadata: (id: string, field: string, value: any) => void;
+  canSetPrimary?: boolean;
 }
 
-const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ videoId, metadata, updateMetadata }) => {
+const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ 
+  videoId, 
+  metadata, 
+  updateMetadata,
+  canSetPrimary = false
+}) => {
   return (
     <div className="space-y-4">
       <h4 className="text-base font-medium mb-3">Video Details</h4>
@@ -92,6 +100,22 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ videoId, metadata
           </SelectContent>
         </Select>
       </div>
+
+      {canSetPrimary && (
+        <div className="flex items-center space-x-2 pt-2">
+          <Checkbox 
+            id={`is-primary-${videoId}`} 
+            checked={metadata.isPrimary}
+            onCheckedChange={(checked) => updateMetadata(videoId, 'isPrimary', checked)} 
+          />
+          <Label 
+            htmlFor={`is-primary-${videoId}`}
+            className="font-medium text-sm cursor-pointer"
+          >
+            Set as primary media for this LoRA
+          </Label>
+        </div>
+      )}
     </div>
   );
 };

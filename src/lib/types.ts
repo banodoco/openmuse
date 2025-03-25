@@ -1,3 +1,4 @@
+
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -11,6 +12,8 @@ export interface VideoMetadata {
   loraDescription?: string;
   // Asset reference
   assetId?: string;
+  // Primary media flag
+  isPrimary?: boolean;
 }
 
 export interface UserProfile {

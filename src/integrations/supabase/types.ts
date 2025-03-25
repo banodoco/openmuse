@@ -52,6 +52,7 @@ export type Database = {
           description: string | null
           id: string
           name: string
+          primary_media_id: string | null
           type: string
           user_id: string | null
         }
@@ -61,6 +62,7 @@ export type Database = {
           description?: string | null
           id?: string
           name: string
+          primary_media_id?: string | null
           type: string
           user_id?: string | null
         }
@@ -70,10 +72,19 @@ export type Database = {
           description?: string | null
           id?: string
           name?: string
+          primary_media_id?: string | null
           type?: string
           user_id?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "assets_primary_media_id_fkey"
+            columns: ["primary_media_id"]
+            isOneToOne: false
+            referencedRelation: "media"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       media: {
         Row: {

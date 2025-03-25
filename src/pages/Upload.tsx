@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
@@ -27,6 +27,7 @@ interface VideoMetadataForm {
   classification: 'art' | 'gen';
   creator: 'self' | 'someone_else';
   creatorName: string;
+  isPrimary?: boolean;
 }
 
 // Interface for global LoRA details
@@ -61,6 +62,7 @@ const Upload: React.FC = () => {
     classification: 'gen',
     creator: 'self',
     creatorName: '',
+    isPrimary: false,
   };
   
   // Global LoRA details
@@ -77,21 +79,55 @@ const Upload: React.FC = () => {
     id: crypto.randomUUID(),
     file: null,
     url: null,
-    metadata: initialMetadata
+    metadata: {...initialMetadata, isPrimary: true}
   }]);
+
+  // Ensure only one primary video is selected
+  useEffect(() => {
+    const primaryCount = videos.filter(v => v.metadata.isPrimary).length;
+    
+    // If no video is set as primary and we have videos, set the first one as primary
+    if (primaryCount === 0 && videos.length > 0) {
+      setVideos(prev => prev.map((video, index) => 
+        index === 0 ? { ...video, metadata: { ...video.metadata, isPrimary: true } } : video
+      ));
+    }
+    // If multiple videos are set as primary, keep only the most recently selected one
+    else if (primaryCount > 1) {
+      // Find the most recently selected primary video (last one in the array with isPrimary=true)
+      const lastPrimaryIndex = [...videos].reverse().findIndex(v => v.metadata.isPrimary);
+      if (lastPrimaryIndex !== -1) {
+        const actualIndex = videos.length - 1 - lastPrimaryIndex;
+        setVideos(prev => prev.map((video, index) => 
+          ({ ...video, metadata: { ...video.metadata, isPrimary: index === actualIndex } })
+        ));
+      }
+    }
+  }, [videos]);
   
   const updateVideoMetadata = (id: string, field: keyof VideoMetadataForm, value: any) => {
-    setVideos(prev => 
-      prev.map(video => 
-        video.id === id ? { 
-          ...video, 
-          metadata: { 
-            ...video.metadata, 
-            [field]: value 
-          } 
-        } : video
-      )
-    );
+    // If setting a video as primary, unset all others
+    if (field === 'isPrimary' && value === true) {
+      setVideos(prev => 
+        prev.map(video => 
+          video.id === id 
+            ? { ...video, metadata: { ...video.metadata, [field]: value } } 
+            : { ...video, metadata: { ...video.metadata, isPrimary: false } }
+        )
+      );
+    } else {
+      setVideos(prev => 
+        prev.map(video => 
+          video.id === id ? { 
+            ...video, 
+            metadata: { 
+              ...video.metadata, 
+              [field]: value 
+            } 
+          } : video
+        )
+      );
+    }
   };
   
   const updateLoRADetails = (field: keyof LoRADetailsForm, value: string) => {
@@ -106,7 +142,7 @@ const Upload: React.FC = () => {
       id: crypto.randomUUID(),
       file: null,
       url: null,
-      metadata: initialMetadata
+      metadata: {...initialMetadata, isPrimary: false}
     }]);
   };
   
@@ -116,15 +152,18 @@ const Upload: React.FC = () => {
       return;
     }
     
-    setVideos(videos.filter(video => video.id !== id));
-  };
-  
-  const updateVideoField = (id: string, field: keyof VideoItem, value: any) => {
-    setVideos(prev => 
-      prev.map(video => 
-        video.id === id ? { ...video, [field]: value } : video
-      )
-    );
+    // Check if removing the primary video
+    const isRemovingPrimary = videos.find(v => v.id === id)?.metadata.isPrimary;
+    
+    // Remove the video
+    const updatedVideos = videos.filter(video => video.id !== id);
+    
+    // If we removed the primary video, set the first remaining video as primary
+    if (isRemovingPrimary && updatedVideos.length > 0) {
+      updatedVideos[0].metadata.isPrimary = true;
+    }
+    
+    setVideos(updatedVideos);
   };
   
   const handleVideoFileDrop = (id: string) => {
@@ -256,6 +295,13 @@ const Upload: React.FC = () => {
       return;
     }
 
+    // Validate that at least one video is set as primary
+    const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
+    if (!hasPrimary) {
+      toast.error('Please set one video as the primary media for this LoRA');
+      return;
+    }
+
     if (!termsAccepted) {
       toast.error('Please accept the terms and conditions');
       return;
@@ -269,6 +315,7 @@ const Upload: React.FC = () => {
       
       // Create the asset first
       let assetId: string | null = null;
+      let primaryMediaId: string | null = null;
       
       // Only proceed with Supabase operations if user is authenticated
       if (user && user.id) {
@@ -323,6 +370,12 @@ const Upload: React.FC = () => {
           const mediaId = mediaData.id;
           logger.log(`Created media with ID: ${mediaId}`);
           
+          // If this is the primary media, save its ID
+          if (video.metadata.isPrimary) {
+            primaryMediaId = mediaId;
+            logger.log(`Set primary media ID: ${primaryMediaId}`);
+          }
+          
           // Create association between asset and media
           const { error: linkError } = await supabase
             .from('asset_media')
@@ -335,6 +388,20 @@ const Upload: React.FC = () => {
             console.error('Error linking asset and media:', linkError);
           } else {
             logger.log(`Linked asset ${assetId} with media ${mediaId}`);
+          }
+        }
+        
+        // Update the asset with the primary media ID
+        if (primaryMediaId) {
+          const { error: updateError } = await supabase
+            .from('assets')
+            .update({ primary_media_id: primaryMediaId })
+            .eq('id', assetId);
+          
+          if (updateError) {
+            console.error('Error updating asset with primary media:', updateError);
+          } else {
+            logger.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
           }
         }
       }
@@ -352,7 +419,8 @@ const Upload: React.FC = () => {
           model: loraDetails.model,
           loraName: loraDetails.loraName,
           loraDescription: loraDetails.loraDescription,
-          assetId: assetId
+          assetId: assetId,
+          isPrimary: video.metadata.isPrimary
         };
         
         const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -488,6 +556,7 @@ const Upload: React.FC = () => {
                         videoId={video.id}
                         metadata={video.metadata}
                         updateMetadata={updateVideoMetadata}
+                        canSetPrimary={true}
                       />
                     </div>
                   </div>
