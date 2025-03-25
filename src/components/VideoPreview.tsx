@@ -18,6 +18,32 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const videoRef = useRef<HTMLVideoElement>(null);
   
+  // Function to extract YouTube video ID
+  const getYoutubeVideoId = (youtubeUrl: string): string | null => {
+    if (!youtubeUrl) return null;
+    
+    let videoId = null;
+    // Standard YouTube URL
+    if (youtubeUrl.includes('youtube.com/watch')) {
+      try {
+        const urlObj = new URL(youtubeUrl);
+        videoId = urlObj.searchParams.get('v');
+      } catch (e) {
+        console.error('Invalid YouTube URL', e);
+      }
+    } 
+    // Shortened YouTube URL
+    else if (youtubeUrl.includes('youtu.be/')) {
+      try {
+        videoId = youtubeUrl.split('youtu.be/')[1]?.split('?')[0];
+      } catch (e) {
+        console.error('Error parsing shortened YouTube URL', e);
+      }
+    }
+    
+    return videoId;
+  };
+  
   // Create object URL on mount if file is provided
   useEffect(() => {
     if (file) {
@@ -64,6 +90,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         }
       };
     } else if (url) {
+      // Set YouTube thumbnail if it's a YouTube URL
+      if (url.includes('youtube.com/') || url.includes('youtu.be/')) {
+        const videoId = getYoutubeVideoId(url);
+        if (videoId) {
+          // Use high-quality YouTube thumbnail
+          setPosterUrl(`https://img.youtube.com/vi/${videoId}/hqdefault.jpg`);
+        }
+      }
+      
       setObjectUrl(url);
     }
   }, [file, url]);
@@ -95,10 +130,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     
     // YouTube format detection
     if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
-      const youtubeId = url.includes('youtube.com/watch') 
-        ? new URL(url).searchParams.get('v')
-        : url.split('/').pop()?.split('?')[0];
-      
+      const youtubeId = getYoutubeVideoId(url);
       if (youtubeId) {
         embedUrl = `https://www.youtube.com/embed/${youtubeId}`;
       }
@@ -146,13 +178,18 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           <div 
             className="w-full h-full flex flex-col items-center justify-center bg-muted/70 cursor-pointer"
             onClick={handlePreviewClick}
+            style={posterUrl ? {
+              backgroundImage: `url(${posterUrl})`,
+              backgroundSize: 'cover',
+              backgroundPosition: 'center'
+            } : {}}
           >
             <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
               <Play className="h-6 w-6 text-white" />
             </div>
-            <div className="mt-2 text-center px-4">
-              <p className="text-sm font-medium mb-1 break-all">{url}</p>
-              <p className="text-xs text-muted-foreground">Click to play external video</p>
+            <div className="mt-2 text-xs text-muted-foreground flex items-center bg-black/50 px-2 py-1 rounded">
+              <FileVideo className="h-3 w-3 mr-1" />
+              Preview
             </div>
           </div>
         )}
