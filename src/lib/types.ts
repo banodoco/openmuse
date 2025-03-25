@@ -11,3 +11,34 @@ export interface VideoMetadata {
   loraName?: string;
   loraDescription?: string;
 }
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  created_at?: string;
+  avatar_url?: string | null;
+  video_upload_consent?: boolean;
+}
+
+export interface VideoEntry {
+  id: string;
+  video_location: string;
+  acting_video_location?: string;
+  reviewer_name: string;
+  skipped: boolean;
+  created_at: string;
+  admin_approved: boolean | null;
+  user_id: string | null;
+  metadata?: VideoMetadata;
+}
+
+export interface VideoFile {
+  id: string;
+  blob: Blob;
+  metadata?: VideoMetadata;
+}
+
+export interface RecordedVideo {
+  blob: Blob;
+  url: string;
+}
