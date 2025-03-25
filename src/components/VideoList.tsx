@@ -205,10 +205,10 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
       </div>
       
       <ScrollArea className="h-[calc(100vh-220px)]">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {filteredVideos.map((video) => (
             <Card key={video.id} className={cn(
-              "overflow-hidden transition-all",
+              "overflow-hidden transition-all h-full",
               selectedVideos.includes(video.id) && "ring-2 ring-primary"
             )}>
               <CardHeader className="pb-3 pt-4 px-4">
