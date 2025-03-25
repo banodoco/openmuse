@@ -13,7 +13,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import VideoPreview from '@/components/VideoPreview';
-import { PlusCircle, X } from 'lucide-react';
+import { PlusCircle, X, Link as LinkIcon } from 'lucide-react';
 import VideoDropzoneComponent from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import GlobalLoRADetailsForm from '@/components/upload/GlobalLoRADetailsForm';
@@ -160,19 +160,70 @@ const Upload: React.FC = () => {
     };
   };
   
+  const handleVideoLinkAdded = (id: string) => {
+    return (linkUrl: string) => {
+      console.log("Link added:", linkUrl);
+      
+      // Extract video title from URL
+      let defaultTitle = '';
+      
+      try {
+        // For YouTube links, try to extract the video ID or use the URL
+        if (linkUrl.includes('youtube.com/') || linkUrl.includes('youtu.be/')) {
+          const url = new URL(linkUrl);
+          const videoId = url.searchParams.get('v') || 
+                          linkUrl.split('/').pop()?.split('?')[0] || 
+                          'YouTube Video';
+          defaultTitle = `YouTube Video - ${videoId}`;
+        } 
+        // For Vimeo links
+        else if (linkUrl.includes('vimeo.com/')) {
+          const videoId = linkUrl.split('/').pop() || 'Vimeo Video';
+          defaultTitle = `Vimeo Video - ${videoId}`;
+        }
+        // For direct video links
+        else {
+          const fileName = linkUrl.split('/').pop() || 'Video';
+          const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
+          defaultTitle = fileNameWithoutExtension || fileName;
+        }
+      } catch (e) {
+        // If URL parsing fails, use a generic title
+        defaultTitle = 'External Video';
+      }
+      
+      // Update the state with the video URL
+      setVideos(prev => 
+        prev.map(video => 
+          video.id === id 
+            ? { 
+                ...video, 
+                file: null, 
+                url: linkUrl,
+                metadata: {
+                  ...video.metadata,
+                  title: defaultTitle
+                }
+              } 
+            : video
+        )
+      );
+    };
+  };
+  
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
-    const hasVideos = videos.some(video => video.file !== null);
+    const hasVideos = videos.some(video => video.file !== null || video.url !== null);
     if (!hasVideos) {
-      toast.error('Please upload at least one video');
+      toast.error('Please add at least one video (file or link)');
       return;
     }
     
     // Validate if each uploaded video has title
-    const missingTitles = videos.filter(video => video.file && !video.metadata.title);
+    const missingTitles = videos.filter(video => (video.file || video.url) && !video.metadata.title);
     if (missingTitles.length > 0) {
-      toast.error('Please provide a title for all uploaded videos');
+      toast.error('Please provide a title for all videos');
       return;
     }
 
@@ -210,7 +261,7 @@ const Upload: React.FC = () => {
       
       // Submit each video with its own metadata but shared LoRA details
       for (const video of videos) {
-        if (!video.file) continue;
+        if (!video.file && !video.url) continue;
         
         const videoMetadata: VideoMetadata = {
           title: video.metadata.title,
@@ -234,7 +285,7 @@ const Upload: React.FC = () => {
         await db.addEntry(newEntry);
       }
       
-      const message = videos.filter(v => v.file).length > 1 
+      const message = videos.filter(v => v.file || v.url).length > 1 
         ? 'Videos submitted successfully! Awaiting admin approval.'
         : 'Video submitted successfully! Awaiting admin approval.';
       
@@ -301,21 +352,32 @@ const Upload: React.FC = () => {
                   )}
                 </div>
                 
-                {!video.file ? (
+                {!video.file && !video.url ? (
                   <div className="w-full flex justify-center">
                     <VideoDropzoneComponent 
                       id={video.id} 
                       file={video.file} 
                       url={video.url} 
-                      onDrop={handleVideoFileDrop(video.id)} 
+                      onDrop={handleVideoFileDrop(video.id)}
+                      onLinkAdded={handleVideoLinkAdded(video.id)}
                     />
                   </div>
                 ) : (
                   <div className="space-y-6">
-                    <VideoPreview 
-                      file={video.file} 
-                      className="w-full mx-auto"
-                    />
+                    {video.file ? (
+                      <VideoPreview 
+                        file={video.file} 
+                        className="w-full mx-auto"
+                      />
+                    ) : video.url ? (
+                      <div className="w-full aspect-video flex flex-col items-center justify-center bg-muted/50 rounded-md overflow-hidden">
+                        <LinkIcon className="h-12 w-12 text-muted-foreground mb-2" />
+                        <div className="text-center px-4">
+                          <p className="text-sm font-medium mb-1 break-all">{video.url}</p>
+                          <p className="text-xs text-muted-foreground">External video link</p>
+                        </div>
+                      </div>
+                    ) : null}
                     
                     <div className="mt-4">
                       <VideoMetadataForm
@@ -361,3 +423,4 @@ const Upload: React.FC = () => {
 };
 
 export default Upload;
+

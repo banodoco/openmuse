@@ -5,27 +5,32 @@ import VideoPlayer from './VideoPlayer';
 import { Button } from './ui/button';
 
 interface VideoPreviewProps {
-  file: File;
+  file?: File;
+  url?: string;
   className?: string;
 }
 
-const VideoPreview: React.FC<VideoPreviewProps> = ({ file, className }) => {
+const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  // Create object URL on mount instead of on click
+  // Create object URL on mount if file is provided
   useEffect(() => {
-    const url = URL.createObjectURL(file);
-    setObjectUrl(url);
-    
-    // Clean up object URL when component unmounts
-    return () => {
-      if (url) {
-        URL.revokeObjectURL(url);
-      }
-    };
-  }, [file]);
+    if (file) {
+      const fileUrl = URL.createObjectURL(file);
+      setObjectUrl(fileUrl);
+      
+      // Clean up object URL when component unmounts
+      return () => {
+        if (fileUrl) {
+          URL.revokeObjectURL(fileUrl);
+        }
+      };
+    } else if (url) {
+      setObjectUrl(url);
+    }
+  }, [file, url]);
 
   const handlePreviewClick = () => {
     setIsPlaying(true);
@@ -41,13 +46,18 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, className }) => {
     setIsPlaying(true);
   };
 
+  // If neither file nor URL is provided
+  if (!file && !url) {
+    return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
+  }
+
   return (
     <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
       {isPlaying && objectUrl ? (
         <VideoPlayer 
           src={objectUrl} 
           controls={true}
-          autoPlay={false} // Changed from true to false
+          autoPlay={false}
           className="w-full h-full object-cover"
           onError={(msg) => handleVideoError(msg)}
         />
