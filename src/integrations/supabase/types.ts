@@ -9,6 +9,105 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      asset_media: {
+        Row: {
+          asset_id: string
+          created_at: string
+          id: string
+          media_id: string
+        }
+        Insert: {
+          asset_id: string
+          created_at?: string
+          id?: string
+          media_id: string
+        }
+        Update: {
+          asset_id?: string
+          created_at?: string
+          id?: string
+          media_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asset_media_asset_id_fkey"
+            columns: ["asset_id"]
+            isOneToOne: false
+            referencedRelation: "assets"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "asset_media_media_id_fkey"
+            columns: ["media_id"]
+            isOneToOne: false
+            referencedRelation: "media"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      assets: {
+        Row: {
+          created_at: string
+          creator: string | null
+          description: string | null
+          id: string
+          name: string
+          type: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          creator?: string | null
+          description?: string | null
+          id?: string
+          name: string
+          type: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          creator?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          type?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
+      media: {
+        Row: {
+          classification: string | null
+          created_at: string
+          creator: string | null
+          id: string
+          title: string
+          type: string
+          url: string
+          user_id: string | null
+        }
+        Insert: {
+          classification?: string | null
+          created_at?: string
+          creator?: string | null
+          id?: string
+          title: string
+          type: string
+          url: string
+          user_id?: string | null
+        }
+        Update: {
+          classification?: string | null
+          created_at?: string
+          creator?: string | null
+          id?: string
+          title?: string
+          type?: string
+          url?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

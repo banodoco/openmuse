@@ -1,4 +1,3 @@
-
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -10,6 +9,8 @@ export interface VideoMetadata {
   // LoRA details
   loraName?: string;
   loraDescription?: string;
+  // Asset reference
+  assetId?: string;
 }
 
 export interface UserProfile {

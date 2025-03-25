@@ -2,7 +2,6 @@ import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
-import { useDropzone } from 'react-dropzone';
 import { useAuth } from '@/hooks/useAuth';
 import { videoDB } from '@/lib/db';
 import { VideoEntry, VideoMetadata } from '@/lib/types';
@@ -17,6 +16,7 @@ import { PlusCircle, X, Link as LinkIcon } from 'lucide-react';
 import VideoDropzoneComponent from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import GlobalLoRADetailsForm from '@/components/upload/GlobalLoRADetailsForm';
+import { supabase } from '@/integrations/supabase/client';
 
 const logger = new Logger('Upload');
 
@@ -259,7 +259,79 @@ const Upload: React.FC = () => {
       const db = videoDB;
       const reviewerName = user?.email || nameInput;
       
-      // Submit each video with its own metadata but shared LoRA details
+      // Create the asset first
+      let assetId: string | null = null;
+      
+      // Only proceed with Supabase operations if user is authenticated
+      if (user && user.id) {
+        // Create the asset in Supabase
+        const { data: assetData, error: assetError } = await supabase
+          .from('assets')
+          .insert({
+            type: 'LoRA',
+            name: loraDetails.loraName,
+            description: loraDetails.loraDescription,
+            creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
+            user_id: user.id
+          })
+          .select()
+          .single();
+        
+        if (assetError) {
+          console.error('Error creating asset:', assetError);
+          toast.error('Failed to create asset');
+          setIsSubmitting(false);
+          return;
+        }
+        
+        assetId = assetData.id;
+        logger.log(`Created asset with ID: ${assetId}`);
+        
+        // Create media entries for each video and link them to the asset
+        for (const video of videos) {
+          if (!video.file && !video.url) continue;
+          
+          const videoUrl = video.url || 'error';
+          
+          // Create media entry
+          const { data: mediaData, error: mediaError } = await supabase
+            .from('media')
+            .insert({
+              title: video.metadata.title,
+              url: videoUrl,
+              type: 'video',
+              classification: video.metadata.classification,
+              creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
+              user_id: user.id
+            })
+            .select()
+            .single();
+          
+          if (mediaError) {
+            console.error('Error creating media entry:', mediaError);
+            continue;
+          }
+          
+          const mediaId = mediaData.id;
+          logger.log(`Created media with ID: ${mediaId}`);
+          
+          // Create association between asset and media
+          const { error: linkError } = await supabase
+            .from('asset_media')
+            .insert({
+              asset_id: assetId,
+              media_id: mediaId
+            });
+          
+          if (linkError) {
+            console.error('Error linking asset and media:', linkError);
+          } else {
+            logger.log(`Linked asset ${assetId} with media ${mediaId}`);
+          }
+        }
+      }
+      
+      // Submit each video with its own metadata but shared LoRA details to the existing system
       for (const video of videos) {
         if (!video.file && !video.url) continue;
         
@@ -271,7 +343,8 @@ const Upload: React.FC = () => {
           creatorName: video.metadata.creator === 'someone_else' ? video.metadata.creatorName : undefined,
           model: loraDetails.model,
           loraName: loraDetails.loraName,
-          loraDescription: loraDetails.loraDescription
+          loraDescription: loraDetails.loraDescription,
+          assetId: assetId
         };
         
         const newEntry: Omit<VideoEntry, "id" | "created_at" | "admin_approved"> = {
@@ -423,4 +496,3 @@ const Upload: React.FC = () => {
 };
 
 export default Upload;
-
