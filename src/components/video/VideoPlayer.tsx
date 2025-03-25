@@ -16,7 +16,7 @@ interface VideoPlayerProps {
   loop?: boolean;
   className?: string;
   controls?: boolean;
-  onLoadedData?: () => void;
+  onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   videoRef?: React.RefObject<HTMLVideoElement>;
   onError?: (message: string) => void;
   poster?: string;
@@ -97,10 +97,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    const handleLoadedData = () => {
+    const handleLoadedData = (e: Event) => {
       logger.log(`Video loaded successfully: ${processedSrc.substring(0, 30)}...`);
       setIsLoading(false);
-      if (onLoadedData) onLoadedData();
+      
+      if (onLoadedData) {
+        // Cast the event to a React synthetic event
+        const syntheticEvent = e as unknown as React.SyntheticEvent<HTMLVideoElement>;
+        onLoadedData(syntheticEvent);
+      }
       
       // Don't autoplay if we're using hover to play
       if (autoPlay && !playOnHover) {

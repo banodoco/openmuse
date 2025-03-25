@@ -10,13 +10,14 @@ interface VideoPreviewProps {
   file?: File;
   url?: string;
   className?: string;
+  onLoad?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
 }
 
 /**
  * VideoPreview component for displaying video previews with thumbnail generation
  * and play on hover functionality.
  */
-const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
+const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, onLoad }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
@@ -61,7 +62,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
   return (
     <div 
       ref={previewRef}
-      className={`relative rounded-md overflow-hidden aspect-video ${className}`}
+      className={`relative rounded-md overflow-hidden ${className}`}
       onMouseEnter={() => setIsPlaying(true)}
       onMouseLeave={() => setIsPlaying(false)}
     >
@@ -83,6 +84,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
+          onLoad={onLoad}
         />
       )}
 

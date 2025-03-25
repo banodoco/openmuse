@@ -7,12 +7,14 @@ interface StandardVideoPreviewProps {
   url: string | null;
   posterUrl: string | null;
   onError: (msg: string) => void;
+  onLoad?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   url,
   posterUrl,
-  onError
+  onError,
+  onLoad
 }) => {
   if (!url) {
     return (
@@ -45,6 +47,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       onError={onError}
       poster={posterUrl || undefined}
       playOnHover={true}
+      onLoadedData={onLoad}
     />
   );
 };

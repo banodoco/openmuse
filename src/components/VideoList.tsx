@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -51,6 +52,8 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
   const [selectAll, setSelectAll] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
+  const [videoAspectRatios, setVideoAspectRatios] = useState<Record<string, number>>({});
+  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -73,6 +76,38 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
     
     loadVideoUrls();
   }, [videos]);
+
+  // Function to determine video aspect ratio
+  const determineAspectRatio = (videoId: string, element: HTMLVideoElement) => {
+    // Default to 16:9 if we can't determine
+    let aspectRatio = 16/9;
+
+    if (element.videoWidth && element.videoHeight) {
+      aspectRatio = element.videoWidth / element.videoHeight;
+      setVideoAspectRatios(prev => ({
+        ...prev,
+        [videoId]: aspectRatio
+      }));
+    }
+
+    return aspectRatio;
+  };
+
+  // Handle metadata loaded for video
+  const handleVideoMetadataLoaded = (videoId: string, event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.currentTarget;
+    determineAspectRatio(videoId, video);
+  };
+
+  // Reference callback for videos
+  const setVideoRef = (videoId: string, element: HTMLVideoElement | null) => {
+    videoRefs.current[videoId] = element;
+
+    // If we already have the element with loaded metadata, determine aspect ratio
+    if (element && element.videoWidth && element.videoHeight) {
+      determineAspectRatio(videoId, element);
+    }
+  };
 
   useEffect(() => {
     if (videos && videos.length > 0) {
@@ -108,6 +143,68 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
       (video.metadata?.title?.toLowerCase().includes(searchTerm) ?? false)
     );
   });
+
+  // Function to get the appropriate aspect ratio for a video
+  const getAspectRatio = (videoId: string) => {
+    // Return the detected aspect ratio or default to 16/9
+    return videoAspectRatios[videoId] || 16/9;
+  };
+
+  // Function to determine CSS class based on aspect ratio
+  const getAspectRatioClass = (videoId: string) => {
+    const ratio = getAspectRatio(videoId);
+    
+    // Square or portrait video
+    if (ratio <= 1.01) {
+      return "aspect-square"; // 1:1
+    }
+    
+    // Instagram-like
+    if (ratio <= 1.1) {
+      return "aspect-[4/3]"; // 4:3
+    }
+    
+    // Standard landscape
+    if (ratio <= 1.5) {
+      return "aspect-[4/3]"; // 4:3
+    }
+    
+    // Widescreen
+    if (ratio <= 1.8) {
+      return "aspect-[16/9]"; // 16:9
+    }
+    
+    // Ultra-wide
+    return "aspect-[21/9]"; // 21:9
+  };
+
+  // Function to get grid placement class based on aspect ratio
+  const getGridSpanClass = (videoId: string) => {
+    const ratio = getAspectRatio(videoId);
+    
+    // Square or portrait videos
+    if (ratio <= 1.01) {
+      return "col-span-1 row-span-1";
+    }
+    
+    // Slightly wider than square
+    if (ratio <= 1.1) {
+      return "col-span-1 row-span-1";
+    }
+    
+    // Standard landscape (4:3)
+    if (ratio <= 1.5) {
+      return "col-span-1 row-span-1";
+    }
+    
+    // Widescreen (16:9)
+    if (ratio <= 1.8) {
+      return "col-span-1 row-span-1";
+    }
+    
+    // Ultra-wide videos span 2 columns
+    return "col-span-2 row-span-1";
+  };
 
   const handleDeleteSelected = async () => {
     if (selectedVideos.length === 0) {
@@ -228,24 +325,33 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
       </div>
       
       <ScrollArea className="h-[calc(100vh-220px)]">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 auto-rows-auto">
           {filteredVideos.map((video) => (
-            <Card key={video.id} className={cn(
-              "overflow-hidden transition-all flex flex-col",
-              selectedVideos.includes(video.id) && "ring-2 ring-primary"
-            )}>
-              <AspectRatio ratio={16/9} className="bg-muted">
+            <Card 
+              key={video.id} 
+              className={cn(
+                "overflow-hidden transition-all flex flex-col",
+                selectedVideos.includes(video.id) && "ring-2 ring-primary",
+                getGridSpanClass(video.id)
+              )}
+            >
+              <div className={cn(getAspectRatioClass(video.id), "bg-muted")}>
                 {videoUrls[video.id] ? (
                   <VideoPreview 
                     url={videoUrls[video.id]} 
                     className="w-full h-full object-cover"
+                    onLoad={(e) => {
+                      if (e.currentTarget instanceof HTMLVideoElement) {
+                        handleVideoMetadataLoaded(video.id, e as any);
+                      }
+                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted">
                     <FileVideo className="h-8 w-8 text-muted-foreground" />
                   </div>
                 )}
-              </AspectRatio>
+              </div>
               
               <CardHeader className="pb-2 pt-3 px-3">
                 <div className="flex items-center justify-between">
@@ -355,4 +461,3 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
 };
 
 export default VideoList;
-
