@@ -34,6 +34,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
+import VideoPreview from './VideoPreview';
+import { videoUrlService } from '@/lib/services/videoUrlService';
 
 interface VideoListProps {
   videos: VideoEntry[];
@@ -47,7 +49,29 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [filterText, setFilterText] = useState('');
+  const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadVideoUrls = async () => {
+      const urlMap: Record<string, string> = {};
+      
+      for (const video of videos) {
+        try {
+          const url = await videoUrlService.getVideoUrl(video.video_location);
+          if (url) {
+            urlMap[video.id] = url;
+          }
+        } catch (error) {
+          console.error(`Error loading URL for video ${video.id}:`, error);
+        }
+      }
+      
+      setVideoUrls(urlMap);
+    };
+    
+    loadVideoUrls();
+  }, [videos]);
 
   useEffect(() => {
     if (videos && videos.length > 0) {
@@ -206,9 +230,22 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredVideos.map((video) => (
             <Card key={video.id} className={cn(
-              "overflow-hidden transition-all h-full",
+              "overflow-hidden transition-all",
               selectedVideos.includes(video.id) && "ring-2 ring-primary"
             )}>
+              <div className="aspect-video w-full overflow-hidden">
+                {videoUrls[video.id] ? (
+                  <VideoPreview 
+                    url={videoUrls[video.id]} 
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center bg-muted">
+                    <FileVideo className="h-8 w-8 text-muted-foreground" />
+                  </div>
+                )}
+              </div>
+              
               <CardHeader className="pb-3 pt-4 px-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 overflow-hidden flex items-center gap-2">
