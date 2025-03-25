@@ -62,10 +62,11 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop, on
     }
   };
   
+  // Prevent nested form issue by using a div instead
   if (showLinkInput) {
     return (
       <div className="w-full">
-        <form onSubmit={handleLinkSubmit} className="space-y-3">
+        <div className="space-y-3">
           <div className="flex flex-col gap-2">
             <div className="flex items-center">
               <LinkIcon className="h-4 w-4 mr-2 text-muted-foreground" />
@@ -80,12 +81,12 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({ id, file, url, onDrop, on
             />
           </div>
           <div className="flex gap-2">
-            <Button type="submit" size="sm">Add Video</Button>
+            <Button type="button" size="sm" onClick={handleLinkSubmit}>Add Video</Button>
             <Button type="button" variant="outline" size="sm" onClick={toggleLinkInput}>
               Cancel
             </Button>
           </div>
-        </form>
+        </div>
         <p className="text-xs text-muted-foreground mt-3">
           Supported: YouTube, Vimeo, or direct video links (.mp4, .webm, etc.)
         </p>

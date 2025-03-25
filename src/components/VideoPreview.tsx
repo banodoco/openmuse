@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { FileVideo, Play, AlertCircle } from 'lucide-react';
+import { FileVideo, Play, AlertCircle, Link as LinkIcon } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Button } from './ui/button';
 
@@ -14,6 +14,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
 
   // Create object URL on mount if file is provided
   useEffect(() => {
@@ -49,6 +50,21 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
   // If neither file nor URL is provided
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
+  }
+
+  // For external links (YouTube, Vimeo)
+  if (isExternalLink) {
+    return (
+      <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
+        <div className="w-full h-full flex flex-col items-center justify-center bg-muted/70">
+          <LinkIcon className="h-12 w-12 text-muted-foreground mb-2" />
+          <div className="text-center px-4">
+            <p className="text-sm font-medium mb-1 break-all">{url}</p>
+            <p className="text-xs text-muted-foreground">External video link</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
