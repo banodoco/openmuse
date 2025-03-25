@@ -15,7 +15,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
-
+  
   // Create object URL on mount if file is provided
   useEffect(() => {
     if (file) {
@@ -52,17 +52,62 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
+  // Extract YouTube/Vimeo video ID and generate embed URL
+  const getEmbedUrl = () => {
+    if (!url) return null;
+    
+    let embedUrl = null;
+    
+    // YouTube format detection
+    if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
+      const youtubeId = url.includes('youtube.com/watch') 
+        ? new URL(url).searchParams.get('v')
+        : url.split('/').pop()?.split('?')[0];
+      
+      if (youtubeId) {
+        embedUrl = `https://www.youtube.com/embed/${youtubeId}`;
+      }
+    } 
+    // Vimeo format detection 
+    else if (url.includes('vimeo.com/')) {
+      const vimeoId = url.split('/').pop()?.split('?')[0];
+      if (vimeoId) {
+        embedUrl = `https://player.vimeo.com/video/${vimeoId}`;
+      }
+    }
+    
+    return embedUrl;
+  };
+
   // For external links (YouTube, Vimeo)
   if (isExternalLink) {
+    const embedUrl = getEmbedUrl();
+    
     return (
       <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
-        <div className="w-full h-full flex flex-col items-center justify-center bg-muted/70">
-          <LinkIcon className="h-12 w-12 text-muted-foreground mb-2" />
-          <div className="text-center px-4">
-            <p className="text-sm font-medium mb-1 break-all">{url}</p>
-            <p className="text-xs text-muted-foreground">External video link</p>
+        {isPlaying && embedUrl ? (
+          <iframe
+            src={embedUrl}
+            className="w-full h-full"
+            frameBorder="0"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+            title="Embedded video player"
+          />
+        ) : (
+          <div 
+            className="w-full h-full flex flex-col items-center justify-center bg-muted/70 cursor-pointer"
+            onClick={handlePreviewClick}
+          >
+            <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
+              <Play className="h-6 w-6 text-white" />
+            </div>
+            <div className="mt-2 text-center px-4">
+              <p className="text-sm font-medium mb-1 break-all">{url}</p>
+              <p className="text-xs text-muted-foreground">Click to play external video</p>
+            </div>
           </div>
-        </div>
+        )}
       </div>
     );
   }
