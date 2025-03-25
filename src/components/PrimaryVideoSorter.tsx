@@ -4,12 +4,12 @@ import { VideoEntry } from '@/lib/types';
 
 interface PrimaryVideoSorterProps {
   videos: VideoEntry[];
-  render: (sortedVideos: VideoEntry[]) => React.ReactNode;
+  children: (sortedVideos: VideoEntry[]) => React.ReactNode;
 }
 
 const PrimaryVideoSorter: React.FC<PrimaryVideoSorterProps> = ({ 
   videos, 
-  render 
+  children 
 }) => {
   // Sort videos to put primary ones first
   const sortedVideos = [...videos].sort((a, b) => {
@@ -26,7 +26,7 @@ const PrimaryVideoSorter: React.FC<PrimaryVideoSorterProps> = ({
     return bDate - aDate;
   });
 
-  return <>{render(sortedVideos)}</>;
+  return <>{children(sortedVideos)}</>;
 };
 
 export default PrimaryVideoSorter;
