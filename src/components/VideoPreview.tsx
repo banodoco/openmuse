@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { FileVideo, Play, AlertCircle } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -11,10 +12,11 @@ interface VideoPreviewProps {
 
 const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
-  const [isPlaying, setIsPlaying] = useState(true);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
   const getYoutubeVideoId = (youtubeUrl: string): string | null => {
@@ -150,6 +152,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     setIsPlaying(true);
   };
 
+  // Add hover handlers for the video playback
+  const handleMouseEnter = () => {
+    setIsPlaying(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsPlaying(false);
+  };
+
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
@@ -190,11 +201,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     const embedUrl = getEmbedUrl();
     
     return (
-      <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
+      <div 
+        ref={previewRef}
+        className={`relative rounded-md overflow-hidden aspect-video ${className}`}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      >
         {hiddenVideoElement}
         {isPlaying && embedUrl ? (
           <iframe
-            src={`${embedUrl}?autoplay=1&mute=1`}
+            src={`${embedUrl}?autoplay=1&mute=1&controls=0`}
             className="w-full h-full"
             frameBorder="0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
@@ -225,7 +241,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
   }
 
   return (
-    <div className={`relative rounded-md overflow-hidden aspect-video ${className}`}>
+    <div 
+      ref={previewRef}
+      className={`relative rounded-md overflow-hidden aspect-video ${className}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {hiddenVideoElement}
       {isPlaying && objectUrl ? (
         <VideoPlayer 
@@ -236,6 +257,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           className="w-full h-full object-cover"
           onError={(msg) => handleVideoError(msg)}
           poster={posterUrl || undefined}
+          playOnHover={true}
         />
       ) : (
         <div 

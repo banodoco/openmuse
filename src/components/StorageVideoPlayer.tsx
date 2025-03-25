@@ -10,6 +10,7 @@ interface StorageVideoPlayerProps {
   autoPlay?: boolean;
   muted?: boolean;
   loop?: boolean;
+  playOnHover?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
@@ -18,7 +19,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   controls = true,
   autoPlay = false,
   muted = false,
-  loop = false
+  loop = false,
+  playOnHover = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -84,6 +86,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       autoPlay={autoPlay}
       muted={muted}
       loop={loop}
+      playOnHover={playOnHover}
     />
   );
 };
