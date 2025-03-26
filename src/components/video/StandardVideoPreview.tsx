@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Play, FileVideo } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -19,6 +19,9 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   onLoad,
   aspectRatio = 16/9
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+  
+  // This is the placeholder for when there's no URL
   if (!url) {
     return (
       <AspectRatio ratio={aspectRatio} className="w-full h-full overflow-hidden bg-muted/70">
@@ -42,8 +45,14 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     );
   }
 
+  // Stable component reference to prevent unnecessary rerenders
   return (
-    <AspectRatio ratio={aspectRatio} className="w-full h-full overflow-hidden">
+    <AspectRatio 
+      ratio={aspectRatio} 
+      className="w-full h-full overflow-hidden"
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
       <VideoPlayer 
         src={url} 
         controls={false}
@@ -54,9 +63,10 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         poster={posterUrl || undefined}
         playOnHover={true}
         onLoadedData={onLoad}
+        playState={isHovered ? 'hover' : 'paused'}
       />
     </AspectRatio>
   );
 };
 
-export default StandardVideoPreview;
+export default React.memo(StandardVideoPreview);

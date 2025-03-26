@@ -57,4 +57,4 @@ const EmbeddedVideoPlayer: React.FC<EmbeddedVideoPlayerProps> = ({
   );
 };
 
-export default EmbeddedVideoPlayer;
+export default React.memo(EmbeddedVideoPlayer);

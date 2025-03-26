@@ -33,9 +33,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [videoAspectRatio, setVideoAspectRatio] = useState<number>(aspectRatio);
   const previewRef = useRef<HTMLDivElement>(null);
+  const sourceKey = file ? file.name + file.size : url || '';
   
+  // Set up object URL for file preview
   useEffect(() => {
-    // Set up object URL for file preview
     if (file) {
       const fileUrl = URL.createObjectURL(file);
       setObjectUrl(fileUrl);
@@ -47,6 +48,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       };
     } else if (url && !isExternalLink) {
       setObjectUrl(url);
+    } else {
+      setObjectUrl(null);
     }
   }, [file, url, isExternalLink]);
 
@@ -100,6 +103,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
         file={file}
         url={url}
         onThumbnailGenerated={handleThumbnailGenerated}
+        key={sourceKey} // Add key to force recreation when source changes
       />
       
       {isExternalLink ? (
@@ -125,4 +129,4 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   );
 };
 
-export default VideoPreview;
+export default React.memo(VideoPreview);

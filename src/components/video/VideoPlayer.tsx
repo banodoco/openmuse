@@ -1,13 +1,14 @@
 
-import React, { useRef, useState, useEffect } from 'react';
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
-import { useVideoHover } from '@/hooks/useVideoHover';
 import { attemptVideoPlay, getVideoErrorMessage } from '@/lib/utils/videoUtils';
 import VideoError from './VideoError';
 import VideoLoader from './VideoLoader';
 
 const logger = new Logger('VideoPlayer');
+
+type PlayState = 'playing' | 'paused' | 'hover';
 
 interface VideoPlayerProps {
   src: string;
@@ -21,6 +22,7 @@ interface VideoPlayerProps {
   onError?: (message: string) => void;
   poster?: string;
   playOnHover?: boolean;
+  playState?: PlayState;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -35,27 +37,37 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onError,
   poster,
   playOnHover = false,
+  playState,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
-  const [processedSrc, setProcessedSrc] = useState<string>('');
   const [posterImage, setPosterImage] = useState<string | null>(poster || null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Setup hover behavior
-  useVideoHover(containerRef, videoRef, {
-    enabled: playOnHover,
-    resetOnLeave: true
-  });
-
+  const [currentSrc, setCurrentSrc] = useState<string>('');
+  
+  // Handle play state changes
   useEffect(() => {
+    if (!videoRef.current || isLoading || error) return;
+    
+    const video = videoRef.current;
+    
+    if (playState === 'playing' && video.paused) {
+      attemptVideoPlay(video, muted);
+    } else if (playState === 'hover' && video.paused && playOnHover) {
+      attemptVideoPlay(video, muted);
+    } else if (playState === 'paused' && !video.paused) {
+      video.pause();
+    }
+  }, [playState, isLoading, error, muted, playOnHover]);
+
+  // Only update the source when it actually changes
+  useEffect(() => {
+    if (src === currentSrc) return;
     logger.log(`Source changed to: ${src?.substring(0, 30)}...`);
-  }, [src]);
-
-  useEffect(() => {
+    
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
@@ -68,28 +80,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
+    let processedSrc = '';
+    
     if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) {
       logger.log(`Using data or regular URL: ${src.substring(0, 30)}...`);
-      setProcessedSrc(src);
+      processedSrc = src;
     } 
     else if (src.startsWith('blob:')) {
       logger.log(`Using blob URL: ${src.substring(0, 30)}...`);
-      setProcessedSrc(src);
+      processedSrc = src;
     }
     else {
       logger.error(`Unsupported source format: ${src.substring(0, 30)}...`);
       setError('Unsupported video format');
       setIsLoading(false);
       if (onError) onError('Unsupported video format');
-    }
-  }, [src, onError]);
-
-  useEffect(() => {
-    if (!processedSrc) {
       return;
     }
     
-    logger.log(`Loading video: ${processedSrc.substring(0, 50)}...`);
+    setCurrentSrc(src);
     
     const video = videoRef.current;
     if (!video) {
@@ -125,6 +134,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (onError) onError(message);
     };
     
+    // Remove existing handlers (if any)
+    video.removeEventListener('loadeddata', handleLoadedData);
+    video.removeEventListener('error', handleError);
+    
+    // Add new handlers
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('error', handleError);
     
@@ -149,12 +163,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     return () => {
       video.removeEventListener('loadeddata', handleLoadedData);
       video.removeEventListener('error', handleError);
-      
-      video.pause();
-      video.src = '';
-      video.load();
     };
-  }, [processedSrc, autoPlay, muted, onLoadedData, videoRef, onError, posterImage, playOnHover]);
+  }, [src, onLoadedData, onError, autoPlay, muted, posterImage, playOnHover]);
 
   const handleRetry = () => {
     const video = videoRef.current;
@@ -173,6 +183,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       attemptVideoPlay(video, muted);
     }
   };
+
+  // Clean up function to properly dispose of video resources
+  useEffect(() => {
+    return () => {
+      const video = videoRef.current;
+      if (video) {
+        video.pause();
+        video.src = '';
+        video.load();
+      }
+    };
+  }, []);
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden rounded-lg">
@@ -197,11 +219,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         poster={posterImage || undefined}
         preload="metadata"
       >
-        <source src={src} />
+        <source src={currentSrc} />
         Your browser does not support the video tag.
       </video>
     </div>
   );
 };
 
-export default VideoPlayer;
+export default React.memo(VideoPlayer);
