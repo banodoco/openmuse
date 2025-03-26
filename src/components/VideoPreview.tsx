@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { FileVideo } from 'lucide-react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -34,9 +34,17 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   const [videoAspectRatio, setVideoAspectRatio] = useState<number>(aspectRatio);
   const previewRef = useRef<HTMLDivElement>(null);
   const sourceKey = file ? file.name + file.size : url || '';
+  const prevSourceRef = useRef(sourceKey);
   
   // Set up object URL for file preview
   useEffect(() => {
+    // Skip if the source hasn't changed
+    if (sourceKey === prevSourceRef.current && objectUrl) {
+      return;
+    }
+    
+    prevSourceRef.current = sourceKey;
+    
     if (file) {
       const fileUrl = URL.createObjectURL(file);
       setObjectUrl(fileUrl);
@@ -51,23 +59,23 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     } else {
       setObjectUrl(null);
     }
-  }, [file, url, isExternalLink]);
+  }, [file, url, isExternalLink, sourceKey, objectUrl]);
 
-  const handleVideoError = (errorMessage: string) => {
+  const handleVideoError = useCallback((errorMessage: string) => {
     setError(errorMessage);
     setIsPlaying(false);
-  };
+  }, []);
 
-  const handleRetry = () => {
+  const handleRetry = useCallback(() => {
     setError(null);
     setIsPlaying(true);
-  };
+  }, []);
 
-  const handleThumbnailGenerated = (thumbnailUrl: string) => {
+  const handleThumbnailGenerated = useCallback((thumbnailUrl: string) => {
     setPosterUrl(thumbnailUrl);
-  };
+  }, []);
 
-  const handleVideoLoaded = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+  const handleVideoLoaded = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = event.currentTarget;
     if (video.videoWidth && video.videoHeight) {
       const ratio = video.videoWidth / video.videoHeight;
@@ -80,7 +88,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
     if (onLoad) {
       onLoad(event);
     }
-  };
+  }, [onLoad, videoAspectRatio]);
 
   if (!file && !url) {
     return (

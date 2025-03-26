@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Play, FileVideo } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -20,6 +20,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   aspectRatio = 16/9
 }) => {
   const [isHovered, setIsHovered] = useState(false);
+  const prevUrlRef = useRef<string | null>(null);
   
   // This is the placeholder for when there's no URL
   if (!url) {
@@ -45,13 +46,22 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     );
   }
 
+  // Only update hover state if URL changed
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+  }, []);
+  
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+  }, []);
+
   // Stable component reference to prevent unnecessary rerenders
   return (
     <AspectRatio 
       ratio={aspectRatio} 
       className="w-full h-full overflow-hidden"
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <VideoPlayer 
         src={url} 

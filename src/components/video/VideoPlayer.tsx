@@ -47,6 +47,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [posterImage, setPosterImage] = useState<string | null>(poster || null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [currentSrc, setCurrentSrc] = useState<string>('');
+  const sourceChangeRef = useRef(false);
+  
+  // Only update poster when poster prop changes
+  useEffect(() => {
+    if (poster !== posterImage) {
+      setPosterImage(poster || null);
+    }
+  }, [poster]);
   
   // Handle play state changes
   useEffect(() => {
@@ -66,6 +74,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   // Only update the source when it actually changes
   useEffect(() => {
     if (src === currentSrc) return;
+    
+    sourceChangeRef.current = true;
     logger.log(`Source changed to: ${src?.substring(0, 30)}...`);
     
     setError(null);
@@ -109,29 +119,33 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleLoadedData = (e: Event) => {
       logger.log(`Video loaded successfully: ${processedSrc.substring(0, 30)}...`);
       setIsLoading(false);
+      sourceChangeRef.current = false;
       
-      if (onLoadedData) {
+      if (onLoadedData && !sourceChangeRef.current) {
         // Cast the event to a React synthetic event
         const syntheticEvent = e as unknown as React.SyntheticEvent<HTMLVideoElement>;
         onLoadedData(syntheticEvent);
       }
       
       // Don't autoplay if we're using hover to play
-      if (autoPlay && !playOnHover) {
+      if (autoPlay && !playOnHover && !sourceChangeRef.current) {
         attemptVideoPlay(video, muted);
       }
     };
     
     const handleError = () => {
-      const { message, details } = getVideoErrorMessage(video.error, processedSrc);
-      
-      logger.error(`Video error for ${processedSrc.substring(0, 30)}...: ${message}`);
-      
-      setError(message);
-      setErrorDetails(details);
-      setIsLoading(false);
-      
-      if (onError) onError(message);
+      if (sourceChangeRef.current) {
+        const { message, details } = getVideoErrorMessage(video.error, processedSrc);
+        
+        logger.error(`Video error for ${processedSrc.substring(0, 30)}...: ${message}`);
+        
+        setError(message);
+        setErrorDetails(details);
+        setIsLoading(false);
+        sourceChangeRef.current = false;
+        
+        if (onError) onError(message);
+      }
     };
     
     // Remove existing handlers (if any)
@@ -148,15 +162,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     try {
       video.preload = "auto"; // Ensure video preloads
       video.src = processedSrc;
-      if (posterImage) {
-        video.poster = posterImage;
-      }
+      video.poster = posterImage || '';
       video.load();
     } catch (err) {
       logger.error('Error setting up video:', err);
       const errorMessage = `Setup error: ${err}`;
       setError(errorMessage);
       setIsLoading(false);
+      sourceChangeRef.current = false;
       if (onError) onError(errorMessage);
     }
     
@@ -173,6 +186,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
+    sourceChangeRef.current = true;
     
     video.pause();
     

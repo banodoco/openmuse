@@ -14,8 +14,20 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   onThumbnailGenerated
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [hasGeneratedThumbnail, setHasGeneratedThumbnail] = useState(false);
+  const previousSourceRef = useRef<string | null>(null);
   
   useEffect(() => {
+    // Create a source identifier to track changes
+    const currentSource = file ? `file:${file.name}:${file.size}` : (url || null);
+    
+    // Skip if we've already generated a thumbnail for this source
+    if (currentSource === previousSourceRef.current && hasGeneratedThumbnail) {
+      return;
+    }
+    
+    previousSourceRef.current = currentSource;
+    
     if (file) {
       const fileUrl = URL.createObjectURL(file);
       
@@ -42,6 +54,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
               const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
               onThumbnailGenerated(dataUrl);
+              setHasGeneratedThumbnail(true);
             }
           } catch (e) {
             console.error('Error generating thumbnail:', e);
@@ -59,9 +72,13 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         if (videoId) {
           const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
           onThumbnailGenerated(thumbnailUrl);
+          setHasGeneratedThumbnail(true);
         }
       } 
       else if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('vimeo.com') && url.includes('supabase.co')) {
+        // Skip thumbnail generation for already processed videos
+        if (hasGeneratedThumbnail) return;
+        
         const tempVideo = document.createElement('video');
         tempVideo.crossOrigin = "anonymous";
         tempVideo.src = url;
@@ -83,6 +100,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
               const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
               onThumbnailGenerated(dataUrl);
+              setHasGeneratedThumbnail(true);
               
               tempVideo.pause();
               tempVideo.src = '';
@@ -100,7 +118,12 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         tempVideo.load();
       }
     }
-  }, [file, url, onThumbnailGenerated]);
+    
+    // Reset flag if source changes
+    if (!hasGeneratedThumbnail && (file || url)) {
+      setHasGeneratedThumbnail(false);
+    }
+  }, [file, url, onThumbnailGenerated, hasGeneratedThumbnail]);
 
   return (
     <video 
@@ -114,4 +137,4 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   );
 };
 
-export default VideoThumbnailGenerator;
+export default React.memo(VideoThumbnailGenerator);

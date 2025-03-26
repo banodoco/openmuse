@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Play, FileVideo } from 'lucide-react';
 import { getEmbedUrl } from '@/lib/utils/videoPreviewUtils';
 import { AspectRatio } from '@/components/ui/aspect-ratio';
@@ -21,7 +21,8 @@ const EmbeddedVideoPlayer: React.FC<EmbeddedVideoPlayerProps> = ({
   className = '',
   aspectRatio = 16/9
 }) => {
-  const embedUrl = getEmbedUrl(url);
+  // Memoize the embed URL to prevent unnecessary recalculations
+  const embedUrl = useMemo(() => getEmbedUrl(url), [url]);
   
   return (
     <AspectRatio ratio={aspectRatio} className={`w-full h-full overflow-hidden ${className}`}>
