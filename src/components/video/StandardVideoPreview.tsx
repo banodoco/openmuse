@@ -22,6 +22,15 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [isHovered, setIsHovered] = useState(false);
   const prevUrlRef = useRef<string | null>(null);
   
+  // Define all callbacks outside of any conditionals
+  const handleMouseEnter = useCallback(() => {
+    setIsHovered(true);
+  }, []);
+  
+  const handleMouseLeave = useCallback(() => {
+    setIsHovered(false);
+  }, []);
+
   // This is the placeholder for when there's no URL
   if (!url) {
     return (
@@ -45,15 +54,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       </AspectRatio>
     );
   }
-
-  // Only update hover state if URL changed
-  const handleMouseEnter = useCallback(() => {
-    setIsHovered(true);
-  }, []);
-  
-  const handleMouseLeave = useCallback(() => {
-    setIsHovered(false);
-  }, []);
 
   // Stable component reference to prevent unnecessary rerenders
   return (
