@@ -1,5 +1,5 @@
 
-import { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { getYoutubeVideoId } from '@/lib/utils/videoPreviewUtils';
 
 interface VideoThumbnailGeneratorProps {
