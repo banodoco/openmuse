@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -35,7 +34,6 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card"
-import { AspectRatio } from "@/components/ui/aspect-ratio";
 import VideoPreview from './VideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 
@@ -52,8 +50,6 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
   const [selectAll, setSelectAll] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
-  const [videoAspectRatios, setVideoAspectRatios] = useState<Record<string, number>>({});
-  const videoRefs = useRef<Record<string, HTMLVideoElement | null>>({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -76,38 +72,6 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
     
     loadVideoUrls();
   }, [videos]);
-
-  // Function to determine video aspect ratio
-  const determineAspectRatio = (videoId: string, element: HTMLVideoElement) => {
-    // Default to 16:9 if we can't determine
-    let aspectRatio = 16/9;
-
-    if (element.videoWidth && element.videoHeight) {
-      aspectRatio = element.videoWidth / element.videoHeight;
-      setVideoAspectRatios(prev => ({
-        ...prev,
-        [videoId]: aspectRatio
-      }));
-    }
-
-    return aspectRatio;
-  };
-
-  // Handle metadata loaded for video
-  const handleVideoMetadataLoaded = (videoId: string, event: React.SyntheticEvent<HTMLVideoElement>) => {
-    const video = event.currentTarget;
-    determineAspectRatio(videoId, video);
-  };
-
-  // Reference callback for videos
-  const setVideoRef = (videoId: string, element: HTMLVideoElement | null) => {
-    videoRefs.current[videoId] = element;
-
-    // If we already have the element with loaded metadata, determine aspect ratio
-    if (element && element.videoWidth && element.videoHeight) {
-      determineAspectRatio(videoId, element);
-    }
-  };
 
   useEffect(() => {
     if (videos && videos.length > 0) {
@@ -143,68 +107,6 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
       (video.metadata?.title?.toLowerCase().includes(searchTerm) ?? false)
     );
   });
-
-  // Function to get the appropriate aspect ratio for a video
-  const getAspectRatio = (videoId: string) => {
-    // Return the detected aspect ratio or default to 16/9
-    return videoAspectRatios[videoId] || 16/9;
-  };
-
-  // Function to determine CSS class based on aspect ratio
-  const getAspectRatioClass = (videoId: string) => {
-    const ratio = getAspectRatio(videoId);
-    
-    // Square or portrait video
-    if (ratio <= 1.01) {
-      return "aspect-square"; // 1:1
-    }
-    
-    // Instagram-like
-    if (ratio <= 1.1) {
-      return "aspect-[4/3]"; // 4:3
-    }
-    
-    // Standard landscape
-    if (ratio <= 1.5) {
-      return "aspect-[4/3]"; // 4:3
-    }
-    
-    // Widescreen
-    if (ratio <= 1.8) {
-      return "aspect-[16/9]"; // 16:9
-    }
-    
-    // Ultra-wide
-    return "aspect-[21/9]"; // 21:9
-  };
-
-  // Function to get grid placement class based on aspect ratio
-  const getGridSpanClass = (videoId: string) => {
-    const ratio = getAspectRatio(videoId);
-    
-    // Square or portrait videos
-    if (ratio <= 1.01) {
-      return "col-span-1 row-span-1";
-    }
-    
-    // Slightly wider than square
-    if (ratio <= 1.1) {
-      return "col-span-1 row-span-1";
-    }
-    
-    // Standard landscape (4:3)
-    if (ratio <= 1.5) {
-      return "col-span-1 row-span-1";
-    }
-    
-    // Widescreen (16:9)
-    if (ratio <= 1.8) {
-      return "col-span-1 row-span-1";
-    }
-    
-    // Ultra-wide videos span 2 columns
-    return "col-span-2 row-span-1";
-  };
 
   const handleDeleteSelected = async () => {
     if (selectedVideos.length === 0) {
@@ -292,15 +194,15 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
 
   return (
     <div className="w-full">
-      <div className="flex flex-wrap items-center justify-between gap-4 mb-4">
+      <div className="flex items-center justify-between mb-4">
         <Input
           type="text"
           placeholder="Filter videos..."
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
-          className="max-w-xs"
+          className="max-w-sm"
         />
-        <div className="flex flex-wrap gap-2">
+        <div className="flex space-x-2">
           <Button variant="destructive" size="sm" onClick={handleDeleteSelected} disabled={selectedVideos.length === 0}>
             Delete Selected
           </Button>
@@ -325,26 +227,17 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
       </div>
       
       <ScrollArea className="h-[calc(100vh-220px)]">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4 auto-rows-auto">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {filteredVideos.map((video) => (
-            <Card 
-              key={video.id} 
-              className={cn(
-                "overflow-hidden transition-all flex flex-col",
-                selectedVideos.includes(video.id) && "ring-2 ring-primary",
-                getGridSpanClass(video.id)
-              )}
-            >
-              <div className={cn(getAspectRatioClass(video.id), "bg-muted")}>
+            <Card key={video.id} className={cn(
+              "overflow-hidden transition-all",
+              selectedVideos.includes(video.id) && "ring-2 ring-primary"
+            )}>
+              <div className="aspect-video w-full overflow-hidden">
                 {videoUrls[video.id] ? (
                   <VideoPreview 
                     url={videoUrls[video.id]} 
                     className="w-full h-full object-cover"
-                    onLoad={(e) => {
-                      if (e.currentTarget instanceof HTMLVideoElement) {
-                        handleVideoMetadataLoaded(video.id, e as any);
-                      }
-                    }}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted">
@@ -353,13 +246,13 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
                 )}
               </div>
               
-              <CardHeader className="pb-2 pt-3 px-3">
+              <CardHeader className="pb-3 pt-4 px-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 overflow-hidden flex items-center gap-2">
                     {video.metadata?.isPrimary && (
                       <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
                     )}
-                    <CardTitle className="text-base truncate">
+                    <CardTitle className="text-lg truncate">
                       {video.metadata?.title || 'Untitled'}
                     </CardTitle>
                   </div>
@@ -370,51 +263,71 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
                   />
                 </div>
                 
-                <div className="flex flex-wrap items-center gap-1 mt-1">
+                <div className="flex items-center gap-2 mt-1">
                   {video.metadata?.model && (
-                    <Badge variant="outline" className="rounded-sm text-xs">
+                    <Badge variant="outline" className="rounded-sm">
                       {formatModelName(video.metadata.model)}
                     </Badge>
                   )}
                   {getStatusBadge(video.admin_approved)}
                   {video.metadata?.isPrimary && (
-                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
+                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
                       Primary
                     </Badge>
                   )}
                 </div>
                 
                 {video.metadata?.description && (
-                  <CardDescription className="line-clamp-1 mt-1 text-xs">
+                  <CardDescription className="line-clamp-2 mt-1">
                     {video.metadata.description}
                   </CardDescription>
                 )}
               </CardHeader>
               
-              <CardContent className="px-3 py-1 text-xs space-y-1 flex-grow">
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">By:</span>
-                  <span className="font-medium truncate max-w-[120px]">
-                    {video.metadata?.creator === 'self' 
-                      ? video.reviewer_name 
-                      : video.metadata?.creatorName || 'Unknown'}
-                  </span>
+              <CardContent className="px-4 py-2 text-sm">
+                <div className="space-y-2">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Created by:</span>
+                    <span className="font-medium">
+                      {video.metadata?.creator === 'self' 
+                        ? video.reviewer_name 
+                        : video.metadata?.creatorName || 'Unknown'}
+                    </span>
+                  </div>
+                  
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Uploaded by:</span>
+                    <span className="font-medium">{video.reviewer_name}</span>
+                  </div>
+                  
+                  {video.metadata?.url && (
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">URL:</span>
+                      <a 
+                        href={video.metadata.url} 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-primary hover:underline truncate max-w-[180px]"
+                      >
+                        {video.metadata.url}
+                      </a>
+                    </div>
+                  )}
                 </div>
               </CardContent>
               
-              <CardFooter className="px-3 py-2 border-t flex justify-between mt-auto">
+              <CardFooter className="px-4 py-3 border-t flex justify-between">
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="text-xs h-7 px-2"
-                  onClick={() => navigate(`/assets/loras/${video.id}`)}
+                  onClick={() => navigate(`/videos/${video.id}`)}
                 >
-                  <Eye className="h-3 w-3 mr-1" /> View
+                  <Eye className="h-4 w-4 mr-1" /> View
                 </Button>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-7 w-7 p-0">
+                    <Button variant="ghost" size="sm">
                       <MoreVertical className="h-4 w-4" />
                     </Button>
                   </DropdownMenuTrigger>

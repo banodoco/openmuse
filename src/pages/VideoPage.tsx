@@ -10,7 +10,6 @@ import { toast } from 'sonner';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
-import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 const VideoPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -18,7 +17,6 @@ const VideoPage: React.FC = () => {
   const [video, setVideo] = useState<VideoEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [aspectRatio, setAspectRatio] = useState(16/9);
 
   useEffect(() => {
     const loadVideo = async () => {
@@ -54,12 +52,8 @@ const VideoPage: React.FC = () => {
     loadVideo();
   }, [id]);
 
-  const handleVideoLoaded = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+  const handleVideoLoaded = () => {
     console.log("Video loaded successfully");
-    const video = event.currentTarget;
-    if (video.videoWidth && video.videoHeight) {
-      setAspectRatio(video.videoWidth / video.videoHeight);
-    }
   };
 
   const handleGoBack = () => {
@@ -114,15 +108,14 @@ const VideoPage: React.FC = () => {
         </div>
         
         <div className="bg-card shadow-md rounded-lg overflow-hidden">
-          <AspectRatio ratio={aspectRatio} className="w-full">
+          <div className="aspect-video w-full">
             <VideoPlayer 
               src={video.video_location} 
               controls
               onLoadedData={handleVideoLoaded}
               muted={false}
-              className="w-full h-full object-cover"
             />
-          </AspectRatio>
+          </div>
         </div>
       </main>
     </div>
