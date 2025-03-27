@@ -1,9 +1,10 @@
+
 export interface VideoMetadata {
   title: string;
   description?: string;
   creator: 'self' | 'someone_else';
   creatorName?: string;
-  classification: 'art' | 'gen' | string;
+  classification?: 'art' | 'gen' | string;
   url?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
   // LoRA details

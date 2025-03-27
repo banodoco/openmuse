@@ -33,6 +33,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     const shouldSkipCheck = 
       location.pathname === '/auth' || 
       location.pathname === '/auth/callback' ||
+      location.pathname === '/upload' ||  // Allow uploads without authentication
       location.pathname.startsWith('/assets/loras/');
     
     if (shouldSkipCheck) {

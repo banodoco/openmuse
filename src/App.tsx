@@ -1,66 +1,71 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import Index from "./pages/Index";
-import Upload from "./pages/upload";
-import Admin from "./pages/Admin";
-import Auth from "./pages/Auth";
-import AuthCallback from "./pages/AuthCallback";
-import NotFound from "./pages/NotFound";
-import VideoPage from "./pages/VideoPage";
-import { useEffect } from "react";
-import { migrateExistingVideos } from "./lib/migrationUtil";
-import RequireAuth from "./components/RequireAuth";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import Index from '@/pages/Index';
+import NotFound from '@/pages/NotFound';
+import RequireAuth from '@/components/RequireAuth';
+import Admin from '@/pages/Admin';
+import VideoPage from '@/pages/VideoPage';
+import Auth from '@/pages/Auth';
+import AuthCallback from '@/pages/AuthCallback';
+import { Toaster } from 'sonner';
+import UploadPage from '@/pages/upload';
+import AuthProvider from '@/components/AuthProvider';
+import { useEffect, useState } from 'react';
+import { databaseSwitcher } from '@/lib/databaseSwitcher';
+import { videoDB } from '@/lib/database';
+import { getCurrentUser } from '@/lib/auth';
 
-// Initialize the query client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      retry: 1,
-      staleTime: 30000,
-    },
-  },
-});
-
-const App = () => {
+function App() {
+  const [isAuthLoading, setIsAuthLoading] = useState(true);
+  
+  // Set up database user ID
   useEffect(() => {
-    // Run migration for existing videos on app load
-    migrateExistingVideos().catch(error => {
-      console.error('Error during video migration:', error);
-    });
+    const setupDatabase = async () => {
+      try {
+        const user = await getCurrentUser();
+        const db = await databaseSwitcher.getDatabase();
+        db.setCurrentUserId(user?.id || null);
+        
+        // Also set it on the facade
+        await videoDB.setCurrentUserId(user?.id || null);
+      } catch (error) {
+        console.error("Error setting up database user ID:", error);
+      }
+    };
+    
+    setupDatabase();
   }, []);
-
+  
   return (
-    <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={
-              <RequireAuth allowUnauthenticated>
-                <Index />
-              </RequireAuth>
-            } />
-            <Route path="/upload" element={<Upload />} />
-            <Route path="/admin" element={
-              <RequireAuth requireAdmin>
-                <Admin />
-              </RequireAuth>
-            } />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/videos/:id" element={<VideoPage />} />
-            <Route path="/assets/loras/:id" element={<VideoPage />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
-    </QueryClientProvider>
+    <Router>
+      <AuthProvider onAuthStateChange={setIsAuthLoading}>
+        <Routes>
+          <Route path="/" element={
+            <RequireAuth allowUnauthenticated={true}>
+              <Index />
+            </RequireAuth>
+          } />
+          <Route path="/admin/*" element={
+            <RequireAuth requireAdmin={true}>
+              <Admin />
+            </RequireAuth>
+          } />
+          <Route path="/assets/loras/:id" element={
+            <RequireAuth allowUnauthenticated={true}>
+              <VideoPage />
+            </RequireAuth>
+          } />
+          <Route path="/upload" element={
+            <UploadPage />
+          } />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
+      </AuthProvider>
+      <Toaster richColors position="top-center" />
+    </Router>
   );
-};
+}
 
 export default App;

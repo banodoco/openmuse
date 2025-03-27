@@ -1,4 +1,3 @@
-
 import { VideoEntry } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseDatabase } from './SupabaseDatabase';
@@ -197,9 +196,10 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
         admin_approved: false,
         user_id: mediaData.user_id,
         metadata: {
-          ...(entry.metadata || {}),
           title: mediaData.title,
           creator: entry.metadata?.creator || 'self',
+          classification: mediaData.classification || 'art',
+          description: entry.metadata?.description || '',
           assetId
         }
       };
