@@ -4,6 +4,7 @@ import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
 import { supabase } from '@/integrations/supabase/client';
+import { videoUrlService } from '@/lib/services/videoUrlService';
 
 const logger = new Logger('StorageVideoPlayer');
 
@@ -30,6 +31,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   // Load the video URL
   useEffect(() => {
@@ -40,46 +42,58 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
         setLoading(true);
         setError(null);
         
-        // If videoLocation is already a URL, use it directly
-        if (videoLocation.startsWith('http') || videoLocation.startsWith('https')) {
-          logger.log('Using direct URL for video');
-          setVideoUrl(videoLocation);
+        if (!videoLocation) {
+          throw new Error('No video location provided');
+        }
+        
+        // Check if this is a blob URL that might be expired
+        if (videoLocation.startsWith('blob:')) {
+          try {
+            const blobUrl = new URL(videoLocation);
+            if (blobUrl.origin !== window.location.origin) {
+              logger.warn('Blob URL from different origin detected, trying to resolve from database');
+              const freshUrl = await videoUrlService.forceRefreshUrl(videoLocation);
+              if (freshUrl) {
+                logger.log(`Resolved fresh URL for blob: ${freshUrl.substring(0, 30)}...`);
+                if (isMounted) setVideoUrl(freshUrl);
+              } else {
+                throw new Error('Failed to resolve video reference');
+              }
+              return;
+            }
+          } catch (e) {
+            // If URL parsing fails, it's likely an invalid blob URL
+            logger.warn('Invalid blob URL detected, trying to resolve from database');
+            const freshUrl = await videoUrlService.forceRefreshUrl(videoLocation);
+            if (freshUrl) {
+              logger.log(`Resolved fresh URL: ${freshUrl.substring(0, 30)}...`);
+              if (isMounted) setVideoUrl(freshUrl);
+              setLoading(false);
+              return;
+            } else {
+              throw new Error('Failed to resolve video reference');
+            }
+          }
+        }
+        
+        // Use the video URL service for all other cases
+        const url = await videoUrlService.getVideoUrl(videoLocation);
+        
+        if (!url) {
+          throw new Error('Could not resolve video URL');
+        }
+        
+        if (isMounted) {
+          setVideoUrl(url);
           setLoading(false);
-          return;
         }
-        
-        // If it looks like a UUID, try to get media record from database
-        if (videoLocation.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
-          logger.log('Looking up media URL from database');
-          
-          // Query the media table for the permanent URL
-          const { data, error } = await supabase
-            .from('media')
-            .select('url')
-            .eq('id', videoLocation)
-            .maybeSingle();
-            
-          if (error) {
-            throw new Error(`Database error: ${error.message}`);
-          }
-          
-          if (data && data.url) {
-            logger.log(`Found permanent URL in database: ${data.url.substring(0, 30)}...`);
-            setVideoUrl(data.url);
-            setLoading(false);
-            return;
-          }
-        }
-        
-        // If we couldn't get a URL, use the location as the URL
-        logger.log('Using location as URL');
-        setVideoUrl(videoLocation);
-        setLoading(false);
       } catch (error) {
         logger.error('Error loading video:', error);
-        setError(`Failed to load video: ${error instanceof Error ? error.message : String(error)}`);
-        setErrorDetails(String(error));
-        setLoading(false);
+        if (isMounted) {
+          setError(`Failed to load video: ${error instanceof Error ? error.message : String(error)}`);
+          setErrorDetails(String(error));
+          setLoading(false);
+        }
       }
     };
     
@@ -90,24 +104,18 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [videoLocation]);
+  }, [videoLocation, retryCount]);
 
   const handleError = (message: string) => {
     setError(message);
   };
 
   const handleRetry = () => {
-    // Simply reload the URL from the source
+    // Force a refresh by incrementing retry count
     setLoading(true);
     setError(null);
     setErrorDetails(null);
-    
-    // Force a refresh by adding a cache buster to the URL
-    if (videoUrl.includes('?')) {
-      setVideoUrl(`${videoUrl}&_t=${Date.now()}`);
-    } else {
-      setVideoUrl(`${videoUrl}?_t=${Date.now()}`);
-    }
+    setRetryCount(prev => prev + 1);
   };
 
   if (loading) {

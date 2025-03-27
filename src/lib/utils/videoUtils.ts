@@ -24,6 +24,15 @@ export const getVideoErrorMessage = (
   videoSrc: string
 ): { message: string, details: string } => {
   if (!error) {
+    // Special case for blob URLs that might be invalid
+    if (videoSrc.startsWith('blob:')) {
+      // Try to fetch the blob to see if it's valid
+      return { 
+        message: 'Invalid video source: ' + videoSrc.substring(0, 30) + '...', 
+        details: `The blob URL may have expired. Try refreshing the page.`
+      };
+    }
+    
     return { 
       message: 'Unknown video error', 
       details: `No MediaError available. Video source: ${videoSrc}`
@@ -75,6 +84,21 @@ export const isValidVideoUrl = (url: string | null): boolean => {
   
   if (!isUrl) return false;
   
+  // For blob URLs, do a quick validity check
+  if (url.startsWith('blob:')) {
+    try {
+      const blobUrl = new URL(url);
+      // If the blob is from a different origin, it's definitely not valid
+      if (blobUrl.origin !== window.location.origin) {
+        console.warn('Blob URL from different origin detected:', url);
+        return false;
+      }
+    } catch (e) {
+      console.warn('Invalid blob URL detected:', url);
+      return false;
+    }
+  }
+  
   // Simple extension check for common video formats
   const hasVideoExtension = /\.(mp4|webm|ogg|mov|avi)($|\?)/i.test(url);
   
@@ -93,6 +117,11 @@ export const isValidVideoUrl = (url: string | null): boolean => {
  * Tries to determine the format of a video from its URL
  */
 export const getVideoFormat = (url: string): string => {
+  // Check for blob URLs first
+  if (url.startsWith('blob:')) {
+    return 'BLOB';
+  }
+  
   // Extract extension if present
   const extensionMatch = url.match(/\.([a-z0-9]+)($|\?)/i);
   if (extensionMatch && extensionMatch[1]) {

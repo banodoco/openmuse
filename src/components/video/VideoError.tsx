@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Logger } from '@/lib/logger';
-import { AlertCircle, RefreshCw, AlertTriangle, ExternalLink } from 'lucide-react';
+import { AlertCircle, RefreshCw, AlertTriangle, ExternalLink, Database } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getVideoFormat } from '@/lib/utils/videoUtils';
 
@@ -32,12 +32,15 @@ const VideoError: React.FC<VideoErrorProps> = ({
 
   // Determine if this is likely a format issue
   const isFormatError = error.includes('format') || error.includes('not supported');
+  const isBlobError = videoSource?.startsWith('blob:') && error.includes('Invalid video source');
   const detectedFormat = videoSource ? getVideoFormat(videoSource) : 'Unknown';
 
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
       <div className="text-destructive text-center p-4 bg-white/95 rounded-lg shadow-lg max-w-[90%]">
-        {isFormatError ? (
+        {isBlobError ? (
+          <Database className="h-6 w-6 mx-auto text-amber-500 mb-2" />
+        ) : isFormatError ? (
           <AlertTriangle className="h-6 w-6 mx-auto text-amber-500 mb-2" />
         ) : (
           <AlertCircle className="h-6 w-6 mx-auto text-destructive mb-2" />
@@ -46,7 +49,14 @@ const VideoError: React.FC<VideoErrorProps> = ({
         <p className="font-medium">Error loading video</p>
         <p className="text-xs text-muted-foreground mt-1 mb-2 break-words">{error}</p>
         
-        {isFormatError && (
+        {isBlobError && (
+          <div className="mb-3 text-xs bg-amber-50 p-2 rounded-md text-amber-800">
+            <p>The temporary video URL has expired.</p>
+            <p className="mt-1">Please try refreshing or reopening this page.</p>
+          </div>
+        )}
+        
+        {isFormatError && !isBlobError && (
           <div className="mb-3 text-xs bg-amber-50 p-2 rounded-md text-amber-800">
             <p>Your browser doesn't support {detectedFormat} video format.</p>
             <p className="mt-1">Try using Chrome or Firefox for best compatibility.</p>
