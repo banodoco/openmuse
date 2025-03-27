@@ -2,6 +2,10 @@
 import React, { useEffect, useState } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import VideoPlayer from './video/VideoPlayer';
+import { convertBlobToDataUrl } from '@/lib/utils/videoUtils';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('StorageVideoPlayer');
 
 interface StorageVideoPlayerProps {
   videoLocation: string;
@@ -34,11 +38,28 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
         setLoading(true);
         setError(null);
         
+        logger.log(`Loading video from location: ${videoLocation}`);
+        
         // Get database instance
         const db = await databaseSwitcher.getDatabase();
         
         // Get the actual URL for the video
-        const url = await db.getVideoUrl(videoLocation);
+        let url = await db.getVideoUrl(videoLocation);
+        
+        // If this is a blob URL, try to convert it to a data URL to avoid cross-origin issues
+        if (url && url.startsWith('blob:')) {
+          logger.log(`Got blob URL: ${url.substring(0, 30)}..., attempting conversion`);
+          try {
+            const dataUrl = await convertBlobToDataUrl(url);
+            if (dataUrl !== url) {
+              logger.log('Successfully converted blob URL to data URL');
+              url = dataUrl;
+            }
+          } catch (conversionError) {
+            logger.error('Failed to convert blob URL to data URL:', conversionError);
+            // Continue with original URL
+          }
+        }
         
         if (isMounted) {
           if (url) {
@@ -50,7 +71,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
         }
       } catch (error) {
         if (isMounted) {
-          console.error('Error loading video:', error);
+          logger.error('Error loading video:', error);
           setError('An error occurred while loading the video');
           setLoading(false);
         }

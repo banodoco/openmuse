@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, ExternalLink, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface VideoPreviewErrorProps {
@@ -17,11 +17,20 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({ error, onRetry, d
         <h4 className="font-medium text-sm mb-1">Error loading video</h4>
         <p className="text-xs text-muted-foreground mb-2">{error}</p>
         {details && (
-          <p className="text-xs text-muted-foreground mb-3 text-left p-2 bg-muted rounded overflow-auto max-h-[60px]">
-            {details}
-          </p>
+          <div className="mb-3">
+            <details className="text-left">
+              <summary className="text-xs text-muted-foreground cursor-pointer">View technical details</summary>
+              <p className="text-xs text-muted-foreground p-2 bg-muted rounded overflow-auto max-h-[60px] mt-1">
+                {details}
+              </p>
+            </details>
+          </div>
         )}
-        <Button size="sm" onClick={onRetry} className="mt-1">Try again</Button>
+        <div className="flex justify-center gap-2">
+          <Button size="sm" onClick={onRetry} className="mt-1 gap-1">
+            <RefreshCw className="h-3 w-3" /> Try again
+          </Button>
+        </div>
       </div>
     </div>
   );
