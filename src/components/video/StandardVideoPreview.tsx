@@ -1,6 +1,6 @@
 
 import React, { useRef, useState } from 'react';
-import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
+import { Play, FileVideo, Eye } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -52,18 +52,11 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     onError(msg);
   };
   
-  const handleRefreshClick = (e: React.MouseEvent) => {
-    logger.log(`Manual refresh requested for video: ${videoId || 'unknown'}`);
-    logger.log(`Current URL: ${url}`);
+  const handleRetry = () => {
+    logger.log('Retry clicked in error component');
     setErrorCount(0);
     setCurrentError(null);
     setErrorDetails(null);
-    if (onRefresh) onRefresh(e);
-  };
-  
-  const handleRetry = () => {
-    logger.log('Retry clicked in error component');
-    handleRefreshClick({} as React.MouseEvent);
   };
   
   if (!url) {
@@ -83,19 +76,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           <FileVideo className="h-3 w-3 mr-1" />
           Preview
         </div>
-        
-        {onRefresh && (
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            onClick={handleRefreshClick} 
-            disabled={isRefreshing}
-            className="mt-2 gap-1 bg-black/50 text-white hover:bg-black/70"
-          >
-            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        )}
         
         {videoId && (
           <div className="absolute bottom-2 right-2">
@@ -132,21 +112,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           playOnHover={true}
           containerRef={containerRef}
         />
-      )}
-      
-      {onRefresh && (
-        <div className="absolute top-2 right-2 z-10">
-          <Button 
-            size="sm" 
-            variant="ghost" 
-            onClick={handleRefreshClick} 
-            disabled={isRefreshing}
-            className="gap-1 bg-black/50 text-white hover:bg-black/70"
-          >
-            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-        </div>
       )}
       
       {videoId && (

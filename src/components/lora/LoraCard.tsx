@@ -3,13 +3,12 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileVideo, ExternalLink, Eye, RefreshCw } from 'lucide-react';
+import { FileVideo, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import StandardVideoPreview from '../video/StandardVideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { cn } from '@/lib/utils';
-import { toast } from 'sonner';
 
 interface LoraCardProps {
   lora: LoraAsset;
@@ -22,10 +21,9 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
 
-  const loadVideoUrl = useCallback(async (forceRefresh = false) => {
+  const loadVideoUrl = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
     
@@ -34,9 +32,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
         console.log(`Loading video for LoRA ${lora.name} with location:`, 
           lora.primaryVideo.video_location.substring(0, 30) + '...');
         
-        const url = forceRefresh 
-          ? await videoUrlService.forceRefreshUrl(lora.primaryVideo.video_location)
-          : await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
+        const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
         
         if (!url) {
           console.warn(`Empty URL returned for LoRA ${lora.name}`);
@@ -59,9 +55,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
       // Fallback to first video if primary is not available
       try {
         const firstVideo = lora.videos[0];
-        const url = forceRefresh
-          ? await videoUrlService.forceRefreshUrl(firstVideo.video_location)
-          : await videoUrlService.getVideoUrl(firstVideo.video_location);
+        const url = await videoUrlService.getVideoUrl(firstVideo.video_location);
         
         if (!url) {
           setLoadError('Video preview unavailable');
@@ -77,7 +71,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
     }
     
     setIsLoading(false);
-    setIsRefreshing(false);
   }, [lora]);
   
   useEffect(() => {
@@ -123,14 +116,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
       navigate(`/assets/loras/${lora.id}`);
     }
   };
-  
-  const handleRefreshVideo = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent card click
-    setIsRefreshing(true);
-    loadVideoUrl(true)
-      .then(() => toast.success("Video refreshed"))
-      .catch(() => toast.error("Failed to refresh video"));
-  };
 
   const primaryVideo = lora.primaryVideo;
   const firstVideo = lora.videos && lora.videos.length > 0 ? lora.videos[0] : null;
@@ -153,16 +138,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
           <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
             <FileVideo className="h-8 w-8 text-muted-foreground mb-2" />
             <span className="text-xs text-muted-foreground">{loadError}</span>
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              className="mt-2 text-xs gap-1" 
-              onClick={handleRefreshVideo}
-              disabled={isRefreshing}
-            >
-              <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
-              Refresh
-            </Button>
           </div>
         ) : videoUrl && videoToUse ? (
           <StandardVideoPreview 
@@ -170,8 +145,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
             posterUrl={posterUrl}
             onError={handleError}
             videoId={videoToUse.id}
-            onRefresh={handleRefreshVideo}
-            isRefreshing={isRefreshing}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">

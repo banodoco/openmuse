@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { AlertCircle, ExternalLink, RefreshCw, Info } from 'lucide-react';
+import { AlertCircle, ExternalLink, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
@@ -29,12 +29,6 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
   if (videoSource) {
     logger.error(`Problem video source: ${videoSource}`);
   }
-
-  const handleRefreshClick = () => {
-    logger.log('Manually refreshing video...');
-    toast.info('Attempting to refresh video...');
-    onRetry();
-  };
 
   const handlePageRefresh = () => {
     logger.log('Refreshing entire page...');
@@ -140,16 +134,12 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         )}
         
         <div className="flex flex-wrap justify-center gap-2">
-          <Button size="sm" onClick={handleRefreshClick} variant="default" className="gap-1">
-            <RefreshCw className="h-3 w-3" /> Try again
-          </Button>
-          
           <Button size="sm" onClick={handleFetchPermanentUrl} variant="secondary" className="gap-1">
             <Info className="h-3 w-3" /> Fetch permanent URL
           </Button>
           
           <Button size="sm" onClick={handlePageRefresh} variant="outline" className="gap-1">
-            <RefreshCw className="h-3 w-3" /> Refresh page
+            Refresh page
           </Button>
         </div>
       </div>
