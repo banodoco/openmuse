@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -194,7 +195,7 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <Input
           type="text"
           placeholder="Filter videos..."
@@ -202,7 +203,7 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
           onChange={(e) => setFilterText(e.target.value)}
           className="max-w-sm"
         />
-        <div className="flex space-x-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="destructive" size="sm" onClick={handleDeleteSelected} disabled={selectedVideos.length === 0}>
             Delete Selected
           </Button>
@@ -227,10 +228,10 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
       </div>
       
       <ScrollArea className="h-[calc(100vh-220px)]">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredVideos.map((video) => (
             <Card key={video.id} className={cn(
-              "overflow-hidden transition-all",
+              "overflow-hidden transition-all h-full",
               selectedVideos.includes(video.id) && "ring-2 ring-primary"
             )}>
               <div className="aspect-video w-full overflow-hidden">
@@ -246,13 +247,13 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
                 )}
               </div>
               
-              <CardHeader className="pb-3 pt-4 px-4">
+              <CardHeader className="pb-2 pt-3 px-4">
                 <div className="flex items-center justify-between">
                   <div className="flex-1 overflow-hidden flex items-center gap-2">
                     {video.metadata?.isPrimary && (
                       <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
                     )}
-                    <CardTitle className="text-lg truncate">
+                    <CardTitle className="text-base truncate">
                       {video.metadata?.title || 'Untitled'}
                     </CardTitle>
                   </div>
@@ -263,29 +264,29 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
                   />
                 </div>
                 
-                <div className="flex items-center gap-2 mt-1">
+                <div className="flex flex-wrap items-center gap-1 mt-1">
                   {video.metadata?.model && (
-                    <Badge variant="outline" className="rounded-sm">
+                    <Badge variant="outline" className="rounded-sm text-xs">
                       {formatModelName(video.metadata.model)}
                     </Badge>
                   )}
                   {getStatusBadge(video.admin_approved)}
                   {video.metadata?.isPrimary && (
-                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300">
+                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
                       Primary
                     </Badge>
                   )}
                 </div>
                 
                 {video.metadata?.description && (
-                  <CardDescription className="line-clamp-2 mt-1">
+                  <CardDescription className="line-clamp-2 mt-1 text-xs">
                     {video.metadata.description}
                   </CardDescription>
                 )}
               </CardHeader>
               
-              <CardContent className="px-4 py-2 text-sm">
-                <div className="space-y-2">
+              <CardContent className="px-4 py-2 text-xs">
+                <div className="space-y-1">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Created by:</span>
                     <span className="font-medium">
@@ -316,19 +317,20 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
                 </div>
               </CardContent>
               
-              <CardFooter className="px-4 py-3 border-t flex justify-between">
+              <CardFooter className="px-4 py-3 border-t flex justify-between mt-auto">
                 <Button 
                   variant="outline" 
                   size="sm" 
                   onClick={() => navigate(`/videos/${video.id}`)}
+                  className="text-xs h-8"
                 >
-                  <Eye className="h-4 w-4 mr-1" /> View
+                  <Eye className="h-3 w-3 mr-1" /> View
                 </Button>
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm">
-                      <MoreVertical className="h-4 w-4" />
+                    <Button variant="ghost" size="sm" className="h-8">
+                      <MoreVertical className="h-3 w-3" />
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
