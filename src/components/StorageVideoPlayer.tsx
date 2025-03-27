@@ -1,11 +1,13 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import VideoPlayer from './video/VideoPlayer';
 import { convertBlobToDataUrl, createDataUrlFromImage } from '@/lib/utils/videoUtils';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
 import { videoUrlService } from '@/lib/services/videoUrlService';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const logger = new Logger('StorageVideoPlayer');
 
@@ -18,6 +20,8 @@ interface StorageVideoPlayerProps {
   loop?: boolean;
   playOnHover?: boolean;
 }
+
+const LOCAL_STORAGE_URL_KEY_PREFIX = 'video_url_cache_';
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   videoLocation,
@@ -32,27 +36,98 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState<number>(0);
 
-  const loadVideo = async (forceRefresh = false) => {
+  // Helper to save URL to localStorage
+  const cacheVideoUrl = useCallback((location: string, url: string) => {
+    try {
+      if (url && !url.startsWith('blob:')) {
+        const storageKey = `${LOCAL_STORAGE_URL_KEY_PREFIX}${location}`;
+        localStorage.setItem(storageKey, JSON.stringify({
+          url,
+          timestamp: Date.now()
+        }));
+        logger.log(`Cached URL for ${location} in localStorage`);
+      }
+    } catch (err) {
+      logger.error('Error caching URL in localStorage:', err);
+    }
+  }, []);
+
+  // Helper to retrieve cached URL from localStorage
+  const getCachedVideoUrl = useCallback((location: string): string | null => {
+    try {
+      const storageKey = `${LOCAL_STORAGE_URL_KEY_PREFIX}${location}`;
+      const cachedData = localStorage.getItem(storageKey);
+      
+      if (cachedData) {
+        const { url, timestamp } = JSON.parse(cachedData);
+        // Cache expires after 24 hours (86400000 ms)
+        if (Date.now() - timestamp < 86400000) {
+          logger.log(`Using cached URL for ${location} from localStorage`);
+          return url;
+        } else {
+          logger.log(`Cached URL for ${location} has expired`);
+          localStorage.removeItem(storageKey);
+        }
+      }
+      return null;
+    } catch (err) {
+      logger.error('Error retrieving cached URL from localStorage:', err);
+      return null;
+    }
+  }, []);
+
+  const loadVideo = useCallback(async (forceRefresh = false) => {
     try {
       setLoading(true);
       setError(null);
       setErrorDetails(null);
       
-      logger.log(`Loading video from location: ${videoLocation}`);
+      logger.log(`Loading video from location: ${videoLocation}, forceRefresh: ${forceRefresh}`);
       
-      // Use videoUrlService instead of directly accessing the database
-      let url;
-      if (forceRefresh) {
-        url = await videoUrlService.forceRefreshUrl(videoLocation);
-      } else {
-        url = await videoUrlService.getVideoUrl(videoLocation);
+      // First check localStorage cache if not forcing refresh
+      let url = !forceRefresh ? getCachedVideoUrl(videoLocation) : null;
+      
+      if (!url) {
+        // If no cached URL or force refresh, get from database
+        try {
+          if (forceRefresh) {
+            url = await videoUrlService.forceRefreshUrl(videoLocation);
+          } else {
+            url = await videoUrlService.getVideoUrl(videoLocation);
+          }
+          
+          // Direct database check as a fallback if videoUrlService fails
+          if (!url && videoLocation.includes('-')) {
+            logger.log('Trying direct database lookup as fallback');
+            const { data, error } = await supabase
+              .from('media')
+              .select('url')
+              .eq('id', videoLocation)
+              .single();
+            
+            if (!error && data?.url) {
+              url = data.url;
+              logger.log('Successfully retrieved URL from direct database lookup');
+            }
+          }
+        } catch (dbErr) {
+          logger.error('Error fetching from database:', dbErr);
+          // Continue with other methods even if database fetch fails
+        }
       }
       
       if (!url) {
-        setError('Video could not be loaded');
-        setLoading(false);
-        return;
+        // If URL is still not available, try using the location itself as the URL
+        if (videoLocation.startsWith('http') || videoLocation.startsWith('data:')) {
+          logger.log('Using video location itself as URL');
+          url = videoLocation;
+        } else {
+          setError('Video could not be loaded from database');
+          setLoading(false);
+          return;
+        }
       }
       
       // If this is a blob URL, convert it to a data URL to avoid cross-origin issues
@@ -79,6 +154,11 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
         }
       }
       
+      // Cache the resolved URL in localStorage for future use
+      if (url && !url.startsWith('blob:')) {
+        cacheVideoUrl(videoLocation, url);
+      }
+      
       setVideoUrl(url);
       setLoading(false);
     } catch (error) {
@@ -87,7 +167,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       setErrorDetails(`${error}`);
       setLoading(false);
     }
-  };
+  }, [videoLocation, getCachedVideoUrl, cacheVideoUrl]);
 
   useEffect(() => {
     let isMounted = true;
@@ -101,7 +181,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       if (event.detail.original === videoLocation) {
         logger.log(`URL refresh event detected for: ${videoLocation}`);
         if (isMounted) {
-          setVideoUrl(event.detail.fresh);
+          const newUrl = event.detail.fresh;
+          setVideoUrl(newUrl);
+          cacheVideoUrl(videoLocation, newUrl);
         }
       }
     };
@@ -118,14 +200,29 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       // Remove event listener
       document.removeEventListener('videoUrlRefreshed', handleUrlRefreshed as EventListener);
     };
-  }, [videoLocation]);
+  }, [videoLocation, cacheVideoUrl, loadVideo]);
+
+  // Add auto-retry logic if video fails to load
+  useEffect(() => {
+    if (error && retryCount < 2) {
+      const timer = setTimeout(() => {
+        logger.log(`Auto-retrying video load (attempt ${retryCount + 1})`);
+        setRetryCount(prev => prev + 1);
+        loadVideo(true); // Force refresh on auto-retry
+      }, 3000); // Wait 3 seconds before retry
+      
+      return () => clearTimeout(timer);
+    }
+  }, [error, retryCount, loadVideo]);
 
   const handleError = (message: string) => {
     setError(message);
   };
 
   const handleRetry = () => {
+    setRetryCount(0);
     loadVideo(true);
+    toast.info('Refreshing video...');
   };
 
   if (loading) {

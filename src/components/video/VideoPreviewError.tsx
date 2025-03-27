@@ -52,6 +52,9 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
     if (error.includes('security') || error.includes('blocked')) {
       return 'Your browser is blocking this video for security reasons. Try using a different browser or refreshing the page.';
     }
+    if (error.includes('could not be loaded from database')) {
+      return 'Video data could not be retrieved. This could be a temporary issue. Please try again in a few moments.';
+    }
     return '';
   };
 
