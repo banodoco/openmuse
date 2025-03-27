@@ -3,7 +3,12 @@ import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useVideoHover } from '@/hooks/useVideoHover';
-import { attemptVideoPlay, getVideoErrorMessage, convertBlobToDataUrl } from '@/lib/utils/videoUtils';
+import { 
+  attemptVideoPlay, 
+  getVideoErrorMessage, 
+  convertBlobToDataUrl,
+  createDataUrlFromImage
+} from '@/lib/utils/videoUtils';
 import VideoError from './VideoError';
 import VideoLoader from './VideoLoader';
 
@@ -48,6 +53,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [processedSrc, setProcessedSrc] = useState<string>('');
   const [posterImage, setPosterImage] = useState<string | null>(poster || null);
   const [isFallbackAttempted, setIsFallbackAttempted] = useState(false);
+  const [conversionAttempted, setConversionAttempted] = useState(false);
 
   // Setup hover behavior
   useVideoHover(containerRef, videoRef, {
@@ -56,9 +62,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   });
 
   useEffect(() => {
+    const isBlobUrl = src?.startsWith('blob:');
     logger.log(`Source changed to: ${src?.substring(0, 30)}...`);
-    logger.log(`Is source a blob URL: ${src?.startsWith('blob:')}`);
+    logger.log(`Is source a blob URL: ${isBlobUrl}`);
     logger.log(`Current page: ${window.location.pathname}`);
+    
+    // For blob URLs, let's try to auto-convert right away
+    if (isBlobUrl) {
+      logger.log('Attempting to auto-convert blob URL on source change');
+      convertBlobToDataUrl(src)
+        .then(dataUrl => {
+          if (dataUrl !== src) {
+            logger.log('Auto-conversion successful, will use data URL');
+            // We don't set it right now, it will happen in the next useEffect
+          }
+        })
+        .catch(err => {
+          logger.error('Auto-conversion failed:', err);
+        });
+    }
   }, [src]);
 
   useEffect(() => {
@@ -66,6 +88,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setErrorDetails('');
     setIsLoading(true);
     setIsFallbackAttempted(false);
+    setConversionAttempted(false);
     
     if (!src) {
       logger.log('No source provided to VideoPlayer');
@@ -81,13 +104,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         if (src.startsWith('blob:')) {
           logger.log(`Processing blob URL: ${src.substring(0, 30)}...`);
           try {
+            setConversionAttempted(true);
             const dataUrl = await convertBlobToDataUrl(src);
             if (dataUrl !== src) {
               logger.log('Successfully converted blob URL to data URL');
               setProcessedSrc(dataUrl);
             } else {
-              logger.log('Could not convert blob URL, using original');
-              setProcessedSrc(src);
+              // If regular conversion failed, try image-based conversion
+              logger.log('First conversion method failed, trying image-based conversion');
+              const imageDataUrl = await createDataUrlFromImage(src);
+              if (imageDataUrl !== src) {
+                logger.log('Image-based conversion successful');
+                setProcessedSrc(imageDataUrl);
+              } else {
+                logger.log('Could not convert blob URL, using original');
+                setProcessedSrc(src);
+              }
             }
           } catch (error) {
             logger.error('Error converting blob URL:', error);
@@ -144,19 +176,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       logger.error(`Video error message: ${video.error?.message}`);
       
       // Check if we need to try fallback to data URL
-      if (!isFallbackAttempted && 
-          (message.includes('URL safety check') || details.includes('URL safety check')) && 
-          processedSrc.startsWith('blob:')) {
+      const isSecurityError = message.includes('security') || 
+                              details.includes('security') || 
+                              message.includes('URL safety check') || 
+                              details.includes('URL safety check');
+      
+      if (!isFallbackAttempted && isSecurityError && processedSrc.startsWith('blob:')) {
         logger.log('Attempting fallback to data URL conversion');
         setIsFallbackAttempted(true);
-        convertBlobToDataUrl(processedSrc)
+        
+        // Try the image-based conversion as a last resort
+        createDataUrlFromImage(processedSrc)
           .then(dataUrl => {
             if (dataUrl !== processedSrc) {
-              logger.log('Fallback conversion succeeded, using data URL');
+              logger.log('Fallback image-based conversion succeeded');
               setProcessedSrc(dataUrl);
               return;
             }
-            // If conversion fails, show the error
+            
+            // If all conversions fail, show the error
             setError(message);
             setErrorDetails(details);
             setIsLoading(false);
@@ -216,20 +254,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
+    setIsFallbackAttempted(false);
+    setConversionAttempted(false);
     
     video.pause();
     
     // Try to get a fresh version of the src
     if (src.startsWith('blob:')) {
-      // For blob URLs, retry the data URL conversion
-      setIsFallbackAttempted(false);
+      // For blob URLs, try the data URL conversion again
       convertBlobToDataUrl(src)
         .then(dataUrl => {
           if (dataUrl !== src) {
             logger.log('Retry conversion succeeded, using data URL');
             setProcessedSrc(dataUrl);
           } else {
-            logger.log('Retry conversion returned original, using as is');
+            // If that didn't work, try our image-based conversion
+            return createDataUrlFromImage(src);
+          }
+        })
+        .then(imgDataUrl => {
+          if (imgDataUrl && imgDataUrl !== src) {
+            logger.log('Image-based conversion succeeded on retry');
+            setProcessedSrc(imgDataUrl);
+          } else {
+            logger.log('All conversion methods failed, using original');
             setProcessedSrc(src);
           }
         })
@@ -241,10 +289,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       // For other URLs, just reload
       video.src = src;
       video.load();
-    }
-    
-    if (autoPlay && !playOnHover) {
-      attemptVideoPlay(video, muted);
     }
   };
 

@@ -2,7 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import VideoPlayer from './video/VideoPlayer';
-import { convertBlobToDataUrl } from '@/lib/utils/videoUtils';
+import { convertBlobToDataUrl, createDataUrlFromImage } from '@/lib/utils/videoUtils';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
 
@@ -60,9 +60,17 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           if (dataUrl !== url) {
             logger.log('Successfully converted blob URL to data URL');
             url = dataUrl;
+          } else {
+            // Try alternative image-based conversion method
+            logger.log('Standard conversion failed, trying image-based conversion');
+            const imageDataUrl = await createDataUrlFromImage(url);
+            if (imageDataUrl !== url) {
+              logger.log('Successfully converted blob URL to image data URL');
+              url = imageDataUrl;
+            }
           }
         } catch (conversionError) {
-          logger.error('Failed to convert blob URL to data URL:', conversionError);
+          logger.error('Failed to convert blob URL:', conversionError);
           // Continue with original URL but log the error
           setErrorDetails(`Conversion error: ${conversionError}`);
         }

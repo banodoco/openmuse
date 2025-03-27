@@ -1,3 +1,4 @@
+
 /**
  * Attempts to play a video with error handling
  */
@@ -92,8 +93,9 @@ export const convertBlobToDataUrl = async (blobUrl: string): Promise<string> => 
     // Check if the blob URL is accessible first
     const isAccessible = await isBlobUrlAccessible(blobUrl);
     if (!isAccessible) {
-      console.error('Blob URL is not accessible, cannot convert to data URL');
-      return blobUrl;
+      console.warn('Blob URL is not accessible, attempting direct data URL creation');
+      // Try an alternative approach for cross-domain blobs
+      return createDataUrlFromImage(blobUrl);
     }
     
     const response = await fetch(blobUrl);
@@ -104,7 +106,7 @@ export const convertBlobToDataUrl = async (blobUrl: string): Promise<string> => 
     
     if (blob.size === 0) {
       console.error('Blob is empty (size 0), likely invalid or expired');
-      return blobUrl;
+      return createDataUrlFromImage(blobUrl);
     }
     
     return new Promise((resolve, reject) => {
@@ -125,8 +127,72 @@ export const convertBlobToDataUrl = async (blobUrl: string): Promise<string> => 
     });
   } catch (error) {
     console.error('Error converting blob to data URL:', error);
-    return blobUrl; // Return original URL on error
+    // Try alternative method as fallback
+    return createDataUrlFromImage(blobUrl);
   }
+};
+
+/**
+ * Alternative approach to create a data URL from a blob URL
+ * This uses an image element which can sometimes bypass CORS issues
+ */
+export const createDataUrlFromImage = (blobUrl: string): Promise<string> => {
+  return new Promise((resolve) => {
+    // If it's not a blob URL, return it as is
+    if (!blobUrl.startsWith('blob:')) {
+      resolve(blobUrl);
+      return;
+    }
+    
+    console.log('Attempting to create data URL from image element');
+    
+    const img = new Image();
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Set crossOrigin to anonymous to try to avoid CORS issues
+    img.crossOrigin = 'anonymous';
+    
+    // Set up a timeout to avoid hanging forever
+    const timeoutId = setTimeout(() => {
+      console.warn('Image loading timed out, returning original URL');
+      resolve(blobUrl);
+    }, 5000);
+    
+    img.onload = () => {
+      clearTimeout(timeoutId);
+      
+      try {
+        // Set canvas dimensions to match the image
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Draw the image to canvas
+        if (ctx) {
+          ctx.drawImage(img, 0, 0);
+          // Get data URL from canvas
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+          console.log('Successfully created data URL from image');
+          resolve(dataUrl);
+        } else {
+          console.error('Could not get canvas context');
+          resolve(blobUrl);
+        }
+      } catch (error) {
+        console.error('Error creating data URL from image:', error);
+        resolve(blobUrl);
+      }
+    };
+    
+    img.onerror = () => {
+      clearTimeout(timeoutId);
+      console.error('Error loading image from blob URL');
+      resolve(blobUrl);
+    };
+    
+    // Set the src to trigger loading
+    img.src = blobUrl;
+  });
 };
 
 /**

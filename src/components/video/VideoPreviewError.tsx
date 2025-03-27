@@ -31,10 +31,13 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
   // Customize error message for specific error types
   const getActionText = () => {
     if (error.includes('URL safety check') || (details && details.includes('URL safety check'))) {
-      return 'This is likely due to browser security restrictions. Try refreshing the entire page.';
+      return 'This is likely due to browser security restrictions. Try refreshing the entire page, or try a different browser.';
     }
     if (error.includes('blob') || (details && details.includes('blob'))) {
       return 'The video link may have expired. Try refreshing the entire page or coming back later.';
+    }
+    if (error.includes('security') || error.includes('blocked')) {
+      return 'Your browser is blocking this video for security reasons. Try using a different browser or refreshing the page.';
     }
     return '';
   };
