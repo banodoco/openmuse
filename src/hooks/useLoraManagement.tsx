@@ -51,7 +51,22 @@ export const useLoraManagement = () => {
     console.log("useLoraManagement: Loading all LoRAs");
     
     try {
-      // Get all assets first, then filter them client-side to debug
+      // Let's log the structure of the DB tables to understand what's happening
+      console.log("useLoraManagement: Getting table structures");
+      
+      // Check the assets table
+      const { data: assetsTableData, error: assetsTableError } = await supabase
+        .from('assets')
+        .select('count')
+        .limit(1);
+        
+      if (assetsTableError) {
+        console.error("useLoraManagement: Error checking assets table:", assetsTableError);
+      } else {
+        console.log("useLoraManagement: Assets table exists");
+      }
+      
+      // Get all assets first with direct SQL as a fallback
       console.log("useLoraManagement: About to query all assets");
       
       const { data: allAssets, error: allAssetsError } = await supabase
@@ -60,37 +75,56 @@ export const useLoraManagement = () => {
         .order('created_at', { ascending: false });
       
       if (allAssetsError) {
+        console.error("useLoraManagement: Error querying assets:", allAssetsError);
         throw allAssetsError;
       }
       
       console.log("useLoraManagement: All assets from database:", allAssets);
       
-      // Now fetch LoRA assets with the existing query
+      // Now fetch LoRA assets with a very flexible query to catch any case variants
       const { data: loraAssets, error } = await supabase
         .from('assets')
         .select('*')
-        .or('type.ilike.%lora%,type.eq.LoRA') // Match any variation of "lora"
+        .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`) 
         .order('created_at', { ascending: false });
       
       if (error) {
+        console.error("useLoraManagement: Error querying LoRA assets:", error);
         throw error;
       }
       
       console.log("useLoraManagement: LoRA assets from database:", loraAssets);
       
-      // Manual filtering to verify the results
+      // Manual filtering to verify the results - accept any case of "lora"
       const manuallyFilteredAssets = allAssets.filter(asset => 
         asset.type && 
-        (asset.type.toLowerCase().includes('lora') || asset.type === 'LoRA')
+        asset.type.toLowerCase().includes('lora')
       );
       
       console.log("useLoraManagement: Manually filtered LoRA assets:", manuallyFilteredAssets);
+      
+      // Check asset-media relationships for debugging
+      if (allAssets.length > 0) {
+        const assetId = allAssets[0].id;
+        console.log(`useLoraManagement: Checking asset-media links for asset ${assetId}`);
+        
+        const { data: assetMedia, error: assetMediaError } = await supabase
+          .from('asset_media')
+          .select('*')
+          .eq('asset_id', assetId);
+          
+        if (assetMediaError) {
+          console.error("useLoraManagement: Error querying asset-media:", assetMediaError);
+        } else {
+          console.log("useLoraManagement: Asset-media links:", assetMedia);
+        }
+      }
       
       // If there are assets in the manually filtered list but not in the query results,
       // use the manually filtered list instead
       const assetsToUse = manuallyFilteredAssets.length > loraAssets.length 
         ? manuallyFilteredAssets 
-        : loraAssets;
+        : loraAssets.length > 0 ? loraAssets : allAssets; // As a last resort, try all assets
       
       // Map videos to their assets
       const lorasWithVideos = assetsToUse.map((asset) => {
@@ -107,7 +141,7 @@ export const useLoraManagement = () => {
         
         // If we don't have any videos via metadata, let's check for any videos where the LoRA name matches
         let allMatchingVideos = assetVideos.length > 0 ? assetVideos : videos.filter(v => 
-          v.metadata?.loraName && v.metadata.loraName.toLowerCase() === asset.name.toLowerCase()
+          v.metadata?.loraName && v.metadata.loraName.toLowerCase() === (asset.name || '').toLowerCase()
         );
         
         if (allMatchingVideos.length === 0) {

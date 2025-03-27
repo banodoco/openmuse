@@ -16,14 +16,15 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   const [approvalFilter, setApprovalFilter] = useState('all');
   
   console.log("LoraList: Received loras:", loras);
+  console.log("LoraList: Types of loras received:", loras.map(lora => ({ id: lora.id, name: lora.name, type: lora.type })));
 
   const filteredLoras = loras.filter(lora => {
     // Text filter
     const searchTerm = filterText.toLowerCase();
     const matchesText = (
-      (lora.name?.toLowerCase().includes(searchTerm) ?? false) ||
-      (lora.description?.toLowerCase().includes(searchTerm) ?? false) ||
-      (lora.creator?.toLowerCase().includes(searchTerm) ?? false)
+      ((lora.name || '').toLowerCase().includes(searchTerm)) ||
+      ((lora.description || '').toLowerCase().includes(searchTerm)) ||
+      ((lora.creator || '').toLowerCase().includes(searchTerm))
     );
     
     // Approval filter

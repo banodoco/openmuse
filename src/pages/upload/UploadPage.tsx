@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -178,13 +177,16 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
   if (user && user.id) {
     logger.log("Creating LoRA asset in Supabase database");
     
-    // Ensure we use the correct and consistent type for LoRA
-    const assetType = 'LoRA'; // Use capitalized "LoRA" consistently
+    // CRITICAL: Always use a consistent case format for "LoRA" - using uppercase "LoRA"
+    const assetType = 'LoRA';
+    
+    // Log the asset being created
+    logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}`);
     
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
-        type: assetType, // Using the consistent type
+        type: assetType,
         name: loraDetails.loraName,
         description: loraDetails.loraDescription,
         creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
@@ -195,11 +197,16 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     
     if (assetError) {
       console.error('Error creating asset:', assetError);
-      throw new Error('Failed to create asset');
+      throw new Error('Failed to create asset: ' + assetError.message);
+    }
+    
+    if (!assetData) {
+      console.error('No asset data returned after insertion');
+      throw new Error('Failed to create asset: no data returned');
     }
     
     assetId = assetData.id;
-    console.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
+    logger.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
     
     // Find the primary video
     const primaryVideoData = videos.find(video => 
@@ -207,10 +214,12 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     );
     
     if (!primaryVideoData) {
-      console.warn("No primary video found, using the first video as primary");
+      logger.log("No primary video found, using the first video as primary");
     }
     
     // Process all videos
+    const processedVideos = [];
+    
     for (const video of videos) {
       if (!video.file && !video.url) continue;
       
@@ -235,12 +244,20 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
         continue;
       }
       
-      const mediaId = mediaData.id;
-      console.log(`Created media with ID: ${mediaId}`);
+      if (!mediaData) {
+        console.error('No media data returned after insertion');
+        continue;
+      }
       
-      if (video.metadata.isPrimary || (!primaryMediaId && video === videos[0])) {
+      const mediaId = mediaData.id;
+      logger.log(`Created media with ID: ${mediaId}`);
+      
+      // Track if this should be the primary video
+      const isPrimary = video.metadata.isPrimary || (!primaryMediaId && video === videos[0]);
+      
+      if (isPrimary) {
         primaryMediaId = mediaId;
-        console.log(`Set primary media ID: ${primaryMediaId}`);
+        logger.log(`Set primary media ID: ${primaryMediaId}`);
       }
       
       logger.log(`Linking asset ${assetId} with media ${mediaId}`);
@@ -254,7 +271,8 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       if (linkError) {
         console.error('Error linking asset and media:', linkError);
       } else {
-        console.log(`Linked asset ${assetId} with media ${mediaId}`);
+        logger.log(`Linked asset ${assetId} with media ${mediaId}`);
+        processedVideos.push(mediaId);
       }
     }
     
@@ -269,10 +287,26 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       if (updateError) {
         console.error('Error updating asset with primary media:', updateError);
       } else {
-        console.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
+        logger.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
       }
     } else {
       console.error("No primary media ID set for asset", assetId);
+    }
+    
+    // Final validation check
+    logger.log(`Asset creation completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
+    
+    // Double-check the asset was created with the right data
+    const { data: checkAsset, error: checkError } = await supabase
+      .from('assets')
+      .select('*')
+      .eq('id', assetId)
+      .single();
+      
+    if (checkError) {
+      logger.log(`Error verifying asset: ${checkError.message}`);
+    } else {
+      logger.log(`Verified asset exists: ${JSON.stringify(checkAsset)}`);
     }
   }
   
