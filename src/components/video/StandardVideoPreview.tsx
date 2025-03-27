@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { Play, FileVideo, Eye } from 'lucide-react';
+import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -9,14 +9,18 @@ interface StandardVideoPreviewProps {
   url: string | null;
   posterUrl: string | null;
   onError: (msg: string) => void;
-  videoId?: string; // Add videoId prop for linking to the video page
+  videoId?: string;
+  onRefresh?: (e: React.MouseEvent) => void;
+  isRefreshing?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   url,
   posterUrl,
   onError,
-  videoId
+  videoId,
+  onRefresh,
+  isRefreshing = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   
@@ -37,6 +41,19 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           <FileVideo className="h-3 w-3 mr-1" />
           Preview
         </div>
+        
+        {onRefresh && (
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            onClick={onRefresh} 
+            disabled={isRefreshing}
+            className="mt-2 gap-1 bg-black/50 text-white hover:bg-black/70"
+          >
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        )}
         
         {videoId && (
           <div className="absolute bottom-2 right-2">
@@ -65,6 +82,21 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         playOnHover={true}
         containerRef={containerRef}
       />
+      
+      {onRefresh && (
+        <div className="absolute top-2 right-2">
+          <Button 
+            size="sm" 
+            variant="ghost" 
+            onClick={onRefresh} 
+            disabled={isRefreshing}
+            className="gap-1 bg-black/50 text-white hover:bg-black/70"
+          >
+            <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        </div>
+      )}
       
       {videoId && (
         <div className="absolute bottom-2 right-2">
