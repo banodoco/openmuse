@@ -3,6 +3,8 @@ import React from 'react';
 import { LoraAsset } from '@/lib/types';
 import LoraList from './lora/LoraList';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 interface LoraManagerProps {
   loras: LoraAsset[];
@@ -31,6 +33,17 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   
   return (
     <div className="mt-8">
+      <div className="flex justify-end mb-4">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={refetchLoras}
+          className="flex items-center gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
       <LoraList loras={loras} />
     </div>
   );
