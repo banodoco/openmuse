@@ -1,22 +1,41 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from '@/components/ui/input';
-import { FileVideo } from 'lucide-react';
+import { FileVideo, RefreshCw } from 'lucide-react';
 import LoraCard from './LoraCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from '@/components/ui/button';
+import { toast } from 'sonner';
 
 interface LoraListProps {
   loras: LoraAsset[];
+  onRefresh?: () => Promise<void>;
 }
 
-const LoraList: React.FC<LoraListProps> = ({ loras }) => {
+const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [filterText, setFilterText] = useState('');
   const [approvalFilter, setApprovalFilter] = useState('all');
+  const [refreshing, setRefreshing] = useState(false);
   
   console.log("LoraList: Received loras:", loras);
   console.log("LoraList: Types of loras received:", loras.map(lora => ({ id: lora.id, name: lora.name, type: lora.type })));
+
+  const handleRefresh = async () => {
+    if (onRefresh) {
+      setRefreshing(true);
+      try {
+        await onRefresh();
+        toast.success("LoRA list refreshed");
+      } catch (error) {
+        console.error("Error refreshing LoRAs:", error);
+        toast.error("Failed to refresh LoRAs");
+      } finally {
+        setRefreshing(false);
+      }
+    }
+  };
 
   const filteredLoras = loras.filter(lora => {
     // Text filter
@@ -80,6 +99,19 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
             </SelectContent>
           </Select>
         </div>
+        
+        {onRefresh && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleRefresh}
+            disabled={refreshing}
+            className="gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
+        )}
       </div>
       
       <ScrollArea className="h-[calc(100vh-220px)]">
@@ -110,7 +142,20 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
             <li>No assets with type 'LoRA' have been created</li>
             <li>The assets exist but don't have the correct type ('LoRA' or similar)</li>
             <li>The assets exist but don't have videos associated with them</li>
+            <li>The database connection is not working properly</li>
           </ul>
+          <div className="mt-4">
+            <Button 
+              variant="secondary" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={refreshing}
+              className="gap-2"
+            >
+              <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+              Refresh
+            </Button>
+          </div>
         </div>
       )}
     </div>

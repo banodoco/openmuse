@@ -54,19 +54,28 @@ export const useLoraManagement = () => {
       // Let's log the structure of the DB tables to understand what's happening
       console.log("useLoraManagement: Getting table structures");
       
-      // Check the assets table
-      const { data: assetsTableData, error: assetsTableError } = await supabase
+      // Check the assets table count
+      const { data: assetsCount, error: assetsCountError } = await supabase
         .from('assets')
-        .select('count')
-        .limit(1);
+        .select('count');
         
-      if (assetsTableError) {
-        console.error("useLoraManagement: Error checking assets table:", assetsTableError);
+      if (assetsCountError) {
+        console.error("useLoraManagement: Error checking assets count:", assetsCountError);
       } else {
-        console.log("useLoraManagement: Assets table exists");
+        console.log("useLoraManagement: Assets table count:", assetsCount);
       }
       
-      // Get all assets first with direct SQL as a fallback
+      // Get all assets directly with raw SQL to see exactly what's in the database
+      console.log("useLoraManagement: Fetching all assets with direct SQL");
+      const { data: rawAssets, error: rawAssetsError } = await supabase.rpc('debug_get_all_assets');
+      
+      if (rawAssetsError) {
+        console.error("useLoraManagement: Error with direct SQL query:", rawAssetsError);
+      } else {
+        console.log("useLoraManagement: Raw assets from database:", rawAssets);
+      }
+      
+      // Get all assets first
       console.log("useLoraManagement: About to query all assets");
       
       const { data: allAssets, error: allAssetsError } = await supabase
