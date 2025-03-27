@@ -62,8 +62,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       
       if (cachedData) {
         const { url, timestamp } = JSON.parse(cachedData);
-        // Cache expires after 24 hours (86400000 ms)
-        if (Date.now() - timestamp < 86400000) {
+        // Cache expires after 7 days (604800000 ms) instead of 24 hours
+        if (Date.now() - timestamp < 604800000) {
           logger.log(`Using cached URL for ${location} from localStorage`);
           return url;
         } else {
@@ -74,6 +74,37 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       return null;
     } catch (err) {
       logger.error('Error retrieving cached URL from localStorage:', err);
+      return null;
+    }
+  }, []);
+
+  const getPermalink = useCallback(async (location: string): Promise<string | null> => {
+    try {
+      // Check if this is a Supabase Storage URL
+      if (location.includes('supabase.co/storage')) {
+        logger.log('Already have a Supabase storage URL, using it directly');
+        return location;
+      }
+      
+      // If it's a UUID, try to get the media record directly
+      if (location.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)) {
+        logger.log('Looking up media by ID:', location);
+        const { data, error } = await supabase
+          .from('media')
+          .select('url')
+          .eq('id', location)
+          .single();
+        
+        if (!error && data?.url) {
+          logger.log('Found permanent URL in database:', data.url);
+          return data.url;
+        }
+      }
+      
+      // If we can't determine a permanent URL, return null
+      return null;
+    } catch (err) {
+      logger.error('Error getting permalink:', err);
       return null;
     }
   }, []);
@@ -90,47 +121,51 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       let url = !forceRefresh ? getCachedVideoUrl(videoLocation) : null;
       
       if (!url) {
-        // If no cached URL or force refresh, get from database
-        try {
-          if (forceRefresh) {
-            url = await videoUrlService.forceRefreshUrl(videoLocation);
-          } else {
-            url = await videoUrlService.getVideoUrl(videoLocation);
-          }
-          
-          // Direct database check as a fallback if videoUrlService fails
-          if (!url && videoLocation.includes('-')) {
-            logger.log('Trying direct database lookup as fallback');
-            const { data, error } = await supabase
-              .from('media')
-              .select('url')
-              .eq('id', videoLocation)
-              .single();
-            
-            if (!error && data?.url) {
-              url = data.url;
-              logger.log('Successfully retrieved URL from direct database lookup');
+        // Try to get a permanent URL
+        url = await getPermalink(videoLocation);
+        
+        // If no permanent URL, use videoUrlService
+        if (!url) {
+          try {
+            if (forceRefresh) {
+              url = await videoUrlService.forceRefreshUrl(videoLocation);
+            } else {
+              url = await videoUrlService.getVideoUrl(videoLocation);
             }
+          } catch (dbErr) {
+            logger.error('Error fetching from videoUrlService:', dbErr);
           }
-        } catch (dbErr) {
-          logger.error('Error fetching from database:', dbErr);
-          // Continue with other methods even if database fetch fails
+        }
+        
+        // Direct database check as a fallback
+        if (!url && videoLocation.includes('-')) {
+          logger.log('Trying direct database lookup as fallback');
+          const { data, error } = await supabase
+            .from('media')
+            .select('url')
+            .eq('id', videoLocation)
+            .single();
+          
+          if (!error && data?.url) {
+            url = data.url;
+            logger.log('Successfully retrieved permanent URL from direct database lookup');
+          }
         }
       }
       
       if (!url) {
-        // If URL is still not available, try using the location itself as the URL
+        // Last resort: use the location itself as the URL
         if (videoLocation.startsWith('http') || videoLocation.startsWith('data:')) {
           logger.log('Using video location itself as URL');
           url = videoLocation;
         } else {
-          setError('Video could not be loaded from database');
+          setError('Video could not be loaded from storage');
           setLoading(false);
           return;
         }
       }
       
-      // If this is a blob URL, convert it to a data URL to avoid cross-origin issues
+      // For blob URLs, convert to data URL to avoid expiration issues
       if (url.startsWith('blob:')) {
         logger.log(`Got blob URL: ${url.substring(0, 30)}..., attempting conversion`);
         try {
@@ -149,7 +184,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           }
         } catch (conversionError) {
           logger.error('Failed to convert blob URL:', conversionError);
-          // Continue with original URL but log the error
           setErrorDetails(`Conversion error: ${conversionError}`);
         }
       }
@@ -167,7 +201,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       setErrorDetails(`${error}`);
       setLoading(false);
     }
-  }, [videoLocation, getCachedVideoUrl, cacheVideoUrl]);
+  }, [videoLocation, getCachedVideoUrl, cacheVideoUrl, getPermalink]);
 
   useEffect(() => {
     let isMounted = true;

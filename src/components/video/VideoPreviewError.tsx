@@ -37,12 +37,15 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
 
   const handlePageRefresh = () => {
     logger.log('Refreshing entire page...');
-    toast.info('Refreshing page...');
+    toast.info('Refreshing page to retrieve latest video data...');
     window.location.reload();
   };
 
   // Customize error message for specific error types
   const getActionText = () => {
+    if (error.includes('could not be loaded from storage')) {
+      return 'The video may have been moved or deleted from storage. Try refreshing to retrieve the updated URL.';
+    }
     if (error.includes('URL safety check') || (details && details.includes('URL safety check'))) {
       return 'This is likely due to browser security restrictions. Try refreshing the entire page, or try a different browser.';
     }
@@ -51,9 +54,6 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
     }
     if (error.includes('security') || error.includes('blocked')) {
       return 'Your browser is blocking this video for security reasons. Try using a different browser or refreshing the page.';
-    }
-    if (error.includes('could not be loaded from database')) {
-      return 'Video data could not be retrieved. This could be a temporary issue. Please try again in a few moments.';
     }
     return '';
   };
