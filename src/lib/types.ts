@@ -2,7 +2,7 @@
 export interface VideoMetadata {
   title: string;
   description?: string;
-  creator: 'self' | 'someone_else';
+  creator?: 'self' | 'someone_else';  // Changed from required to optional
   creatorName?: string;
   classification?: 'art' | 'gen' | string;
   url?: string;
