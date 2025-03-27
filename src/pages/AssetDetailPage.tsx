@@ -38,40 +38,53 @@ const AssetDetailPage: React.FC = () => {
 
         if (assetError) throw assetError;
 
-        // Fetch associated videos
+        // Fetch associated videos from asset_media or directly from media table
         const { data: videoData, error: videoError } = await supabase
           .from('media')
           .select('*')
-          .eq('classification', 'gen')
-          .contains('title', assetData.name);
+          .eq('type', 'video');
 
         if (videoError) throw videoError;
 
+        // Filter videos that match this asset (by name or through primary_media_id)
+        const assetVideos = videoData.filter(video => 
+          video.title?.includes(assetData.name) || 
+          video.id === assetData.primary_media_id
+        );
+
         // Convert Supabase media format to VideoEntry format
         const convertedVideos: VideoEntry[] = await Promise.all(
-          videoData.map(async (media: any) => {
-            const videoUrl = await videoUrlService.getVideoUrl(media.url);
-            
-            return {
-              id: media.id,
-              video_location: videoUrl,
-              reviewer_name: media.creator || 'Unknown',
-              skipped: false,
-              created_at: media.created_at,
-              admin_approved: null,
-              user_id: media.user_id,
-              metadata: {
-                title: media.title,
-                description: '',
-                classification: media.classification,
-                model: media.type
-              }
-            };
+          assetVideos.map(async (media: any) => {
+            try {
+              const videoUrl = await videoUrlService.getVideoUrl(media.url);
+              
+              return {
+                id: media.id,
+                video_location: videoUrl,
+                reviewer_name: media.creator || 'Unknown',
+                skipped: false,
+                created_at: media.created_at,
+                admin_approved: null,
+                user_id: media.user_id,
+                metadata: {
+                  title: media.title,
+                  description: '',
+                  classification: media.classification,
+                  model: media.type,
+                  loraName: assetData.name,
+                  loraDescription: assetData.description,
+                  assetId: assetData.id
+                }
+              };
+            } catch (error) {
+              console.error(`Error processing video ${media.id}:`, error);
+              return null;
+            }
           })
         );
 
         setAsset(assetData);
-        setVideos(convertedVideos);
+        setVideos(convertedVideos.filter(v => v !== null) as VideoEntry[]);
       } catch (error) {
         console.error('Error fetching asset details:', error);
         toast.error('Failed to load asset details');
