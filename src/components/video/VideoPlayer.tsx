@@ -21,6 +21,7 @@ interface VideoPlayerProps {
   onError?: (message: string) => void;
   poster?: string;
   playOnHover?: boolean;
+  containerRef?: React.RefObject<HTMLDivElement>;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -35,15 +36,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onError,
   poster,
   playOnHover = false,
+  containerRef: externalContainerRef,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
+  const internalContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = externalContainerRef || internalContainerRef;
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [processedSrc, setProcessedSrc] = useState<string>('');
   const [posterImage, setPosterImage] = useState<string | null>(poster || null);
-  const containerRef = useRef<HTMLDivElement>(null);
 
   // Setup hover behavior
   useVideoHover(containerRef, videoRef, {

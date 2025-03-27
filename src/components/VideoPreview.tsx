@@ -62,8 +62,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={() => setIsPlaying(true)}
-      onMouseLeave={() => setIsPlaying(false)}
     >
       <VideoThumbnailGenerator 
         file={file}

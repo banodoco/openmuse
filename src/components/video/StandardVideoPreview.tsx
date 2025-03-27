@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useRef } from 'react';
 import { Play, FileVideo } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 
@@ -14,6 +14,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   posterUrl,
   onError
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  
   if (!url) {
     return (
       <div 
@@ -36,16 +38,19 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   }
 
   return (
-    <VideoPlayer 
-      src={url} 
-      controls={false}
-      autoPlay={false}
-      muted={true}
-      className="w-full h-full object-cover"
-      onError={onError}
-      poster={posterUrl || undefined}
-      playOnHover={true}
-    />
+    <div ref={containerRef} className="w-full h-full">
+      <VideoPlayer 
+        src={url} 
+        controls={false}
+        autoPlay={false}
+        muted={true}
+        className="w-full h-full object-cover"
+        onError={onError}
+        poster={posterUrl || undefined}
+        playOnHover={true}
+        containerRef={containerRef}
+      />
+    </div>
   );
 };
 
