@@ -47,16 +47,31 @@ const AssetDetailPage: React.FC = () => {
 
         if (videoError) throw videoError;
 
-        // Load video URLs
-        const videosWithUrls = await Promise.all(
-          videoData.map(async (video: VideoEntry) => ({
-            ...video,
-            video_location: await videoUrlService.getVideoUrl(video.url)
-          }))
+        // Convert Supabase media format to VideoEntry format
+        const convertedVideos: VideoEntry[] = await Promise.all(
+          videoData.map(async (media: any) => {
+            const videoUrl = await videoUrlService.getVideoUrl(media.url);
+            
+            return {
+              id: media.id,
+              video_location: videoUrl,
+              reviewer_name: media.creator || 'Unknown',
+              skipped: false,
+              created_at: media.created_at,
+              admin_approved: null,
+              user_id: media.user_id,
+              metadata: {
+                title: media.title,
+                description: '',
+                classification: media.classification,
+                model: media.type
+              }
+            };
+          })
         );
 
         setAsset(assetData);
-        setVideos(videosWithUrls);
+        setVideos(convertedVideos);
       } catch (error) {
         console.error('Error fetching asset details:', error);
         toast.error('Failed to load asset details');
@@ -122,17 +137,17 @@ const AssetDetailPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="md:col-span-1">
             <CardHeader>
-              <CardTitle>{asset.name}</CardTitle>
+              <CardTitle>{asset?.name}</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              {asset.description && (
+              {asset?.description && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
                   <p>{asset.description}</p>
                 </div>
               )}
               
-              {asset.creator && (
+              {asset?.creator && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Creator</h3>
                   <p>{asset.creator}</p>
@@ -141,12 +156,12 @@ const AssetDetailPage: React.FC = () => {
               
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
-                <Badge variant="outline">{asset.type}</Badge>
+                <Badge variant="outline">{asset?.type}</Badge>
               </div>
               
               <div>
                 <h3 className="text-sm font-medium text-muted-foreground">Created At</h3>
-                <p>{new Date(asset.created_at).toLocaleDateString()}</p>
+                <p>{asset?.created_at ? new Date(asset.created_at).toLocaleDateString() : 'Unknown'}</p>
               </div>
             </CardContent>
           </Card>

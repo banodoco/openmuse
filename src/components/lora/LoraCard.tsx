@@ -3,9 +3,9 @@ import React from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileVideo, Star, ExternalLink, Eye } from 'lucide-react';
+import { FileVideo, ExternalLink, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import StandardVideoPreview from '../video/StandardVideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { cn } from '@/lib/utils';
@@ -19,6 +19,7 @@ interface LoraCardProps {
 const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const [videoUrl, setVideoUrl] = React.useState<string | null>(null);
   const [posterUrl, setPosterUrl] = React.useState<string | null>(null);
+  const navigate = useNavigate();
 
   React.useEffect(() => {
     const loadVideoUrl = async () => {
@@ -45,6 +46,14 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
     console.error(`Error with video preview: ${msg}`);
   };
 
+  const handleCardClick = () => {
+    if (onClick) {
+      onClick();
+    } else {
+      navigate(`/assets/loras/${lora.id}`);
+    }
+  };
+
   const primaryVideo = lora.primaryVideo;
   const firstVideo = lora.videos && lora.videos.length > 0 ? lora.videos[0] : null;
   const videoToUse = primaryVideo || firstVideo;
@@ -55,7 +64,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
         "overflow-hidden transition-all h-full cursor-pointer hover:shadow-md",
         selected && "ring-2 ring-primary"
       )}
-      onClick={onClick}
+      onClick={handleCardClick}
     >
       <div className="aspect-video w-full overflow-hidden">
         {videoUrl && videoToUse ? (
@@ -112,15 +121,17 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
       </CardContent>
       
       <CardFooter className="px-4 py-3 border-t flex justify-between mt-auto">
-        <Link to={`/assets/loras/${lora.id}`}>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            className="text-xs h-8 gap-1"
-          >
-            <Eye className="h-3 w-3" /> View
-          </Button>
-        </Link>
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="text-xs h-8 gap-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            navigate(`/assets/loras/${lora.id}`);
+          }}
+        >
+          <Eye className="h-3 w-3" /> View
+        </Button>
       </CardFooter>
     </Card>
   );
