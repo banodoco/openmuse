@@ -180,134 +180,168 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     // CRITICAL: Always use a consistent case format for "LoRA" - using uppercase "LoRA"
     const assetType = 'LoRA';
     
-    // Log the asset being created
-    logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}`);
+    // Log the asset being created with all details
+    logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
+    logger.log(`User ID for asset creation: ${user.id}`);
     
-    const { data: assetData, error: assetError } = await supabase
-      .from('assets')
-      .insert({
-        type: assetType,
-        name: loraDetails.loraName,
-        description: loraDetails.loraDescription,
-        creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
-        user_id: user.id
-      })
-      .select()
-      .single();
-    
-    if (assetError) {
-      console.error('Error creating asset:', assetError);
-      throw new Error('Failed to create asset: ' + assetError.message);
-    }
-    
-    if (!assetData) {
-      console.error('No asset data returned after insertion');
-      throw new Error('Failed to create asset: no data returned');
-    }
-    
-    assetId = assetData.id;
-    logger.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
-    
-    // Find the primary video
-    const primaryVideoData = videos.find(video => 
-      (video.file || video.url) && video.metadata.isPrimary
-    );
-    
-    if (!primaryVideoData) {
-      logger.log("No primary video found, using the first video as primary");
-    }
-    
-    // Process all videos
-    const processedVideos = [];
-    
-    for (const video of videos) {
-      if (!video.file && !video.url) continue;
-      
-      const videoUrl = video.url || 'error';
-      
-      logger.log(`Creating media entry for video ${video.metadata.title}`);
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('media')
+    try {
+      const { data: assetData, error: assetError } = await supabase
+        .from('assets')
         .insert({
-          title: video.metadata.title,
-          url: videoUrl,
-          type: 'video',
-          classification: video.metadata.classification,
-          creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
+          type: assetType,
+          name: loraDetails.loraName,
+          description: loraDetails.loraDescription,
+          creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
           user_id: user.id
         })
         .select()
         .single();
       
-      if (mediaError) {
-        console.error('Error creating media entry:', mediaError);
-        continue;
+      if (assetError) {
+        logger.log(`Error creating asset: ${JSON.stringify(assetError)}`);
+        console.error('Error creating asset:', assetError);
+        throw new Error('Failed to create asset: ' + assetError.message);
       }
       
-      if (!mediaData) {
-        console.error('No media data returned after insertion');
-        continue;
+      if (!assetData) {
+        logger.log('No asset data returned after insertion');
+        console.error('No asset data returned after insertion');
+        throw new Error('Failed to create asset: no data returned');
       }
       
-      const mediaId = mediaData.id;
-      logger.log(`Created media with ID: ${mediaId}`);
+      assetId = assetData.id;
+      logger.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
       
-      // Track if this should be the primary video
-      const isPrimary = video.metadata.isPrimary || (!primaryMediaId && video === videos[0]);
-      
-      if (isPrimary) {
-        primaryMediaId = mediaId;
-        logger.log(`Set primary media ID: ${primaryMediaId}`);
-      }
-      
-      logger.log(`Linking asset ${assetId} with media ${mediaId}`);
-      const { error: linkError } = await supabase
-        .from('asset_media')
-        .insert({
-          asset_id: assetId,
-          media_id: mediaId
-        });
-      
-      if (linkError) {
-        console.error('Error linking asset and media:', linkError);
-      } else {
-        logger.log(`Linked asset ${assetId} with media ${mediaId}`);
-        processedVideos.push(mediaId);
-      }
-    }
-    
-    // Make sure we have a primary media set
-    if (primaryMediaId) {
-      logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
-      const { error: updateError } = await supabase
+      // Verify the asset was created correctly
+      const { data: verifyAsset, error: verifyError } = await supabase
         .from('assets')
-        .update({ primary_media_id: primaryMediaId })
-        .eq('id', assetId);
-      
-      if (updateError) {
-        console.error('Error updating asset with primary media:', updateError);
+        .select('*')
+        .eq('id', assetId)
+        .single();
+        
+      if (verifyError) {
+        logger.log(`Error verifying asset creation: ${verifyError.message}`);
       } else {
-        logger.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
+        logger.log(`Asset verified with data: ${JSON.stringify(verifyAsset)}`);
       }
-    } else {
-      console.error("No primary media ID set for asset", assetId);
-    }
-    
-    // Final validation check
-    logger.log(`Asset creation completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
-    
-    // Double-check the asset was created with the right data
-    const { data: checkAsset, error: checkError } = await supabase
-      .from('assets')
-      .select('*')
-      .eq('id', assetId)
-      .single();
       
-    if (checkError) {
-      logger.log(`Error verifying asset: ${checkError.message}`);
-    } else {
-      logger.log(`Verified asset exists: ${JSON.stringify(checkAsset)}`);
+      // Find the primary video
+      const primaryVideoData = videos.find(video => 
+        (video.file || video.url) && video.metadata.isPrimary
+      );
+      
+      if (!primaryVideoData) {
+        logger.log("No primary video found, using the first video as primary");
+      }
+      
+      // Process all videos
+      const processedVideos = [];
+      
+      for (const video of videos) {
+        if (!video.file && !video.url) continue;
+        
+        const videoUrl = video.url || 'error';
+        
+        logger.log(`Creating media entry for video ${video.metadata.title}`);
+        try {
+          const { data: mediaData, error: mediaError } = await supabase
+            .from('media')
+            .insert({
+              title: video.metadata.title,
+              url: videoUrl,
+              type: 'video',
+              classification: video.metadata.classification,
+              creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
+              user_id: user.id
+            })
+            .select()
+            .single();
+          
+          if (mediaError) {
+            logger.log(`Error creating media entry: ${JSON.stringify(mediaError)}`);
+            console.error('Error creating media entry:', mediaError);
+            continue;
+          }
+          
+          if (!mediaData) {
+            logger.log('No media data returned after insertion');
+            console.error('No media data returned after insertion');
+            continue;
+          }
+          
+          const mediaId = mediaData.id;
+          logger.log(`Created media with ID: ${mediaId}`);
+          
+          // Track if this should be the primary video
+          const isPrimary = video.metadata.isPrimary || (!primaryMediaId && video === videos[0]);
+          
+          if (isPrimary) {
+            primaryMediaId = mediaId;
+            logger.log(`Set primary media ID: ${primaryMediaId}`);
+          }
+          
+          logger.log(`Linking asset ${assetId} with media ${mediaId}`);
+          const { error: linkError } = await supabase
+            .from('asset_media')
+            .insert({
+              asset_id: assetId,
+              media_id: mediaId
+            });
+          
+          if (linkError) {
+            logger.log(`Error linking asset and media: ${JSON.stringify(linkError)}`);
+            console.error('Error linking asset and media:', linkError);
+          } else {
+            logger.log(`Linked asset ${assetId} with media ${mediaId}`);
+            processedVideos.push(mediaId);
+          }
+        } catch (mediaInsertError) {
+          logger.log(`Exception during media processing: ${JSON.stringify(mediaInsertError)}`);
+          console.error('Exception during media processing:', mediaInsertError);
+        }
+      }
+      
+      // Make sure we have a primary media set
+      if (primaryMediaId) {
+        logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
+        const { error: updateError } = await supabase
+          .from('assets')
+          .update({ primary_media_id: primaryMediaId })
+          .eq('id', assetId);
+        
+        if (updateError) {
+          logger.log(`Error updating asset with primary media: ${JSON.stringify(updateError)}`);
+          console.error('Error updating asset with primary media:', updateError);
+        } else {
+          logger.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
+        }
+      } else {
+        logger.log(`Warning: No primary media ID set for asset ${assetId}`);
+        console.error("No primary media ID set for asset", assetId);
+      }
+      
+      // Final validation check
+      logger.log(`Asset creation completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
+      
+      // Double-check the asset was updated with primary media
+      const { data: checkAsset, error: checkError } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('id', assetId)
+        .single();
+        
+      if (checkError) {
+        logger.log(`Error verifying final asset state: ${checkError.message}`);
+      } else {
+        logger.log(`Verified final asset state: ${JSON.stringify(checkAsset)}`);
+      }
+    } catch (assetCreationError) {
+      logger.log(`Exception during asset creation process: ${JSON.stringify(assetCreationError)}`);
+      console.error('Exception during asset creation process:', assetCreationError);
+      throw assetCreationError;
     }
+  } else {
+    logger.log("No authenticated user, skipping Supabase asset creation");
   }
   
   logger.log("Creating entries in video_entries table for backward compatibility");
