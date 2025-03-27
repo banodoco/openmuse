@@ -56,6 +56,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   useEffect(() => {
     logger.log(`Source changed to: ${src?.substring(0, 30)}...`);
+    logger.log(`Is source a blob URL: ${src?.startsWith('blob:')}`);
+    logger.log(`Current page: ${window.location.pathname}`);
   }, [src]);
 
   useEffect(() => {
@@ -77,6 +79,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     } 
     else if (src.startsWith('blob:')) {
       logger.log(`Using blob URL: ${src.substring(0, 30)}...`);
+      logger.log(`Full blob URL: ${src}`);
       setProcessedSrc(src);
     }
     else {
@@ -115,6 +118,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const { message, details } = getVideoErrorMessage(video.error, processedSrc);
       
       logger.error(`Video error for ${processedSrc.substring(0, 30)}...: ${message}`);
+      logger.error(`Video error details: ${details}`);
+      logger.error(`Video error code: ${video.error?.code}`);
+      logger.error(`Video error message: ${video.error?.message}`);
       
       setError(message);
       setErrorDetails(details);
@@ -158,6 +164,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const video = videoRef.current;
     if (!video) return;
     
+    logger.log(`Retrying video load for: ${processedSrc.substring(0, 30)}...`);
     setError(null);
     setErrorDetails('');
     setIsLoading(true);

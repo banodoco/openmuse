@@ -1,6 +1,9 @@
 
 import React from 'react';
 import { toast } from 'sonner';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoError');
 
 interface VideoErrorProps {
   error: string;
@@ -13,8 +16,18 @@ const VideoError: React.FC<VideoErrorProps> = ({
   errorDetails, 
   onRetry 
 }) => {
+  logger.error(`Displaying video error: ${error}`);
+  if (errorDetails) {
+    logger.error(`Error details: ${errorDetails}`);
+  }
+  
   const handleShowErrorDetails = () => {
     toast.info(errorDetails || 'No additional error details available');
+  };
+
+  const handleRetry = () => {
+    logger.log('Retry button clicked');
+    onRetry();
   };
 
   return (
@@ -25,7 +38,7 @@ const VideoError: React.FC<VideoErrorProps> = ({
         <div className="flex gap-2 justify-center mt-2">
           <button 
             className="text-sm font-medium bg-primary text-white px-3 py-1 rounded-md"
-            onClick={onRetry}
+            onClick={handleRetry}
           >
             Try again
           </button>

@@ -1,9 +1,12 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useState } from 'react';
 import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('StandardVideoPreview');
 
 interface StandardVideoPreviewProps {
   url: string | null;
@@ -23,6 +26,28 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   isRefreshing = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
+  const [errorCount, setErrorCount] = useState(0);
+  
+  const handleError = (msg: string) => {
+    const now = Date.now();
+    setLastErrorTime(now);
+    setErrorCount(prev => prev + 1);
+    
+    logger.error(`Video preview error: ${msg}`);
+    logger.error(`Video URL: ${url}`);
+    logger.error(`Error count: ${errorCount + 1}`);
+    logger.error(`Time since last error: ${lastErrorTime ? now - lastErrorTime : 'first error'} ms`);
+    
+    onError(msg);
+  };
+  
+  const handleRefreshClick = (e: React.MouseEvent) => {
+    logger.log(`Manual refresh requested for video: ${videoId || 'unknown'}`);
+    logger.log(`Current URL: ${url}`);
+    setErrorCount(0);
+    if (onRefresh) onRefresh(e);
+  };
   
   if (!url) {
     return (
@@ -46,7 +71,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           <Button 
             size="sm" 
             variant="ghost" 
-            onClick={onRefresh} 
+            onClick={handleRefreshClick} 
             disabled={isRefreshing}
             className="mt-2 gap-1 bg-black/50 text-white hover:bg-black/70"
           >
@@ -77,7 +102,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         autoPlay={false}
         muted={true}
         className="w-full h-full object-cover"
-        onError={onError}
+        onError={handleError}
         poster={posterUrl || undefined}
         playOnHover={true}
         containerRef={containerRef}
@@ -88,7 +113,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           <Button 
             size="sm" 
             variant="ghost" 
-            onClick={onRefresh} 
+            onClick={handleRefreshClick} 
             disabled={isRefreshing}
             className="gap-1 bg-black/50 text-white hover:bg-black/70"
           >

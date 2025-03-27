@@ -1,63 +1,124 @@
-
-import { Logger } from "../logger";
-
-const logger = new Logger("VideoUtils");
-
 /**
- * Attempts to play a video with fallback to muted playback
+ * Attempts to play a video with error handling
  */
-export const attemptVideoPlay = async (video: HTMLVideoElement, muted: boolean = true): Promise<boolean> => {
+export const attemptVideoPlay = async (video: HTMLVideoElement, muted = true) => {
   try {
+    // Ensure video is muted to allow autoplay in most browsers
+    video.muted = muted;
+    
+    // Use the play() Promise to catch autoplay restrictions
     await video.play();
-    logger.log("Video playback started successfully");
     return true;
-  } catch (e) {
-    logger.warn("Autoplay prevented:", e);
-    
-    if (!muted) {
-      try {
-        // Fallback to muted playback
-        video.muted = true;
-        await video.play();
-        logger.log("Muted playback started as fallback");
-        return true;
-      } catch (e2) {
-        logger.warn("Muted playback prevented:", e2);
-        return false;
-      }
-    }
-    
+  } catch (err) {
+    console.error('Error playing video:', err);
     return false;
   }
 };
 
 /**
- * Handles video errors and returns user-friendly error messages
+ * Gets a user-friendly error message from a video error
  */
-export const getVideoErrorMessage = (videoError: MediaError | null, videoSrc: string): { 
-  message: string; 
-  details: string; 
-} => {
-  let message = "Error loading video";
-  let details = "";
-  
-  if (videoError) {
-    const errorMsg = `Error ${videoError.code}: ${videoError.message}`;
-    details += `Code: ${videoError.code}\n`;
-    details += `Message: ${videoError.message || "Unknown error"}\n`;
-    
-    if (videoError.code === 4) {
-      details += 'This is a format error, which typically means the video format is not supported or the file is corrupted.\n';
-    }
-    
-    if (videoSrc.startsWith('blob:')) {
-      message = `Cannot load blob video. The URL may have expired since your last refresh.`;
-      details += 'Blob URLs are temporary and expire when the page is refreshed.\n';
-    } else if (videoSrc.startsWith('data:')) {
-      message = `Cannot load data URL video. The encoding may be incorrect.`;
-      details += 'Data URLs might be too large or improperly encoded.\n';
-    }
+export const getVideoErrorMessage = (
+  error: MediaError | null, 
+  videoSrc: string
+): { message: string, details: string } => {
+  if (!error) {
+    return { 
+      message: 'Unknown video error', 
+      details: `No MediaError available. Video source: ${videoSrc}`
+    };
   }
   
-  return { message, details };
+  const details = `Media error ${error.code}: ${error.message || 'No message provided'} for source: ${videoSrc}`;
+  
+  // Check if it's a blob URL that might have expired
+  if (videoSrc.startsWith('blob:')) {
+    return {
+      message: 'Cannot load blob video. The URL may have expired since your last refresh.',
+      details
+    };
+  }
+  
+  // Standard error codes from the MediaError interface
+  switch (error.code) {
+    case MediaError.MEDIA_ERR_ABORTED:
+      return {
+        message: 'Video playback aborted by user or system',
+        details
+      };
+    case MediaError.MEDIA_ERR_NETWORK:
+      return {
+        message: 'Network error while loading video',
+        details
+      };
+    case MediaError.MEDIA_ERR_DECODE:
+      return {
+        message: 'Video format error or decoding failed',
+        details
+      };
+    case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+      return {
+        message: 'Video format or type not supported by browser',
+        details
+      };
+    default:
+      return {
+        message: `Video error (code ${error.code})`,
+        details
+      };
+  }
+};
+
+/**
+ * Diagnostic function to check the status of a blob URL
+ */
+export const diagnoseBlobUrl = async (blobUrl: string): Promise<{
+  isValid: boolean;
+  error?: string;
+  size?: number;
+  type?: string;
+}> => {
+  try {
+    console.log(`Diagnosing blob URL: ${blobUrl}`);
+    
+    if (!blobUrl.startsWith('blob:')) {
+      return { isValid: false, error: 'Not a blob URL' };
+    }
+    
+    const response = await fetch(blobUrl);
+    if (!response.ok) {
+      return { 
+        isValid: false, 
+        error: `Fetch failed with status: ${response.status} ${response.statusText}` 
+      };
+    }
+    
+    const blob = await response.blob();
+    return {
+      isValid: true,
+      size: blob.size,
+      type: blob.type
+    };
+  } catch (error) {
+    console.error('Error diagnosing blob URL:', error);
+    return {
+      isValid: false,
+      error: String(error)
+    };
+  }
+};
+
+/**
+ * Tests if a blob URL is accessible
+ */
+export const isBlobUrlAccessible = async (blobUrl: string): Promise<boolean> => {
+  try {
+    if (!blobUrl.startsWith('blob:')) return false;
+    
+    const result = await fetch(blobUrl, { method: 'HEAD' });
+    return result.ok;
+  } catch (error) {
+    console.error('Error checking blob URL accessibility:', error);
+    return false;
+  }
 };
