@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -174,6 +175,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
   logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
   
   try {
+    // Create asset with explicitly set null for user_id if not authenticated
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
@@ -230,6 +232,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       
       logger.log(`Creating media entry for video ${video.metadata.title}`);
       try {
+        // Create media with explicitly set null for user_id if not authenticated
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
           .insert({
