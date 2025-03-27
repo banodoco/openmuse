@@ -2,149 +2,161 @@
 import { VideoEntry } from './types';
 import { videoStorage } from './storage';
 import { remoteStorage } from './remoteStorage';
+import { supabase } from '@/integrations/supabase/client';
+import { Logger } from './logger';
+
+const logger = new Logger('VideoDB');
 
 class VideoDatabase {
-  private readonly VIDEO_KEY = 'video_response_entries';
-  private readonly DEBUG = true;
+  private currentUserId: string | null = null;
   
-  private getAll(): VideoEntry[] {
+  setCurrentUserId(userId: string | null) {
+    this.currentUserId = userId;
+    logger.log(`Current user ID set to: ${userId || 'none'}`);
+  }
+  
+  async getAllEntries(): Promise<VideoEntry[]> {
     try {
-      const entries = localStorage.getItem(this.VIDEO_KEY);
+      logger.log("Getting all entries from media table");
       
-      if (!entries) {
-        this.log('No entries found in localStorage, returning empty array');
+      // Fetch media entries of type 'video'
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
+        .select('*, assets(id, name, description, type, creator)')
+        .eq('type', 'video')
+        .order('created_at', { ascending: false });
+      
+      if (mediaError) {
+        logger.error('Error getting media entries:', mediaError);
         return [];
       }
       
-      let parsedEntries;
-      try {
-        parsedEntries = JSON.parse(entries);
-      } catch (parseError) {
-        this.error('Failed to parse entries from localStorage:', parseError);
-        return [];
+      logger.log(`Retrieved ${mediaData?.length || 0} media entries`);
+      
+      // Transform media entries to VideoEntry format
+      const entries: VideoEntry[] = mediaData.map(media => {
+        // Find associated asset (if any)
+        const asset = media.assets && media.assets.length > 0 ? media.assets[0] : null;
+        
+        return {
+          id: media.id,
+          video_location: media.url,
+          reviewer_name: media.creator || 'Unknown',
+          skipped: false,
+          created_at: media.created_at,
+          admin_approved: false, // Default value 
+          user_id: media.user_id,
+          metadata: {
+            title: media.title,
+            description: '',
+            creator: 'self',
+            classification: media.classification || 'art',
+            loraName: asset?.name,
+            loraDescription: asset?.description,
+            assetId: asset?.id,
+            isPrimary: false // Will be updated later
+          }
+        };
+      });
+      
+      // Get asset-media relationships to determine primary videos
+      const { data: assetMediaData, error: assetMediaError } = await supabase
+        .from('assets')
+        .select('id, primary_media_id');
+      
+      if (!assetMediaError && assetMediaData) {
+        // Mark primary videos
+        for (const entry of entries) {
+          if (entry.metadata?.assetId) {
+            const asset = assetMediaData.find(a => a.id === entry.metadata?.assetId);
+            if (asset && asset.primary_media_id === entry.id) {
+              entry.metadata.isPrimary = true;
+            }
+          }
+        }
       }
       
-      if (!Array.isArray(parsedEntries)) {
-        this.error('Retrieved data is not an array, returning empty array');
-        return [];
-      }
-      
-      this.log(`Retrieved ${parsedEntries.length} entries from localStorage`);
-      return parsedEntries;
+      return entries;
     } catch (error) {
-      this.error('Error getting entries from localStorage:', error);
+      logger.error('Error getting entries:', error);
       return [];
     }
   }
   
-  private save(entries: VideoEntry[]): void {
+  async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
     try {
-      localStorage.setItem(this.VIDEO_KEY, JSON.stringify(entries));
-      this.log(`Saved ${entries.length} entries to localStorage`);
-    } catch (error) {
-      this.error('Error saving entries to localStorage:', error);
-    }
-  }
-  
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
-    const entries = this.getAll();
-    const id = crypto.randomUUID();
-    
-    let videoLocation = entry.video_location;
-    
-    // If it's a blob URL, fetch the blob and save it
-    if (entry.video_location.startsWith('blob:')) {
-      try {
-        const response = await fetch(entry.video_location);
-        const blob = await response.blob();
-        
-        // Always use remote storage (Supabase)
-        try {
-          // Upload to remote storage
-          const remoteUrl = await remoteStorage.uploadVideo({
-            id: `video_${id}`,
-            blob
-          });
-          
-          // Use the remote URL
-          videoLocation = remoteUrl;
-          this.log(`Saved video to remote storage: ${remoteUrl}`);
-        } catch (error) {
-          this.error('Failed to save to remote storage, falling back to local:', error);
-          
-          // Fall back to local storage
-          await videoStorage.saveVideo({
-            id: `video_${id}`,
-            blob
-          });
-          
-          videoLocation = `idb://video_${id}`;
-          this.log(`Saved video to IndexedDB with ID: video_${id}`);
-        }
-      } catch (error) {
-        this.error('Failed to save video:', error);
-        throw error;
+      // Update the media entry
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
+        .update({
+          title: update.metadata?.title,
+          classification: update.metadata?.classification,
+          creator: update.metadata?.creatorName || update.reviewer_name
+        })
+        .eq('id', id)
+        .select()
+        .single();
+      
+      if (mediaError) {
+        logger.error(`Error updating media ${id}:`, mediaError);
+        return null;
       }
-    }
-    
-    const newEntry: VideoEntry = {
-      ...entry,
-      video_location: videoLocation,
-      id,
-      created_at: new Date().toISOString(),
-      admin_approved: false
-    };
-    
-    this.save([...entries, newEntry]);
-    this.log(`Added new entry: ${newEntry.id}`);
-    return newEntry;
-  }
-  
-  updateEntry(id: string, update: Partial<VideoEntry>): VideoEntry | null {
-    const entries = this.getAll();
-    const index = entries.findIndex(entry => entry.id === id);
-    
-    if (index === -1) {
-      this.warn(`Entry with id ${id} not found for update`);
+      
+      // If there's an asset ID in metadata, update the asset too
+      if (update.metadata?.assetId) {
+        const { error: assetError } = await supabase
+          .from('assets')
+          .update({
+            name: update.metadata.loraName,
+            description: update.metadata.loraDescription,
+            creator: update.metadata.creatorName || update.reviewer_name
+          })
+          .eq('id', update.metadata.assetId);
+        
+        if (assetError) {
+          logger.error(`Error updating asset ${update.metadata.assetId}:`, assetError);
+        }
+      }
+      
+      // Construct the updated VideoEntry object
+      const updatedEntry: VideoEntry = {
+        id: mediaData.id,
+        video_location: mediaData.url,
+        reviewer_name: mediaData.creator || 'Unknown',
+        skipped: update.skipped || false,
+        created_at: mediaData.created_at,
+        admin_approved: update.admin_approved || false,
+        user_id: mediaData.user_id,
+        metadata: {
+          title: mediaData.title,
+          description: update.metadata?.description || '',
+          creator: update.metadata?.creator || 'self',
+          classification: mediaData.classification || 'art',
+          loraName: update.metadata?.loraName,
+          loraDescription: update.metadata?.loraDescription,
+          assetId: update.metadata?.assetId,
+          isPrimary: update.metadata?.isPrimary || false
+        }
+      };
+      
+      return updatedEntry;
+    } catch (error) {
+      logger.error(`Error updating entry ${id}:`, error);
       return null;
     }
-    
-    const updatedEntry = { ...entries[index], ...update };
-    entries[index] = updatedEntry;
-    
-    this.save(entries);
-    this.log(`Updated entry: ${id}`);
-    return updatedEntry;
   }
   
-  markAsSkipped(id: string): VideoEntry | null {
+  async markAsSkipped(id: string): Promise<VideoEntry | null> {
     return this.updateEntry(id, { skipped: true });
   }
   
-  setApprovalStatus(id: string, approved: boolean): VideoEntry | null {
-    this.log(`Setting approval status for entry ${id} to ${approved}`);
+  async setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null> {
+    logger.log(`Setting approval status for media ${id} to ${approved}`);
     return this.updateEntry(id, { admin_approved: approved });
   }
   
   async getVideoUrl(videoLocation: string): Promise<string> {
-    if (videoLocation.startsWith('idb://')) {
-      const videoId = videoLocation.substring(6); // Remove the 'idb://' prefix
-      
-      try {
-        const blob = await videoStorage.getVideo(videoId);
-        if (blob) {
-          const url = URL.createObjectURL(blob);
-          this.log(`Created object URL for video ${videoId}: ${url}`);
-          return url;
-        } else {
-          this.error(`Video not found in storage: ${videoId}`);
-          return '';
-        }
-      } catch (error) {
-        this.error(`Error getting video ${videoId}:`, error);
-        return '';
-      }
-    } else if (videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) {
+    if (videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) {
       // Return remote URLs as-is
       return videoLocation;
     }
@@ -152,73 +164,213 @@ class VideoDatabase {
     return videoLocation;
   }
   
-  getAllEntries(): VideoEntry[] {
-    return this.getAll();
+  async deleteEntry(id: string): Promise<boolean> {
+    try {
+      // First check if this is a primary media for any asset
+      const { data: assetData, error: assetError } = await supabase
+        .from('assets')
+        .select('id')
+        .eq('primary_media_id', id);
+      
+      if (!assetError && assetData && assetData.length > 0) {
+        // This is a primary media, update the asset
+        for (const asset of assetData) {
+          // Find another media for this asset to make primary
+          const { data: otherMediaData, error: otherMediaError } = await supabase
+            .from('asset_media')
+            .select('media_id')
+            .eq('asset_id', asset.id)
+            .neq('media_id', id)
+            .limit(1);
+          
+          if (!otherMediaError && otherMediaData && otherMediaData.length > 0) {
+            // Update asset with new primary media
+            await supabase
+              .from('assets')
+              .update({ primary_media_id: otherMediaData[0].media_id })
+              .eq('id', asset.id);
+          } else {
+            // No other media, set primary_media_id to null
+            await supabase
+              .from('assets')
+              .update({ primary_media_id: null })
+              .eq('id', asset.id);
+          }
+        }
+      }
+      
+      // Remove asset_media relationships
+      await supabase
+        .from('asset_media')
+        .delete()
+        .eq('media_id', id);
+      
+      // Get the media entry to find the URL
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
+        .select('url')
+        .eq('id', id)
+        .single();
+      
+      if (!mediaError && mediaData) {
+        // Delete from storage if it's a Supabase storage URL
+        if (mediaData.url && mediaData.url.includes('supabase.co')) {
+          try {
+            const videoFileName = mediaData.url.split('/').pop();
+            if (videoFileName) {
+              await supabase.storage
+                .from('videos')
+                .remove([videoFileName]);
+              logger.log(`Deleted video ${videoFileName} from Supabase Storage`);
+            }
+          } catch (storageError) {
+            logger.error(`Error deleting video from Supabase Storage:`, storageError);
+          }
+        }
+      }
+      
+      // Delete the media entry
+      const { error: deleteError } = await supabase
+        .from('media')
+        .delete()
+        .eq('id', id);
+      
+      if (deleteError) {
+        logger.error(`Error deleting media ${id}:`, deleteError);
+        return false;
+      }
+      
+      logger.log(`Deleted media entry: ${id}`);
+      return true;
+    } catch (error) {
+      logger.error(`Error deleting entry ${id}:`, error);
+      return false;
+    }
   }
   
   async clearAllEntries(): Promise<void> {
-    // Get all entries to find video IDs
-    const entries = this.getAll();
-    
-    // Clear all videos from IndexedDB
     try {
-      await videoStorage.clearAllVideos();
-      this.log('Cleared all videos from storage');
+      // Delete all asset_media relationships
+      await supabase
+        .from('asset_media')
+        .delete()
+        .neq('id', 'placeholder');
+      
+      // Delete all assets
+      await supabase
+        .from('assets')
+        .delete()
+        .neq('id', 'placeholder');
+      
+      // Delete all media
+      await supabase
+        .from('media')
+        .delete()
+        .neq('id', 'placeholder');
+      
+      logger.log('Cleared all entries');
     } catch (error) {
-      this.error('Error clearing videos from storage:', error);
+      logger.error('Error clearing entries:', error);
     }
-    
-    // Clear entries from localStorage
-    this.save([]);
-    this.log('Cleared all entries');
   }
   
-  async deleteEntry(id: string): Promise<boolean> {
-    const entries = this.getAll();
-    const entry = entries.find(e => e.id === id);
-    
-    if (!entry) {
-      this.warn(`Entry with id ${id} not found for deletion`);
-      return false;
-    }
-    
-    // Delete the original video
-    if (entry.video_location.startsWith('idb://')) {
-      // Local storage case
-      const videoId = entry.video_location.substring(6);
-      try {
-        await videoStorage.deleteVideo(videoId);
-        this.log(`Deleted video ${videoId} from storage`);
-      } catch (error) {
-        this.error(`Error deleting video ${videoId}:`, error);
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+    try {
+      // Create the media entry
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
+        .insert({
+          title: entry.metadata?.title || 'Untitled',
+          url: entry.video_location,
+          type: 'video',
+          classification: entry.metadata?.classification || 'art',
+          creator: entry.metadata?.creatorName || entry.reviewer_name,
+          user_id: entry.user_id || this.currentUserId
+        })
+        .select()
+        .single();
+      
+      if (mediaError) {
+        logger.error('Error creating media entry:', mediaError);
+        throw mediaError;
       }
-    } else if (entry.video_location.startsWith('http://') || entry.video_location.startsWith('https://')) {
-      // Remote storage case
-      try {
-        await remoteStorage.deleteVideo(entry.video_location);
-      } catch (error) {
-        this.error(`Error deleting remote video:`, error);
+      
+      let assetId = entry.metadata?.assetId;
+      
+      // Create or update asset if needed
+      if (entry.metadata?.loraName && !assetId) {
+        // Create new asset
+        const { data: assetData, error: assetError } = await supabase
+          .from('assets')
+          .insert({
+            type: 'LoRA',
+            name: entry.metadata.loraName,
+            description: entry.metadata.loraDescription || '',
+            creator: entry.metadata.creatorName || entry.reviewer_name,
+            user_id: entry.user_id || this.currentUserId,
+            primary_media_id: mediaData.id
+          })
+          .select()
+          .single();
+        
+        if (assetError) {
+          logger.error('Error creating asset:', assetError);
+        } else {
+          assetId = assetData.id;
+          
+          // Link asset and media
+          await supabase
+            .from('asset_media')
+            .insert({
+              asset_id: assetId,
+              media_id: mediaData.id
+            });
+        }
+      } else if (assetId) {
+        // Link to existing asset
+        await supabase
+          .from('asset_media')
+          .insert({
+            asset_id: assetId,
+            media_id: mediaData.id
+          });
+        
+        // Update primary media if this is primary
+        if (entry.metadata?.isPrimary) {
+          await supabase
+            .from('assets')
+            .update({ primary_media_id: mediaData.id })
+            .eq('id', assetId);
+        }
       }
+      
+      // Construct the new VideoEntry object
+      const newEntry: VideoEntry = {
+        id: mediaData.id,
+        video_location: mediaData.url,
+        reviewer_name: entry.reviewer_name,
+        skipped: entry.skipped || false,
+        created_at: mediaData.created_at,
+        admin_approved: false,
+        user_id: mediaData.user_id,
+        metadata: {
+          ...(entry.metadata || {}),
+          title: mediaData.title,
+          assetId
+        }
+      };
+      
+      return newEntry;
+    } catch (error) {
+      logger.error('Error adding entry:', error);
+      throw error;
     }
-    
-    // Remove the entry from the list
-    const updatedEntries = entries.filter(e => e.id !== id);
-    this.save(updatedEntries);
-    this.log(`Deleted entry: ${id}`);
-    
-    return true;
   }
   
-  private log(...args: any[]): void {
-    if (this.DEBUG) console.log('[VideoDB]', ...args);
-  }
-  
-  private warn(...args: any[]): void {
-    if (this.DEBUG) console.warn('[VideoDB]', ...args);
-  }
-  
-  private error(...args: any[]): void {
-    console.error('[VideoDB]', ...args);
+  // Add the alias for addEntry
+  async createEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+    logger.log('createEntry called, using addEntry method');
+    return this.addEntry(entry);
   }
 }
 

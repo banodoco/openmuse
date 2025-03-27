@@ -43,39 +43,100 @@ class VideoUploadService {
 
       logger.log(`Video uploaded successfully, creating entry for ${videoId}`);
 
-      // Create the database entry with the video path
-      const entry = {
-        id: videoId,
-        video_location: videoPath,
-        reviewer_name: reviewerName,
-        skipped: false,
-        admin_approved: false,
-        user_id: userId || this.currentUserId,
-        metadata: videoFile.metadata || null
-      };
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(videoPath);
       
-      // Insert the entry into the database - cast metadata to any to bypass type checking
-      const { data, error } = await supabase
-        .from('video_entries')
+      const videoUrl = publicUrlData.publicUrl;
+
+      // Create the media entry
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
         .insert({
-          ...entry,
-          metadata: entry.metadata as any
+          title: videoFile.metadata?.title || 'Untitled',
+          url: videoUrl,
+          type: 'video',
+          classification: videoFile.metadata?.classification || 'art',
+          creator: videoFile.metadata?.creatorName || reviewerName,
+          user_id: userId || this.currentUserId
         })
         .select()
         .single();
 
-      if (error) {
-        logger.error('Error creating video entry in database:', error);
-        throw error;
+      if (mediaError) {
+        logger.error('Error creating media entry:', mediaError);
+        throw mediaError;
+      }
+      
+      let assetId = videoFile.metadata?.assetId;
+      
+      // Create or link asset if needed
+      if (videoFile.metadata?.loraName && !assetId) {
+        // Create new asset
+        const { data: assetData, error: assetError } = await supabase
+          .from('assets')
+          .insert({
+            type: 'LoRA',
+            name: videoFile.metadata.loraName,
+            description: videoFile.metadata.loraDescription || '',
+            creator: videoFile.metadata.creatorName || reviewerName,
+            user_id: userId || this.currentUserId,
+            primary_media_id: mediaData.id
+          })
+          .select()
+          .single();
+        
+        if (assetError) {
+          logger.error('Error creating asset:', assetError);
+        } else {
+          assetId = assetData.id;
+          
+          // Link asset and media
+          await supabase
+            .from('asset_media')
+            .insert({
+              asset_id: assetId,
+              media_id: mediaData.id
+            });
+        }
+      } else if (assetId) {
+        // Link to existing asset
+        await supabase
+          .from('asset_media')
+          .insert({
+            asset_id: assetId,
+            media_id: mediaData.id
+          });
+        
+        // Update primary media if this is primary
+        if (videoFile.metadata?.isPrimary) {
+          await supabase
+            .from('assets')
+            .update({ primary_media_id: mediaData.id })
+            .eq('id', assetId);
+        }
       }
 
-      logger.log(`Video entry created successfully: ${videoId}`);
+      logger.log(`Media entry created successfully: ${mediaData.id}`);
       
-      // Convert the response to our VideoEntry type
-      return {
-        ...data,
-        metadata: data.metadata as unknown as VideoEntry['metadata']
-      } as VideoEntry;
+      // Construct the VideoEntry object
+      const entry: VideoEntry = {
+        id: mediaData.id,
+        video_location: mediaData.url,
+        reviewer_name: reviewerName,
+        skipped: false,
+        created_at: mediaData.created_at,
+        admin_approved: false,
+        user_id: mediaData.user_id,
+        metadata: {
+          ...(videoFile.metadata || {}),
+          title: mediaData.title,
+          assetId
+        }
+      };
+      
+      return entry;
     } catch (error) {
       logger.error('Error in uploadVideo:', error);
       throw error;
@@ -92,28 +153,91 @@ class VideoUploadService {
         throw new Error('Reviewer name is required for video entries');
       }
       
-      const { data, error } = await supabase
-        .from('video_entries')
+      // Create the media entry
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
         .insert({
-          video_location: entryData.video_location,
-          reviewer_name: entryData.reviewer_name,
-          skipped: entryData.skipped || false,
-          user_id: entryData.user_id || this.currentUserId,
-          metadata: entryData.metadata as any // Cast to any to bypass type checking
+          title: entryData.metadata?.title || 'Untitled',
+          url: entryData.video_location,
+          type: 'video',
+          classification: entryData.metadata?.classification || 'art',
+          creator: entryData.metadata?.creatorName || entryData.reviewer_name,
+          user_id: entryData.user_id || this.currentUserId
         })
         .select()
         .single();
       
-      if (error) {
-        logger.error('Error adding video entry:', error);
-        throw error;
+      if (mediaError) {
+        logger.error('Error creating media entry:', mediaError);
+        throw mediaError;
       }
       
-      // Convert the response to our VideoEntry type
-      return {
-        ...data,
-        metadata: data.metadata as unknown as VideoEntry['metadata']
-      } as VideoEntry;
+      let assetId = entryData.metadata?.assetId;
+      
+      // Create or update asset if needed
+      if (entryData.metadata?.loraName && !assetId) {
+        // Create new asset
+        const { data: assetData, error: assetError } = await supabase
+          .from('assets')
+          .insert({
+            type: 'LoRA',
+            name: entryData.metadata.loraName,
+            description: entryData.metadata.loraDescription || '',
+            creator: entryData.metadata.creatorName || entryData.reviewer_name,
+            user_id: entryData.user_id || this.currentUserId,
+            primary_media_id: mediaData.id
+          })
+          .select()
+          .single();
+        
+        if (assetError) {
+          logger.error('Error creating asset:', assetError);
+        } else {
+          assetId = assetData.id;
+          
+          // Link asset and media
+          await supabase
+            .from('asset_media')
+            .insert({
+              asset_id: assetId,
+              media_id: mediaData.id
+            });
+        }
+      } else if (assetId) {
+        // Link to existing asset
+        await supabase
+          .from('asset_media')
+          .insert({
+            asset_id: assetId,
+            media_id: mediaData.id
+          });
+        
+        // Update primary media if this is primary
+        if (entryData.metadata?.isPrimary) {
+          await supabase
+            .from('assets')
+            .update({ primary_media_id: mediaData.id })
+            .eq('id', assetId);
+        }
+      }
+      
+      // Construct the VideoEntry object
+      const newEntry: VideoEntry = {
+        id: mediaData.id,
+        video_location: mediaData.url,
+        reviewer_name: entryData.reviewer_name,
+        skipped: entryData.skipped || false,
+        created_at: mediaData.created_at,
+        admin_approved: false,
+        user_id: mediaData.user_id,
+        metadata: {
+          ...(entryData.metadata || {}),
+          title: mediaData.title,
+          assetId
+        }
+      };
+      
+      return newEntry;
     } catch (error) {
       logger.error('Error in addEntry:', error);
       throw error;
