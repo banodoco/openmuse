@@ -5,6 +5,7 @@ import VideoPlayer from './video/VideoPlayer';
 import { convertBlobToDataUrl, createDataUrlFromImage } from '@/lib/utils/videoUtils';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
+import { videoUrlService } from '@/lib/services/videoUrlService';
 
 const logger = new Logger('StorageVideoPlayer');
 
@@ -40,11 +41,13 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       
       logger.log(`Loading video from location: ${videoLocation}`);
       
-      // Get database instance
-      const db = await databaseSwitcher.getDatabase();
-      
-      // Get the actual URL for the video
-      let url = await db.getVideoUrl(videoLocation);
+      // Use videoUrlService instead of directly accessing the database
+      let url;
+      if (forceRefresh) {
+        url = await videoUrlService.forceRefreshUrl(videoLocation);
+      } else {
+        url = await videoUrlService.getVideoUrl(videoLocation);
+      }
       
       if (!url) {
         setError('Video could not be loaded');
@@ -93,12 +96,27 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       loadVideo();
     }
     
+    // Listen for URL refresh events
+    const handleUrlRefreshed = (event: CustomEvent) => {
+      if (event.detail.original === videoLocation) {
+        logger.log(`URL refresh event detected for: ${videoLocation}`);
+        if (isMounted) {
+          setVideoUrl(event.detail.fresh);
+        }
+      }
+    };
+    
+    // Add event listener for URL refresh events
+    document.addEventListener('videoUrlRefreshed', handleUrlRefreshed as EventListener);
+    
     return () => {
       isMounted = false;
       // Clean up object URL if it was created
       if (videoUrl && videoUrl.startsWith('blob:')) {
         URL.revokeObjectURL(videoUrl);
       }
+      // Remove event listener
+      document.removeEventListener('videoUrlRefreshed', handleUrlRefreshed as EventListener);
     };
   }, [videoLocation]);
 

@@ -98,37 +98,66 @@ export const convertBlobToDataUrl = async (blobUrl: string): Promise<string> => 
       return createDataUrlFromImage(blobUrl);
     }
     
-    const response = await fetch(blobUrl);
-    const blob = await response.blob();
-    
-    // Log blob info for debugging
-    console.log(`Blob size: ${blob.size}, type: ${blob.type}`);
-    
-    if (blob.size === 0) {
-      console.error('Blob is empty (size 0), likely invalid or expired');
+    try {
+      const response = await fetch(blobUrl);
+      const blob = await response.blob();
+      
+      // Log blob info for debugging
+      console.log(`Blob size: ${blob.size}, type: ${blob.type}`);
+      
+      if (blob.size === 0) {
+        console.error('Blob is empty (size 0), likely invalid or expired');
+        return createDataUrlFromImage(blobUrl);
+      }
+      
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+          console.log('Successfully converted blob to data URL');
+          if (typeof reader.result === 'string') {
+            // We have a data URL - let's store it in localStorage to persist it
+            try {
+              const blobKey = `blob_url_${blobUrl.split('/').pop()}`;
+              localStorage.setItem(blobKey, reader.result);
+              console.log(`Saved data URL to localStorage with key: ${blobKey}`);
+            } catch (storageError) {
+              console.warn('Could not save to localStorage:', storageError);
+              // Continue even if storage fails
+            }
+            resolve(reader.result);
+          } else {
+            reject(new Error('FileReader did not return a string'));
+          }
+        };
+        reader.onerror = () => {
+          console.error('Failed to convert blob to data URL');
+          reject(new Error('FileReader error'));
+        };
+        reader.readAsDataURL(blob);
+      });
+    } catch (fetchError) {
+      console.error('Error fetching blob URL:', fetchError);
       return createDataUrlFromImage(blobUrl);
     }
-    
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        console.log('Successfully converted blob to data URL');
-        if (typeof reader.result === 'string') {
-          resolve(reader.result);
-        } else {
-          reject(new Error('FileReader did not return a string'));
-        }
-      };
-      reader.onerror = () => {
-        console.error('Failed to convert blob to data URL');
-        reject(new Error('FileReader error'));
-      };
-      reader.readAsDataURL(blob);
-    });
   } catch (error) {
     console.error('Error converting blob to data URL:', error);
     // Try alternative method as fallback
     return createDataUrlFromImage(blobUrl);
+  }
+};
+
+/**
+ * Check if we have a cached data URL for this blob URL in localStorage
+ */
+export const getCachedDataUrl = (blobUrl: string): string | null => {
+  try {
+    if (!blobUrl.startsWith('blob:')) return null;
+    
+    const blobKey = `blob_url_${blobUrl.split('/').pop()}`;
+    return localStorage.getItem(blobKey);
+  } catch (error) {
+    console.error('Error accessing localStorage:', error);
+    return null;
   }
 };
 
@@ -138,6 +167,14 @@ export const convertBlobToDataUrl = async (blobUrl: string): Promise<string> => 
  */
 export const createDataUrlFromImage = (blobUrl: string): Promise<string> => {
   return new Promise((resolve) => {
+    // Check if we already have a cached version in localStorage
+    const cachedUrl = getCachedDataUrl(blobUrl);
+    if (cachedUrl) {
+      console.log('Using cached data URL from localStorage');
+      resolve(cachedUrl);
+      return;
+    }
+    
     // If it's not a blob URL, return it as is
     if (!blobUrl.startsWith('blob:')) {
       resolve(blobUrl);
@@ -173,6 +210,16 @@ export const createDataUrlFromImage = (blobUrl: string): Promise<string> => {
           // Get data URL from canvas
           const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
           console.log('Successfully created data URL from image');
+          
+          // Store in localStorage for future use
+          try {
+            const blobKey = `blob_url_${blobUrl.split('/').pop()}`;
+            localStorage.setItem(blobKey, dataUrl);
+            console.log(`Saved image-based data URL to localStorage with key: ${blobKey}`);
+          } catch (storageError) {
+            console.warn('Could not save to localStorage:', storageError);
+          }
+          
           resolve(dataUrl);
         } else {
           console.error('Could not get canvas context');

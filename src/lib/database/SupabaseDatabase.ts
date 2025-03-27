@@ -2,6 +2,7 @@
 import { VideoEntry } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { BaseDatabase } from './BaseDatabase';
+import { videoUrlService } from '../services/videoUrlService';
 
 /**
  * Supabase implementation of the video database
@@ -152,8 +153,8 @@ export class SupabaseDatabase extends BaseDatabase {
   }
   
   async getVideoUrl(videoLocation: string): Promise<string> {
-    // Return remote URLs as-is
-    return videoLocation;
+    // Delegate to the videoUrlService for more robust URL handling
+    return videoUrlService.getVideoUrl(videoLocation);
   }
 
   // Add missing method implementations to satisfy the abstract base class
