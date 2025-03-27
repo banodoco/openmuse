@@ -52,10 +52,11 @@ export const useLoraManagement = () => {
     
     try {
       // Fetch all LoRA assets from the assets table
+      // Note: Type is case-insensitive and accounts for both 'lora' and 'LoRA'
       const { data: assets, error } = await supabase
         .from('assets')
         .select('*')
-        .eq('type', 'lora')
+        .or('type.ilike.%lora%,type.eq.LoRA') // Match any variation of "lora"
         .order('created_at', { ascending: false });
       
       if (error) {
