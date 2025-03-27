@@ -46,3 +46,18 @@ export interface RecordedVideo {
   blob: Blob;
   url: string;
 }
+
+// New interface for LoRA assets
+export interface LoraAsset {
+  id: string;
+  name: string;
+  description?: string;
+  creator?: string;
+  type: string;
+  created_at: string;
+  user_id?: string;
+  primary_media_id?: string;
+  // Populated from related data
+  primaryVideo?: VideoEntry;
+  videos?: VideoEntry[];
+}

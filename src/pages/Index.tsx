@@ -2,13 +2,12 @@
 import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
 import AuthProvider from '@/components/AuthProvider';
-import VideoManager from '@/components/VideoManager';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate } from 'react-router-dom';
-import { useVideoManagement } from '@/hooks/useVideoManagement';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
-import PrimaryVideoSorter from '@/components/PrimaryVideoSorter';
+import { useLoraManagement } from '@/hooks/useLoraManagement';
+import LoraManager from '@/components/LoraManager';
 
 const logger = new Logger('Index');
 
@@ -18,13 +17,10 @@ const Index = () => {
   const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
   
   const { 
-    videos, 
-    isLoading: videosLoading, 
-    refetchVideos,
-    deleteVideo,
-    approveVideo,
-    rejectVideo
-  } = useVideoManagement();
+    loras, 
+    isLoading: lorasLoading, 
+    refetchLoras
+  } = useLoraManagement();
   
   const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');
@@ -34,7 +30,7 @@ const Index = () => {
     setIsAuthLoading(isLoading);
   }, []);
   
-  const isLoading = isAuthLoading || videosLoading;
+  const isLoading = isAuthLoading || lorasLoading;
   
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -51,18 +47,11 @@ const Index = () => {
             buttonDisabled={isLoading}
           />
           
-          <PrimaryVideoSorter videos={videos}>
-            {(sortedVideos) => (
-              <VideoManager 
-                videos={sortedVideos}
-                isLoading={isLoading}
-                refetchVideos={refetchVideos}
-                deleteVideo={deleteVideo}
-                approveVideo={approveVideo}
-                rejectVideo={rejectVideo}
-              />
-            )}
-          </PrimaryVideoSorter>
+          <LoraManager 
+            loras={loras}
+            isLoading={isLoading}
+            refetchLoras={refetchLoras}
+          />
         </main>
       </AuthProvider>
     </div>
