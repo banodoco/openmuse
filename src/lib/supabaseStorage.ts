@@ -1,5 +1,5 @@
 
-import { supabase } from './supabase';
+import { supabase } from '@/integrations/supabase/client';
 import { VideoFile } from './types';
 
 class SupabaseVideoStorage {
@@ -7,7 +7,7 @@ class SupabaseVideoStorage {
   private readonly BUCKET_NAME = 'videos';
 
   // Upload a video to Supabase Storage
-  async uploadVideo(videoFile: VideoFile): Promise<string> {
+  async uploadVideo(videoFile: VideoFile): Promise<{ url: string; storagePath: string }> {
     try {
       this.log(`Uploading video ${videoFile.id} to Supabase Storage`);
       
@@ -31,8 +31,11 @@ class SupabaseVideoStorage {
         .from(this.BUCKET_NAME)
         .getPublicUrl(filePath);
       
-      this.log(`Video uploaded successfully, URL: ${urlData.publicUrl}`);
-      return urlData.publicUrl;
+      this.log(`Video uploaded successfully, URL: ${urlData.publicUrl}, Path: ${filePath}`);
+      return {
+        url: urlData.publicUrl,
+        storagePath: filePath
+      };
     } catch (error) {
       this.error('Failed to upload video:', error);
       throw error;
@@ -68,6 +71,32 @@ class SupabaseVideoStorage {
   // Get a video URL from Supabase Storage
   getVideoUrl(fileUrl: string): string {
     return fileUrl; // Already a public URL
+  }
+  
+  // Regenerate a public URL for a video
+  async refreshVideoUrl(storagePath: string): Promise<string | null> {
+    try {
+      if (!storagePath) {
+        this.warn('Cannot refresh URL: No storage path provided');
+        return null;
+      }
+      
+      this.log(`Regenerating public URL for path: ${storagePath}`);
+      
+      const { data } = supabase.storage
+        .from(this.BUCKET_NAME)
+        .getPublicUrl(storagePath);
+      
+      if (data && data.publicUrl) {
+        this.log(`Regenerated URL: ${data.publicUrl}`);
+        return data.publicUrl;
+      }
+      
+      return null;
+    } catch (error) {
+      this.error('Failed to refresh video URL:', error);
+      return null;
+    }
   }
   
   // Utility methods for logging

@@ -24,7 +24,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
   onRemove 
 }) => {
   // Log props to make sure they're being passed correctly
-  console.log(`VideoDropzone props - id: ${id}, file: ${file ? 'present' : 'null'}, url: ${url}`);
+  console.log(`VideoDropzone props - id: ${id}, file: ${file ? file.name : 'null'}, url: ${url}`);
   
   const [showLinkInput, setShowLinkInput] = useState(false);
   const [videoLink, setVideoLink] = useState('');
@@ -38,7 +38,8 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
     },
     accept: {
       'video/*': []
-    }
+    },
+    maxSize: 100 * 1024 * 1024, // 100MB max size
   });
   
   const toggleLinkInput = () => {
@@ -141,6 +142,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
               <>
                 <p className="text-lg font-medium mb-2">Drag 'n' drop a video here</p>
                 <p className="text-sm text-muted-foreground">or click to select a file</p>
+                <p className="text-xs text-muted-foreground mt-2">Max size: 100MB</p>
               </>
           }
         </div>

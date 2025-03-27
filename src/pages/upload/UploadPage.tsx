@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -12,6 +11,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { VideoMetadataForm, LoRADetailsForm, MultipleVideoUploader } from './components';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
+import { v4 as uuidv4 } from 'uuid';
+import { supabaseStorage } from '@/lib/supabaseStorage';
 
 const logger = new Logger('Upload');
 
@@ -90,9 +91,30 @@ const UploadPage: React.FC = () => {
     
     try {
       logger.log("Starting video submission process");
+      
+      // Process files first to upload them to storage
+      for (const video of videos) {
+        if (video.file) {
+          // Generate UUID for the video
+          const videoId = uuidv4();
+          
+          // Upload to Supabase Storage
+          const uploadResult = await supabaseStorage.uploadVideo({
+            id: videoId,
+            blob: video.file,
+            metadata: video.metadata
+          });
+          
+          // Replace the local blob URL with the permanent Supabase URL
+          video.url = uploadResult.url;
+          video.id = videoId;
+          video.file = null; // Clear the file reference as we've uploaded it
+        }
+      }
+      
       await submitVideos(videos, loraDetails, reviewerName, user);
       
-      const message = videos.filter(v => v.file || v.url).length > 1 
+      const message = videos.filter(v => v.url).length > 1 
         ? 'Videos submitted successfully! Awaiting admin approval.'
         : 'Video submitted successfully! Awaiting admin approval.';
       
@@ -216,7 +238,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     }
     
     const primaryVideoData = videos.find(video => 
-      (video.file || video.url) && video.metadata.isPrimary
+      video.url && video.metadata.isPrimary
     );
     
     if (!primaryVideoData) {
@@ -226,9 +248,9 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     const processedVideos = [];
     
     for (const video of videos) {
-      if (!video.file && !video.url) continue;
+      if (!video.url) continue;
       
-      const videoUrl = video.url || 'error';
+      const videoUrl = video.url;
       
       logger.log(`Creating media entry for video ${video.metadata.title}`);
       try {

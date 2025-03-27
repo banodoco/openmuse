@@ -4,10 +4,9 @@ import { AlertCircle, RefreshCw, ExternalLink, AlertTriangle, Database, Download
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import { getVideoFormat } from '@/lib/utils/videoUtils';
-import { cn } from '@/lib/utils';
-import { videoUrlService } from '@/lib/services/videoUrlService';
-import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
+import { supabaseStorage } from '@/lib/supabaseStorage';
 
 const logger = new Logger('VideoPreviewError');
 
@@ -72,7 +71,7 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         // Try to directly fetch the URL from database using the media ID
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
-          .select('url, storage_path, bucket_id')
+          .select('id, url, type')
           .eq('id', videoId)
           .maybeSingle();
           
@@ -98,61 +97,52 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
             return;
           }
           
-          // If we have storage path, try to generate new URL
-          if (mediaData.storage_path && mediaData.bucket_id) {
-            const { data: urlData } = supabase.storage
-              .from(mediaData.bucket_id)
-              .getPublicUrl(mediaData.storage_path);
+          // Re-upload to Supabase Storage if we can get the original file
+          setDebugInfo((prev) => `${prev}\nAttempting fetch from temp URL and re-uploading to storage...`);
+          try {
+            const response = await fetch(videoSource);
+            if (response.ok) {
+              const videoBlob = await response.blob();
               
-            if (urlData && urlData.publicUrl) {
-              logger.log(`Generated new public URL: ${urlData.publicUrl.substring(0, 30)}...`);
-              setDebugInfo((prev) => `${prev}\nGenerated fresh public URL from storage`);
-              
-              // Update database with new URL
-              const { error: updateError } = await supabase
-                .from('media')
-                .update({ url: urlData.publicUrl })
-                .eq('id', videoId);
+              if (videoBlob) {
+                const uploadResult = await supabaseStorage.uploadVideo({
+                  id: videoId,
+                  blob: videoBlob,
+                  metadata: { title: 'Recovered video' }
+                });
                 
-              if (updateError) {
-                logger.error("Error updating media URL:", updateError);
-              } else {
-                logger.log("Updated media record with permanent URL");
+                // Update the database with the new URL
+                const { error: updateError } = await supabase
+                  .from('media')
+                  .update({ 
+                    url: uploadResult.url
+                  })
+                  .eq('id', videoId);
+                
+                if (updateError) {
+                  setDebugInfo((prev) => `${prev}\nError updating database: ${updateError.message}`);
+                } else {
+                  setDebugInfo((prev) => `${prev}\nSuccess! Video re-uploaded and URL updated in database.`);
+                  
+                  // Dispatch custom event to notify components of the refreshed URL
+                  const refreshEvent = new CustomEvent('videoUrlRefreshed', {
+                    detail: { original: videoSource, fresh: uploadResult.url }
+                  });
+                  document.dispatchEvent(refreshEvent);
+                  toast.success("Video recovered and permanently stored");
+                  onRetry();
+                  return;
+                }
               }
-              
-              // Dispatch event with fresh URL
-              const refreshEvent = new CustomEvent('videoUrlRefreshed', {
-                detail: { original: videoSource, fresh: urlData.publicUrl }
-              });
-              document.dispatchEvent(refreshEvent);
-              toast.success("Generated fresh video URL");
-              onRetry();
-              return;
             }
+          } catch (fetchError) {
+            setDebugInfo((prev) => `${prev}\nError fetching from blob URL: ${String(fetchError)}`);
           }
         }
       }
       
-      // If we get here, try the standard video URL service
-      const freshUrl = await videoUrlService.forceRefreshUrl(videoSource);
-      
-      if (freshUrl) {
-        logger.log('Successfully retrieved fresh URL from database');
-        
-        // Dispatch custom event to notify components of the refreshed URL
-        const refreshEvent = new CustomEvent('videoUrlRefreshed', {
-          detail: { original: videoSource, fresh: freshUrl }
-        });
-        document.dispatchEvent(refreshEvent);
-        
-        // Call the normal retry as well to update the component
-        onRetry();
-        toast.success("Video URL refreshed successfully");
-      } else {
-        logger.error('Failed to recover URL from database');
-        setDebugInfo("Couldn't find video in database. Try refreshing the page.");
-        toast.error("Could not recover video. Please refresh the page.");
-      }
+      setDebugInfo((prev) => `${prev}\nFailed to recover video. Please refresh the page.`);
+      toast.error("Could not recover video. Please refresh the page.");
     } catch (error) {
       logger.error('Error recovering blob URL:', error);
       setDebugInfo(`Error: ${error instanceof Error ? error.message : String(error)}`);

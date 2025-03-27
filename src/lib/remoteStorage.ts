@@ -8,7 +8,8 @@ class RemoteVideoStorage {
   // Upload a video to the storage
   async uploadVideo(videoFile: VideoFile): Promise<string> {
     this.log(`Uploading video: ${videoFile.id}`);
-    return supabaseStorage.uploadVideo(videoFile);
+    const result = await supabaseStorage.uploadVideo(videoFile);
+    return result.url;
   }
 
   // Get a video from the remote server
@@ -19,6 +20,14 @@ class RemoteVideoStorage {
   // Delete a video from the storage
   async deleteVideo(remoteUrl: string): Promise<boolean> {
     return supabaseStorage.deleteVideo(remoteUrl);
+  }
+
+  // Recover a video URL if possible
+  async recoverVideoUrl(storagePath: string): Promise<string | null> {
+    if (storagePath) {
+      return supabaseStorage.refreshVideoUrl(storagePath);
+    }
+    return null;
   }
 
   // Get storage configuration
