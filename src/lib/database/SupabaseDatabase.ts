@@ -155,3 +155,19 @@ export class SupabaseDatabase extends BaseDatabase {
     // Return remote URLs as-is
     return videoLocation;
   }
+
+  // Add missing method implementations to satisfy the abstract base class
+  async deleteEntry(id: string): Promise<boolean> {
+    this.logger.error("deleteEntry not implemented in base SupabaseDatabase class");
+    return false;
+  }
+  
+  async clearAllEntries(): Promise<void> {
+    this.logger.error("clearAllEntries not implemented in base SupabaseDatabase class");
+  }
+  
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+    this.logger.error("addEntry not implemented in base SupabaseDatabase class");
+    throw new Error("Method not implemented");
+  }
+}
