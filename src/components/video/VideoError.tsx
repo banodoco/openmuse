@@ -2,7 +2,7 @@
 import React from 'react';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
-import { AlertCircle, RefreshCw, Info, ExternalLink } from 'lucide-react';
+import { AlertCircle, RefreshCw, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 const logger = new Logger('VideoError');
@@ -45,10 +45,10 @@ const VideoError: React.FC<VideoErrorProps> = ({
   // Customize error message for specific error types
   const getActionText = () => {
     if (error.includes('URL safety check') || (errorDetails && errorDetails.includes('URL safety check'))) {
-      return 'This is likely due to browser security restrictions. Try refreshing the entire page.';
+      return 'This is likely due to browser security restrictions. Please try loading the permanent URL.';
     }
     if (error.includes('blob') || (errorDetails && errorDetails.includes('blob'))) {
-      return 'The video link may have expired. Try refreshing the entire page or coming back later.';
+      return 'The temporary video link has expired. Please try retrieving the permanent URL from the database.';
     }
     return '';
   };
@@ -82,16 +82,6 @@ const VideoError: React.FC<VideoErrorProps> = ({
           >
             <RefreshCw className="h-3 w-3" />
             Try again
-          </Button>
-          
-          <Button 
-            size="sm"
-            variant="outline"
-            className="gap-1"
-            onClick={() => window.location.reload()}
-          >
-            <RefreshCw className="h-3 w-3" />
-            Refresh page
           </Button>
           
           {errorDetails && (

@@ -54,6 +54,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [posterImage, setPosterImage] = useState<string | null>(poster || null);
   const [isFallbackAttempted, setIsFallbackAttempted] = useState(false);
   const [conversionAttempted, setConversionAttempted] = useState(false);
+  const [useFallbackVideo, setUseFallbackVideo] = useState(false);
 
   // Setup hover behavior
   useVideoHover(containerRef, videoRef, {
@@ -61,94 +62,57 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     resetOnLeave: true
   });
 
+  // Auto-convert blob URLs on source change
   useEffect(() => {
     const isBlobUrl = src?.startsWith('blob:');
     logger.log(`Source changed to: ${src?.substring(0, 30)}...`);
     logger.log(`Is source a blob URL: ${isBlobUrl}`);
-    logger.log(`Current page: ${window.location.pathname}`);
     
-    // For blob URLs, let's try to auto-convert right away
     if (isBlobUrl) {
       logger.log('Attempting to auto-convert blob URL on source change');
       convertBlobToDataUrl(src)
         .then(dataUrl => {
           if (dataUrl !== src) {
-            logger.log('Auto-conversion successful, will use data URL');
-            // We don't set it right now, it will happen in the next useEffect
+            logger.log('Auto-conversion successful, using data URL');
+            setProcessedSrc(dataUrl);
+            setConversionAttempted(true);
+          } else {
+            setProcessedSrc(src);
           }
         })
         .catch(err => {
           logger.error('Auto-conversion failed:', err);
+          setProcessedSrc(src);
         });
+    } else {
+      // For non-blob URLs, use as is
+      setProcessedSrc(src);
     }
   }, [src]);
 
+  // Handle source processing when src changes
   useEffect(() => {
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
     setIsFallbackAttempted(false);
-    setConversionAttempted(false);
+    setUseFallbackVideo(false);
     
     if (!src) {
       logger.log('No source provided to VideoPlayer');
       setError('No video source provided');
       setIsLoading(false);
       if (onError) onError('No video source provided');
-      return;
     }
-    
-    const processSource = async () => {
-      try {
-        // For blob URLs, try to convert to data URL to avoid cross-origin issues
-        if (src.startsWith('blob:')) {
-          logger.log(`Processing blob URL: ${src.substring(0, 30)}...`);
-          try {
-            setConversionAttempted(true);
-            const dataUrl = await convertBlobToDataUrl(src);
-            if (dataUrl !== src) {
-              logger.log('Successfully converted blob URL to data URL');
-              setProcessedSrc(dataUrl);
-            } else {
-              // If regular conversion failed, try image-based conversion
-              logger.log('First conversion method failed, trying image-based conversion');
-              const imageDataUrl = await createDataUrlFromImage(src);
-              if (imageDataUrl !== src) {
-                logger.log('Image-based conversion successful');
-                setProcessedSrc(imageDataUrl);
-              } else {
-                logger.log('Could not convert blob URL, using original');
-                setProcessedSrc(src);
-              }
-            }
-          } catch (error) {
-            logger.error('Error converting blob URL:', error);
-            setProcessedSrc(src);
-          }
-        } else if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) {
-          logger.log(`Using data or regular URL: ${src.substring(0, 30)}...`);
-          setProcessedSrc(src);
-        } else {
-          logger.error(`Unsupported source format: ${src.substring(0, 30)}...`);
-          setError('Unsupported video format');
-          setIsLoading(false);
-          if (onError) onError('Unsupported video format');
-        }
-      } catch (err) {
-        logger.error('Error in source processing:', err);
-        setProcessedSrc(src); // Fall back to original source
-      }
-    };
-    
-    processSource();
   }, [src, onError]);
 
+  // Handle video element setup when processedSrc changes
   useEffect(() => {
     if (!processedSrc) {
       return;
     }
     
-    logger.log(`Loading video: ${processedSrc.substring(0, 50)}...`);
+    logger.log(`Loading video with processed source: ${processedSrc.substring(0, 50)}...`);
     
     const video = videoRef.current;
     if (!video) {
@@ -172,8 +136,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       logger.error(`Video error for ${processedSrc.substring(0, 30)}...: ${message}`);
       logger.error(`Video error details: ${details}`);
-      logger.error(`Video error code: ${video.error?.code}`);
-      logger.error(`Video error message: ${video.error?.message}`);
       
       // Check if we need to try fallback to data URL
       const isSecurityError = message.includes('security') || 
@@ -194,19 +156,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
               return;
             }
             
-            // If all conversions fail, show the error
-            setError(message);
-            setErrorDetails(details);
+            // If all conversions fail, try using a video element with crossOrigin="anonymous"
+            logger.log('Trying crossOrigin approach as final fallback');
+            setUseFallbackVideo(true);
+            setError(null);
             setIsLoading(false);
-            if (onError) onError(message);
           })
           .catch(convErr => {
             logger.error('Fallback conversion failed:', convErr);
-            setError(message);
-            setErrorDetails(details);
+            // Try crossOrigin approach as last resort
+            setUseFallbackVideo(true);
+            setError(null);
             setIsLoading(false);
-            if (onError) onError(message);
           });
+      } else if (isSecurityError && !useFallbackVideo) {
+        // If security error and not yet using fallback video, try it
+        logger.log('Security error detected, trying crossOrigin video approach');
+        setUseFallbackVideo(true);
+        setError(null);
+        setIsLoading(false);
       } else {
         setError(message);
         setErrorDetails(details);
@@ -244,7 +212,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [processedSrc, autoPlay, muted, onLoadedData, videoRef, onError, posterImage, playOnHover, isFallbackAttempted]);
+  }, [processedSrc, autoPlay, muted, onLoadedData, videoRef, onError, posterImage, playOnHover, isFallbackAttempted, useFallbackVideo]);
 
   const handleRetry = () => {
     const video = videoRef.current;
@@ -256,11 +224,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setIsLoading(true);
     setIsFallbackAttempted(false);
     setConversionAttempted(false);
+    setUseFallbackVideo(false);
     
-    video.pause();
-    
-    // Try to get a fresh version of the src
-    if (src.startsWith('blob:')) {
+    // Force reload the source from its original URL
+    if (src.startsWith('http') && !src.includes('supabase.co')) {
+      // For HTTP URLs (except Supabase), add cache buster
+      const cacheBuster = `?t=${Date.now()}`;
+      const urlWithCacheBuster = src.includes('?') 
+        ? `${src}&_cb=${Date.now()}` 
+        : `${src}${cacheBuster}`;
+      setProcessedSrc(urlWithCacheBuster);
+    } else if (src.startsWith('blob:')) {
       // For blob URLs, try the data URL conversion again
       convertBlobToDataUrl(src)
         .then(dataUrl => {
@@ -277,20 +251,48 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
             logger.log('Image-based conversion succeeded on retry');
             setProcessedSrc(imgDataUrl);
           } else {
-            logger.log('All conversion methods failed, using original');
+            // Last resort: try the crossOrigin approach
+            setUseFallbackVideo(true);
             setProcessedSrc(src);
           }
         })
         .catch(err => {
           logger.error('Retry conversion failed:', err);
+          // Last resort: try the crossOrigin approach
+          setUseFallbackVideo(true);
           setProcessedSrc(src);
         });
     } else {
       // For other URLs, just reload
-      video.src = src;
-      video.load();
+      const reloadedSrc = src + (src.includes('?') ? '&' : '?') + '_reload=' + Date.now();
+      setProcessedSrc(reloadedSrc);
     }
   };
+
+  // Render a crossOrigin video element as a fallback
+  if (useFallbackVideo && !error) {
+    return (
+      <div ref={containerRef} className="relative w-full h-full overflow-hidden rounded-lg">
+        {isLoading && <VideoLoader posterImage={posterImage} />}
+        
+        <video
+          ref={videoRef}
+          className={cn("w-full h-full object-cover", className)}
+          autoPlay={autoPlay && !playOnHover}
+          muted={muted}
+          loop={loop}
+          controls={controls}
+          playsInline
+          poster={posterImage || undefined}
+          preload="metadata"
+          crossOrigin="anonymous"
+          src={processedSrc}
+        >
+          Your browser does not support the video tag.
+        </video>
+      </div>
+    );
+  }
 
   return (
     <div ref={containerRef} className="relative w-full h-full overflow-hidden rounded-lg">
