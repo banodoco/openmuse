@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import { getVideoFormat } from '@/lib/utils/videoUtils';
 import { cn } from '@/lib/utils';
+import { videoUrlService } from '@/lib/services/videoUrlService';
+import { toast } from 'sonner';
 
 const logger = new Logger('VideoPreviewError');
 
@@ -34,6 +36,48 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
   const isFormatError = error.includes('format') || error.includes('not supported');
   const isBlobError = videoSource?.startsWith('blob:') && error.includes('Invalid video source');
   const detectedFormat = videoSource ? getVideoFormat(videoSource) : 'Unknown';
+  
+  // State to track if we're actively refreshing
+  const [isRefreshing, setIsRefreshing] = React.useState(false);
+
+  // Handle more aggressive URL refresh for blob URLs
+  const handleExpiredBlobRefresh = async () => {
+    if (!videoSource || !videoSource.startsWith('blob:')) {
+      return handlePageRefresh();
+    }
+    
+    setIsRefreshing(true);
+    try {
+      logger.log(`Attempting to recover expired blob URL: ${videoSource.substring(0, 30)}...`);
+      
+      // Try to force refresh URL from database
+      const freshUrl = await videoUrlService.forceRefreshUrl(videoSource);
+      
+      if (freshUrl) {
+        logger.log('Successfully retrieved fresh URL from database');
+        
+        // Dispatch custom event to notify components of the refreshed URL
+        const refreshEvent = new CustomEvent('videoUrlRefreshed', {
+          detail: { original: videoSource, fresh: freshUrl }
+        });
+        document.dispatchEvent(refreshEvent);
+        
+        // Call the normal retry as well to update the component
+        onRetry();
+        toast.success("Video URL refreshed successfully");
+      } else {
+        logger.error('Failed to recover URL from database');
+        // If recovery failed, just refresh the page
+        handlePageRefresh();
+      }
+    } catch (error) {
+      logger.error('Error recovering blob URL:', error);
+      toast.error("Could not refresh video. Reloading page.");
+      handlePageRefresh();
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
 
   const handlePageRefresh = () => {
     logger.log('Refreshing entire page...');
@@ -80,9 +124,22 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         )}
         
         <div className="flex flex-wrap justify-center gap-2">
-          <Button size="sm" onClick={onRetry} variant="default" className="gap-1">
-            <RefreshCw className="h-3 w-3" /> Try again
-          </Button>
+          {isBlobError ? (
+            <Button 
+              size="sm" 
+              onClick={handleExpiredBlobRefresh} 
+              variant="default" 
+              className="gap-1"
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} /> 
+              {isRefreshing ? "Refreshing..." : "Recover Video"}
+            </Button>
+          ) : (
+            <Button size="sm" onClick={onRetry} variant="default" className="gap-1">
+              <RefreshCw className="h-3 w-3" /> Try again
+            </Button>
+          )}
           
           <Button size="sm" onClick={handlePageRefresh} variant="outline">
             Refresh page
