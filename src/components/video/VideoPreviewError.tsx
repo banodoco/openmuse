@@ -4,6 +4,7 @@ import { AlertCircle, RefreshCw, ExternalLink, AlertTriangle, Database } from 'l
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import { getVideoFormat } from '@/lib/utils/videoUtils';
+import { cn } from '@/lib/utils';
 
 const logger = new Logger('VideoPreviewError');
 
@@ -92,7 +93,10 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
               size="sm"
               variant="outline"
               className="gap-1"
-              onClick={() => window.open(videoSource, '_blank')}
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(videoSource, '_blank');
+              }}
             >
               <ExternalLink className="h-3 w-3" />
               Open directly

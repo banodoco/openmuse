@@ -3,12 +3,13 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { FileVideo, Eye } from 'lucide-react';
+import { FileVideo, Eye, RefreshCw } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Link, useNavigate } from 'react-router-dom';
 import StandardVideoPreview from '../video/StandardVideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface LoraCardProps {
   lora: LoraAsset;
@@ -21,6 +22,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const navigate = useNavigate();
 
   const loadVideoUrl = useCallback(async () => {
@@ -71,7 +73,43 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
     }
     
     setIsLoading(false);
+    setIsRefreshing(false);
   }, [lora]);
+
+  // Add a function to manually refresh the video URL
+  const handleRefreshVideo = async () => {
+    setIsRefreshing(true);
+    setLoadError(null);
+    
+    try {
+      // Attempt to force refresh the URL from the database
+      if (lora.primaryVideo) {
+        const freshUrl = await videoUrlService.forceRefreshUrl(lora.primaryVideo.video_location);
+        if (freshUrl) {
+          setVideoUrl(freshUrl);
+          toast.success("Video preview refreshed");
+        } else {
+          setLoadError('Could not refresh video preview');
+          toast.error("Could not refresh video preview");
+        }
+      } else if (lora.videos && lora.videos.length > 0) {
+        const freshUrl = await videoUrlService.forceRefreshUrl(lora.videos[0].video_location);
+        if (freshUrl) {
+          setVideoUrl(freshUrl);
+          toast.success("Video preview refreshed");
+        } else {
+          setLoadError('Could not refresh video preview');
+          toast.error("Could not refresh video preview");
+        }
+      }
+    } catch (error) {
+      console.error("Error refreshing video URL:", error);
+      setLoadError('Error refreshing video');
+      toast.error("Error refreshing video preview");
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
   
   useEffect(() => {
     loadVideoUrl();
@@ -120,6 +158,10 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const primaryVideo = lora.primaryVideo;
   const firstVideo = lora.videos && lora.videos.length > 0 ? lora.videos[0] : null;
   const videoToUse = primaryVideo || firstVideo;
+  
+  // Determine if this is a blob URL issue or a missing video issue
+  const isBlobError = videoToUse?.video_location?.startsWith('blob:');
+  const hasDatabaseId = videoToUse?.id ? true : false;
 
   return (
     <Card 
@@ -138,6 +180,29 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
           <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
             <FileVideo className="h-8 w-8 text-muted-foreground mb-2" />
             <span className="text-xs text-muted-foreground">{loadError}</span>
+            
+            {/* Show refresh button for blob errors or database IDs */}
+            {(isBlobError || hasDatabaseId) && (
+              <Button
+                size="sm"
+                variant="outline"
+                className="mt-2 gap-1"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleRefreshVideo();
+                }}
+                disabled={isRefreshing}
+              >
+                <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+                {isRefreshing ? "Refreshing..." : "Refresh"}
+              </Button>
+            )}
+            
+            {isBlobError && (
+              <p className="text-xs text-amber-600 mt-1 px-2 text-center">
+                The temporary URL has expired
+              </p>
+            )}
           </div>
         ) : videoUrl && videoToUse ? (
           <StandardVideoPreview 
@@ -145,6 +210,8 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
             posterUrl={posterUrl}
             onError={handleError}
             videoId={videoToUse.id}
+            onRefresh={handleRefreshVideo}
+            isRefreshing={isRefreshing}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">

@@ -1,11 +1,12 @@
 
 import React, { useRef, useState } from 'react';
-import { Play, FileVideo, Eye } from 'lucide-react';
+import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './VideoPreviewError';
+import { cn } from '@/lib/utils';
 
 const logger = new Logger('StandardVideoPreview');
 
@@ -87,6 +88,21 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
             </Link>
           </div>
         )}
+        
+        {onRefresh && (
+          <div className="absolute top-2 right-2">
+            <Button 
+              size="sm" 
+              variant="secondary" 
+              className="gap-1 opacity-90 hover:opacity-100"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+              {isRefreshing ? "..." : "Refresh"}
+            </Button>
+          </div>
+        )}
       </div>
     );
   }
@@ -122,6 +138,21 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
               View
             </Button>
           </Link>
+        </div>
+      )}
+      
+      {onRefresh && !currentError && (
+        <div className="absolute top-2 right-2 z-10">
+          <Button 
+            size="sm" 
+            variant="secondary" 
+            className="gap-1 opacity-90 hover:opacity-100"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+            {isRefreshing ? "..." : "Refresh"}
+          </Button>
         </div>
       )}
     </div>
