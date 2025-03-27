@@ -1,12 +1,13 @@
 
 import React from 'react';
-import { AlertCircle, RefreshCw, ExternalLink, AlertTriangle, Database } from 'lucide-react';
+import { AlertCircle, RefreshCw, ExternalLink, AlertTriangle, Database, Download, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import { getVideoFormat } from '@/lib/utils/videoUtils';
 import { cn } from '@/lib/utils';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const logger = new Logger('VideoPreviewError');
 
@@ -39,6 +40,16 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
   
   // State to track if we're actively refreshing
   const [isRefreshing, setIsRefreshing] = React.useState(false);
+  const [debugInfo, setDebugInfo] = React.useState<string | null>(null);
+
+  // Try to extract video ID from URL for more advanced recovery
+  const extractVideoId = () => {
+    if (!videoSource) return null;
+    
+    // Try to extract UUID
+    const uuidMatch = videoSource.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
+    return uuidMatch?.[1] || null;
+  };
 
   // Handle more aggressive URL refresh for blob URLs
   const handleExpiredBlobRefresh = async () => {
@@ -47,10 +58,82 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
     }
     
     setIsRefreshing(true);
+    setDebugInfo(null);
+    
     try {
       logger.log(`Attempting to recover expired blob URL: ${videoSource.substring(0, 30)}...`);
       
-      // Try to force refresh URL from database
+      // Try to extract video ID from URL
+      const videoId = extractVideoId();
+      
+      if (videoId) {
+        setDebugInfo(`Found video ID: ${videoId}. Trying direct database lookup...`);
+        
+        // Try to directly fetch the URL from database using the media ID
+        const { data: mediaData, error: mediaError } = await supabase
+          .from('media')
+          .select('url, storage_path, bucket_id')
+          .eq('id', videoId)
+          .maybeSingle();
+          
+        if (mediaError) {
+          logger.error("Error querying media table:", mediaError);
+          setDebugInfo((prev) => `${prev}\nError querying database: ${mediaError.message}`);
+        }
+        
+        if (mediaData) {
+          setDebugInfo((prev) => `${prev}\nFound media record. URL: ${mediaData.url?.substring(0, 30)}...`);
+          
+          // If we have a permanent URL, use that
+          if (mediaData.url && !mediaData.url.startsWith('blob:')) {
+            logger.log(`Found permanent URL in database: ${mediaData.url.substring(0, 30)}...`);
+            
+            // Dispatch custom event to notify components of the refreshed URL
+            const refreshEvent = new CustomEvent('videoUrlRefreshed', {
+              detail: { original: videoSource, fresh: mediaData.url }
+            });
+            document.dispatchEvent(refreshEvent);
+            toast.success("Recovered permanent video URL");
+            onRetry();
+            return;
+          }
+          
+          // If we have storage path, try to generate new URL
+          if (mediaData.storage_path && mediaData.bucket_id) {
+            const { data: urlData } = supabase.storage
+              .from(mediaData.bucket_id)
+              .getPublicUrl(mediaData.storage_path);
+              
+            if (urlData && urlData.publicUrl) {
+              logger.log(`Generated new public URL: ${urlData.publicUrl.substring(0, 30)}...`);
+              setDebugInfo((prev) => `${prev}\nGenerated fresh public URL from storage`);
+              
+              // Update database with new URL
+              const { error: updateError } = await supabase
+                .from('media')
+                .update({ url: urlData.publicUrl })
+                .eq('id', videoId);
+                
+              if (updateError) {
+                logger.error("Error updating media URL:", updateError);
+              } else {
+                logger.log("Updated media record with permanent URL");
+              }
+              
+              // Dispatch event with fresh URL
+              const refreshEvent = new CustomEvent('videoUrlRefreshed', {
+                detail: { original: videoSource, fresh: urlData.publicUrl }
+              });
+              document.dispatchEvent(refreshEvent);
+              toast.success("Generated fresh video URL");
+              onRetry();
+              return;
+            }
+          }
+        }
+      }
+      
+      // If we get here, try the standard video URL service
       const freshUrl = await videoUrlService.forceRefreshUrl(videoSource);
       
       if (freshUrl) {
@@ -67,13 +150,13 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         toast.success("Video URL refreshed successfully");
       } else {
         logger.error('Failed to recover URL from database');
-        // If recovery failed, just refresh the page
-        handlePageRefresh();
+        setDebugInfo("Couldn't find video in database. Try refreshing the page.");
+        toast.error("Could not recover video. Please refresh the page.");
       }
     } catch (error) {
       logger.error('Error recovering blob URL:', error);
-      toast.error("Could not refresh video. Reloading page.");
-      handlePageRefresh();
+      setDebugInfo(`Error: ${error instanceof Error ? error.message : String(error)}`);
+      toast.error("Could not refresh video. Please reload the page.");
     } finally {
       setIsRefreshing(false);
     }
@@ -101,7 +184,7 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         {isBlobError && (
           <div className="mb-3 text-xs bg-amber-50 p-2 rounded-md text-amber-800">
             <p>The temporary video URL has expired.</p>
-            <p className="mt-1">Please try refreshing this page.</p>
+            <p className="mt-1">Click "Recover Video" to retrieve the permanent URL.</p>
           </div>
         )}
         
@@ -123,6 +206,17 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
           </div>
         )}
         
+        {debugInfo && (
+          <div className="mb-3">
+            <details className="text-left">
+              <summary className="text-xs text-muted-foreground cursor-pointer">Debug info</summary>
+              <pre className="text-xs text-muted-foreground p-2 bg-muted rounded overflow-auto max-h-[120px] mt-1 text-left whitespace-pre-wrap">
+                {debugInfo}
+              </pre>
+            </details>
+          </div>
+        )}
+        
         <div className="flex flex-wrap justify-center gap-2">
           {isBlobError ? (
             <Button 
@@ -132,8 +226,12 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
               className="gap-1"
               disabled={isRefreshing}
             >
-              <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} /> 
-              {isRefreshing ? "Refreshing..." : "Recover Video"}
+              {isRefreshing ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Download className="h-3 w-3" />
+              )}
+              {isRefreshing ? "Recovering..." : "Recover Video"}
             </Button>
           ) : (
             <Button size="sm" onClick={onRetry} variant="default" className="gap-1">
