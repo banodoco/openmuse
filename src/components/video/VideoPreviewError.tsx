@@ -4,6 +4,7 @@ import { AlertCircle, ExternalLink, RefreshCw, Info } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 const logger = new Logger('VideoPreviewError');
 
@@ -41,6 +42,64 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
     window.location.reload();
   };
 
+  const handleFetchPermanentUrl = async () => {
+    if (!videoSource) {
+      toast.error('No video source available to fetch permanent URL');
+      return;
+    }
+
+    logger.log('Attempting to fetch permanent URL from database...');
+    toast.loading('Retrieving permanent URL...');
+
+    try {
+      // Try to extract an ID from the URL or path
+      const uuidPattern = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i;
+      const match = videoSource.match(uuidPattern) || window.location.pathname.match(uuidPattern);
+      const possibleId = match ? match[0] : null;
+
+      if (!possibleId) {
+        toast.error('Could not determine video ID from URL');
+        return;
+      }
+
+      // Try to find the media entry by ID
+      const { data: media, error: mediaError } = await supabase
+        .from('media')
+        .select('url')
+        .eq('id', possibleId)
+        .maybeSingle();
+
+      if (mediaError) {
+        logger.error('Error fetching media:', mediaError);
+        toast.error('Could not retrieve permanent URL from database');
+        return;
+      }
+
+      if (media && media.url) {
+        logger.log(`Found permanent URL in database: ${media.url}`);
+        toast.success('Found permanent URL');
+        
+        // Use the new permanent URL
+        localStorage.setItem(`video_url_cache_${possibleId}`, JSON.stringify({
+          url: media.url,
+          timestamp: Date.now()
+        }));
+        
+        // Notify of URL update and trigger retry
+        document.dispatchEvent(new CustomEvent('videoUrlRefreshed', { 
+          detail: { original: videoSource, fresh: media.url }
+        }));
+        
+        onRetry();
+      } else {
+        toast.error('No permanent URL found in database');
+      }
+    } catch (error) {
+      logger.error('Error in fetchPermanentUrl:', error);
+      toast.error('Failed to retrieve permanent URL');
+    }
+  };
+
   // Customize error message for specific error types
   const getActionText = () => {
     if (error.includes('could not be loaded from storage')) {
@@ -50,7 +109,7 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
       return 'This is likely due to browser security restrictions. Try refreshing the entire page, or try a different browser.';
     }
     if (error.includes('blob') || (details && details.includes('blob'))) {
-      return 'The video link may have expired. Click "Try again" to get a fresh video URL.';
+      return 'The video link may have expired. Click "Fetch permanent URL" to retrieve a direct link from the database.';
     }
     if (error.includes('security') || error.includes('blocked')) {
       return 'Your browser is blocking this video for security reasons. Try using a different browser or refreshing the page.';
@@ -80,9 +139,13 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
           </div>
         )}
         
-        <div className="flex justify-center gap-2">
+        <div className="flex flex-wrap justify-center gap-2">
           <Button size="sm" onClick={handleRefreshClick} variant="default" className="gap-1">
             <RefreshCw className="h-3 w-3" /> Try again
+          </Button>
+          
+          <Button size="sm" onClick={handleFetchPermanentUrl} variant="secondary" className="gap-1">
+            <Info className="h-3 w-3" /> Fetch permanent URL
           </Button>
           
           <Button size="sm" onClick={handlePageRefresh} variant="outline" className="gap-1">
