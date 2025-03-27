@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Index from '@/pages/Index';
 import NotFound from '@/pages/NotFound';
@@ -14,6 +15,7 @@ import { useEffect, useState } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { videoDB } from '@/lib/database';
 import { getCurrentUser } from '@/lib/auth';
+import AssetDetailPage from '@/pages/AssetDetailPage'; // New import
 
 function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
@@ -52,12 +54,15 @@ function App() {
           } />
           <Route path="/assets/loras/:id" element={
             <RequireAuth allowUnauthenticated={true}>
+              <AssetDetailPage />
+            </RequireAuth>
+          } />
+          <Route path="/videos/:id" element={
+            <RequireAuth allowUnauthenticated={true}>
               <VideoPage />
             </RequireAuth>
           } />
-          <Route path="/upload" element={
-            <UploadPage />
-          } />
+          <Route path="/upload" element={<UploadPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
           <Route path="*" element={<NotFound />} />

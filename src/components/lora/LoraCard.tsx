@@ -112,19 +112,15 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
       </CardContent>
       
       <CardFooter className="px-4 py-3 border-t flex justify-between mt-auto">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={(e) => {
-            e.stopPropagation();
-            if (videoToUse) {
-              window.open(`/videos/${videoToUse.id}`, '_blank');
-            }
-          }}
-          className="text-xs h-8"
-        >
-          <Eye className="h-3 w-3 mr-1" /> View
-        </Button>
+        <Link to={`/assets/loras/${lora.id}`}>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="text-xs h-8 gap-1"
+          >
+            <Eye className="h-3 w-3" /> View
+          </Button>
+        </Link>
       </CardFooter>
     </Card>
   );
