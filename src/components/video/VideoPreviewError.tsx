@@ -1,8 +1,9 @@
 
 import React from 'react';
-import { AlertCircle, RefreshCw } from 'lucide-react';
+import { AlertCircle, RefreshCw, ExternalLink, AlertTriangle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Logger } from '@/lib/logger';
+import { getVideoFormat } from '@/lib/utils/videoUtils';
 
 const logger = new Logger('VideoPreviewError');
 
@@ -28,6 +29,10 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
     logger.error(`Problem video source: ${videoSource}`);
   }
 
+  // Determine if this is likely a format issue
+  const isFormatError = error.includes('format') || error.includes('not supported');
+  const detectedFormat = videoSource ? getVideoFormat(videoSource) : 'Unknown';
+
   const handlePageRefresh = () => {
     logger.log('Refreshing entire page...');
     window.location.reload();
@@ -36,9 +41,21 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/50">
       <div className="bg-background p-4 rounded-lg max-w-[90%] text-center">
-        <AlertCircle className="h-6 w-6 text-destructive mx-auto mb-2" />
+        {isFormatError ? (
+          <AlertTriangle className="h-6 w-6 text-amber-500 mx-auto mb-2" />
+        ) : (
+          <AlertCircle className="h-6 w-6 text-destructive mx-auto mb-2" />
+        )}
+        
         <h4 className="font-medium text-sm mb-1">Error loading video</h4>
         <p className="text-xs text-muted-foreground mb-2">{error}</p>
+        
+        {isFormatError && (
+          <div className="mb-3 text-xs bg-amber-50 p-2 rounded-md text-amber-800">
+            <p>Your browser doesn't support {detectedFormat} video format.</p>
+            <p className="mt-1">Try using Chrome or Firefox for best compatibility.</p>
+          </div>
+        )}
         
         {details && (
           <div className="mb-3">
@@ -59,6 +76,18 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
           <Button size="sm" onClick={handlePageRefresh} variant="outline">
             Refresh page
           </Button>
+          
+          {videoSource && videoSource.startsWith('http') && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1"
+              onClick={() => window.open(videoSource, '_blank')}
+            >
+              <ExternalLink className="h-3 w-3" />
+              Open directly
+            </Button>
+          )}
         </div>
       </div>
     </div>

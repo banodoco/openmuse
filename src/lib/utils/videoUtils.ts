@@ -52,7 +52,7 @@ export const getVideoErrorMessage = (
     case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
       return {
         message: 'Video format or type not supported by browser',
-        details
+        details: `${details}. This may be because the video format (like WebM, MP4, etc.) is not supported by this browser or the video is corrupted.`
       };
     default:
       return {
@@ -60,4 +60,60 @@ export const getVideoErrorMessage = (
         details
       };
   }
+};
+
+/**
+ * Checks if a video source is likely to be a playable video URL
+ */
+export const isValidVideoUrl = (url: string | null): boolean => {
+  if (!url) return false;
+  
+  // Check if it's a URL (either http, https, or blob)
+  const isUrl = url.startsWith('http://') || 
+                url.startsWith('https://') || 
+                url.startsWith('blob:');
+  
+  if (!isUrl) return false;
+  
+  // Simple extension check for common video formats
+  const hasVideoExtension = /\.(mp4|webm|ogg|mov|avi)($|\?)/i.test(url);
+  
+  // If it has a video extension, it's likely valid
+  if (hasVideoExtension) return true;
+  
+  // If it's from common video hosts, it's likely valid
+  const isFromVideoHost = url.includes('cloudflare.com') || 
+                         url.includes('supabase.co') || 
+                         url.includes('amazonaws.com');
+  
+  return isFromVideoHost;
+};
+
+/**
+ * Tries to determine the format of a video from its URL
+ */
+export const getVideoFormat = (url: string): string => {
+  // Extract extension if present
+  const extensionMatch = url.match(/\.([a-z0-9]+)($|\?)/i);
+  if (extensionMatch && extensionMatch[1]) {
+    const ext = extensionMatch[1].toLowerCase();
+    if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext)) {
+      return ext.toUpperCase();
+    }
+  }
+  
+  // If URL contains hints about the format
+  if (url.includes('format=mp4') || url.includes('content-type=video/mp4')) {
+    return 'MP4';
+  }
+  if (url.includes('format=webm') || url.includes('content-type=video/webm')) {
+    return 'WEBM';
+  }
+  
+  // Default assumption for common hosts
+  if (url.includes('supabase.co')) {
+    return 'MP4'; // Supabase typically serves MP4
+  }
+  
+  return 'Unknown';
 };

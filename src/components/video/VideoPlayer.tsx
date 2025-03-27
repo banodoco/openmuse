@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useVideoHover } from '@/hooks/useVideoHover';
-import { attemptVideoPlay, getVideoErrorMessage } from '@/lib/utils/videoUtils';
+import { attemptVideoPlay, getVideoErrorMessage, isValidVideoUrl, getVideoFormat } from '@/lib/utils/videoUtils';
 import VideoError from './VideoError';
 import VideoLoader from './VideoLoader';
 
@@ -52,6 +52,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     resetOnLeave: true
   });
 
+  // Validate video source
+  useEffect(() => {
+    if (!src) {
+      logger.error('No source provided to VideoPlayer');
+      setError('No video source provided');
+      setIsLoading(false);
+      if (onError) onError('No video source provided');
+      return;
+    }
+    
+    if (!isValidVideoUrl(src)) {
+      const format = getVideoFormat(src);
+      const errorMsg = `Invalid video source: ${src.substring(0, 50)}...`;
+      logger.error(errorMsg);
+      setError(`The video URL appears to be invalid or inaccessible`);
+      setErrorDetails(`Source doesn't appear to be a playable video URL. Format detected: ${format}`);
+      setIsLoading(false);
+      if (onError) onError(errorMsg);
+    }
+  }, [src, onError]);
+
   // Handle video element setup when src changes
   useEffect(() => {
     setError(null);
@@ -87,12 +108,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     const handleError = () => {
       const { message, details } = getVideoErrorMessage(video.error, src);
+      const format = getVideoFormat(src);
       
       logger.error(`Video error for ${src.substring(0, 30)}...: ${message}`);
       logger.error(`Video error details: ${details}`);
+      logger.error(`Detected format: ${format}`);
       
       setError(message);
-      setErrorDetails(details);
+      setErrorDetails(details + ` Detected format: ${format}`);
       setIsLoading(false);
       if (onError) onError(message);
     };
