@@ -205,6 +205,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      debug_get_all_assets: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
+      }
       has_role: {
         Args: {
           user_id: string

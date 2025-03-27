@@ -51,46 +51,16 @@ export const useLoraManagement = () => {
     console.log("useLoraManagement: Loading all LoRAs");
     
     try {
-      // Let's log the structure of the DB tables to understand what's happening
-      console.log("useLoraManagement: Getting table structures");
-      
-      // Check the assets table count
-      const { data: assetsCount, error: assetsCountError } = await supabase
-        .from('assets')
-        .select('count');
-        
-      if (assetsCountError) {
-        console.error("useLoraManagement: Error checking assets count:", assetsCountError);
-      } else {
-        console.log("useLoraManagement: Assets table count:", assetsCount);
-      }
-      
-      // Get all assets directly with raw SQL to see exactly what's in the database
-      console.log("useLoraManagement: Fetching all assets with direct SQL");
+      // Debug: Use the newly created database function to get all assets
       const { data: rawAssets, error: rawAssetsError } = await supabase.rpc('debug_get_all_assets');
       
       if (rawAssetsError) {
-        console.error("useLoraManagement: Error with direct SQL query:", rawAssetsError);
+        console.error("useLoraManagement: Error with debug_get_all_assets:", rawAssetsError);
       } else {
         console.log("useLoraManagement: Raw assets from database:", rawAssets);
       }
       
-      // Get all assets first
-      console.log("useLoraManagement: About to query all assets");
-      
-      const { data: allAssets, error: allAssetsError } = await supabase
-        .from('assets')
-        .select('*')
-        .order('created_at', { ascending: false });
-      
-      if (allAssetsError) {
-        console.error("useLoraManagement: Error querying assets:", allAssetsError);
-        throw allAssetsError;
-      }
-      
-      console.log("useLoraManagement: All assets from database:", allAssets);
-      
-      // Now fetch LoRA assets with a very flexible query to catch any case variants
+      // Flexible LoRA asset query with multiple type variations
       const { data: loraAssets, error } = await supabase
         .from('assets')
         .select('*')
@@ -104,65 +74,25 @@ export const useLoraManagement = () => {
       
       console.log("useLoraManagement: LoRA assets from database:", loraAssets);
       
-      // Manual filtering to verify the results - accept any case of "lora"
-      const manuallyFilteredAssets = allAssets.filter(asset => 
-        asset.type && 
-        asset.type.toLowerCase().includes('lora')
-      );
-      
-      console.log("useLoraManagement: Manually filtered LoRA assets:", manuallyFilteredAssets);
-      
-      // Check asset-media relationships for debugging
-      if (allAssets.length > 0) {
-        const assetId = allAssets[0].id;
-        console.log(`useLoraManagement: Checking asset-media links for asset ${assetId}`);
-        
-        const { data: assetMedia, error: assetMediaError } = await supabase
-          .from('asset_media')
-          .select('*')
-          .eq('asset_id', assetId);
-          
-        if (assetMediaError) {
-          console.error("useLoraManagement: Error querying asset-media:", assetMediaError);
-        } else {
-          console.log("useLoraManagement: Asset-media links:", assetMedia);
-        }
-      }
-      
-      // If there are assets in the manually filtered list but not in the query results,
-      // use the manually filtered list instead
-      const assetsToUse = manuallyFilteredAssets.length > loraAssets.length 
-        ? manuallyFilteredAssets 
-        : loraAssets.length > 0 ? loraAssets : allAssets; // As a last resort, try all assets
-      
       // Map videos to their assets
-      const lorasWithVideos = assetsToUse.map((asset) => {
+      const lorasWithVideos = loraAssets.map((asset) => {
         // Find primary video
         const primaryVideo = videos.find(v => v.id === asset.primary_media_id);
-        console.log(`useLoraManagement: Asset ${asset.id} (${asset.name}) primary video:`, 
-          primaryVideo ? primaryVideo.id : "none found");
         
         // Find all videos associated with this asset through metadata
         const assetVideos = videos.filter(v => 
-          v.metadata?.assetId === asset.id
-        );
-        console.log(`useLoraManagement: Asset ${asset.id} has ${assetVideos.length} associated videos via metadata`);
-        
-        // If we don't have any videos via metadata, let's check for any videos where the LoRA name matches
-        let allMatchingVideos = assetVideos.length > 0 ? assetVideos : videos.filter(v => 
-          v.metadata?.loraName && v.metadata.loraName.toLowerCase() === (asset.name || '').toLowerCase()
+          v.metadata?.assetId === asset.id ||
+          (v.metadata?.loraName && 
+           v.metadata.loraName.toLowerCase() === (asset.name || '').toLowerCase())
         );
         
-        if (allMatchingVideos.length === 0) {
-          console.log(`useLoraManagement: No videos found for asset ${asset.id} (${asset.name}), checking for any matches`);
-        } else {
-          console.log(`useLoraManagement: Found ${allMatchingVideos.length} matching videos for asset ${asset.id}`);
-        }
+        console.log(`useLoraManagement: Asset ${asset.id} (${asset.name}) associated videos:`, 
+          assetVideos.map(v => v.id));
         
         return {
           ...asset,
           primaryVideo,
-          videos: allMatchingVideos
+          videos: assetVideos
         } as LoraAsset;
       });
       
@@ -190,7 +120,7 @@ export const useLoraManagement = () => {
 
   return {
     loras,
-    isLoading: isLoading,
+    isLoading,
     refetchLoras
   };
 };
