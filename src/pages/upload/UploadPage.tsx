@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -176,10 +177,14 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
   
   if (user && user.id) {
     logger.log("Creating LoRA asset in Supabase database");
+    
+    // Ensure we use the correct and consistent type for LoRA
+    const assetType = 'LoRA'; // Use capitalized "LoRA" consistently
+    
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
-        type: 'LoRA',
+        type: assetType, // Using the consistent type
         name: loraDetails.loraName,
         description: loraDetails.loraDescription,
         creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
@@ -194,8 +199,18 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     }
     
     assetId = assetData.id;
-    console.log(`Created asset with ID: ${assetId}`);
+    console.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
     
+    // Find the primary video
+    const primaryVideoData = videos.find(video => 
+      (video.file || video.url) && video.metadata.isPrimary
+    );
+    
+    if (!primaryVideoData) {
+      console.warn("No primary video found, using the first video as primary");
+    }
+    
+    // Process all videos
     for (const video of videos) {
       if (!video.file && !video.url) continue;
       
@@ -223,7 +238,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       const mediaId = mediaData.id;
       console.log(`Created media with ID: ${mediaId}`);
       
-      if (video.metadata.isPrimary) {
+      if (video.metadata.isPrimary || (!primaryMediaId && video === videos[0])) {
         primaryMediaId = mediaId;
         console.log(`Set primary media ID: ${primaryMediaId}`);
       }
@@ -243,8 +258,9 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       }
     }
     
-    logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
+    // Make sure we have a primary media set
     if (primaryMediaId) {
+      logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
       const { error: updateError } = await supabase
         .from('assets')
         .update({ primary_media_id: primaryMediaId })
@@ -255,6 +271,8 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       } else {
         console.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
       }
+    } else {
+      console.error("No primary media ID set for asset", assetId);
     }
   }
   

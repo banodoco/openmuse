@@ -51,12 +51,22 @@ export const useLoraManagement = () => {
     console.log("useLoraManagement: Loading all LoRAs");
     
     try {
-      // Log the SQL query we're about to make for debugging
-      console.log("useLoraManagement: About to query assets table with filter: type.ilike.%lora%,type.eq.LoRA");
+      // Get all assets first, then filter them client-side to debug
+      console.log("useLoraManagement: About to query all assets");
       
-      // Fetch all LoRA assets from the assets table
-      // Note: Type is case-insensitive and accounts for both 'lora' and 'LoRA'
-      const { data: assets, error } = await supabase
+      const { data: allAssets, error: allAssetsError } = await supabase
+        .from('assets')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      if (allAssetsError) {
+        throw allAssetsError;
+      }
+      
+      console.log("useLoraManagement: All assets from database:", allAssets);
+      
+      // Now fetch LoRA assets with the existing query
+      const { data: loraAssets, error } = await supabase
         .from('assets')
         .select('*')
         .or('type.ilike.%lora%,type.eq.LoRA') // Match any variation of "lora"
@@ -66,29 +76,54 @@ export const useLoraManagement = () => {
         throw error;
       }
       
-      console.log("useLoraManagement: Raw assets from database:", assets);
-      console.log("useLoraManagement: Loaded LoRAs:", assets.length);
+      console.log("useLoraManagement: LoRA assets from database:", loraAssets);
+      
+      // Manual filtering to verify the results
+      const manuallyFilteredAssets = allAssets.filter(asset => 
+        asset.type && 
+        (asset.type.toLowerCase().includes('lora') || asset.type === 'LoRA')
+      );
+      
+      console.log("useLoraManagement: Manually filtered LoRA assets:", manuallyFilteredAssets);
+      
+      // If there are assets in the manually filtered list but not in the query results,
+      // use the manually filtered list instead
+      const assetsToUse = manuallyFilteredAssets.length > loraAssets.length 
+        ? manuallyFilteredAssets 
+        : loraAssets;
       
       // Map videos to their assets
-      const lorasWithVideos = assets.map((asset) => {
+      const lorasWithVideos = assetsToUse.map((asset) => {
         // Find primary video
         const primaryVideo = videos.find(v => v.id === asset.primary_media_id);
         console.log(`useLoraManagement: Asset ${asset.id} (${asset.name}) primary video:`, 
           primaryVideo ? primaryVideo.id : "none found");
         
-        // Find all videos associated with this asset
+        // Find all videos associated with this asset through metadata
         const assetVideos = videos.filter(v => 
           v.metadata?.assetId === asset.id
         );
-        console.log(`useLoraManagement: Asset ${asset.id} has ${assetVideos.length} associated videos`);
+        console.log(`useLoraManagement: Asset ${asset.id} has ${assetVideos.length} associated videos via metadata`);
+        
+        // If we don't have any videos via metadata, let's check for any videos where the LoRA name matches
+        let allMatchingVideos = assetVideos.length > 0 ? assetVideos : videos.filter(v => 
+          v.metadata?.loraName && v.metadata.loraName.toLowerCase() === asset.name.toLowerCase()
+        );
+        
+        if (allMatchingVideos.length === 0) {
+          console.log(`useLoraManagement: No videos found for asset ${asset.id} (${asset.name}), checking for any matches`);
+        } else {
+          console.log(`useLoraManagement: Found ${allMatchingVideos.length} matching videos for asset ${asset.id}`);
+        }
         
         return {
           ...asset,
           primaryVideo,
-          videos: assetVideos
+          videos: allMatchingVideos
         } as LoraAsset;
       });
       
+      console.log("useLoraManagement: Final LoRAs with videos:", lorasWithVideos);
       setLoras(lorasWithVideos);
     } catch (error) {
       console.error("useLoraManagement: Error loading LoRAs:", error);
