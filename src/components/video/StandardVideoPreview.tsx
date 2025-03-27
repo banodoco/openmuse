@@ -40,7 +40,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         
         {videoId && (
           <div className="absolute bottom-2 right-2">
-            <Link to={`/assets/loras/${videoId}`}>
+            <Link to={`/videos/${videoId}`}>
               <Button size="sm" variant="secondary" className="gap-1 opacity-90 hover:opacity-100">
                 <Eye className="h-3 w-3" />
                 View
@@ -68,7 +68,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       
       {videoId && (
         <div className="absolute bottom-2 right-2">
-          <Link to={`/assets/loras/${videoId}`}>
+          <Link to={`/videos/${videoId}`}>
             <Button size="sm" variant="secondary" className="gap-1 opacity-90 hover:opacity-100">
               <Eye className="h-3 w-3" />
               View

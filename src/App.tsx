@@ -53,6 +53,7 @@ const App = () => {
             } />
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
+            <Route path="/videos/:id" element={<VideoPage />} />
             <Route path="/assets/loras/:id" element={<VideoPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

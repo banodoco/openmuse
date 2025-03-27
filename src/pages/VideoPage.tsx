@@ -183,7 +183,7 @@ const VideoPage: React.FC = () => {
                   <h3 className="text-sm font-medium text-muted-foreground">Approval Status</h3>
                   <div className="mt-1">
                     {video.admin_approved === true ? (
-                      <Badge variant="success" className="gap-1">
+                      <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                         <Check className="h-3 w-3" />
                         Approved
                       </Badge>
@@ -305,7 +305,7 @@ const VideoPage: React.FC = () => {
                       <TableCell>{formatDate(relatedVideo.created_at)}</TableCell>
                       <TableCell>
                         {relatedVideo.admin_approved === true ? (
-                          <Badge variant="success" className="gap-1">
+                          <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                             <Check className="h-3 w-3" />
                             Approved
                           </Badge>
