@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -172,18 +171,16 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
   let assetId: string | null = null;
   let primaryMediaId: string | null = null;
   
-  try {
-    logger.log("Creating LoRA asset in Supabase database");
-    
-    // CRITICAL: Always use a consistent case format for "LoRA" - using uppercase "LoRA"
-    const assetType = 'LoRA';
-    
-    // Log the asset being created with all details
-    logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
-    
-    if (user && user.id) {
-      logger.log(`User ID for asset creation: ${user.id}`);
-    }
+  logger.log("Creating LoRA asset in Supabase database");
+  
+  // CRITICAL: Always use a consistent case format for "LoRA" - using uppercase "LoRA"
+  const assetType = 'LoRA';
+  
+  // Log the asset being created with all details
+  logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
+  
+  if (user && user.id) {
+    logger.log(`User ID for asset creation: ${user.id}`);
     
     try {
       const { data: assetData, error: assetError } = await supabase
@@ -193,7 +190,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
           name: loraDetails.loraName,
           description: loraDetails.loraDescription,
           creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
-          user_id: user?.id || null
+          user_id: user.id
         })
         .select()
         .single();
@@ -253,7 +250,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
               type: 'video',
               classification: video.metadata.classification,
               creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
-              user_id: user?.id || null
+              user_id: user.id || null
             })
             .select()
             .single();
@@ -368,7 +365,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       logger.log(`Created anonymous asset with ID: ${assetId}`);
       
       // Process videos for anonymous users (similar to the code above)
-      // ...
+      // For brevity, we'll add the implementation later if needed
     } catch (anonAssetError) {
       logger.log(`Exception during anonymous asset creation: ${JSON.stringify(anonAssetError)}`);
       console.error('Exception during anonymous asset creation:', anonAssetError);
