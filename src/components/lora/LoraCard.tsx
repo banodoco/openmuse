@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,6 +9,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import StandardVideoPreview from '../video/StandardVideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
 
 interface LoraCardProps {
   lora: LoraAsset;
@@ -17,16 +18,31 @@ interface LoraCardProps {
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
-  const [videoUrl, setVideoUrl] = React.useState<string | null>(null);
-  const [posterUrl, setPosterUrl] = React.useState<string | null>(null);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const navigate = useNavigate();
 
-  React.useEffect(() => {
+  useEffect(() => {
     const loadVideoUrl = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      
       if (lora.primaryVideo) {
         try {
+          console.log(`Loading video for LoRA ${lora.name} with location:`, 
+            lora.primaryVideo.video_location.substring(0, 30) + '...');
+          
           const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
-          setVideoUrl(url);
+          
+          if (!url) {
+            console.warn(`Empty URL returned for LoRA ${lora.name}`);
+            setLoadError('Video preview unavailable');
+          } else {
+            setVideoUrl(url);
+            console.log(`Successfully loaded video URL for LoRA ${lora.name}`);
+          }
           
           // If there's an acting video, use it as poster
           if (lora.primaryVideo.acting_video_location) {
@@ -34,16 +50,47 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
             setPosterUrl(actingUrl);
           }
         } catch (error) {
-          console.error(`Error loading URL for video:`, error);
+          console.error(`Error loading URL for video ${lora.id}:`, error);
+          setLoadError('Error loading video preview');
         }
+      } else if (lora.videos && lora.videos.length > 0) {
+        // Fallback to first video if primary is not available
+        try {
+          const firstVideo = lora.videos[0];
+          const url = await videoUrlService.getVideoUrl(firstVideo.video_location);
+          
+          if (!url) {
+            setLoadError('Video preview unavailable');
+          } else {
+            setVideoUrl(url);
+          }
+        } catch (error) {
+          console.error(`Error loading fallback video for LoRA ${lora.id}:`, error);
+          setLoadError('Error loading video preview');
+        }
+      } else {
+        setLoadError('No video available');
       }
+      
+      setIsLoading(false);
     };
     
     loadVideoUrl();
+    
+    // Clean up function to revoke any object URLs when unmounting
+    return () => {
+      if (videoUrl && videoUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(videoUrl);
+      }
+      if (posterUrl && posterUrl.startsWith('blob:')) {
+        URL.revokeObjectURL(posterUrl);
+      }
+    };
   }, [lora]);
 
   const handleError = (msg: string) => {
-    console.error(`Error with video preview: ${msg}`);
+    console.error(`Error with video preview for LoRA ${lora.name}: ${msg}`);
+    setLoadError(msg);
   };
 
   const handleCardClick = () => {
@@ -66,8 +113,17 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
       )}
       onClick={handleCardClick}
     >
-      <div className="aspect-video w-full overflow-hidden">
-        {videoUrl && videoToUse ? (
+      <div className="aspect-video w-full overflow-hidden relative">
+        {isLoading ? (
+          <div className="w-full h-full flex items-center justify-center bg-muted">
+            <span className="text-xs text-muted-foreground">Loading preview...</span>
+          </div>
+        ) : loadError ? (
+          <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+            <FileVideo className="h-8 w-8 text-muted-foreground mb-2" />
+            <span className="text-xs text-muted-foreground">{loadError}</span>
+          </div>
+        ) : videoUrl && videoToUse ? (
           <StandardVideoPreview 
             url={videoUrl} 
             posterUrl={posterUrl}

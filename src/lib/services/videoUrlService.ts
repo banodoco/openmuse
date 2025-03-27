@@ -1,6 +1,7 @@
 
 import { videoStorage } from '../storage';
 import { Logger } from '../logger';
+import { supabase } from '@/integrations/supabase/client';
 
 export class VideoUrlService {
   private readonly logger = new Logger('VideoUrlService');
@@ -44,18 +45,66 @@ export class VideoUrlService {
     } 
     // For regular HTTP URLs
     else if (videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) {
+      // For blob URLs that appear expired, check if we can fetch from Supabase directly
+      if (videoLocation.startsWith('blob:') && this.isBlobUrlExpired(videoLocation)) {
+        this.logger.log(`Blob URL expired, trying to refresh from Supabase: ${videoLocation.substring(0, 30)}...`);
+        try {
+          // Try to fetch the video from Supabase using the media ID
+          // This assumes the video ID can be extracted from metadata
+          // This is a simplified approach - you may need more complex logic
+          const videoId = this.extractVideoIdFromBlobUrl(videoLocation);
+          if (videoId) {
+            const { data } = await supabase.from('media').select('url').eq('id', videoId).single();
+            if (data && data.url) {
+              this.logger.log(`Retrieved fresh URL for video ${videoId}`);
+              this.urlCache.set(videoLocation, data.url);
+              return data.url;
+            }
+          }
+        } catch (error) {
+          this.logger.error(`Could not refresh expired blob URL:`, error);
+        }
+      }
+      
       // Cache the URL for consistency
       this.urlCache.set(videoLocation, videoLocation);
       return videoLocation;
     }
-    // For blob URLs, just return as is
+    // For blob URLs, treat differently to ensure freshness
     else if (videoLocation.startsWith('blob:')) {
       // Don't cache blob URLs as they're already ephemeral
-      return videoLocation;
+      // If we can access it, return as is
+      if (!this.isBlobUrlExpired(videoLocation)) {
+        return videoLocation;
+      } else {
+        this.logger.warn(`Blob URL appears expired: ${videoLocation.substring(0, 30)}...`);
+        return '';
+      }
     }
     
     // Default case - return as is but don't cache
     return videoLocation;
+  }
+
+  // Simple check to attempt to detect expired blob URLs
+  private isBlobUrlExpired(blobUrl: string): boolean {
+    // This is a simplified check - in a real implementation, 
+    // you might want to use fetch() to verify if the URL is still valid
+    try {
+      // We can't fully check without attempting to fetch,
+      // but this detects some common issues
+      return !blobUrl.startsWith('blob:') || blobUrl.length < 10;
+    } catch {
+      return true;
+    }
+  }
+
+  // Extract video ID from blob URL if possible
+  private extractVideoIdFromBlobUrl(blobUrl: string): string | null {
+    // This is a placeholder implementation
+    // In reality, the blob URL doesn't inherently contain the video ID
+    // You would need application-specific logic to map blob URLs to video IDs
+    return null;
   }
   
   // Clean up any created object URLs
