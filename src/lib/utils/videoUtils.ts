@@ -1,4 +1,3 @@
-
 /**
  * Attempts to play a video with error handling
  */
@@ -89,8 +88,24 @@ export const convertBlobToDataUrl = async (blobUrl: string): Promise<string> => 
   
   try {
     console.log(`Attempting to convert blob URL to data URL: ${blobUrl.substring(0, 30)}...`);
+    
+    // Check if the blob URL is accessible first
+    const isAccessible = await isBlobUrlAccessible(blobUrl);
+    if (!isAccessible) {
+      console.error('Blob URL is not accessible, cannot convert to data URL');
+      return blobUrl;
+    }
+    
     const response = await fetch(blobUrl);
     const blob = await response.blob();
+    
+    // Log blob info for debugging
+    console.log(`Blob size: ${blob.size}, type: ${blob.type}`);
+    
+    if (blob.size === 0) {
+      console.error('Blob is empty (size 0), likely invalid or expired');
+      return blobUrl;
+    }
     
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -160,10 +175,47 @@ export const isBlobUrlAccessible = async (blobUrl: string): Promise<boolean> => 
   try {
     if (!blobUrl.startsWith('blob:')) return false;
     
-    const result = await fetch(blobUrl, { method: 'HEAD' });
-    return result.ok;
+    // Try using a HEAD request first which is more efficient
+    try {
+      const result = await fetch(blobUrl, { method: 'HEAD' });
+      return result.ok;
+    } catch (headError) {
+      console.warn('HEAD request failed, falling back to GET:', headError);
+    }
+    
+    // If HEAD failed, try a regular GET request
+    try {
+      const response = await fetch(blobUrl);
+      return response.ok;
+    } catch (getError) {
+      console.error('GET request also failed:', getError);
+      return false;
+    }
   } catch (error) {
     console.error('Error checking blob URL accessibility:', error);
     return false;
+  }
+};
+
+/**
+ * Extracts information from an error's stack trace
+ * Useful for debugging
+ */
+export const getErrorLocation = (error: Error): string => {
+  try {
+    if (!error.stack) return 'No stack trace available';
+    
+    const stackLines = error.stack.split('\n');
+    // Filter out internal browser frames and keep only app code frames
+    const appFrames = stackLines.filter(line => 
+      line.includes('/src/') && 
+      !line.includes('node_modules/')
+    );
+    
+    return appFrames.length > 0 
+      ? appFrames.slice(0, 3).join('\n') // First 3 app frames
+      : stackLines.slice(0, 3).join('\n'); // First 3 frames if no app frames
+  } catch (err) {
+    return 'Error parsing stack trace';
   }
 };

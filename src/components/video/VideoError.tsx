@@ -2,7 +2,8 @@
 import React from 'react';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
-import { AlertCircle, RefreshCw, Info } from 'lucide-react';
+import { AlertCircle, RefreshCw, Info, ExternalLink } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const logger = new Logger('VideoError');
 
@@ -10,12 +11,14 @@ interface VideoErrorProps {
   error: string;
   errorDetails?: string;
   onRetry: () => void;
+  videoSource?: string;
 }
 
 const VideoError: React.FC<VideoErrorProps> = ({ 
   error, 
   errorDetails, 
-  onRetry 
+  onRetry,
+  videoSource
 }) => {
   logger.error(`Displaying video error: ${error}`);
   if (errorDetails) {
@@ -25,6 +28,9 @@ const VideoError: React.FC<VideoErrorProps> = ({
   // Log URL safety check errors specifically
   if (error.includes('URL safety check') || (errorDetails && errorDetails.includes('URL safety check'))) {
     logger.error('URL safety check error detected. This may be due to cross-origin restrictions.');
+    if (videoSource) {
+      logger.error(`Problem video source: ${videoSource}`);
+    }
   }
   
   const handleShowErrorDetails = () => {
@@ -36,12 +42,27 @@ const VideoError: React.FC<VideoErrorProps> = ({
     onRetry();
   };
 
+  // Customize error message for specific error types
+  const getActionText = () => {
+    if (error.includes('URL safety check') || (errorDetails && errorDetails.includes('URL safety check'))) {
+      return 'This is likely due to browser security restrictions. Try refreshing the entire page.';
+    }
+    if (error.includes('blob') || (errorDetails && errorDetails.includes('blob'))) {
+      return 'The video link may have expired. Try refreshing the entire page or coming back later.';
+    }
+    return '';
+  };
+
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
       <div className="text-destructive text-center p-4 bg-white/95 rounded-lg shadow-lg max-w-[90%]">
         <AlertCircle className="h-6 w-6 mx-auto text-destructive mb-2" />
         <p className="font-medium">Error loading video</p>
         <p className="text-xs text-muted-foreground mt-1 mb-2 break-words">{error}</p>
+        
+        {getActionText() && (
+          <p className="text-xs text-amber-600 mt-1 mb-3 break-words">{getActionText()}</p>
+        )}
         
         {errorDetails && (
           <details className="text-left mb-3">
@@ -53,21 +74,36 @@ const VideoError: React.FC<VideoErrorProps> = ({
         )}
         
         <div className="flex gap-2 justify-center mt-2">
-          <button 
-            className="text-sm font-medium bg-primary text-white px-3 py-1 rounded-md flex items-center gap-1"
+          <Button 
+            size="sm"
+            variant="default"
+            className="gap-1"
             onClick={handleRetry}
           >
             <RefreshCw className="h-3 w-3" />
             Try again
-          </button>
+          </Button>
+          
+          <Button 
+            size="sm"
+            variant="outline"
+            className="gap-1"
+            onClick={() => window.location.reload()}
+          >
+            <RefreshCw className="h-3 w-3" />
+            Refresh page
+          </Button>
+          
           {errorDetails && (
-            <button 
-              className="text-sm font-medium bg-secondary text-primary px-3 py-1 rounded-md flex items-center gap-1"
+            <Button 
+              size="sm"
+              variant="secondary"
+              className="gap-1"
               onClick={handleShowErrorDetails}
             >
               <Info className="h-3 w-3" />
               More info
-            </button>
+            </Button>
           )}
         </div>
       </div>

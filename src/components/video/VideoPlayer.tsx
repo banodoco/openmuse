@@ -3,7 +3,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useVideoHover } from '@/hooks/useVideoHover';
-import { attemptVideoPlay, getVideoErrorMessage } from '@/lib/utils/videoUtils';
+import { attemptVideoPlay, getVideoErrorMessage, convertBlobToDataUrl } from '@/lib/utils/videoUtils';
 import VideoError from './VideoError';
 import VideoLoader from './VideoLoader';
 
@@ -47,6 +47,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [processedSrc, setProcessedSrc] = useState<string>('');
   const [posterImage, setPosterImage] = useState<string | null>(poster || null);
+  const [isFallbackAttempted, setIsFallbackAttempted] = useState(false);
 
   // Setup hover behavior
   useVideoHover(containerRef, videoRef, {
@@ -64,6 +65,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
+    setIsFallbackAttempted(false);
     
     if (!src) {
       logger.log('No source provided to VideoPlayer');
@@ -73,21 +75,40 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) {
-      logger.log(`Using data or regular URL: ${src.substring(0, 30)}...`);
-      setProcessedSrc(src);
-    } 
-    else if (src.startsWith('blob:')) {
-      logger.log(`Using blob URL: ${src.substring(0, 30)}...`);
-      logger.log(`Full blob URL: ${src}`);
-      setProcessedSrc(src);
-    }
-    else {
-      logger.error(`Unsupported source format: ${src.substring(0, 30)}...`);
-      setError('Unsupported video format');
-      setIsLoading(false);
-      if (onError) onError('Unsupported video format');
-    }
+    const processSource = async () => {
+      try {
+        // For blob URLs, try to convert to data URL to avoid cross-origin issues
+        if (src.startsWith('blob:')) {
+          logger.log(`Processing blob URL: ${src.substring(0, 30)}...`);
+          try {
+            const dataUrl = await convertBlobToDataUrl(src);
+            if (dataUrl !== src) {
+              logger.log('Successfully converted blob URL to data URL');
+              setProcessedSrc(dataUrl);
+            } else {
+              logger.log('Could not convert blob URL, using original');
+              setProcessedSrc(src);
+            }
+          } catch (error) {
+            logger.error('Error converting blob URL:', error);
+            setProcessedSrc(src);
+          }
+        } else if (src.startsWith('data:') || src.startsWith('http') || src.startsWith('/')) {
+          logger.log(`Using data or regular URL: ${src.substring(0, 30)}...`);
+          setProcessedSrc(src);
+        } else {
+          logger.error(`Unsupported source format: ${src.substring(0, 30)}...`);
+          setError('Unsupported video format');
+          setIsLoading(false);
+          if (onError) onError('Unsupported video format');
+        }
+      } catch (err) {
+        logger.error('Error in source processing:', err);
+        setProcessedSrc(src); // Fall back to original source
+      }
+    };
+    
+    processSource();
   }, [src, onError]);
 
   useEffect(() => {
@@ -122,11 +143,38 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       logger.error(`Video error code: ${video.error?.code}`);
       logger.error(`Video error message: ${video.error?.message}`);
       
-      setError(message);
-      setErrorDetails(details);
-      setIsLoading(false);
-      
-      if (onError) onError(message);
+      // Check if we need to try fallback to data URL
+      if (!isFallbackAttempted && 
+          (message.includes('URL safety check') || details.includes('URL safety check')) && 
+          processedSrc.startsWith('blob:')) {
+        logger.log('Attempting fallback to data URL conversion');
+        setIsFallbackAttempted(true);
+        convertBlobToDataUrl(processedSrc)
+          .then(dataUrl => {
+            if (dataUrl !== processedSrc) {
+              logger.log('Fallback conversion succeeded, using data URL');
+              setProcessedSrc(dataUrl);
+              return;
+            }
+            // If conversion fails, show the error
+            setError(message);
+            setErrorDetails(details);
+            setIsLoading(false);
+            if (onError) onError(message);
+          })
+          .catch(convErr => {
+            logger.error('Fallback conversion failed:', convErr);
+            setError(message);
+            setErrorDetails(details);
+            setIsLoading(false);
+            if (onError) onError(message);
+          });
+      } else {
+        setError(message);
+        setErrorDetails(details);
+        setIsLoading(false);
+        if (onError) onError(message);
+      }
     };
     
     video.addEventListener('loadeddata', handleLoadedData);
@@ -158,7 +206,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [processedSrc, autoPlay, muted, onLoadedData, videoRef, onError, posterImage, playOnHover]);
+  }, [processedSrc, autoPlay, muted, onLoadedData, videoRef, onError, posterImage, playOnHover, isFallbackAttempted]);
 
   const handleRetry = () => {
     const video = videoRef.current;
@@ -171,8 +219,29 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     video.pause();
     
-    video.src = src;
-    video.load();
+    // Try to get a fresh version of the src
+    if (src.startsWith('blob:')) {
+      // For blob URLs, retry the data URL conversion
+      setIsFallbackAttempted(false);
+      convertBlobToDataUrl(src)
+        .then(dataUrl => {
+          if (dataUrl !== src) {
+            logger.log('Retry conversion succeeded, using data URL');
+            setProcessedSrc(dataUrl);
+          } else {
+            logger.log('Retry conversion returned original, using as is');
+            setProcessedSrc(src);
+          }
+        })
+        .catch(err => {
+          logger.error('Retry conversion failed:', err);
+          setProcessedSrc(src);
+        });
+    } else {
+      // For other URLs, just reload
+      video.src = src;
+      video.load();
+    }
     
     if (autoPlay && !playOnHover) {
       attemptVideoPlay(video, muted);
@@ -187,7 +256,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         <VideoError 
           error={error} 
           errorDetails={errorDetails} 
-          onRetry={handleRetry} 
+          onRetry={handleRetry}
+          videoSource={processedSrc}
         />
       )}
       
@@ -202,7 +272,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         poster={posterImage || undefined}
         preload="metadata"
       >
-        <source src={src} />
+        <source src={processedSrc} />
         Your browser does not support the video tag.
       </video>
     </div>
