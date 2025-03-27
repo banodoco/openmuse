@@ -10,7 +10,7 @@ export const useLoraManagement = () => {
   const [loras, setLoras] = useState<LoraAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
-  const { videos } = useVideoManagement();
+  const { videos, isLoading: videosLoading } = useVideoManagement();
 
   // First check if user is authenticated
   useEffect(() => {
@@ -51,15 +51,6 @@ export const useLoraManagement = () => {
     console.log("useLoraManagement: Loading all LoRAs");
     
     try {
-      // Debug: Use the newly created database function to get all assets
-      const { data: rawAssets, error: rawAssetsError } = await supabase.rpc('debug_get_all_assets');
-      
-      if (rawAssetsError) {
-        console.error("useLoraManagement: Error with debug_get_all_assets:", rawAssetsError);
-      } else {
-        console.log("useLoraManagement: Raw assets from database:", rawAssets);
-      }
-      
       // Flexible LoRA asset query with multiple type variations
       const { data: loraAssets, error } = await supabase
         .from('assets')
@@ -107,11 +98,12 @@ export const useLoraManagement = () => {
   }, [videos]);
 
   useEffect(() => {
-    if (videos.length > 0) {
-      console.log("useLoraManagement: Videos loaded, loading LoRAs");
+    // Load LoRAs even if videos array is empty to avoid perpetual loading
+    if (!videosLoading) {
+      console.log("useLoraManagement: Videos loaded or empty, loading LoRAs");
       loadAllLoras();
     }
-  }, [videos, loadAllLoras]);
+  }, [videos, videosLoading, loadAllLoras]);
 
   const refetchLoras = useCallback(async () => {
     await loadAllLoras();

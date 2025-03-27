@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import AuthProvider from '@/components/AuthProvider';
 import PageHeader from '@/components/PageHeader';
@@ -8,6 +8,7 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
 import LoraManager from '@/components/LoraManager';
+import { toast } from 'sonner';
 
 const logger = new Logger('Index');
 
@@ -21,6 +22,18 @@ const Index = () => {
     isLoading: lorasLoading, 
     refetchLoras
   } = useLoraManagement();
+  
+  // Add a timeout to prevent infinite loading
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (isAuthLoading && lorasLoading) {
+        logger.log('Loading timeout reached, forcing completion');
+        setIsAuthLoading(false);
+      }
+    }, 5000); // 5 second timeout
+    
+    return () => clearTimeout(timer);
+  }, [isAuthLoading, lorasLoading]);
   
   const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');
