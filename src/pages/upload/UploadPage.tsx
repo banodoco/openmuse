@@ -14,14 +14,6 @@ import { Logger } from '@/lib/logger';
 
 const logger = new Logger('Upload');
 
-interface LoRADetailsForm {
-  loraName: string;
-  loraDescription: string;
-  creator: 'self' | 'someone_else';
-  creatorName: string;
-  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
-}
-
 const UploadPage: React.FC = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -30,15 +22,15 @@ const UploadPage: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  const [loraDetails, setLoraDetails] = useState<LoRADetailsForm>({
+  const [loraDetails, setLoraDetails] = useState({
     loraName: '',
     loraDescription: '',
-    creator: 'self',
+    creator: 'self' as 'self' | 'someone_else',
     creatorName: '',
-    model: 'wan'
+    model: 'wan' as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'
   });
   
-  const updateLoRADetails = (field: keyof LoRADetailsForm, value: string) => {
+  const updateLoRADetails = (field: keyof typeof loraDetails, value: string) => {
     setLoraDetails(prev => ({
       ...prev,
       [field]: value
@@ -91,16 +83,13 @@ const UploadPage: React.FC = () => {
       return;
     }
     
-    if (!user && !nameInput) {
-      toast.error('Please enter your name');
-      return;
-    }
+    const reviewerName = user?.email || nameInput || 'Anonymous';
     
     setIsSubmitting(true);
     
     try {
       logger.log("Starting video submission process");
-      await submitVideos(videos, loraDetails, user?.email || nameInput, user);
+      await submitVideos(videos, loraDetails, reviewerName, user);
       
       const message = videos.filter(v => v.file || v.url).length > 1 
         ? 'Videos submitted successfully! Awaiting admin approval.'
@@ -127,17 +116,19 @@ const UploadPage: React.FC = () => {
         </p>
         
         <form onSubmit={handleSubmit} className="space-y-8">
-          <div>
-            <Label htmlFor="name">Your Name</Label>
-            <Input
-              type="text"
-              id="name"
-              placeholder="Enter your name"
-              value={nameInput}
-              onChange={(e) => setNameInput(e.target.value)}
-              disabled={!!user}
-            />
-          </div>
+          {!user && (
+            <div>
+              <Label htmlFor="name">Your Name</Label>
+              <Input
+                type="text"
+                id="name"
+                placeholder="Enter your name"
+                value={nameInput}
+                onChange={(e) => setNameInput(e.target.value)}
+                required
+              />
+            </div>
+          )}
           
           <div className="p-6 border rounded-lg bg-card space-y-4">
             <h2 className="text-xl font-semibold">LoRA Details</h2>
@@ -178,14 +169,11 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
   
   logger.log("Creating LoRA asset in Supabase database");
   
-  // CRITICAL: Always use a consistent case format for "LoRA" - using uppercase "LoRA"
   const assetType = 'LoRA';
   
-  // Log the asset being created with all details
   logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
   
   try {
-    // Create asset (whether user is logged in or not)
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
@@ -213,7 +201,6 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     assetId = assetData.id;
     logger.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
     
-    // Verify the asset was created correctly
     const { data: verifyAsset, error: verifyError } = await supabase
       .from('assets')
       .select('*')
@@ -226,7 +213,6 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       logger.log(`Asset verified with data: ${JSON.stringify(verifyAsset)}`);
     }
     
-    // Find the primary video
     const primaryVideoData = videos.find(video => 
       (video.file || video.url) && video.metadata.isPrimary
     );
@@ -235,7 +221,6 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       logger.log("No primary video found, using the first video as primary");
     }
     
-    // Process all videos
     const processedVideos = [];
     
     for (const video of videos) {
@@ -273,7 +258,6 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
         const mediaId = mediaData.id;
         logger.log(`Created media with ID: ${mediaId}`);
         
-        // Track if this should be the primary video
         const isPrimary = video.metadata.isPrimary || (!primaryMediaId && video === videos[0]);
         
         if (isPrimary) {
@@ -302,7 +286,6 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       }
     }
     
-    // Make sure we have a primary media set
     if (primaryMediaId) {
       logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
       const { error: updateError } = await supabase
@@ -321,10 +304,8 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
       console.error("No primary media ID set for asset", assetId);
     }
     
-    // Final validation check
     logger.log(`Asset creation completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
     
-    // Double-check the asset was updated with primary media
     const { data: checkAsset, error: checkError } = await supabase
       .from('assets')
       .select('*')
