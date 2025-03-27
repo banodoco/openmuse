@@ -51,6 +51,9 @@ export const useLoraManagement = () => {
     console.log("useLoraManagement: Loading all LoRAs");
     
     try {
+      // Log the SQL query we're about to make for debugging
+      console.log("useLoraManagement: About to query assets table with filter: type.ilike.%lora%,type.eq.LoRA");
+      
       // Fetch all LoRA assets from the assets table
       // Note: Type is case-insensitive and accounts for both 'lora' and 'LoRA'
       const { data: assets, error } = await supabase
@@ -63,17 +66,21 @@ export const useLoraManagement = () => {
         throw error;
       }
       
+      console.log("useLoraManagement: Raw assets from database:", assets);
       console.log("useLoraManagement: Loaded LoRAs:", assets.length);
       
       // Map videos to their assets
       const lorasWithVideos = assets.map((asset) => {
         // Find primary video
         const primaryVideo = videos.find(v => v.id === asset.primary_media_id);
+        console.log(`useLoraManagement: Asset ${asset.id} (${asset.name}) primary video:`, 
+          primaryVideo ? primaryVideo.id : "none found");
         
         // Find all videos associated with this asset
         const assetVideos = videos.filter(v => 
           v.metadata?.assetId === asset.id
         );
+        console.log(`useLoraManagement: Asset ${asset.id} has ${assetVideos.length} associated videos`);
         
         return {
           ...asset,

@@ -15,7 +15,6 @@ import { Logger } from '@/lib/logger';
 
 const logger = new Logger('Upload');
 
-// Interface for global LoRA details
 interface LoRADetailsForm {
   loraName: string;
   loraDescription: string;
@@ -32,7 +31,6 @@ const UploadPage: React.FC = () => {
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
-  // Global LoRA details
   const [loraDetails, setLoraDetails] = useState<LoRADetailsForm>({
     loraName: '',
     loraDescription: '',
@@ -48,10 +46,8 @@ const UploadPage: React.FC = () => {
     }));
   };
   
-  // State for videos managed by the MultipleVideoUploader component
   const [videos, setVideos] = useState<any[]>([]);
   
-  // Handle form submission
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
@@ -61,26 +57,22 @@ const UploadPage: React.FC = () => {
       return;
     }
     
-    // Validate if each uploaded video has title
     const missingTitles = videos.filter(video => (video.file || video.url) && !video.metadata.title);
     if (missingTitles.length > 0) {
       toast.error('Please provide a title for all videos');
       return;
     }
 
-    // Validate LoRA details
     if (!loraDetails.loraName) {
       toast.error('Please provide a LoRA name');
       return;
     }
     
-    // Validate if creator name is provided for "someone_else"
     if (loraDetails.creator === 'someone_else' && !loraDetails.creatorName) {
       toast.error('Please provide the creator name for the LoRA');
       return;
     }
     
-    // Validate if creator name is provided for "someone_else" for each video
     const missingCreatorNames = videos.filter(
       video => video.file && video.metadata.creator === 'someone_else' && !video.metadata.creatorName
     );
@@ -89,7 +81,6 @@ const UploadPage: React.FC = () => {
       return;
     }
 
-    // Validate that at least one video is set as primary
     const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
     if (!hasPrimary) {
       toast.error('Please set one video as the primary media for this LoRA');
@@ -104,6 +95,7 @@ const UploadPage: React.FC = () => {
     setIsSubmitting(true);
     
     try {
+      logger.log("Starting video submission process");
       await submitVideos(videos, loraDetails, user?.email || nameInput, user);
       
       const message = videos.filter(v => v.file || v.url).length > 1 
@@ -143,7 +135,6 @@ const UploadPage: React.FC = () => {
             />
           </div>
           
-          {/* Global LoRA Details Section */}
           <div className="p-6 border rounded-lg bg-card space-y-4">
             <h2 className="text-xl font-semibold">LoRA Details</h2>
             <p className="text-sm text-muted-foreground mb-4">
@@ -152,7 +143,6 @@ const UploadPage: React.FC = () => {
             <LoRADetailsForm loraDetails={loraDetails} updateLoRADetails={updateLoRADetails} />
           </div>
           
-          {/* Videos Section */}
           <h2 className="text-xl font-semibold">Videos</h2>
           
           <MultipleVideoUploader 
@@ -178,17 +168,14 @@ const UploadPage: React.FC = () => {
   );
 };
 
-// Helper function to submit videos
-async function submitVideos(videos: any[], loraDetails: LoRADetailsForm, reviewerName: string, user: any) {
+async function submitVideos(videos: any[], loraDetails: any, reviewerName: string, user: any) {
   const db = videoDB;
   
-  // Create the asset first
   let assetId: string | null = null;
   let primaryMediaId: string | null = null;
   
-  // Only proceed with Supabase operations if user is authenticated
   if (user && user.id) {
-    // Create the asset in Supabase
+    logger.log("Creating LoRA asset in Supabase database");
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
@@ -209,13 +196,12 @@ async function submitVideos(videos: any[], loraDetails: LoRADetailsForm, reviewe
     assetId = assetData.id;
     console.log(`Created asset with ID: ${assetId}`);
     
-    // Create media entries for each video and link them to the asset
     for (const video of videos) {
       if (!video.file && !video.url) continue;
       
       const videoUrl = video.url || 'error';
       
-      // Create media entry
+      logger.log(`Creating media entry for video ${video.metadata.title}`);
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
@@ -237,13 +223,12 @@ async function submitVideos(videos: any[], loraDetails: LoRADetailsForm, reviewe
       const mediaId = mediaData.id;
       console.log(`Created media with ID: ${mediaId}`);
       
-      // If this is the primary media, save its ID
       if (video.metadata.isPrimary) {
         primaryMediaId = mediaId;
         console.log(`Set primary media ID: ${primaryMediaId}`);
       }
       
-      // Create association between asset and media
+      logger.log(`Linking asset ${assetId} with media ${mediaId}`);
       const { error: linkError } = await supabase
         .from('asset_media')
         .insert({
@@ -258,7 +243,7 @@ async function submitVideos(videos: any[], loraDetails: LoRADetailsForm, reviewe
       }
     }
     
-    // Update the asset with the primary media ID
+    logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
     if (primaryMediaId) {
       const { error: updateError } = await supabase
         .from('assets')
@@ -273,7 +258,8 @@ async function submitVideos(videos: any[], loraDetails: LoRADetailsForm, reviewe
     }
   }
   
-  // Submit each video with its own metadata but shared LoRA details
+  logger.log("Creating entries in video_entries table for backward compatibility");
+  
   for (const video of videos) {
     if (!video.file && !video.url) continue;
     
@@ -300,6 +286,8 @@ async function submitVideos(videos: any[], loraDetails: LoRADetailsForm, reviewe
     
     await db.addEntry(newEntry);
   }
+  
+  logger.log("Video submission completed successfully");
 }
 
 export default UploadPage;
