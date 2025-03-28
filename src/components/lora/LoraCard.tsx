@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -166,8 +165,8 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         )}
       </div>
       
-      {lora.lora_link ? (
-        <CardContent className="p-2 min-h-[3rem] flex items-center justify-center">
+      {lora.lora_link && (
+        <div className="p-1">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -180,9 +179,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             <ExternalLink className="h-3 w-3" />
             View Original
           </Button>
-        </CardContent>
-      ) : (
-        <CardContent className="p-2 min-h-[3rem]" />
+        </div>
       )}
       
       {isAdmin && (
