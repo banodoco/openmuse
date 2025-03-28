@@ -10,6 +10,9 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { checkIsAdmin } from '@/lib/auth';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('LoraList');
 
 interface LoraListProps {
   loras: LoraAsset[];
@@ -22,15 +25,23 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
+  const adminCheckComplete = React.useRef(false);
   
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (user?.id) {
-        const adminStatus = await checkIsAdmin(user.id);
-        setIsAdmin(adminStatus);
-        console.log("Admin status checked in LoraList:", adminStatus);
-      } else {
+      if (user?.id && !adminCheckComplete.current) {
+        try {
+          adminCheckComplete.current = true;
+          const adminStatus = await checkIsAdmin(user.id);
+          setIsAdmin(adminStatus);
+          logger.log("Admin status checked in LoraList:", adminStatus);
+        } catch (error) {
+          logger.error("Error checking admin status:", error);
+          setIsAdmin(false);
+        }
+      } else if (!user) {
         setIsAdmin(false);
+        adminCheckComplete.current = false;
       }
     };
     
@@ -39,7 +50,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   
   // Log the actual loras data to help diagnose issues
   useEffect(() => {
-    console.log("LoraList received loras:", loras);
+    logger.log("LoraList received loras:", loras?.length || 0);
   }, [loras]);
   
   const handleRefresh = async () => {
@@ -49,7 +60,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
         await onRefresh();
         toast.success("LoRA list refreshed");
       } catch (error) {
-        console.error("Error refreshing LoRAs:", error);
+        logger.error("Error refreshing LoRAs:", error);
         toast.error("Failed to refresh LoRAs");
       } finally {
         setRefreshing(false);
@@ -57,7 +68,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     }
   };
 
-  const filteredLoras = loras.filter(lora => {
+  const filteredLoras = (loras || []).filter(lora => {
     // Text filter
     const searchTerm = filterText.toLowerCase();
     const matchesText = (
@@ -72,7 +83,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       const loraApproved = lora.admin_approved;
       const videoApproved = lora.primaryVideo?.admin_approved;
       
-      console.log(`Filtering LoRA ${lora.id} (${lora.name}):`, {
+      logger.log(`Filtering LoRA ${lora.id} (${lora.name}):`, {
         approvalFilter,
         loraApproved,
         videoApproved

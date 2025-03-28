@@ -19,6 +19,7 @@ export const useLoraManagement = () => {
   const fetchInProgress = useRef(false);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const adminCheckAttempted = useRef(false);
+  const adminCheckInProgress = useRef(false);
 
   const loadAllLoras = useCallback(async () => {
     // Prevent concurrent fetches and unmounted component updates
@@ -56,14 +57,17 @@ export const useLoraManagement = () => {
       let isAdmin = false; 
       if (user) {
         // Only check admin status if it hasn't been attempted yet - prevents infinite loop
-        if (!adminCheckAttempted.current) {
-          adminCheckAttempted.current = true;
+        if (!adminCheckAttempted.current && !adminCheckInProgress.current) {
+          adminCheckInProgress.current = true;
           try {
             isAdmin = await checkUserIsAdmin(user.id);
+            adminCheckAttempted.current = true;
             logger.log(`User ${user.id} is admin: ${isAdmin}`);
           } catch (error) {
             logger.error("Error checking admin role:", error);
             isAdmin = false;
+          } finally {
+            adminCheckInProgress.current = false;
           }
         }
         // If not admin, we could add filters here if needed
@@ -139,11 +143,11 @@ export const useLoraManagement = () => {
   // Helper function to check if user is admin - modified to handle errors gracefully
   const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
     try {
-      // Use a direct query rather than RPC to avoid the ambiguous column issue
+      // Use table name prefix to avoid ambiguous column error
       const { data, error } = await supabase
         .from('user_roles')
         .select('*')
-        .eq('user_id', userId)
+        .eq('user_roles.user_id', userId)
         .eq('role', 'admin')
         .maybeSingle();
       

@@ -20,6 +20,7 @@ const Index = () => {
   const [permissionsChecked, setPermissionsChecked] = useState(false);
   const permissionCheckInProgress = useRef(false);
   const dataRefreshInProgress = useRef(false);
+  const initialRefreshDone = useRef(false);
   
   const { 
     loras, 
@@ -75,25 +76,23 @@ const Index = () => {
   
   // Force refresh when mounting if user is logged in - but prevent duplicate refreshes
   useEffect(() => {
-    if (user && !lorasLoading && !dataRefreshInProgress.current) {
+    // Check if we've already done the initial refresh in this session
+    const hasRefreshed = sessionStorage.getItem('initialDataRefreshed') === 'true';
+    
+    if (user && !lorasLoading && !dataRefreshInProgress.current && !hasRefreshed && !initialRefreshDone.current) {
       logger.log('User is logged in, refreshing LoRAs on mount');
       dataRefreshInProgress.current = true;
+      initialRefreshDone.current = true;
       
-      // Only refresh once per session
-      const hasRefreshed = sessionStorage.getItem('initialDataRefreshed');
-      if (!hasRefreshed) {
-        // Small timeout to avoid potential race conditions
-        const timeoutId = setTimeout(() => {
-          refetchLoras().finally(() => {
-            dataRefreshInProgress.current = false;
-            sessionStorage.setItem('initialDataRefreshed', 'true');
-          });
-        }, 100);
-        
-        return () => clearTimeout(timeoutId);
-      } else {
-        dataRefreshInProgress.current = false;
-      }
+      // Small timeout to avoid potential race conditions
+      const timeoutId = setTimeout(() => {
+        refetchLoras().finally(() => {
+          dataRefreshInProgress.current = false;
+          sessionStorage.setItem('initialDataRefreshed', 'true');
+        });
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [user, refetchLoras, lorasLoading]);
   

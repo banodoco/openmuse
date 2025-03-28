@@ -135,10 +135,11 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   
   try {
     // Use a direct query to check for admin role
+    // Explicitly specify the table name for the user_id column to avoid ambiguity
     const { data, error } = await supabase
       .from('user_roles')
       .select('*')
-      .eq('user_id', userId)
+      .eq('user_roles.user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
       
