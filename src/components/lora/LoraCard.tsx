@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -25,6 +24,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasValidVideo, setHasValidVideo] = useState(false);
+  const [canRefresh, setCanRefresh] = useState(false);
   const navigate = useNavigate();
 
   const loadVideoUrl = useCallback(async () => {
@@ -32,12 +32,34 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
     setLoadError(null);
     setHasValidVideo(false);
     
+    let hasDbRecord = false;
+    
+    if (lora.primaryVideo?.id) {
+      try {
+        const dbUrl = await videoUrlService.lookupUrlFromDatabase(lora.primaryVideo.id);
+        if (dbUrl) {
+          hasDbRecord = true;
+          setCanRefresh(true);
+        }
+      } catch (error) {
+        console.error(`Error checking database for media ID ${lora.primaryVideo.id}:`, error);
+      }
+    }
+    
+    if (!hasDbRecord && lora.id) {
+      try {
+        const assetDbUrl = await videoUrlService.lookupUrlFromDatabase(lora.id);
+        if (assetDbUrl) {
+          hasDbRecord = true;
+          setCanRefresh(true);
+        }
+      } catch (error) {
+        console.error(`Error checking database for asset ID ${lora.id}:`, error);
+      }
+    }
+    
     if (lora.primaryVideo) {
       try {
-        console.log(`Loading video for LoRA ${lora.name} with location:`, 
-          lora.primaryVideo.video_location ? lora.primaryVideo.video_location.substring(0, 30) + '...' : 'undefined');
-        
-        // Skip entirely if there's no video location
         if (!lora.primaryVideo.video_location) {
           console.warn(`No video location available for LoRA ${lora.name}`);
           setLoadError('No video available');
@@ -45,18 +67,37 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
           return;
         }
         
-        const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
-        
-        if (!url || !isValidVideoUrl(url)) {
-          console.warn(`Empty or invalid URL returned for LoRA ${lora.name}`);
-          setLoadError('Video preview unavailable');
+        if (lora.primaryVideo.id) {
+          const dbUrl = await videoUrlService.lookupUrlFromDatabase(lora.primaryVideo.id);
+          if (dbUrl && isValidVideoUrl(dbUrl)) {
+            setVideoUrl(dbUrl);
+            setHasValidVideo(true);
+            console.log(`Successfully loaded database URL for LoRA ${lora.name}`);
+          } else {
+            const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
+            
+            if (!url || !isValidVideoUrl(url)) {
+              console.warn(`Empty or invalid URL returned for LoRA ${lora.name}`);
+              setLoadError('Video preview unavailable');
+            } else {
+              setVideoUrl(url);
+              setHasValidVideo(true);
+              console.log(`Successfully loaded video URL for LoRA ${lora.name}`);
+            }
+          }
         } else {
-          setVideoUrl(url);
-          setHasValidVideo(true);
-          console.log(`Successfully loaded video URL for LoRA ${lora.name}`);
+          const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
+          
+          if (!url || !isValidVideoUrl(url)) {
+            console.warn(`Empty or invalid URL returned for LoRA ${lora.name}`);
+            setLoadError('Video preview unavailable');
+          } else {
+            setVideoUrl(url);
+            setHasValidVideo(true);
+            console.log(`Successfully loaded video URL for LoRA ${lora.name}`);
+          }
         }
         
-        // If there's an acting video, use it as poster
         if (lora.primaryVideo.acting_video_location) {
           const actingUrl = await videoUrlService.getVideoUrl(lora.primaryVideo.acting_video_location);
           if (actingUrl && isValidVideoUrl(actingUrl)) {
@@ -68,7 +109,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
         setLoadError('Error loading video preview');
       }
     } else if (lora.videos && lora.videos.length > 0) {
-      // Try each video until we find a valid one
       let foundValidVideo = false;
       
       for (const video of lora.videos) {
@@ -93,19 +133,18 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
       }
     } else {
       setLoadError('No video available');
+      setCanRefresh(false);
     }
     
     setIsLoading(false);
     setIsRefreshing(false);
   }, [lora]);
 
-  // Add a function to manually refresh the video URL
   const handleRefreshVideo = async () => {
     setIsRefreshing(true);
     setLoadError(null);
     
     try {
-      // Attempt to force refresh the URL from the database
       if (lora.primaryVideo) {
         const freshUrl = await videoUrlService.forceRefreshUrl(lora.primaryVideo.video_location);
         if (freshUrl) {
@@ -137,11 +176,9 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   useEffect(() => {
     loadVideoUrl();
     
-    // Listen for URL refresh events
     const handleUrlRefreshed = (event: CustomEvent) => {
       const { original, fresh } = event.detail;
       
-      // Check if this event is relevant to our video
       if (lora.primaryVideo && lora.primaryVideo.video_location === original) {
         console.log(`Video URL refreshed for LoRA ${lora.name}`);
         setVideoUrl(fresh);
@@ -153,7 +190,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
     
     document.addEventListener('videoUrlRefreshed', handleUrlRefreshed as EventListener);
     
-    // Clean up function to revoke any object URLs when unmounting
     return () => {
       document.removeEventListener('videoUrlRefreshed', handleUrlRefreshed as EventListener);
       if (videoUrl && videoUrl.startsWith('blob:')) {
@@ -183,7 +219,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const firstVideo = lora.videos && lora.videos.length > 0 ? lora.videos[0] : null;
   const videoToUse = primaryVideo || firstVideo;
   
-  // Determine if this is a blob URL issue or a missing video issue
   const isBlobError = videoToUse?.video_location?.startsWith('blob:');
   const hasDatabaseId = videoToUse?.id ? true : false;
 
@@ -205,8 +240,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
             <FileVideo className="h-8 w-8 text-muted-foreground mb-2" />
             <span className="text-xs text-muted-foreground">{loadError || 'No valid video'}</span>
             
-            {/* Show refresh button for blob errors or database IDs */}
-            {(isBlobError || hasDatabaseId) && (
+            {canRefresh && (
               <Button
                 size="sm"
                 variant="outline"
@@ -222,7 +256,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
               </Button>
             )}
             
-            {isBlobError && (
+            {isBlobError && canRefresh && (
               <p className="text-xs text-amber-600 mt-1 px-2 text-center">
                 The temporary URL has expired
               </p>

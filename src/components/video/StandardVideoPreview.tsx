@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -35,6 +36,39 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(url);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
+  const [canRecover, setCanRecover] = useState<boolean>(true);
+  
+  // Check if this URL can potentially be recovered from the database
+  useEffect(() => {
+    const checkRecoverability = async () => {
+      if (!url) {
+        setCanRecover(false);
+        return;
+      }
+      
+      // If the URL is a blob URL, check if we have a corresponding ID in the database
+      if (url.startsWith('blob:')) {
+        const uuidMatch = url.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
+        if (uuidMatch && uuidMatch[1]) {
+          const dbUrl = await videoUrlService.lookupUrlFromDatabase(uuidMatch[1]);
+          setCanRecover(!!dbUrl);
+          return;
+        }
+      }
+      
+      // If we have a videoId, check if that has a permanent URL
+      if (videoId) {
+        const dbUrl = await videoUrlService.lookupUrlFromDatabase(videoId);
+        setCanRecover(!!dbUrl);
+        return;
+      }
+      
+      // Default: assume we can't recover
+      setCanRecover(false);
+    };
+    
+    checkRecoverability();
+  }, [url, videoId]);
   
   // Check URL validity on mount and when URL changes
   useEffect(() => {
@@ -144,6 +178,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           details={errorDetails || undefined}
           onRetry={handleRetry}
           videoSource={currentUrl}
+          canRecover={canRecover}
         />
       ) : (
         <VideoPlayer 
@@ -170,18 +205,20 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         </div>
       )}
       
-      <div className="absolute top-2 right-2 z-10">
-        <Button 
-          size="sm" 
-          variant="secondary" 
-          className="gap-1 opacity-90 hover:opacity-100"
-          onClick={handleRefreshVideo}
-          disabled={isRefreshing}
-        >
-          <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
-          {isRefreshing ? "..." : "Refresh"}
-        </Button>
-      </div>
+      {canRecover && (
+        <div className="absolute top-2 right-2 z-10">
+          <Button 
+            size="sm" 
+            variant="secondary" 
+            className="gap-1 opacity-90 hover:opacity-100"
+            onClick={handleRefreshVideo}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+            {isRefreshing ? "..." : "Refresh"}
+          </Button>
+        </div>
+      )}
     </div>
   );
 };

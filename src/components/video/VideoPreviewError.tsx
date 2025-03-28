@@ -15,13 +15,15 @@ interface VideoPreviewErrorProps {
   onRetry: () => void;
   details?: string;
   videoSource?: string;
+  canRecover?: boolean;
 }
 
 const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({ 
   error, 
   onRetry, 
   details,
-  videoSource
+  videoSource,
+  canRecover = false
 }) => {
   // Log the error for debugging
   logger.error(`Video preview error: ${error}`);
@@ -52,7 +54,7 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
 
   // Handle more aggressive URL refresh for blob URLs
   const handleExpiredBlobRefresh = async () => {
-    if (!videoSource || !videoSource.startsWith('blob:')) {
+    if (!videoSource || !videoSource.startsWith('blob:') || !canRecover) {
       return handlePageRefresh();
     }
     
@@ -96,48 +98,6 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
             onRetry();
             return;
           }
-          
-          // Re-upload to Supabase Storage if we can get the original file
-          setDebugInfo((prev) => `${prev}\nAttempting fetch from temp URL and re-uploading to storage...`);
-          try {
-            const response = await fetch(videoSource);
-            if (response.ok) {
-              const videoBlob = await response.blob();
-              
-              if (videoBlob) {
-                const uploadResult = await supabaseStorage.uploadVideo({
-                  id: videoId,
-                  blob: videoBlob,
-                  metadata: { title: 'Recovered video' }
-                });
-                
-                // Update the database with the new URL
-                const { error: updateError } = await supabase
-                  .from('media')
-                  .update({ 
-                    url: uploadResult.url
-                  })
-                  .eq('id', videoId);
-                
-                if (updateError) {
-                  setDebugInfo((prev) => `${prev}\nError updating database: ${updateError.message}`);
-                } else {
-                  setDebugInfo((prev) => `${prev}\nSuccess! Video re-uploaded and URL updated in database.`);
-                  
-                  // Dispatch custom event to notify components of the refreshed URL
-                  const refreshEvent = new CustomEvent('videoUrlRefreshed', {
-                    detail: { original: videoSource, fresh: uploadResult.url }
-                  });
-                  document.dispatchEvent(refreshEvent);
-                  toast.success("Video recovered and permanently stored");
-                  onRetry();
-                  return;
-                }
-              }
-            }
-          } catch (fetchError) {
-            setDebugInfo((prev) => `${prev}\nError fetching from blob URL: ${String(fetchError)}`);
-          }
         }
       }
       
@@ -174,7 +134,9 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         {isBlobError && (
           <div className="mb-3 text-xs bg-amber-50 p-2 rounded-md text-amber-800">
             <p>The temporary video URL has expired.</p>
-            <p className="mt-1">Click "Recover Video" to retrieve the permanent URL.</p>
+            {canRecover && (
+              <p className="mt-1">Click "Recover Video" to retrieve the permanent URL.</p>
+            )}
           </div>
         )}
         
@@ -208,7 +170,7 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         )}
         
         <div className="flex flex-wrap justify-center gap-2">
-          {isBlobError ? (
+          {isBlobError && canRecover ? (
             <Button 
               size="sm" 
               onClick={handleExpiredBlobRefresh} 
