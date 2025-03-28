@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -81,8 +80,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
       
       {/* Title overlay with improved visibility */}
       {title && (
-        <div className={`absolute bottom-0 left-0 right-0 z-30 p-3 transition-opacity duration-300 pointer-events-none ${isHovering ? 'opacity-0' : 'opacity-100'}`}>
-          <h3 className="text-white font-semibold text-sm md:text-base truncate shadow-text bg-black/50 px-3 py-2 rounded-sm backdrop-blur-sm">
+        <div className={`absolute bottom-0 left-0 right-0 z-40 p-4 transition-opacity duration-300 pointer-events-none ${isHovering ? 'opacity-0' : 'opacity-100'}`}>
+          <h3 className="text-white font-semibold text-base md:text-lg truncate shadow-text bg-black/70 px-4 py-2 rounded-md backdrop-blur-md">
             {title}
           </h3>
         </div>
