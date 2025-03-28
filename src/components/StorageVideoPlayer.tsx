@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -35,6 +35,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
   
   // Detect if we're dealing with a blob URL
   const isBlobUrl = videoLocation.startsWith('blob:');
@@ -134,6 +135,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       playOnHover={playOnHover}
       onError={handleError}
       showPlayButtonOnHover={showPlayButtonOnHover}
+      containerRef={containerRef}
     />
   );
 };

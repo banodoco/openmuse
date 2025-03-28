@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -111,7 +112,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}
+          playOnHover={isHovering}
           previewMode={true}
           showPlayButtonOnHover={false}
         />
