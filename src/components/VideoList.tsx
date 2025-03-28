@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -37,6 +38,8 @@ import {
 } from "@/components/ui/card"
 import VideoPreview from './VideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
+import { useAuth } from '@/hooks/useAuth';
+import { checkIsAdmin } from '@/lib/auth';
 
 interface VideoListProps {
   videos: VideoEntry[];
@@ -59,6 +62,8 @@ const VideoList: React.FC<VideoListProps> = ({
   const [selectAll, setSelectAll] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
+  const [isAdmin, setIsAdmin] = useState(false);
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -83,6 +88,24 @@ const VideoList: React.FC<VideoListProps> = ({
   }, [videos]);
 
   useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user?.id) {
+        try {
+          const adminStatus = await checkIsAdmin(user.id);
+          setIsAdmin(adminStatus);
+        } catch (error) {
+          console.error('Error checking admin status:', error);
+          setIsAdmin(false);
+        }
+      } else {
+        setIsAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [user]);
+
+  useEffect(() => {
     if (videos && videos.length > 0) {
       setSelectAll(selectedVideos.length === videos.length);
     } else {
@@ -91,6 +114,8 @@ const VideoList: React.FC<VideoListProps> = ({
   }, [videos, selectedVideos]);
 
   const toggleVideoSelection = (id: string) => {
+    if (!isAdmin) return;
+    
     setSelectedVideos((prevSelected) =>
       prevSelected.includes(id)
         ? prevSelected.filter((videoId) => videoId !== id)
@@ -99,6 +124,8 @@ const VideoList: React.FC<VideoListProps> = ({
   };
 
   const toggleSelectAll = () => {
+    if (!isAdmin) return;
+    
     if (selectAll) {
       setSelectedVideos([]);
     } else {
@@ -118,7 +145,7 @@ const VideoList: React.FC<VideoListProps> = ({
   });
 
   const handleDeleteSelected = async () => {
-    if (selectedVideos.length === 0) {
+    if (!isAdmin || selectedVideos.length === 0) {
       toast.error('No videos selected for deletion.');
       return;
     }
@@ -139,7 +166,7 @@ const VideoList: React.FC<VideoListProps> = ({
   };
 
   const handleApproveSelected = async () => {
-    if (selectedVideos.length === 0) {
+    if (!isAdmin || selectedVideos.length === 0) {
       toast.error('No videos selected for approval.');
       return;
     }
@@ -163,7 +190,7 @@ const VideoList: React.FC<VideoListProps> = ({
   };
 
   const handleListSelected = async () => {
-    if (selectedVideos.length === 0) {
+    if (!isAdmin || selectedVideos.length === 0) {
       toast.error('No videos selected for listing.');
       return;
     }
@@ -187,7 +214,7 @@ const VideoList: React.FC<VideoListProps> = ({
   };
 
   const handleRejectSelected = async () => {
-    if (selectedVideos.length === 0) {
+    if (!isAdmin || selectedVideos.length === 0) {
       toast.error('No videos selected for rejection.');
       return;
     }
@@ -243,34 +270,39 @@ const VideoList: React.FC<VideoListProps> = ({
           onChange={(e) => setFilterText(e.target.value)}
           className="max-w-sm"
         />
-        <div className="flex flex-wrap gap-2">
-          <Button variant="destructive" size="sm" onClick={handleDeleteSelected} disabled={selectedVideos.length === 0}>
-            Delete Selected
-          </Button>
-          <Button variant="default" size="sm" onClick={handleApproveSelected} disabled={selectedVideos.length === 0}>
-            Curate Selected
-          </Button>
-          {onList && (
-            <Button variant="outline" size="sm" onClick={handleListSelected} disabled={selectedVideos.length === 0}>
-              List Selected
+        
+        {isAdmin && (
+          <div className="flex flex-wrap gap-2">
+            <Button variant="destructive" size="sm" onClick={handleDeleteSelected} disabled={selectedVideos.length === 0}>
+              Delete Selected
             </Button>
-          )}
-          <Button variant="secondary" size="sm" onClick={handleRejectSelected} disabled={selectedVideos.length === 0}>
-            Reject Selected
-          </Button>
-        </div>
+            <Button variant="default" size="sm" onClick={handleApproveSelected} disabled={selectedVideos.length === 0}>
+              Curate Selected
+            </Button>
+            {onList && (
+              <Button variant="outline" size="sm" onClick={handleListSelected} disabled={selectedVideos.length === 0}>
+                List Selected
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={handleRejectSelected} disabled={selectedVideos.length === 0}>
+              Reject Selected
+            </Button>
+          </div>
+        )}
       </div>
       
-      <div className="flex items-center space-x-2 mb-4">
-        <Checkbox
-          checked={selectAll}
-          onCheckedChange={toggleSelectAll}
-          id="select-all"
-        />
-        <label htmlFor="select-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-          Select All
-        </label>
-      </div>
+      {isAdmin && (
+        <div className="flex items-center space-x-2 mb-4">
+          <Checkbox
+            checked={selectAll}
+            onCheckedChange={toggleSelectAll}
+            id="select-all"
+          />
+          <label htmlFor="select-all" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+            Select All
+          </label>
+        </div>
+      )}
       
       <ScrollArea className="h-[calc(100vh-220px)]">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
@@ -302,11 +334,13 @@ const VideoList: React.FC<VideoListProps> = ({
                       {video.metadata?.title || 'Untitled'}
                     </CardTitle>
                   </div>
-                  <Checkbox
-                    checked={selectedVideos.includes(video.id)}
-                    onCheckedChange={() => toggleVideoSelection(video.id)}
-                    className="ml-2"
-                  />
+                  {isAdmin && (
+                    <Checkbox
+                      checked={selectedVideos.includes(video.id)}
+                      onCheckedChange={() => toggleVideoSelection(video.id)}
+                      className="ml-2"
+                    />
+                  )}
                 </div>
               </CardHeader>
               
@@ -345,22 +379,26 @@ const VideoList: React.FC<VideoListProps> = ({
                       <Edit className="mr-2 h-4 w-4" />
                       Edit
                     </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => onDelete(video.id)}>
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                    <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => onApprove(video.id)}>
-                      Curate
-                    </DropdownMenuItem>
-                    {onList && (
-                      <DropdownMenuItem onClick={() => onList(video.id)}>
-                        List
-                      </DropdownMenuItem>
+                    {isAdmin && (
+                      <>
+                        <DropdownMenuItem onClick={() => onDelete(video.id)}>
+                          <Trash2 className="mr-2 h-4 w-4" />
+                          Delete
+                        </DropdownMenuItem>
+                        <DropdownMenuSeparator />
+                        <DropdownMenuItem onClick={() => onApprove(video.id)}>
+                          Curate
+                        </DropdownMenuItem>
+                        {onList && (
+                          <DropdownMenuItem onClick={() => onList(video.id)}>
+                            List
+                          </DropdownMenuItem>
+                        )}
+                        <DropdownMenuItem onClick={() => onReject(video.id)}>
+                          Reject
+                        </DropdownMenuItem>
+                      </>
                     )}
-                    <DropdownMenuItem onClick={() => onReject(video.id)}>
-                      Reject
-                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </CardFooter>

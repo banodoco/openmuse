@@ -137,7 +137,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filteredLoras.length > 0 ? (
             filteredLoras.map((lora) => (
-              <LoraCard key={lora.id} lora={lora} />
+              <LoraCard key={lora.id} lora={lora} isAdmin={isAdmin} />
             ))
           ) : (
             <div className="col-span-full text-center py-8">
@@ -183,4 +183,3 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
 };
 
 export default LoraList;
-

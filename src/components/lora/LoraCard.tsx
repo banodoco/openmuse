@@ -1,100 +1,263 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
-import { Card } from "@/components/ui/card";
-import { ArrowUpRight, FileVideo } from 'lucide-react';
+import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Play, Star, Trash, Check, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { videoUrlService } from '@/lib/services/videoUrlService';
-import { Logger } from '@/lib/logger';
-import VideoPreview from '../VideoPreview';
+import VideoPreview from '@/components/VideoPreview';
+import { cn } from '@/lib/utils';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface LoraCardProps {
   lora: LoraAsset;
+  isAdmin?: boolean;
 }
 
-const logger = new Logger('LoraCard');
-
-const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
+const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
   const navigate = useNavigate();
-  const [primaryVideoUrl, setPrimaryVideoUrl] = useState<string | null>(null);
-  const [isLoadingVideo, setIsLoadingVideo] = useState(true);
-  const [isHovering, setIsHovering] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isApproving, setIsApproving] = useState(false);
+  const [isRejecting, setIsRejecting] = useState(false);
+  const { user } = useAuth();
   
-  useEffect(() => {
-    const loadPrimaryVideoUrl = async () => {
-      setIsLoadingVideo(true);
-      try {
-        if (lora.primaryVideo?.id) {
-          const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
-          if (url) {
-            setPrimaryVideoUrl(url);
-            logger.log(`Successfully loaded database URL for LoRA ${lora.name}`);
-          } else {
-            logger.warn(`Empty or invalid URL returned for LoRA ${lora.name}`);
-          }
-        } else {
-          if (lora.videos && lora.videos.length > 0) {
-            const firstVideo = lora.videos.find(v => v.admin_approved !== 'Rejected');
-            if (firstVideo) {
-              const url = await videoUrlService.getVideoUrl(firstVideo.video_location);
-              if (url) {
-                setPrimaryVideoUrl(url);
-                logger.log(`Used fallback video for LoRA ${lora.name}`);
-              }
-            }
-          }
-        }
-      } catch (error) {
-        logger.error(`Error loading primary video URL for LoRA ${lora.name}:`, error);
-      } finally {
-        setIsLoadingVideo(false);
-      }
-    };
-    
-    loadPrimaryVideoUrl();
-  }, [lora]);
+  const videoUrl = lora.primaryVideo?.video_location;
   
-  const handleNavigate = () => {
+  const handleView = () => {
     navigate(`/assets/loras/${lora.id}`);
   };
   
-  const handleMouseEnter = () => {
-    logger.log('Mouse entered LoraCard - setting isHovering to true');
-    setIsHovering(true);
+  const handleDelete = async () => {
+    if (!isAdmin) return;
+    
+    setIsDeleting(true);
+    try {
+      // Delete asset
+      const { error } = await supabase
+        .from('assets')
+        .delete()
+        .eq('id', lora.id);
+      
+      if (error) throw error;
+      
+      toast.success('LoRA deleted successfully');
+      // Refresh the page or list
+      window.location.reload();
+    } catch (error) {
+      console.error('Error deleting LoRA:', error);
+      toast.error('Failed to delete LoRA');
+    } finally {
+      setIsDeleting(false);
+    }
   };
   
-  const handleMouseLeave = () => {
-    logger.log('Mouse left LoraCard - setting isHovering to false');
-    setIsHovering(false);
+  const handleCurate = async () => {
+    if (!isAdmin) return;
+    
+    setIsApproving(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ admin_approved: 'Curated' })
+        .eq('id', lora.id);
+      
+      if (error) throw error;
+      
+      toast.success('LoRA curated successfully');
+      // Update the lora object locally
+      lora.admin_approved = 'Curated';
+    } catch (error) {
+      console.error('Error curating LoRA:', error);
+      toast.error('Failed to curate LoRA');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+  
+  const handleReject = async () => {
+    if (!isAdmin) return;
+    
+    setIsRejecting(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ admin_approved: 'Rejected' })
+        .eq('id', lora.id);
+      
+      if (error) throw error;
+      
+      toast.success('LoRA rejected');
+      // Update the lora object locally
+      lora.admin_approved = 'Rejected';
+    } catch (error) {
+      console.error('Error rejecting LoRA:', error);
+      toast.error('Failed to reject LoRA');
+    } finally {
+      setIsRejecting(false);
+    }
+  };
+  
+  const getApprovalStatus = () => {
+    const status = lora.admin_approved;
+    if (status === 'Curated') {
+      return <Badge className="bg-green-500">Curated</Badge>;
+    } else if (status === 'Rejected') {
+      return <Badge variant="destructive">Rejected</Badge>;
+    } else {
+      return <Badge variant="outline">Listed</Badge>;
+    }
   };
   
   return (
-    <Card className="overflow-hidden h-full flex flex-col">
-      <div 
-        className="aspect-video relative cursor-pointer group" 
-        onClick={handleNavigate}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
-      >
-        {isLoadingVideo ? (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
-            <FileVideo className="h-8 w-8 text-muted-foreground animate-pulse" />
-          </div>
-        ) : primaryVideoUrl ? (
-          <>
-            <VideoPreview 
-              url={primaryVideoUrl} 
-              className="w-full h-full" 
-              title={lora.name}
-              creator={`By: ${lora.creator || 'Unknown'}`}
-              isHovering={isHovering}
-            />
-          </>
+    <Card className="overflow-hidden transition-all h-full flex flex-col">
+      <div className="aspect-video w-full overflow-hidden bg-muted">
+        {videoUrl ? (
+          <VideoPreview url={videoUrl} className="w-full h-full object-cover" />
         ) : (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
-            <FileVideo className="h-8 w-8 text-muted-foreground" />
+          <div className="w-full h-full flex items-center justify-center">
+            <p className="text-muted-foreground text-sm">No preview available</p>
           </div>
         )}
       </div>
+      
+      <CardHeader className="pb-2 pt-3 px-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-base truncate">{lora.name}</CardTitle>
+          {getApprovalStatus()}
+        </div>
+      </CardHeader>
+      
+      <CardContent className="px-4 py-2 text-xs flex-grow">
+        {lora.description && (
+          <p className="text-muted-foreground mb-2 line-clamp-2">{lora.description}</p>
+        )}
+        
+        <div className="space-y-1">
+          {lora.creator && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Creator:</span>
+              <span className="font-medium truncate max-w-[60%] text-right">{lora.creator}</span>
+            </div>
+          )}
+          
+          {lora.lora_type && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Type:</span>
+              <span className="font-medium truncate max-w-[60%] text-right">{lora.lora_type}</span>
+            </div>
+          )}
+          
+          {lora.videos && (
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Videos:</span>
+              <span className="font-medium">{lora.videos.length}</span>
+            </div>
+          )}
+        </div>
+        
+        {lora.lora_link && (
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="mt-2 w-full h-7 text-xs gap-1"
+            onClick={() => window.open(lora.lora_link, '_blank')}
+          >
+            <ExternalLink className="h-3 w-3" />
+            View Original
+          </Button>
+        )}
+      </CardContent>
+      
+      <CardFooter className="p-3 border-t grid grid-cols-2 gap-2">
+        <Button 
+          variant="default" 
+          size="sm" 
+          onClick={handleView}
+          className="text-xs h-8 w-full"
+        >
+          <Play className="h-3 w-3 mr-1" /> 
+          View Details
+        </Button>
+        
+        {isAdmin && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="text-xs h-8 w-full"
+                disabled={isDeleting}
+              >
+                <Trash className="h-3 w-3 mr-1" /> 
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this LoRA and all its associated data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
+        
+        {isAdmin && (
+          <div className="col-span-2 grid grid-cols-2 gap-2 mt-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleCurate}
+              disabled={isApproving || lora.admin_approved === 'Curated'}
+              className={cn(
+                "text-xs h-8 w-full",
+                lora.admin_approved === 'Curated' && "bg-green-500/10"
+              )}
+            >
+              <Check className="h-3 w-3 mr-1" /> 
+              Curate
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleReject}
+              disabled={isRejecting || lora.admin_approved === 'Rejected'}
+              className={cn(
+                "text-xs h-8 w-full",
+                lora.admin_approved === 'Rejected' && "bg-red-500/10"
+              )}
+            >
+              <X className="h-3 w-3 mr-1" /> 
+              Reject
+            </Button>
+          </div>
+        )}
+      </CardFooter>
     </Card>
   );
 };
