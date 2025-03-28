@@ -70,88 +70,29 @@ class VideoUploadService {
         throw mediaError;
       }
       
+      // Determine if we're adding to an existing asset or creating a new one
+      const isExistingAsset = !!videoFile.metadata?.assetId;
       let assetId = videoFile.metadata?.assetId;
-      let shouldUpdatePrimary = videoFile.metadata?.isPrimary || false;
       
-      // If we have an assetId, this means we're adding to an existing asset
-      if (assetId) {
-        logger.log(`Adding media ${mediaData.id} to existing asset ${assetId}`);
-        
-        // Check if the asset already has a primary media before we decide to update
-        if (shouldUpdatePrimary) {
-          const { data: assetData } = await supabase
-            .from('assets')
-            .select('primary_media_id')
-            .eq('id', assetId)
-            .single();
-            
-          // If asset already has a primary media and we're not explicitly setting this as primary,
-          // then don't update the primary media
-          if (assetData?.primary_media_id && !videoFile.metadata?.isPrimary) {
-            logger.log(`Asset ${assetId} already has primary media ${assetData.primary_media_id}, keeping it`);
-            shouldUpdatePrimary = false;
-          }
-        }
-        
-        // Link to existing asset
-        const { error: linkError } = await supabase
-          .from('asset_media')
-          .insert({
-            asset_id: assetId,
-            media_id: mediaData.id
-          });
-          
-        if (linkError) {
-          logger.error('Error linking media to asset:', linkError);
-          throw linkError;
-        }
-        
-        // Update primary media if this is explicitly set as primary
-        if (shouldUpdatePrimary && videoFile.metadata?.isPrimary) {
-          logger.log(`Setting media ${mediaData.id} as primary for asset ${assetId}`);
-          const { error: updateError } = await supabase
-            .from('assets')
-            .update({ primary_media_id: mediaData.id })
-            .eq('id', assetId);
-            
-          if (updateError) {
-            logger.error('Error updating primary media:', updateError);
-          }
-        }
+      if (isExistingAsset) {
+        // Adding to an existing asset
+        await this.addMediaToExistingAsset(
+          mediaData.id, 
+          assetId!, 
+          videoFile.metadata?.isPrimary || false
+        );
       } 
-      // Create a new asset if we don't have an assetId but have a loraName
+      // Creating a new asset
       else if (videoFile.metadata?.loraName) {
-        // Create new asset
-        const { data: assetData, error: assetError } = await supabase
-          .from('assets')
-          .insert({
-            type: 'LoRA',
-            name: videoFile.metadata.loraName,
-            description: videoFile.metadata.loraDescription || '',
-            creator: videoFile.metadata.creatorName || reviewerName,
-            user_id: userId || this.currentUserId,
-            primary_media_id: mediaData.id,
-            admin_approved: 'Listed',
-            // Add the new fields
-            lora_type: videoFile.metadata.loraType,
-            lora_link: videoFile.metadata.loraLink
-          })
-          .select()
-          .single();
-        
-        if (assetError) {
-          logger.error('Error creating asset:', assetError);
-        } else {
-          assetId = assetData.id;
-          
-          // Link asset and media
-          await supabase
-            .from('asset_media')
-            .insert({
-              asset_id: assetId,
-              media_id: mediaData.id
-            });
-        }
+        assetId = await this.createNewAssetWithMedia(
+          mediaData.id,
+          videoFile.metadata.loraName,
+          videoFile.metadata.loraDescription || '',
+          videoFile.metadata.creatorName || reviewerName,
+          userId || this.currentUserId,
+          videoFile.metadata.loraType,
+          videoFile.metadata.loraLink
+        );
       }
 
       logger.log(`Media entry created successfully: ${mediaData.id}`);
@@ -175,6 +116,122 @@ class VideoUploadService {
       return entry;
     } catch (error) {
       logger.error('Error in uploadVideo:', error);
+      throw error;
+    }
+  }
+  
+  // Add media to an existing asset
+  private async addMediaToExistingAsset(
+    mediaId: string, 
+    assetId: string, 
+    isPrimary: boolean
+  ): Promise<void> {
+    logger.log(`Adding media ${mediaId} to existing asset ${assetId}`);
+    
+    try {
+      // First, check if the asset already has a primary media
+      const { data: assetData, error: assetError } = await supabase
+        .from('assets')
+        .select('primary_media_id')
+        .eq('id', assetId)
+        .single();
+        
+      if (assetError) {
+        logger.error(`Error getting asset data for ${assetId}:`, assetError);
+        throw assetError;
+      }
+      
+      // Link to existing asset by creating asset_media relationship
+      const { error: linkError } = await supabase
+        .from('asset_media')
+        .insert({
+          asset_id: assetId,
+          media_id: mediaId
+        });
+        
+      if (linkError) {
+        logger.error('Error linking media to asset:', linkError);
+        throw linkError;
+      }
+      
+      // Only update primary media if:
+      // 1. This media is explicitly set as primary, OR
+      // 2. The asset doesn't have a primary media yet
+      const shouldSetAsPrimary = isPrimary || !assetData?.primary_media_id;
+      
+      if (shouldSetAsPrimary) {
+        logger.log(`Setting media ${mediaId} as primary for asset ${assetId} (explicit: ${isPrimary}, no existing primary: ${!assetData?.primary_media_id})`);
+        const { error: updateError } = await supabase
+          .from('assets')
+          .update({ primary_media_id: mediaId })
+          .eq('id', assetId);
+          
+        if (updateError) {
+          logger.error('Error updating primary media:', updateError);
+        }
+      } else {
+        logger.log(`Not changing primary media for asset ${assetId}. Current primary: ${assetData?.primary_media_id}`);
+      }
+    } catch (error) {
+      logger.error(`Error adding media ${mediaId} to asset ${assetId}:`, error);
+      throw error;
+    }
+  }
+  
+  // Create a new asset and link it with media
+  private async createNewAssetWithMedia(
+    mediaId: string,
+    loraName: string,
+    loraDescription: string = '',
+    creatorName: string,
+    userId: string | null,
+    loraType?: string,
+    loraLink?: string
+  ): Promise<string> {
+    logger.log(`Creating new asset for LoRA: ${loraName}`);
+    
+    try {
+      // Create new asset with the media as primary
+      const { data: assetData, error: assetError } = await supabase
+        .from('assets')
+        .insert({
+          type: 'LoRA',
+          name: loraName,
+          description: loraDescription,
+          creator: creatorName,
+          user_id: userId,
+          primary_media_id: mediaId,
+          admin_approved: 'Listed',
+          lora_type: loraType,
+          lora_link: loraLink
+        })
+        .select()
+        .single();
+      
+      if (assetError) {
+        logger.error('Error creating asset:', assetError);
+        throw assetError;
+      }
+      
+      const assetId = assetData.id;
+      
+      // Link asset and media
+      const { error: linkError } = await supabase
+        .from('asset_media')
+        .insert({
+          asset_id: assetId,
+          media_id: mediaId
+        });
+        
+      if (linkError) {
+        logger.error('Error linking asset and media:', linkError);
+        throw linkError;
+      }
+      
+      logger.log(`Created new asset ${assetId} with primary media ${mediaId}`);
+      return assetId;
+    } catch (error) {
+      logger.error('Error creating new asset with media:', error);
       throw error;
     }
   }
@@ -209,85 +266,27 @@ class VideoUploadService {
         throw mediaError;
       }
       
+      // Determine if we're adding to an existing asset or creating a new one
+      const isExistingAsset = !!entryData.metadata?.assetId;
       let assetId = entryData.metadata?.assetId;
-      let shouldUpdatePrimary = entryData.metadata?.isPrimary || false;
       
-      // If we have an assetId, this means we're adding to an existing asset
-      if (assetId) {
-        logger.log(`Adding media ${mediaData.id} to existing asset ${assetId}`);
-        
-        // Check if the asset already has a primary media before we decide to update
-        if (shouldUpdatePrimary) {
-          const { data: assetData } = await supabase
-            .from('assets')
-            .select('primary_media_id')
-            .eq('id', assetId)
-            .single();
-            
-          // If asset already has a primary media and we're not explicitly setting this as primary,
-          // then don't update the primary media
-          if (assetData?.primary_media_id && !entryData.metadata?.isPrimary) {
-            logger.log(`Asset ${assetId} already has primary media ${assetData.primary_media_id}, keeping it`);
-            shouldUpdatePrimary = false;
-          }
-        }
-        
-        // Link to existing asset
-        const { error: linkError } = await supabase
-          .from('asset_media')
-          .insert({
-            asset_id: assetId,
-            media_id: mediaData.id
-          });
-          
-        if (linkError) {
-          logger.error('Error linking media to asset:', linkError);
-          throw linkError;
-        }
-        
-        // Update primary media if this is explicitly set as primary
-        if (shouldUpdatePrimary && entryData.metadata?.isPrimary) {
-          logger.log(`Setting media ${mediaData.id} as primary for asset ${assetId}`);
-          const { error: updateError } = await supabase
-            .from('assets')
-            .update({ primary_media_id: mediaData.id })
-            .eq('id', assetId);
-            
-          if (updateError) {
-            logger.error('Error updating primary media:', updateError);
-          }
-        }
+      if (isExistingAsset) {
+        // Adding to an existing asset
+        await this.addMediaToExistingAsset(
+          mediaData.id, 
+          assetId!, 
+          entryData.metadata?.isPrimary || false
+        );
       } 
-      // Create a new asset if we don't have an assetId but have a loraName
+      // Creating a new asset
       else if (entryData.metadata?.loraName) {
-        // Create new asset
-        const { data: assetData, error: assetError } = await supabase
-          .from('assets')
-          .insert({
-            type: 'LoRA',
-            name: entryData.metadata.loraName,
-            description: entryData.metadata.loraDescription || '',
-            creator: entryData.metadata.creatorName || entryData.reviewer_name,
-            user_id: entryData.user_id || this.currentUserId,
-            primary_media_id: mediaData.id,
-            admin_approved: 'Listed'
-          })
-          .select()
-          .single();
-        
-        if (assetError) {
-          logger.error('Error creating asset:', assetError);
-        } else {
-          assetId = assetData.id;
-          
-          // Link asset and media
-          await supabase
-            .from('asset_media')
-            .insert({
-              asset_id: assetId,
-              media_id: mediaData.id
-            });
-        }
+        assetId = await this.createNewAssetWithMedia(
+          mediaData.id,
+          entryData.metadata.loraName,
+          entryData.metadata.loraDescription || '',
+          entryData.metadata.creatorName || entryData.reviewer_name,
+          entryData.user_id || this.currentUserId
+        );
       }
       
       // Construct the VideoEntry object

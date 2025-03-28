@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { MultipleVideoUploader } from '@/pages/upload/components';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -41,13 +41,39 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
   const [open, setOpen] = useState(false);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [assetHasPrimaryMedia, setAssetHasPrimaryMedia] = useState(false);
   const { user } = useAuth();
+
+  useEffect(() => {
+    // Check if asset already has primary media when dialog opens
+    if (open && assetId) {
+      checkAssetHasPrimaryMedia();
+    }
+  }, [open, assetId]);
+
+  const checkAssetHasPrimaryMedia = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .select('primary_media_id')
+        .eq('id', assetId)
+        .single();
+        
+      if (!error && data) {
+        setAssetHasPrimaryMedia(!!data.primary_media_id);
+        console.log(`Asset ${assetId} has primary media: ${!!data.primary_media_id}`);
+      }
+    } catch (error) {
+      console.error('Error checking asset primary media:', error);
+    }
+  };
 
   const handleOpenChange = (open: boolean) => {
     setOpen(open);
     if (!open) {
       // Reset the state when closing
       setVideos([]);
+      setAssetHasPrimaryMedia(false);
     }
   };
 
@@ -71,9 +97,21 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
 
       console.log(`Uploading ${videosWithContent.length} videos for LoRA ${assetName} (${assetId})`);
       
-      // Check if any video is marked as primary
-      // If none is explicitly marked, we should not force any to be primary
+      // For existing LoRAs with primary media, we don't want to override unless explicitly set
+      // For new LoRAs or those without primary media, allow the first to be primary if none is explicitly set
+      const isPrimaryNeeded = !assetHasPrimaryMedia;
       const hasPrimaryVideo = videosWithContent.some(v => v.metadata.isPrimary === true);
+      
+      if (isPrimaryNeeded && !hasPrimaryVideo && videosWithContent.length > 0) {
+        // If asset doesn't have a primary media and no video is marked as primary,
+        // mark the first video as primary
+        videosWithContent[0].metadata.isPrimary = true;
+        console.log(`No primary media exists for asset ${assetId} and no video is marked as primary. Making first video primary.`);
+      } else if (assetHasPrimaryMedia && !hasPrimaryVideo) {
+        // If asset already has a primary media and no video is explicitly marked,
+        // ensure we don't override it
+        console.log(`Asset ${assetId} already has primary media. Not changing primary status.`);
+      }
       
       // Process and upload all videos
       const uploadPromises = videosWithContent.map(async (video) => {
@@ -133,7 +171,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
     }
   };
 
-  console.log("LoRAVideoUploader rendering with assetId:", assetId, "user:", !!user);
+  console.log("LoRAVideoUploader rendering with assetId:", assetId, "user:", !!user, "assetHasPrimaryMedia:", assetHasPrimaryMedia);
 
   return (
     <>
@@ -155,6 +193,11 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
           <div className="space-y-6">
             <p className="text-sm text-muted-foreground">
               Add videos showcasing generations you've created with this LoRA. The videos will be associated with this asset.
+              {assetHasPrimaryMedia && (
+                <span className="block mt-2 text-amber-500">
+                  This LoRA already has a primary video. New videos will only become primary if you explicitly mark them as such.
+                </span>
+              )}
             </p>
             
             <MultipleVideoUploader
