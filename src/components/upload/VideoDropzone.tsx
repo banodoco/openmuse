@@ -13,6 +13,7 @@ interface VideoDropzoneProps {
   onDrop: (acceptedFiles: File[]) => void;
   onLinkAdded?: (link: string) => void;
   onRemove?: () => void;
+  multiple?: boolean;
 }
 
 const VideoDropzone: React.FC<VideoDropzoneProps> = ({ 
@@ -21,7 +22,8 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
   url, 
   onDrop, 
   onLinkAdded, 
-  onRemove 
+  onRemove,
+  multiple = true // Default to true to enable multiple file uploads
 }) => {
   // Log props to make sure they're being passed correctly
   console.log(`VideoDropzone props - id: ${id}, file: ${file ? file.name : 'null'}, url: ${url}`);
@@ -40,6 +42,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
       'video/*': []
     },
     maxSize: 100 * 1024 * 1024, // 100MB max size
+    multiple: multiple, // Allow multiple files to be selected
   });
   
   const toggleLinkInput = () => {
@@ -135,11 +138,11 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
           <UploadIcon className="h-12 w-12 text-muted-foreground mb-4" />
           {
             isDragActive ?
-              <p>Drop the video here ...</p> :
+              <p>Drop the videos here ...</p> :
               <>
-                <p className="text-lg font-medium mb-2">Drag 'n' drop a video here</p>
-                <p className="text-sm text-muted-foreground">or click to select a file</p>
-                <p className="text-xs text-muted-foreground mt-2">Max size: 100MB</p>
+                <p className="text-lg font-medium mb-2">Drag 'n' drop videos here</p>
+                <p className="text-sm text-muted-foreground">or click to select files</p>
+                <p className="text-xs text-muted-foreground mt-2">Max size: 100MB per file</p>
               </>
           }
         </div>

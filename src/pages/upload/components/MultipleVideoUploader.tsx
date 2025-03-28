@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
@@ -136,30 +137,88 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   const handleVideoFileDrop = (id: string) => {
     return (acceptedFiles: File[]) => {
       console.log("File dropped:", acceptedFiles);
-      const file = acceptedFiles[0];
-      if (file) {
-        const url = URL.createObjectURL(file);
-        console.log("Created URL:", url);
+      
+      if (acceptedFiles.length === 0) return;
+      
+      if (acceptedFiles.length === 1) {
+        // Single file upload - process as before
+        const file = acceptedFiles[0];
+        if (file) {
+          const url = URL.createObjectURL(file);
+          console.log("Created URL:", url);
+          
+          const fileName = file.name;
+          const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
+          const defaultTitle = fileNameWithoutExtension || fileName;
+          
+          setVideos(prev => 
+            prev.map(video => 
+              video.id === id 
+                ? { 
+                    ...video, 
+                    file: file, 
+                    url: url,
+                    metadata: {
+                      ...video.metadata,
+                      title: defaultTitle
+                    }
+                  } 
+                : video
+            )
+          );
+        }
+      } else {
+        // Multiple files uploaded - create new video items for all files after the first one
+        const currentVideoIndex = videos.findIndex(v => v.id === id);
+        const hasChanged = { current: false };
         
-        const fileName = file.name;
-        const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
-        const defaultTitle = fileNameWithoutExtension || fileName;
+        // Process the first file for the current dropzone
+        const firstFile = acceptedFiles[0];
+        const firstUrl = URL.createObjectURL(firstFile);
+        const firstFileName = firstFile.name;
+        const firstFileNameWithoutExtension = firstFileName.split('.').slice(0, -1).join('.');
+        const firstDefaultTitle = firstFileNameWithoutExtension || firstFileName;
         
-        setVideos(prev => 
-          prev.map(video => 
-            video.id === id 
-              ? { 
-                  ...video, 
-                  file: file, 
-                  url: url,
-                  metadata: {
-                    ...video.metadata,
-                    title: defaultTitle
-                  }
-                } 
-              : video
-          )
-        );
+        // Create new video items for the remaining files
+        const additionalVideos = acceptedFiles.slice(1).map(file => {
+          const url = URL.createObjectURL(file);
+          const fileName = file.name;
+          const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
+          const defaultTitle = fileNameWithoutExtension || fileName;
+          
+          return {
+            id: crypto.randomUUID(),
+            file: file,
+            url: url,
+            metadata: {
+              ...initialMetadata,
+              title: defaultTitle,
+              isPrimary: false
+            }
+          };
+        });
+        
+        setVideos(prev => {
+          // First update the current dropzone video with the first file
+          const updatedVideos = prev.map((video, index) => {
+            if (video.id === id) {
+              hasChanged.current = true;
+              return { 
+                ...video, 
+                file: firstFile, 
+                url: firstUrl,
+                metadata: {
+                  ...video.metadata,
+                  title: firstDefaultTitle
+                }
+              };
+            }
+            return video;
+          });
+          
+          // Then add the additional videos
+          return [...updatedVideos, ...additionalVideos];
+        });
       }
     };
   };
@@ -268,6 +327,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                 onDrop={handleVideoFileDrop(video.id)}
                 onLinkAdded={handleVideoLinkAdded(video.id)}
                 onRemove={() => handleRemoveVideoFile(video.id)}
+                multiple={true}
               />
             </div>
           </div>
