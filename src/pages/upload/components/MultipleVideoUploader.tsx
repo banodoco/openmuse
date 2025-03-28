@@ -26,11 +26,13 @@ interface VideoItem {
 interface MultipleVideoUploaderProps {
   videos: VideoItem[];
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
+  hideIsPrimary?: boolean;
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
   videos, 
-  setVideos 
+  setVideos,
+  hideIsPrimary = false
 }) => {
   const initialMetadata: VideoMetadataForm = {
     title: '',
@@ -38,7 +40,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     classification: 'gen',
     creator: 'self',
     creatorName: '',
-    isPrimary: false,
+    isPrimary: hideIsPrimary ? false : true,
   };
 
   React.useEffect(() => {
@@ -47,7 +49,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         id: crypto.randomUUID(),
         file: null,
         url: null,
-        metadata: {...initialMetadata, isPrimary: true}
+        metadata: {...initialMetadata}
       }]);
     }
   }, []);
@@ -76,7 +78,10 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     }
   }, [videos]);
 
+  // Only manage primary videos if not hiding the option
   React.useEffect(() => {
+    if (hideIsPrimary) return;
+    
     const primaryCount = videos.filter(v => v.metadata.isPrimary).length;
     
     if (primaryCount === 0 && videos.length > 0) {
@@ -93,7 +98,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         ));
       }
     }
-  }, [videos, setVideos]);
+  }, [videos, setVideos, hideIsPrimary]);
   
   const handleRemoveVideo = (id: string) => {
     const videoToRemove = videos.find(v => v.id === id);
@@ -121,7 +126,10 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: keyof VideoMetadataForm, value: any) => {
-    if (field === 'isPrimary' && value === true) {
+    // Skip isPrimary handling if hiding the option
+    if (hideIsPrimary && field === 'isPrimary') return;
+    
+    if (field === 'isPrimary' && value === true && !hideIsPrimary) {
       setVideos(prev => 
         prev.map(video => 
           video.id === id 
@@ -318,7 +326,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                   videoId={video.id}
                   metadata={video.metadata}
                   updateMetadata={updateVideoMetadata}
-                  canSetPrimary={true}
+                  canSetPrimary={!hideIsPrimary}
                 />
               </div>
             </div>
