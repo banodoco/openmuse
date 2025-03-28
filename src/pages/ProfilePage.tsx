@@ -6,6 +6,11 @@ import UserProfileSettings from '@/components/UserProfileSettings';
 import RequireAuth from '@/components/RequireAuth';
 
 export default function ProfilePage() {
+  const handleButtonClick = () => {
+    // This is a placeholder function for the button click
+    console.log('Profile settings button clicked');
+  };
+
   return (
     <RequireAuth>
       <div className="min-h-screen flex flex-col bg-background">
@@ -14,6 +19,8 @@ export default function ProfilePage() {
           <PageHeader
             title="Profile Settings"
             description="Manage your profile information"
+            buttonText="Save Changes"
+            onButtonClick={handleButtonClick}
           />
           <div className="max-w-2xl mx-auto">
             <UserProfileSettings />
