@@ -3,9 +3,7 @@ import React, { useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { X, Upload, XCircle, Link } from 'lucide-react';
@@ -45,7 +43,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   const { toast } = useToast();
   const { user } = useAuth();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [activeTab, setActiveTab] = useState('upload');
   const [urlInput, setUrlInput] = useState('');
   
   // Helper to create an empty video item
@@ -99,7 +96,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       });
       
       setVideos(prev => [...prev, ...newVideos]);
-      setActiveTab('upload'); // Switch to upload tab after dropping files
     }
   };
   
@@ -254,93 +250,34 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     });
   };
   
-  // Add empty video card
-  const addEmptyVideo = () => {
-    if (disabled) return;
-    
-    setVideos(prev => [...prev, createEmptyVideoItem()]);
-  };
-  
   return (
     <div className="space-y-6">
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="mb-4">
-          <TabsTrigger value="upload">Upload Files</TabsTrigger>
-          <TabsTrigger value="link">Add Video Links</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="upload" className="space-y-4">
-          <VideoDropzone 
-            onDrop={handleFileDrop} 
+      <div className="space-y-4">
+        <div>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={handleFileSelect}
+            className="hidden"
+            accept="video/*"
             disabled={disabled}
           />
           
-          <div className="flex items-center justify-center">
-            <input
-              type="file"
-              ref={fileInputRef}
-              onChange={handleFileSelect}
-              className="hidden"
-              accept="video/*"
-              disabled={disabled}
-            />
-            <Button 
-              variant="outline" 
-              onClick={() => fileInputRef.current?.click()}
-              disabled={disabled}
-              className="flex items-center gap-2"
-            >
-              <Upload size={16} />
-              Select Video File
-            </Button>
-          </div>
-        </TabsContent>
-        
-        <TabsContent value="link" className="space-y-4">
-          <div className="grid gap-4">
-            <div className="flex flex-col space-y-2">
-              <Label htmlFor="video-url">Video URL</Label>
-              <div className="flex gap-2">
-                <Input
-                  id="video-url"
-                  type="url"
-                  placeholder="https://example.com/video.mp4"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  disabled={disabled}
-                  className="flex-1"
-                />
-                <Button 
-                  onClick={handleAddUrlVideo}
-                  disabled={!urlInput || disabled}
-                >
-                  <Link size={16} className="mr-2" />
-                  Add
-                </Button>
-              </div>
-            </div>
-            
-            <Alert>
-              <AlertDescription>
-                Add a direct URL to a video file (MP4, WebM, etc.) or a link from YouTube, Vimeo, etc.
-              </AlertDescription>
-            </Alert>
-          </div>
-        </TabsContent>
-      </Tabs>
+          {/* Main dropzone area */}
+          <VideoDropzone 
+            id="main-dropzone"
+            file={null}
+            url={null}
+            onDrop={handleFileDrop} 
+            disabled={disabled}
+          />
+        </div>
+      </div>
       
       {videos.length > 0 ? (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Added Videos ({videos.length})</h3>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={addEmptyVideo}
-              disabled={disabled}
-            >
-              Add Empty Slot
-            </Button>
           </div>
           
           <div className="grid gap-4 md:grid-cols-1">
@@ -385,15 +322,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                           <Upload size={16} className="mr-2" />
                           Upload
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setActiveTab('link')}
-                          disabled={disabled}
-                        >
-                          <Link size={16} className="mr-2" />
-                          Add URL
-                        </Button>
                       </div>
                     )}
                   </div>
@@ -416,7 +344,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         <div className="flex flex-col items-center justify-center p-8 border rounded-lg border-dashed text-center">
           <h3 className="mb-2 text-lg font-medium">No Videos Added</h3>
           <p className="mb-4 text-sm text-muted-foreground">
-            Upload files or add video links to get started.
+            Upload files by dragging and dropping them above.
           </p>
         </div>
       )}
