@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -49,17 +48,20 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       
       const video = videoRef.current;
       if (video) {
-        if (isHoveringExternally && !video.paused) {
+        if (isHoveringExternally && video.paused) {
           logger.log('External hover detected - attempting to play video');
           video.play().catch(e => logger.error('Error playing video on hover:', e));
         } else if (!isHoveringExternally && !video.paused) {
           logger.log('External hover ended - pausing video');
           video.pause();
+          if (previewMode) {
+            video.currentTime = 0;
+          }
         }
       }
     }
-  }, [isHoveringExternally]);
-
+  }, [isHoveringExternally, previewMode]);
+  
   useEffect(() => {
     let isMounted = true;
     
