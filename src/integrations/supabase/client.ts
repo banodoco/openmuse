@@ -61,11 +61,21 @@ export const testRLSPermissions = async () => {
       .limit(1)
       .single();
     
-    // Wait for both checks to complete
-    const [mediaResult, assetsResult] = await Promise.all([
-      mediaPromise.catch(err => ({ error: err, data: null })),
-      assetsPromise.catch(err => ({ error: err, data: null }))
-    ]);
+    // Wait for both checks to complete using try/catch instead of Promise.catch
+    let mediaResult = { error: null, data: null };
+    let assetsResult = { error: null, data: null };
+    
+    try {
+      mediaResult = await mediaPromise;
+    } catch (err) {
+      mediaResult = { error: err, data: null };
+    }
+    
+    try {
+      assetsResult = await assetsPromise;
+    } catch (err) {
+      assetsResult = { error: err, data: null };
+    }
     
     console.info(`[SupabaseClient] RLS permission test complete (${testId})`);
     
