@@ -76,21 +76,39 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
         </RadioGroup>
       </div>
       
-      {/* Creator field is hidden since we always use the logged-in user */}
-      <div className="hidden">
-        <Label className="block mb-2">Creator</Label>
+      <div>
+        <Label className="block mb-2">Who made this?</Label>
         <RadioGroup 
-          value="self"
+          value={metadata.creator}
           onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
           className="flex flex-col space-y-1"
           disabled={disabled}
         >
           <div className="flex items-center space-x-2">
             <RadioGroupItem value="self" id={`creator-self-${videoId}`} />
-            <Label htmlFor={`creator-self-${videoId}`}>Me</Label>
+            <Label htmlFor={`creator-self-${videoId}`}>You</Label>
+          </div>
+          <div className="flex items-center space-x-2">
+            <RadioGroupItem value="someone_else" id={`creator-someone-else-${videoId}`} />
+            <Label htmlFor={`creator-someone-else-${videoId}`}>Someone else</Label>
           </div>
         </RadioGroup>
       </div>
+      
+      {metadata.creator === 'someone_else' && (
+        <div>
+          <Label htmlFor={`creator-name-${videoId}`}>What's their username?</Label>
+          <Input
+            type="text"
+            id={`creator-name-${videoId}`}
+            placeholder="Enter creator's username"
+            value={metadata.creatorName}
+            onChange={(e) => updateMetadata(videoId, 'creatorName', e.target.value)}
+            required
+            disabled={disabled}
+          />
+        </div>
+      )}
       
       {canSetPrimary && (
         <div className="flex items-center space-x-2">
@@ -108,3 +126,4 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
 };
 
 export default VideoMetadataForm;
+
