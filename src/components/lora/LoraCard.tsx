@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Trash, Check, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
@@ -108,14 +107,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
   };
   
   const getApprovalStatus = () => {
-    const status = lora.admin_approved;
-    if (status === 'Curated') {
-      return <Badge className="bg-green-500">Curated</Badge>;
-    } else if (status === 'Rejected') {
-      return <Badge variant="destructive">Rejected</Badge>;
-    } else {
-      return <Badge variant="outline">Listed</Badge>;
-    }
+    return null;
   };
   
   return (
@@ -141,17 +133,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             <p className="text-muted-foreground text-sm">No preview available</p>
           </div>
         )}
-        
-        <div className={cn(
-          "absolute top-0 left-0 w-full p-3 z-10 bg-gradient-to-b from-black/60 to-transparent text-white",
-          isHovering ? "opacity-0" : "opacity-100",
-          "transition-opacity duration-200"
-        )}>
-          <div className="flex items-center justify-between bg-white/20 backdrop-blur-sm rounded px-2 py-1">
-            <h3 className="text-base font-medium truncate mr-2">{lora.name}</h3>
-            {getApprovalStatus()}
-          </div>
-        </div>
       </div>
       
       {(lora.description || lora.lora_link) && (
