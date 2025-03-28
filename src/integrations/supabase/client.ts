@@ -26,33 +26,24 @@ console.log('Supabase client initialized with auth configuration:', {
   storage: 'localStorage',
 });
 
-// Create the videos bucket if it doesn't exist yet
-export const ensureVideoBucket = async () => {
+// Check if the videos bucket exists but don't try to create it
+// This fixes the "maximum allowed size" error
+export const checkVideoBucket = async () => {
   try {
     const { data: buckets } = await supabase.storage.listBuckets();
     const videoBucket = buckets?.find(bucket => bucket.name === 'videos');
     
     if (!videoBucket) {
-      console.log('Creating videos bucket in Supabase Storage...');
-      const { data, error } = await supabase.storage.createBucket('videos', {
-        public: true,
-        fileSizeLimit: 100 * 1024 * 1024, // 100MB limit
-      });
-      
-      if (error) {
-        console.error('Error creating videos bucket:', error);
-      } else {
-        console.log('Videos bucket created successfully');
-      }
+      console.log('Videos bucket does not exist. Please create it in the Supabase dashboard.');
     } else {
-      console.log('Videos bucket already exists');
+      console.log('Videos bucket exists');
     }
   } catch (error) {
-    console.error('Error ensuring videos bucket exists:', error);
+    console.error('Error checking if videos bucket exists:', error);
   }
 };
 
-// Call this function to ensure the bucket exists (during app initialization)
+// Call this function to check the bucket exists (during app initialization)
 if (typeof window !== 'undefined') {
-  ensureVideoBucket().catch(console.error);
+  checkVideoBucket().catch(console.error);
 }

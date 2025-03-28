@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
@@ -28,6 +28,7 @@ const AssetDetailPage: React.FC = () => {
   const { user } = useAuth();
   const [authChecked, setAuthChecked] = useState(false);
 
+  // Debug info logging
   useEffect(() => {
     console.log('AssetDetailPage - Auth State:', {
       user: user ? { id: user.id, email: user.email } : null,
@@ -37,6 +38,7 @@ const AssetDetailPage: React.FC = () => {
     });
   }, [user, authChecked, isLoading, isAdmin]);
 
+  // Check admin status whenever user changes
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
@@ -60,13 +62,15 @@ const AssetDetailPage: React.FC = () => {
     checkAdminStatus();
   }, [user]);
 
+  // Additional debug logging
   useEffect(() => {
     console.log('AssetDetailPage - User:', user);
     console.log('AssetDetailPage - Asset:', asset);
     console.log('AssetDetailPage - Asset ID:', id);
   }, [user, asset, id]);
 
-  const fetchAssetDetails = async () => {
+  // Fetch asset details using useCallback to avoid recreating the function on rerenders
+  const fetchAssetDetails = useCallback(async () => {
     if (!id) {
       toast.error('No asset ID provided');
       return;
@@ -151,16 +155,18 @@ const AssetDetailPage: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [id]);
 
+  // Fetch asset details when the component mounts or ID changes
   useEffect(() => {
     fetchAssetDetails();
-  }, [id]);
+  }, [fetchAssetDetails]);
 
   const handleGoBack = () => {
     navigate('/');
   };
 
+  // Helper functions for asset management
   const getApprovalStatusBadge = () => {
     if (!asset) return null;
     
@@ -175,6 +181,7 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
+  // Asset action handlers
   const handleCurateAsset = async () => {
     if (!id || !isAdmin) return;
     
@@ -241,6 +248,7 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
+  // Video action handlers
   const handleDeleteVideo = async (videoId: string) => {
     try {
       const { error } = await supabase
@@ -309,6 +317,7 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
+  // Log upload button conditions for debugging
   useEffect(() => {
     console.log('Upload Button Conditions:', {
       hasUser: !!user, 
