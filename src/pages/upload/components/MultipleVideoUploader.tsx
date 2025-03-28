@@ -1,18 +1,13 @@
-
 import React, { useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
-import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { X, Upload, XCircle, Link } from 'lucide-react';
+import { X, Upload, XCircle } from 'lucide-react';
 import VideoDropzone from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-// Define the shape of a video item
 interface VideoItem {
   file: File | null;
   url: string | null;
@@ -45,7 +40,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [urlInput, setUrlInput] = useState('');
   
-  // Helper to create an empty video item
   const createEmptyVideoItem = (): VideoItem => ({
     file: null,
     url: null,
@@ -55,17 +49,15 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       classification: 'art',
       creator: 'self',
       creatorName: user?.email || '',
-      isPrimary: videos.length === 0 // First video is primary by default
+      isPrimary: videos.length === 0
     },
     id: uuidv4()
   });
   
-  // Handle file drops from the dropzone
   const handleFileDrop = (acceptedFiles: File[]) => {
     if (disabled) return;
     
     if (acceptedFiles.length > 0) {
-      // Filter for video files and add each one
       const videoFiles = acceptedFiles.filter(file => file.type.startsWith('video/'));
       
       if (videoFiles.length === 0) {
@@ -84,12 +76,12 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           file,
           url: URL.createObjectURL(file),
           metadata: {
-            title: '', // No default title
+            title: '',
             description: '',
             classification: 'art' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
-            isPrimary: isFirst // First video is primary by default
+            isPrimary: isFirst
           },
           id: uuidv4()
         } as VideoItem;
@@ -99,7 +91,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     }
   };
   
-  // Handle manual file selection
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled || !event.target.files || event.target.files.length === 0) return;
     
@@ -121,24 +112,22 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         file,
         url: URL.createObjectURL(file),
         metadata: {
-          title: '', // No default title
+          title: '',
           description: '',
           classification: 'art' as 'art' | 'gen',
           creator: 'self' as 'self' | 'someone_else',
           creatorName: user?.email || '',
-          isPrimary: isFirst // First video is primary by default
+          isPrimary: isFirst
         },
         id: uuidv4()
       }
     ]);
     
-    // Reset the file input
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
   
-  // Add a URL video
   const handleAddUrlVideo = () => {
     if (disabled) return;
     
@@ -152,7 +141,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     }
     
     try {
-      new URL(urlInput); // Validate URL format
+      new URL(urlInput);
       
       const isFirst = videos.length === 0;
       
@@ -162,18 +151,18 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           file: null,
           url: urlInput,
           metadata: {
-            title: '', // No default title - changed from 'Video from URL'
+            title: '',
             description: '',
             classification: 'art' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
-            isPrimary: isFirst // First video is primary by default
+            isPrimary: isFirst
           },
           id: uuidv4()
         }
       ]);
       
-      setUrlInput(''); // Clear URL input
+      setUrlInput('');
       toast({
         title: 'Video URL added',
         description: 'The video URL has been added to your upload list.',
@@ -187,7 +176,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     }
   };
   
-  // Update video metadata
   const updateVideoMetadata = (id: string, field: string, value: any) => {
     if (disabled) return;
     
@@ -203,7 +191,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           };
         }
         
-        // If setting this video as primary, unset primary from all others
         if (field === 'isPrimary' && value === true) {
           return {
             ...video,
@@ -221,16 +208,13 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     });
   };
   
-  // Remove a video
   const removeVideo = (id: string) => {
     if (disabled) return;
     
     setVideos(prev => {
-      // Check if we're removing the primary video
       const removingPrimary = prev.find(v => v.id === id)?.metadata.isPrimary;
       const filtered = prev.filter(video => video.id !== id);
       
-      // If we removed the primary and have other videos, make the first one primary
       if (removingPrimary && filtered.length > 0) {
         return filtered.map((video, index) => {
           if (index === 0) {
@@ -263,7 +247,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             disabled={disabled}
           />
           
-          {/* Main dropzone area */}
           <VideoDropzone 
             id="main-dropzone"
             file={null}
@@ -274,7 +257,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         </div>
       </div>
       
-      {videos.length > 0 ? (
+      {videos.length > 0 && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="text-lg font-medium">Added Videos ({videos.length})</h3>
@@ -339,13 +322,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
               </Card>
             ))}
           </div>
-        </div>
-      ) : (
-        <div className="flex flex-col items-center justify-center p-8 border rounded-lg border-dashed text-center">
-          <h3 className="mb-2 text-lg font-medium">No Videos Added</h3>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Upload files by dragging and dropping them above.
-          </p>
         </div>
       )}
     </div>
