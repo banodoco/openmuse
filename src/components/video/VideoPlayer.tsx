@@ -55,7 +55,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
   const [hover, setHover] = useState(isHovering);
-  // Add the missing state variable
   const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => {
@@ -223,20 +222,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <div 
       ref={containerRef} 
       className={cn(
-        "relative w-full h-full overflow-visible rounded-lg",
-        expandOnHover && hover ? "absolute z-50 inset-0" : "relative"
+        "relative w-full h-full overflow-hidden rounded-lg",
+        expandOnHover && hover ? "z-50" : "z-10"
       )}
-      style={{
-        position: expandOnHover && hover ? 'fixed' : 'relative',
-        top: expandOnHover && hover ? '50%' : 'auto',
-        left: expandOnHover && hover ? '50%' : 'auto',
-        transform: expandOnHover && hover ? 'translate(-50%, -50%)' : 'none',
-        width: expandOnHover && hover ? '90vw' : '100%',
-        height: expandOnHover && hover ? '90vh' : '100%',
-        maxWidth: expandOnHover && hover ? '1200px' : '100%',
-        maxHeight: expandOnHover && hover ? '800px' : '100%',
-        zIndex: expandOnHover && hover ? 1000 : 'auto',
-      }}
     >
       {isLoading && <VideoLoader posterImage={poster} />}
       
@@ -253,7 +241,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ref={videoRef}
         className={cn(
           "w-full h-full transition-all duration-300",
-          hover && expandOnHover ? "object-contain" : "object-cover",
+          hover && expandOnHover ? "scale-150 origin-center" : "scale-100",
           className
         )}
         autoPlay={autoPlay && !playOnHover && !externallyControlled}
