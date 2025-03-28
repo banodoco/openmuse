@@ -138,15 +138,16 @@ if (typeof window !== 'undefined') {
       try {
         await checkVideoBucket();
         logger.log('Video bucket check complete');
+        
+        // Try RLS permissions test next
+        try {
+          await testRLSPermissions();
+          logger.log('RLS permissions test complete');
+        } catch (error) {
+          logger.error('Error testing RLS permissions:', error);
+        }
       } catch (error) {
         logger.error('Error checking video bucket:', error);
-      }
-      
-      try {
-        await testRLSPermissions();
-        logger.log('RLS permissions test complete');
-      } catch (error) {
-        logger.error('Error testing RLS permissions:', error);
       }
     };
     
