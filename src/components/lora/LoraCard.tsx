@@ -163,13 +163,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
           <p className="text-muted-foreground mb-2 line-clamp-2">{lora.description}</p>
         )}
         
-        {lora.lora_type && (
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Type:</span>
-            <span className="font-medium truncate max-w-[60%] text-right">{lora.lora_type}</span>
-          </div>
-        )}
-        
         {lora.lora_link && (
           <Button 
             variant="ghost" 
