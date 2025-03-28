@@ -165,7 +165,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             <MultipleVideoUploader
               videos={videos}
               setVideos={setVideos}
-              hideIsPrimary={true} // Hide primary option when adding to existing LoRA
+              hideIsPrimary={true}
             />
             
             <div className="flex justify-end space-x-2 pt-4">

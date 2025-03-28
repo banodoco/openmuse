@@ -33,12 +33,14 @@ interface MultipleVideoUploaderProps {
   videos: VideoItem[];
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
   disabled?: boolean;
+  hideIsPrimary?: boolean;
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
   videos, 
   setVideos,
-  disabled = false
+  disabled = false,
+  hideIsPrimary = false
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -87,13 +89,13 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: file.name.split('.')[0], // Use filename as default title
             description: '',
-            classification: 'art',
-            creator: 'self',
+            classification: 'art' as 'art' | 'gen',
+            creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst // First video is primary by default
           },
           id: uuidv4()
-        };
+        } as VideoItem;
       });
       
       setVideos(prev => [...prev, ...newVideos]);
@@ -125,8 +127,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         metadata: {
           title: file.name.split('.')[0], // Use filename as default title
           description: '',
-          classification: 'art',
-          creator: 'self',
+          classification: 'art' as 'art' | 'gen',
+          creator: 'self' as 'self' | 'someone_else',
           creatorName: user?.email || '',
           isPrimary: isFirst // First video is primary by default
         },
@@ -166,8 +168,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: 'Video from URL',
             description: '',
-            classification: 'art',
-            creator: 'self',
+            classification: 'art' as 'art' | 'gen',
+            creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst // First video is primary by default
           },
@@ -401,7 +403,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                       videoId={video.id}
                       metadata={video.metadata}
                       updateMetadata={updateVideoMetadata}
-                      canSetPrimary={true}
+                      canSetPrimary={!hideIsPrimary}
                       disabled={disabled}
                     />
                   </div>
