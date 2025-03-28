@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Play, Star, Trash, Check, X, ExternalLink } from 'lucide-react';
+import { Trash, Check, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -21,6 +20,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Button } from "@/components/ui/button";
 
 interface LoraCardProps {
   lora: LoraAsset;
@@ -163,21 +163,12 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
           <p className="text-muted-foreground mb-2 line-clamp-2">{lora.description}</p>
         )}
         
-        <div className="space-y-1">          
-          {lora.lora_type && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Type:</span>
-              <span className="font-medium truncate max-w-[60%] text-right">{lora.lora_type}</span>
-            </div>
-          )}
-          
-          {lora.videos && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Videos:</span>
-              <span className="font-medium">{lora.videos.length}</span>
-            </div>
-          )}
-        </div>
+        {lora.lora_type && (
+          <div className="flex justify-between">
+            <span className="text-muted-foreground">Type:</span>
+            <span className="font-medium truncate max-w-[60%] text-right">{lora.lora_type}</span>
+          </div>
+        )}
         
         {lora.lora_link && (
           <Button 
