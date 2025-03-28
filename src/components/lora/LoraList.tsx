@@ -5,7 +5,8 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from '@/components/ui/input';
 import { FileVideo } from 'lucide-react';
 import LoraCard from './LoraCard';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
 import { checkIsAdmin } from '@/lib/auth';
@@ -18,7 +19,7 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   const [filterText, setFilterText] = useState('');
-  const [approvalFilter, setApprovalFilter] = useState('curated'); // Change default to 'curated'
+  const [approvalFilter, setApprovalFilter] = useState('curated'); // Default to 'curated'
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
   const adminCheckComplete = React.useRef(false);
@@ -72,6 +73,17 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
     return matchesText && matchesApproval;
   });
 
+  const getFilterButtonClass = (filter: string) => {
+    return cn(
+      "px-4 py-2 rounded-md text-sm font-medium",
+      approvalFilter === filter ? 
+        filter === 'curated' ? "bg-green-500 text-white" :
+        filter === 'listed' ? "bg-blue-500 text-white" :
+        "bg-red-500 text-white" 
+      : "bg-muted hover:bg-muted/80"
+    );
+  };
+
   return (
     <div className="w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
@@ -84,21 +96,34 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
             className="max-w-sm"
           />
           
-          <Select
-            value={approvalFilter}
-            onValueChange={setApprovalFilter}
-          >
-            <SelectTrigger className="w-[180px]">
-              <SelectValue placeholder="Filter by status" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="curated">Curated</SelectItem>
-              <SelectItem value="listed">Listed</SelectItem>
-              {isAdmin && (
-                <SelectItem value="rejected">Rejected</SelectItem>
-              )}
-            </SelectContent>
-          </Select>
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              onClick={() => setApprovalFilter('curated')}
+              className={getFilterButtonClass('curated')}
+              variant="ghost"
+            >
+              Curated
+            </Button>
+            <Button
+              type="button"
+              onClick={() => setApprovalFilter('listed')}
+              className={getFilterButtonClass('listed')}
+              variant="ghost"
+            >
+              Listed
+            </Button>
+            {isAdmin && (
+              <Button
+                type="button"
+                onClick={() => setApprovalFilter('rejected')}
+                className={getFilterButtonClass('rejected')}
+                variant="ghost"
+              >
+                Rejected
+              </Button>
+            )}
+          </div>
         </div>
       </div>
       
@@ -121,20 +146,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
           )}
         </div>
       </ScrollArea>
-      
-      {loras.length === 0 && (
-        <div className="mt-4 p-4 border rounded bg-muted/20">
-          <h3 className="font-medium">Debugging Info</h3>
-          <p className="text-sm text-muted-foreground">No LoRAs were found in the database. This could be because:</p>
-          <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
-            <li>No assets with type 'LoRA' have been created</li>
-            <li>The assets exist but don't have the correct type ('LoRA' or similar)</li>
-            <li>The assets exist but don't have videos associated with them</li>
-            <li>The database connection is not working properly</li>
-            <li>Row-level security policies might be preventing access to data</li>
-          </ul>
-        </div>
-      )}
     </div>
   );
 };

@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Check, X, Play } from 'lucide-react';
 import StorageVideoPlayer from '../StorageVideoPlayer';
 import { VideoEntry } from '@/lib/types';
+import { cn } from '@/lib/utils';
 
 interface VideoCardProps {
   video: VideoEntry;
@@ -21,6 +22,36 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
   onDeleteVideo
 }) => {
   const [isHovering, setIsHovering] = useState(false);
+  
+  // Function to get button styles based on approval status
+  const getButtonStyle = (status: string) => {
+    const currentStatus = video.admin_approved || 'Listed';
+    const isActive = currentStatus === status;
+    
+    return cn(
+      "text-xs h-6 w-6",
+      isActive && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
+      isActive && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
+      isActive && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
+      !isActive && "bg-black/40 hover:bg-black/60 text-white"
+    );
+  };
+  
+  const handleApprove = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onApproveVideo) onApproveVideo(video.id);
+  };
+  
+  const handleList = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    // We'll use the same onApproveVideo callback but set it to 'Listed' status in parent component
+    if (onApproveVideo) onApproveVideo(video.id);
+  };
+  
+  const handleReject = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onDeleteVideo) onDeleteVideo(video.id);
+  };
   
   return (
     <div 
@@ -53,8 +84,8 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
                   : 'opacity-0'
                 }`}
             >
-              <div className="bg-white/10 rounded-full p-2 backdrop-blur-sm">
-                <Play className="h-6 w-6 text-white/50 group-hover:text-white/70 transition-colors" />
+              <div className="bg-white/5 rounded-full p-2 backdrop-blur-sm">
+                <Play className="h-6 w-6 text-white/30 group-hover:text-white/50 transition-colors" />
               </div>
             </div>
           </div>
@@ -75,22 +106,29 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
           <Button 
             variant="secondary" 
             size="icon" 
-            className="h-6 w-6 bg-black/40 hover:bg-black/60 text-white"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onApproveVideo) onApproveVideo(video.id);
-            }}
+            className={getButtonStyle('Curated')}
+            onClick={handleApprove}
+            title="Curate video"
           >
             <Check className="h-3 w-3" />
           </Button>
+          
+          <Button 
+            variant="secondary" 
+            size="icon" 
+            className={getButtonStyle('Listed')}
+            onClick={handleList}
+            title="List video"
+          >
+            <span className="text-xs font-bold">L</span>
+          </Button>
+          
           <Button 
             variant="destructive" 
             size="icon" 
-            className="h-6 w-6 text-white"
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onDeleteVideo) onDeleteVideo(video.id);
-            }}
+            className={getButtonStyle('Rejected')}
+            onClick={handleReject}
+            title="Reject video"
           >
             <X className="h-3 w-3" />
           </Button>

@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink } from 'lucide-react';
+import { Trash, Check, X, ExternalLink, Download } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -84,6 +85,28 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
     }
   };
   
+  const handleList = async () => {
+    if (!isAdmin) return;
+    
+    setIsApproving(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ admin_approved: 'Listed' })
+        .eq('id', lora.id);
+      
+      if (error) throw error;
+      
+      toast.success('LoRA listed successfully');
+      lora.admin_approved = 'Listed';
+    } catch (error) {
+      console.error('Error listing LoRA:', error);
+      toast.error('Failed to list LoRA');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+  
   const handleReject = async () => {
     if (!isAdmin) return;
     
@@ -106,8 +129,16 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
     }
   };
   
-  const getApprovalStatus = () => {
-    return null;
+  const getButtonStyle = (status: string) => {
+    const isActive = lora.admin_approved === status;
+    
+    return cn(
+      "text-xs h-8 flex-1",
+      isActive && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
+      isActive && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
+      isActive && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
+      !isActive && "bg-transparent"
+    );
   };
   
   return (
@@ -135,12 +166,12 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         )}
       </div>
       
-      {lora.lora_link && (
-        <CardContent className="px-4 py-3 text-xs flex-grow">
+      <CardContent className="px-4 py-3 text-xs flex-grow flex flex-col gap-2">
+        {lora.lora_link && (
           <Button 
             variant="ghost" 
             size="sm" 
-            className="mt-2 w-full h-7 text-xs gap-1"
+            className="mt-1 w-full h-7 text-xs gap-1"
             onClick={(e) => {
               e.stopPropagation();
               window.open(lora.lora_link, '_blank');
@@ -149,11 +180,29 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             <ExternalLink className="h-3 w-3" />
             View Original
           </Button>
-        </CardContent>
-      )}
+        )}
+        
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="w-full h-7 text-xs gap-1"
+          onClick={(e) => {
+            e.stopPropagation();
+            if (lora.lora_link) {
+              window.open(lora.lora_link, '_blank');
+              toast.success('Opening LoRA download link');
+            } else {
+              toast.error('No download link available');
+            }
+          }}
+        >
+          <Download className="h-3 w-3" />
+          Download LoRA
+        </Button>
+      </CardContent>
       
       {isAdmin && (
-        <CardFooter className="p-3 border-t grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
+        <CardFooter className="p-3 border-t grid gap-2" onClick={(e) => e.stopPropagation()}>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button 
@@ -185,16 +234,13 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             </AlertDialogContent>
           </AlertDialog>
           
-          <div className="col-span-2 grid grid-cols-2 gap-2 mt-2">
+          <div className="col-span-1 grid grid-cols-3 gap-2 mt-1">
             <Button 
               variant="outline" 
               size="sm" 
               onClick={handleCurate}
-              disabled={isApproving || lora.admin_approved === 'Curated'}
-              className={cn(
-                "text-xs h-8 w-full",
-                lora.admin_approved === 'Curated' && "bg-green-500/10"
-              )}
+              disabled={isApproving}
+              className={getButtonStyle('Curated')}
             >
               <Check className="h-3 w-3 mr-1" /> 
               Curate
@@ -203,12 +249,19 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             <Button 
               variant="outline" 
               size="sm" 
+              onClick={handleList}
+              disabled={isApproving}
+              className={getButtonStyle('Listed')}
+            >
+              List
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={handleReject}
-              disabled={isRejecting || lora.admin_approved === 'Rejected'}
-              className={cn(
-                "text-xs h-8 w-full",
-                lora.admin_approved === 'Rejected' && "bg-red-500/10"
-              )}
+              disabled={isRejecting}
+              className={getButtonStyle('Rejected')}
             >
               <X className="h-3 w-3 mr-1" /> 
               Reject

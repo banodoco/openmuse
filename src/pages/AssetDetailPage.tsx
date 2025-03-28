@@ -405,23 +405,6 @@ const AssetDetailPage: React.FC = () => {
           <div className="ml-3">{getApprovalStatusBadge()}</div>
         </div>
         
-        {process.env.NODE_ENV !== 'production' && (
-          <div className="mb-4 p-2 bg-gray-100 text-xs rounded">
-            <details>
-              <summary className="cursor-pointer font-medium">Debug Info</summary>
-              <div className="mt-2">
-                <div>User: {user ? `${user.email} (${user.id})` : 'Not logged in'}</div>
-                <div>Auth checked: {authChecked ? 'Yes' : 'No'}</div>
-                <div>Is admin: {isAdmin ? 'Yes' : 'No'}</div>
-                <div>Asset ID: {id}</div>
-                <div>Videos count: {videos.length}</div>
-                <div>Show upload button: {showUploadButton ? 'Yes' : 'No'}</div>
-                <div>Asset name: {asset?.name || 'Not loaded'}</div>
-              </div>
-            </details>
-          </div>
-        )}
-        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="md:col-span-1">
             <CardHeader>
@@ -457,29 +440,29 @@ const AssetDetailPage: React.FC = () => {
                 <div className="text-sm font-medium text-muted-foreground mb-2">Admin Actions</div>
                 <div className="grid grid-cols-3 gap-2">
                   <Button 
-                    variant="default" 
+                    variant={asset?.admin_approved === 'Curated' ? "default" : "outline"}
                     className="flex-1 gap-1"
                     onClick={handleCurateAsset}
-                    disabled={isApproving || asset?.admin_approved === 'Curated'}
+                    disabled={isApproving}
                   >
                     <Check className="h-4 w-4" />
                     Curate
                   </Button>
                   
                   <Button 
-                    variant="outline" 
+                    variant={asset?.admin_approved === 'Listed' ? "default" : "outline"}
                     className="flex-1 gap-1"
                     onClick={handleListAsset}
-                    disabled={isApproving || asset?.admin_approved === 'Listed'}
+                    disabled={isApproving}
                   >
                     List
                   </Button>
                   
                   <Button 
-                    variant="destructive" 
+                    variant={asset?.admin_approved === 'Rejected' ? "destructive" : "outline"}
                     className="flex-1 gap-1"
                     onClick={handleRejectAsset}
-                    disabled={isApproving || asset?.admin_approved === 'Rejected'}
+                    disabled={isApproving}
                   >
                     <X className="h-4 w-4" />
                     Reject
