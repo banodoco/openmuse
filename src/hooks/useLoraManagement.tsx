@@ -114,6 +114,7 @@ export const useLoraManagement = () => {
         
         const admin_approved = asset.admin_approved || 'Listed';
         
+        // We're mapping database columns to our LoraAsset interface, making sure to not reference non-existent columns
         return {
           ...asset,
           primaryVideo,
@@ -134,7 +135,7 @@ export const useLoraManagement = () => {
         }
       }
     } catch (error) {
-      logger.error("Error loading LoRAs:", error);
+      logger.error("Loading LoRAs:", error);
       if (isMounted.current) {
         toast.error("Error loading LoRAs. Please try again.");
         setIsLoading(false);

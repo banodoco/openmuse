@@ -1,4 +1,3 @@
-
 import { VideoEntry } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseDatabase } from './SupabaseDatabase';
@@ -154,7 +153,6 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
             user_id: entry.user_id || this.currentUserId,
             primary_media_id: mediaData.id,
             admin_approved: 'Listed' // Default to Listed
-            // Removed: lora_type: entry.metadata.loraType
           })
           .select()
           .single();

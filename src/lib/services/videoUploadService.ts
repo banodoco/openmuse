@@ -1,4 +1,3 @@
-
 import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
@@ -268,7 +267,6 @@ class VideoUploadService {
           user_id: userId,
           primary_media_id: mediaId,
           admin_approved: 'Listed'
-          // Removed: lora_type: loraType
         })
         .select()
         .single();
