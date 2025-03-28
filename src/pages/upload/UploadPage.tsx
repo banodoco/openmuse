@@ -139,17 +139,18 @@ const UploadPage: React.FC = () => {
               <LoRADetailsForm 
                 loraDetails={loraDetails} 
                 updateLoRADetails={updateLoRADetails}
-                disabled={!user} // Disable the form fields if not signed in
+                disabled={!user} 
               />
             </div>
             
-            <h2 className="text-xl font-semibold">Videos made with it</h2>
-            
-            <MultipleVideoUploader 
-              videos={videos} 
-              setVideos={setVideos} 
-              disabled={!user} // Disable video uploads if not signed in
-            />
+            <div className="p-6 border rounded-lg bg-card space-y-4">
+              <h2 className="text-xl font-semibold">Videos made with it</h2>
+              <MultipleVideoUploader 
+                videos={videos} 
+                setVideos={setVideos} 
+                disabled={!user}
+              />
+            </div>
             
             <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
               {isSubmitting ? 'Submitting...' : 'Submit LoRA'}
