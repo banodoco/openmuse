@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef } from 'react';
-import { FileVideo } from 'lucide-react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
 import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
 import StandardVideoPreview from './video/StandardVideoPreview';
+import StorageVideoPlayer from './StorageVideoPlayer';
 
 interface VideoPreviewProps {
   file?: File;
@@ -76,13 +76,31 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           posterUrl={posterUrl}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
         />
-      ) : (
+      ) : file ? (
+        // For local file uploads, use standard preview with blob URLs
         <StandardVideoPreview 
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
         />
-      )}
+      ) : url?.startsWith('blob:') ? (
+        // For blob URLs, use standard preview
+        <StandardVideoPreview 
+          url={url}
+          posterUrl={posterUrl}
+          onError={handleVideoError}
+        />
+      ) : url ? (
+        // For storage URLs, use the StorageVideoPlayer in preview mode
+        <StorageVideoPlayer
+          videoLocation={url}
+          controls={true}
+          muted={true}
+          className="w-full h-full object-cover"
+          playOnHover={true}
+          previewMode={true}
+        />
+      ) : null}
 
       {error && <VideoPreviewError error={error} onRetry={handleRetry} />}
     </div>

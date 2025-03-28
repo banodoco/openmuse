@@ -5,11 +5,22 @@ import { supabase } from '@/integrations/supabase/client';
 export class VideoUrlService {
   private readonly logger = new Logger('VideoUrlService');
   
-  async getVideoUrl(videoLocation: string): Promise<string> {
+  async getVideoUrl(videoLocation: string, allowBlobUrls: boolean = false): Promise<string> {
     // For empty locations, return empty
     if (!videoLocation) {
       this.logger.error('Empty video location provided');
       return '';
+    }
+    
+    // For blob URLs, return them directly if allowBlobUrls is true (for preview purposes)
+    if (videoLocation.startsWith('blob:')) {
+      if (allowBlobUrls) {
+        this.logger.log(`Using blob URL for preview: ${videoLocation.substring(0, 30)}...`);
+        return videoLocation;
+      } else {
+        this.logger.warn(`Blob URL detected, ignoring as it's not permanent`);
+        return '';
+      }
     }
     
     // UUID Pattern for direct database lookups
@@ -23,12 +34,6 @@ export class VideoUrlService {
         this.logger.log(`Found permanent URL in database for UUID: ${videoLocation}`);
         return dbUrl;
       }
-    }
-    
-    // For blob URLs, ignore them as they're not permanent
-    if (videoLocation.startsWith('blob:')) {
-      this.logger.warn(`Blob URL detected, ignoring as it's not permanent`);
-      return '';
     }
     
     // For Supabase URLs, return directly
@@ -82,8 +87,8 @@ export class VideoUrlService {
       }
     }
     
-    // Default - return the original location only if it's not a blob URL
-    return videoLocation.startsWith('blob:') ? '' : videoLocation;
+    // Default - return the original location
+    return videoLocation;
   }
   
   // Look up URL from database

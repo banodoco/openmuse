@@ -14,6 +14,7 @@ interface StorageVideoPlayerProps {
   muted?: boolean;
   loop?: boolean;
   playOnHover?: boolean;
+  previewMode?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
@@ -23,7 +24,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   autoPlay = false,
   muted = true,
   loop = false,
-  playOnHover = false
+  playOnHover = false,
+  previewMode = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -43,7 +45,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           throw new Error('No video location provided');
         }
         
-        const url = await videoUrlService.getVideoUrl(videoLocation);
+        const url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
         
         if (!url) {
           throw new Error('Could not resolve video URL');
@@ -70,7 +72,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [videoLocation, retryCount]);
+  }, [videoLocation, retryCount, previewMode]);
 
   const handleError = (message: string) => {
     setError(message);

@@ -33,17 +33,30 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [currentUrl, setCurrentUrl] = useState<string | null>(url);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
   
+  // Special case for blob URLs - they're always considered valid for preview
+  const isBlobUrl = url?.startsWith('blob:') || false;
+  
   // Check URL validity on mount and when URL changes
   useEffect(() => {
-    // If there's no URL or it's clearly invalid, don't even try to show anything
-    if (!url || !isValidVideoUrl(url)) {
+    // If there's no URL, don't even try to show anything
+    if (!url) {
       setIsValidUrl(false);
       return;
     }
     
-    // For valid URLs, set flag to true
-    setIsValidUrl(true);
-  }, [url]);
+    // For blob URLs, always consider them valid for preview purposes
+    if (isBlobUrl) {
+      setIsValidUrl(true);
+      return;
+    }
+    
+    // For other URLs, check if they're valid video URLs
+    if (isValidVideoUrl(url)) {
+      setIsValidUrl(true);
+    } else {
+      setIsValidUrl(false);
+    }
+  }, [url, isBlobUrl]);
   
   // Update currentUrl whenever the url prop changes
   useEffect(() => {
