@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VideoEntry } from '@/lib/types';
@@ -117,8 +118,8 @@ const VideoPage: React.FC = () => {
   };
 
   const filteredRelatedVideos = validRelatedVideos.filter(video => {
-    if (assetFilter.approved && video.admin_approved === true) return true;
-    if (assetFilter.notApproved && (video.admin_approved === false || video.admin_approved === null)) return true;
+    if (assetFilter.approved && video.admin_approved === 'Curated') return true;
+    if (assetFilter.notApproved && (video.admin_approved === 'Rejected' || video.admin_approved === 'Listed' || video.admin_approved === null)) return true;
     return false;
   });
 
@@ -218,15 +219,15 @@ const VideoPage: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Approval Status</h3>
                   <div className="mt-1">
-                    {video.admin_approved === true ? (
+                    {video.admin_approved === 'Curated' ? (
                       <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                         <Check className="h-3 w-3" />
-                        Approved
+                        Curated
                       </Badge>
                     ) : (
                       <Badge variant="destructive" className="gap-1">
                         <X className="h-3 w-3" />
-                        Not Approved
+                        {video.admin_approved === 'Rejected' ? 'Rejected' : 'Listed'}
                       </Badge>
                     )}
                   </div>
@@ -304,7 +305,7 @@ const VideoPage: React.FC = () => {
                           setAssetFilter(prev => ({...prev, approved: checked === true}))
                         }
                       />
-                      <Label htmlFor="approved">Approved</Label>
+                      <Label htmlFor="approved">Curated</Label>
                     </div>
                     <div className="flex items-center space-x-2">
                       <Checkbox 
@@ -314,7 +315,7 @@ const VideoPage: React.FC = () => {
                           setAssetFilter(prev => ({...prev, notApproved: checked === true}))
                         }
                       />
-                      <Label htmlFor="not-approved">Not Approved</Label>
+                      <Label htmlFor="not-approved">Listed/Rejected</Label>
                     </div>
                   </div>
                 </PopoverContent>
@@ -340,15 +341,15 @@ const VideoPage: React.FC = () => {
                       <TableCell>{relatedVideo.metadata?.creatorName || relatedVideo.reviewer_name}</TableCell>
                       <TableCell>{formatDate(relatedVideo.created_at)}</TableCell>
                       <TableCell>
-                        {relatedVideo.admin_approved === true ? (
+                        {relatedVideo.admin_approved === 'Curated' ? (
                           <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                             <Check className="h-3 w-3" />
-                            Approved
+                            Curated
                           </Badge>
                         ) : (
                           <Badge variant="destructive" className="gap-1">
                             <X className="h-3 w-3" />
-                            Not Approved
+                            {relatedVideo.admin_approved === 'Rejected' ? 'Rejected' : 'Listed'}
                           </Badge>
                         )}
                       </TableCell>

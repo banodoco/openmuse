@@ -109,7 +109,9 @@ export const useVideoManagement = () => {
       const db = await databaseSwitcher.getDatabase();
       const updatedVideo = await db.setApprovalStatus(id, "Curated");
       if (updatedVideo) {
-        setVideos(prev => prev.map(video => video.id === id ? { ...video, admin_approved: "Curated" } : video));
+        setVideos(prev => prev.map(video => 
+          video.id === id ? { ...video, admin_approved: "Curated" } : video
+        ));
       }
       return updatedVideo;
     } catch (error) {
@@ -123,7 +125,9 @@ export const useVideoManagement = () => {
       const db = await databaseSwitcher.getDatabase();
       const updatedVideo = await db.setApprovalStatus(id, "Rejected");
       if (updatedVideo) {
-        setVideos(prev => prev.map(video => video.id === id ? { ...video, admin_approved: "Rejected" } : video));
+        setVideos(prev => prev.map(video => 
+          video.id === id ? { ...video, admin_approved: "Rejected" } : video
+        ));
       }
       return updatedVideo;
     } catch (error) {
