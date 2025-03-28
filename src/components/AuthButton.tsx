@@ -1,8 +1,8 @@
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, LogIn, User } from 'lucide-react';
+import { LogOut, LogIn, User, Settings } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -13,12 +13,37 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
+import { getCurrentUserProfile } from '@/lib/auth';
+import { UserProfile } from '@/lib/types';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 const logger = new Logger('AuthButton');
 
 const AuthButton: React.FC = () => {
   const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (user) {
+        setIsLoadingProfile(true);
+        try {
+          const profile = await getCurrentUserProfile();
+          setUserProfile(profile);
+        } catch (error) {
+          logger.error('Error fetching user profile:', error);
+        } finally {
+          setIsLoadingProfile(false);
+        }
+      } else {
+        setUserProfile(null);
+      }
+    };
+    
+    fetchUserProfile();
+  }, [user]);
   
   const handleSignIn = () => {
     navigate('/auth');
@@ -31,6 +56,26 @@ const AuthButton: React.FC = () => {
     } catch (error) {
       logger.error('Error signing out:', error);
     }
+  };
+
+  const handleSettings = () => {
+    navigate('/profile');
+  };
+  
+  const getDisplayName = () => {
+    if (userProfile) {
+      return userProfile.display_name || userProfile.username;
+    }
+    return user?.user_metadata.preferred_username || user?.email || 'User';
+  };
+  
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(part => part[0])
+      .join('')
+      .toUpperCase()
+      .substring(0, 2);
   };
   
   // Show loading state while checking auth
@@ -55,20 +100,36 @@ const AuthButton: React.FC = () => {
     );
   }
   
+  const displayName = getDisplayName();
+  
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <Button 
           variant="outline" 
-          className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream"
+          className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream pl-2 pr-3"
         >
-          <User className="h-4 w-4" />
-          {user.user_metadata.preferred_username || user.email || 'User'}
+          {userProfile?.avatar_url ? (
+            <Avatar className="h-6 w-6 mr-1">
+              <AvatarImage src={userProfile.avatar_url} alt={displayName} />
+              <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
+            </Avatar>
+          ) : (
+            <User className="h-4 w-4" />
+          )}
+          {isLoadingProfile ? '...' : displayName}
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48 border border-olive/20">
         <DropdownMenuLabel className="font-heading">My Account</DropdownMenuLabel>
         <DropdownMenuSeparator className="bg-olive/10" />
+        <DropdownMenuItem 
+          onClick={handleSettings}
+          className="flex items-center cursor-pointer"
+        >
+          <Settings className="h-4 w-4 mr-2" />
+          Profile Settings
+        </DropdownMenuItem>
         <DropdownMenuItem 
           onClick={handleSignOut} 
           className="text-destructive flex items-center cursor-pointer font-medium hover:bg-destructive/10"

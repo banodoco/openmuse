@@ -16,6 +16,7 @@ import { videoDB } from '@/lib/database';
 import { getCurrentUser } from '@/lib/auth';
 import AssetDetailPage from '@/pages/AssetDetailPage';
 import { AuthProvider } from '@/hooks/useAuth';
+import ProfilePage from '@/pages/ProfilePage';
 
 function App() {
   useEffect(() => {
@@ -61,6 +62,7 @@ function App() {
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/auth" element={<Auth />} />
           <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/profile" element={<ProfilePage />} />
           <Route path="*" element={<NotFound />} />
         </Routes>
       </AuthProvider>

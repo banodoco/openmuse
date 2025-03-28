@@ -43,6 +43,7 @@ export interface VideoFile {
 export interface UserProfile {
   id: string;
   username: string;
+  display_name?: string;
   avatar_url?: string;
   video_upload_consent?: boolean;
 }
