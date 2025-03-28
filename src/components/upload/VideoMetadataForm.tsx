@@ -57,58 +57,60 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
         />
       </div>
       
-      <div>
-        <Label className="block mb-2">Classification</Label>
-        <RadioGroup 
-          value={metadata.classification}
-          onValueChange={(value) => updateMetadata(videoId, 'classification', value)}
-          className="flex flex-col space-y-1"
-          disabled={disabled}
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
-            <Label htmlFor={`classification-gen-${videoId}`}>Generated</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="art" id={`classification-art-${videoId}`} />
-            <Label htmlFor={`classification-art-${videoId}`}>Artwork</Label>
-          </div>
-        </RadioGroup>
-      </div>
-      
-      <div>
-        <Label className="block mb-2">Who made this?</Label>
-        <RadioGroup 
-          value={metadata.creator}
-          onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
-          className="flex flex-col space-y-1"
-          disabled={disabled}
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="self" id={`creator-self-${videoId}`} />
-            <Label htmlFor={`creator-self-${videoId}`}>You</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="someone_else" id={`creator-someone-else-${videoId}`} />
-            <Label htmlFor={`creator-someone-else-${videoId}`}>Someone else</Label>
-          </div>
-        </RadioGroup>
-      </div>
-      
-      {metadata.creator === 'someone_else' && (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
-          <Label htmlFor={`creator-name-${videoId}`}>What's their username?</Label>
-          <Input
-            type="text"
-            id={`creator-name-${videoId}`}
-            placeholder="Enter creator's username"
-            value={metadata.creatorName}
-            onChange={(e) => updateMetadata(videoId, 'creatorName', e.target.value)}
-            required
+          <Label className="block mb-2">Classification</Label>
+          <RadioGroup 
+            value={metadata.classification}
+            onValueChange={(value) => updateMetadata(videoId, 'classification', value)}
+            className="flex flex-col space-y-1"
             disabled={disabled}
-          />
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
+              <Label htmlFor={`classification-gen-${videoId}`}>Generated</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="art" id={`classification-art-${videoId}`} />
+              <Label htmlFor={`classification-art-${videoId}`}>Artwork</Label>
+            </div>
+          </RadioGroup>
         </div>
-      )}
+        
+        <div>
+          <Label className="block mb-2">Who made this?</Label>
+          <RadioGroup 
+            value={metadata.creator}
+            onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
+            className="flex flex-col space-y-1"
+            disabled={disabled}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="self" id={`creator-self-${videoId}`} />
+              <Label htmlFor={`creator-self-${videoId}`}>You</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="someone_else" id={`creator-someone-else-${videoId}`} />
+              <Label htmlFor={`creator-someone-else-${videoId}`}>Someone else</Label>
+            </div>
+          </RadioGroup>
+        </div>
+        
+        {metadata.creator === 'someone_else' && (
+          <div>
+            <Label htmlFor={`creator-name-${videoId}`}>What's their username?</Label>
+            <Input
+              type="text"
+              id={`creator-name-${videoId}`}
+              placeholder="Enter creator's username"
+              value={metadata.creatorName}
+              onChange={(e) => updateMetadata(videoId, 'creatorName', e.target.value)}
+              required
+              disabled={disabled}
+            />
+          </div>
+        )}
+      </div>
       
       {canSetPrimary && (
         <div className="flex items-center space-x-2">
@@ -126,4 +128,3 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
 };
 
 export default VideoMetadataForm;
-
