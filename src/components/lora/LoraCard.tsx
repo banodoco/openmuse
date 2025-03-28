@@ -158,26 +158,28 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         </div>
       </div>
       
-      <CardContent className="px-4 py-3 text-xs flex-grow">
-        {lora.description && (
-          <p className="text-muted-foreground line-clamp-2">{lora.description}</p>
-        )}
-        
-        {lora.lora_link && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="mt-2 w-full h-7 text-xs gap-1"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(lora.lora_link, '_blank');
-            }}
-          >
-            <ExternalLink className="h-3 w-3" />
-            View Original
-          </Button>
-        )}
-      </CardContent>
+      {(lora.description || lora.lora_link) && (
+        <CardContent className="px-4 py-3 text-xs flex-grow">
+          {lora.description && (
+            <p className="text-muted-foreground line-clamp-2">{lora.description}</p>
+          )}
+          
+          {lora.lora_link && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="mt-2 w-full h-7 text-xs gap-1"
+              onClick={(e) => {
+                e.stopPropagation();
+                window.open(lora.lora_link, '_blank');
+              }}
+            >
+              <ExternalLink className="h-3 w-3" />
+              View Original
+            </Button>
+          )}
+        </CardContent>
+      )}
       
       {isAdmin && (
         <CardFooter className="p-3 border-t grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
