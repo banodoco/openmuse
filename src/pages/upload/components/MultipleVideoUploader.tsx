@@ -231,17 +231,17 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
               )}
             </div>
             
-            {!video.file && !video.url ? (
-              <div className="w-full flex justify-center">
-                <VideoDropzoneComponent 
-                  id={video.id} 
-                  file={video.file} 
-                  url={video.url} 
-                  onDrop={handleVideoFileDrop(video.id)}
-                  onLinkAdded={handleVideoLinkAdded(video.id)}
-                />
-              </div>
-            ) : (
+            <div className="w-full flex justify-center">
+              <VideoDropzoneComponent 
+                id={video.id} 
+                file={video.file} 
+                url={video.url} 
+                onDrop={handleVideoFileDrop(video.id)}
+                onLinkAdded={handleVideoLinkAdded(video.id)}
+              />
+            </div>
+            
+            {video.file || video.url ? (
               <div className="space-y-6">
                 {video.file ? (
                   <div className="relative">
@@ -290,21 +290,9 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                   />
                 </div>
               </div>
-            )}
+            ) : null}
           </div>
         ))}
-      </div>
-      
-      <div className="flex justify-center">
-        <Button 
-          type="button" 
-          variant="outline" 
-          onClick={handleAddVideo}
-          className="mx-auto"
-        >
-          <PlusCircle className="h-4 w-4 mr-2" />
-          Add Another Video
-        </Button>
       </div>
     </>
   );
