@@ -58,13 +58,23 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
     navigate(`/assets/loras/${lora.id}`);
   };
   
+  const handleMouseEnter = () => {
+    logger.log('Mouse entered LoraCard');
+    setIsHovering(true);
+  };
+  
+  const handleMouseLeave = () => {
+    logger.log('Mouse left LoraCard');
+    setIsHovering(false);
+  };
+  
   return (
     <Card className="overflow-hidden h-full flex flex-col">
       <div 
         className="aspect-video relative cursor-pointer group" 
         onClick={handleNavigate}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
       >
         {isLoadingVideo ? (
           <div className="w-full h-full flex items-center justify-center bg-muted">

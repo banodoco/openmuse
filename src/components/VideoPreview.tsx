@@ -112,9 +112,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={isHovering}
+          playOnHover={true}  // Always enable playOnHover for blob URLs
           previewMode={true}
           showPlayButtonOnHover={false}
+          autoPlay={isHovering} // Use isHovering to control autoPlay
         />
       ) : url ? (
         // For storage URLs, use the StorageVideoPlayer
@@ -123,9 +124,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={isHovering}
+          playOnHover={true}  // Always enable playOnHover
           previewMode={false}
           showPlayButtonOnHover={false}
+          autoPlay={isHovering} // Use isHovering to control autoPlay
         />
       ) : null}
 
