@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -133,7 +134,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       </div>
       
       <ScrollArea className="h-[calc(100vh-220px)]">
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filteredLoras.length > 0 ? (
             filteredLoras.map((lora) => (
               <LoraCard key={lora.id} lora={lora} />
@@ -143,7 +144,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
               <FileVideo className="h-12 w-12 mx-auto text-muted-foreground" />
               <h3 className="mt-2 text-lg font-medium">No LoRAs found</h3>
               <p className="text-muted-foreground">
-                {filterText || approvalFilter !== 'all' 
+                {filterText || approvalFilter !== 'curated' 
                   ? "Try different filter settings" 
                   : "Upload some LoRAs to get started"}
               </p>
@@ -182,3 +183,4 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
 };
 
 export default LoraList;
+
