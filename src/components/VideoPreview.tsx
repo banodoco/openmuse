@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -73,14 +72,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => setIsHovering(true)}
+      onMouseLeave={() => setIsHovering(false)}
     >
       <div className={`absolute inset-0 bg-black transition-opacity duration-300 z-10 pointer-events-none ${isHovering ? 'opacity-0' : 'opacity-40'}`}></div>
       
       {title && (
         <div className={`absolute bottom-0 left-0 right-0 z-20 p-3 transition-opacity duration-300 pointer-events-none ${isHovering ? 'opacity-0' : 'opacity-100'}`}>
-          <h3 className="text-white/90 font-semibold text-sm md:text-base truncate shadow-text bg-black/30 px-2 py-1 rounded-sm backdrop-blur-sm">
+          <h3 className="text-white font-semibold text-sm md:text-base truncate shadow-text bg-black/30 px-2 py-1 rounded-sm backdrop-blur-sm">
             {title}
           </h3>
         </div>
