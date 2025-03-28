@@ -46,7 +46,7 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
           onClick={() => setVideoFilter('curated')}
           className={`
             ${videoFilter === 'curated' 
-              ? 'bg-[#F2FCE2] text-forest-dark hover:bg-[#E6F5D5]' 
+              ? 'bg-[#FEF7CD] text-forest-dark hover:bg-[#FEF7CD]' 
               : 'bg-muted hover:bg-muted/80'
             }
           `}
@@ -59,7 +59,7 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
           onClick={() => setVideoFilter('listed')}
           className={`
             ${videoFilter === 'listed' 
-              ? 'bg-[#D3E4FD] text-blue-800 hover:bg-[#C0D6F5]' 
+              ? 'bg-[#FEF7CD] text-forest-dark hover:bg-[#FEF7CD]' 
               : 'bg-muted hover:bg-muted/80'
             }
           `}
@@ -73,7 +73,7 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
             onClick={() => setVideoFilter('rejected')}
             className={`
               ${videoFilter === 'rejected' 
-                ? 'bg-[#FFDEE2] text-red-800 hover:bg-[#FFC6CC]' 
+                ? 'bg-[#FEF7CD] text-forest-dark hover:bg-[#FEF7CD]' 
                 : 'bg-muted hover:bg-muted/80'
               }
             `}
