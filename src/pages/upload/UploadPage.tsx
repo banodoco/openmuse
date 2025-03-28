@@ -1,6 +1,5 @@
-
 import React, { useState } from 'react';
-import Navigation from '@/components/Navigation';
+import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -164,6 +163,8 @@ const UploadPage: React.FC = () => {
             )}
           </form>
         </main>
+        
+        <Footer />
       </div>
     </RequireAuth>
   );
