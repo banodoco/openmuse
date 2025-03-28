@@ -89,8 +89,8 @@ export class VideoUrlService {
     }
   }
   
-  // Helper to look up URL from database
-  private async lookupUrlFromDatabase(videoId: string): Promise<string> {
+  // Helper to look up URL from database - Exposed publicly now
+  async lookupUrlFromDatabase(videoId: string): Promise<string> {
     try {
       this.logger.log('Looking up media URL from database for ID:', videoId);
       // First try the media table

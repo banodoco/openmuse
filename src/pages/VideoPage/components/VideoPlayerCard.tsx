@@ -1,14 +1,16 @@
 
 import React from 'react';
-import { VideoEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, FileVideo, RefreshCw } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { VideoEntry } from '@/lib/types';
 import VideoPlayer from '@/components/video/VideoPlayer';
+import StorageVideoPlayer from '@/components/StorageVideoPlayer';
 
 interface VideoPlayerCardProps {
-  video: VideoEntry;
+  video: VideoEntry | null;
   videoUrl: string | null;
   onRefresh: () => void;
   isRefreshing: boolean;
@@ -20,58 +22,91 @@ const VideoPlayerCard: React.FC<VideoPlayerCardProps> = ({
   onRefresh,
   isRefreshing
 }) => {
-  const hasVideoUrl = Boolean(videoUrl);
+  const [videoError, setVideoError] = useState<string | null>(null);
   
-  const handleRefresh = (e: React.MouseEvent) => {
-    e.preventDefault();
-    onRefresh();
+  const handleVideoError = (error: string) => {
+    console.error('Video player error:', error);
+    setVideoError(error);
   };
+  
+  const handleVideoLoaded = () => {
+    setVideoError(null);
+  };
+  
+  const isTemporaryUrl = videoUrl?.startsWith('blob:');
+  const isPermanentUrl = videoUrl?.startsWith('http') && !isTemporaryUrl;
   
   return (
     <Card>
-      <CardHeader>
-        <CardTitle>{video.metadata?.title || video.reviewer_name || 'Untitled Video'}</CardTitle>
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+        <CardTitle>{video?.metadata?.title || 'Video'}</CardTitle>
+        <Button
+          size="sm"
+          variant="outline"
+          className="gap-1"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+          {isRefreshing ? "Refreshing..." : "Refresh URL"}
+        </Button>
       </CardHeader>
       <CardContent>
-        {!hasVideoUrl && (
+        {videoError && (
           <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Video preview unavailable</AlertTitle>
-            <AlertDescription className="flex flex-col gap-2">
-              <span>The temporary URL has expired</span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="w-28 gap-2"
-                onClick={handleRefresh}
-                disabled={isRefreshing}
-              >
-                {isRefreshing ? 'Refreshing...' : (
-                  <>
-                    <RefreshCw className="h-3.5 w-3.5" />
-                    Refresh
-                  </>
-                )}
-              </Button>
+            <AlertTitle>Video Error</AlertTitle>
+            <AlertDescription>
+              {videoError}
+              {isTemporaryUrl && (
+                <div className="mt-2">
+                  <p className="text-sm">This video is using a temporary URL which may have expired.</p>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-2"
+                    onClick={onRefresh}
+                    disabled={isRefreshing}
+                  >
+                    <RefreshCw className={cn("h-3 w-3 mr-1", isRefreshing && "animate-spin")} />
+                    {isRefreshing ? "Refreshing..." : "Refresh URL"}
+                  </Button>
+                </div>
+              )}
             </AlertDescription>
           </Alert>
         )}
         
         <div className="aspect-video w-full bg-muted rounded-md overflow-hidden">
-          {hasVideoUrl ? (
+          {videoUrl ? (
             <VideoPlayer 
-              src={videoUrl!} 
+              src={videoUrl} 
               controls
+              onLoadedData={handleVideoLoaded}
+              onError={handleVideoError}
               muted={false}
-              className="w-full h-full object-contain"
             />
+          ) : video?.id ? (
+            // If we have a video ID but no URL, let StorageVideoPlayer try to resolve from database
+            <StorageVideoPlayer videoLocation={video.id} controls />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center">
               <FileVideo className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-sm text-muted-foreground">Video unavailable</p>
+              <p className="text-xs text-muted-foreground mt-2">The video source is invalid or has expired</p>
             </div>
           )}
         </div>
+        
+        {isTemporaryUrl && !videoError && (
+          <Alert variant="warning" className="mt-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Temporary URL</AlertTitle>
+            <AlertDescription>
+              This video is using a temporary URL which may expire. If the video stops working, click the refresh button.
+            </AlertDescription>
+          </Alert>
+        )}
       </CardContent>
     </Card>
   );

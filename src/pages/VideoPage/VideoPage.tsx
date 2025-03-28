@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Card } from '@/components/ui/card';
@@ -48,11 +47,28 @@ const VideoPage: React.FC = () => {
         
         setVideo(videoData);
         
-        // Get fresh URL for the video
+        // Check if this is a blob URL that needs to be replaced with a permanent URL
         if (videoData.video_location) {
+          // Always attempt to get a fresh URL from the database first instead of using blob URLs
           try {
-            const freshUrl = await videoUrlService.forceRefreshUrl(videoData.video_location);
-            setVideoUrl(freshUrl);
+            console.log('Attempting to get permanent URL from database first');
+            let permanentUrl = null;
+            
+            // If this appears to be a blob URL, always try to resolve it to a permanent URL
+            if (videoData.video_location.startsWith('blob:')) {
+              console.log('Detected blob URL, attempting to get permanent URL from database');
+              permanentUrl = await videoUrlService.lookupUrlFromDatabase(videoData.id);
+            }
+            
+            // If we found a permanent URL, use it
+            if (permanentUrl) {
+              console.log('Found permanent URL:', permanentUrl.substring(0, 30) + '...');
+              setVideoUrl(permanentUrl);
+            } else {
+              // If no permanent URL is found, try forceRefreshUrl as a fallback
+              const freshUrl = await videoUrlService.forceRefreshUrl(videoData.video_location);
+              setVideoUrl(freshUrl);
+            }
           } catch (urlError) {
             console.error('Failed to refresh video URL:', urlError);
             
@@ -104,9 +120,28 @@ const VideoPage: React.FC = () => {
     
     setIsRefreshingUrl(true);
     try {
-      const freshUrl = await videoUrlService.forceRefreshUrl(video.video_location);
-      setVideoUrl(freshUrl);
-      toast.success("Video URL refreshed");
+      // Try to get a permanent URL directly from the database first
+      console.log('Refreshing URL: Attempting to get permanent URL from database first');
+      let permanentUrl = null;
+      
+      // First check if we can get a permanent URL directly from the database
+      try {
+        permanentUrl = await videoUrlService.lookupUrlFromDatabase(video.id);
+      } catch (err) {
+        console.log('Could not get permanent URL directly:', err);
+      }
+      
+      // If we got a permanent URL, use it
+      if (permanentUrl) {
+        console.log('Found permanent URL during refresh:', permanentUrl.substring(0, 30) + '...');
+        setVideoUrl(permanentUrl);
+        toast.success("Retrieved permanent video URL");
+      } else {
+        // Otherwise fall back to forceRefreshUrl
+        const freshUrl = await videoUrlService.forceRefreshUrl(video.video_location);
+        setVideoUrl(freshUrl);
+        toast.success("Video URL refreshed");
+      }
     } catch (error) {
       console.error('Error refreshing URL:', error);
       toast.error("Could not refresh video URL");
