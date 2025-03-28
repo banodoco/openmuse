@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, debugAssetMedia } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Check, X, Upload } from 'lucide-react';
@@ -81,7 +82,7 @@ const AssetDetailPage: React.FC = () => {
 
       console.log('AssetDetailPage - Asset data retrieved:', assetData);
 
-      const assetMediaRelationships = await supabase.debugAssetMedia(id);
+      const assetMediaRelationships = await debugAssetMedia(id);
       console.log('AssetDetailPage - Asset media relationships:', assetMediaRelationships);
 
       let assetVideos: any[] = [];
