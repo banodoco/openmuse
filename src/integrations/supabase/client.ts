@@ -130,26 +130,26 @@ export const testRLSPermissions = async (): Promise<{
   }
 };
 
-// Modify the window-specific initialization to use async/await properly
+// Initialize client-side checks
 if (typeof window !== 'undefined') {
   // Delay the initial checks to ensure auth is initialized first
   setTimeout(() => {
-    // Using a proper async function expression with proper error handling
-    const runChecks = async () => {
+    const runInitialChecks = async () => {
       try {
         await checkVideoBucket();
-      } catch (err) {
-        logger.error('Error checking video bucket:', err);
+        logger.log('Video bucket check complete');
+      } catch (error) {
+        logger.error('Error checking video bucket:', error);
       }
       
       try {
         await testRLSPermissions();
-      } catch (err) {
-        logger.error('Error testing RLS permissions:', err);
+        logger.log('RLS permissions test complete');
+      } catch (error) {
+        logger.error('Error testing RLS permissions:', error);
       }
     };
     
-    // Execute the async function without trying to catch errors here
-    runChecks();
+    runInitialChecks();
   }, 1000);
 }

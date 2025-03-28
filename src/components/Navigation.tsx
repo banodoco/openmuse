@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils';
 import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
+import openMuseLogo from '/lovable-uploads/9183d7a1-4d03-4d5f-9d83-92bd33df0d76.png';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -35,8 +36,12 @@ const Navigation: React.FC = () => {
   return (
     <nav className="w-full max-w-screen-xl mx-auto px-4 py-4 flex justify-between items-center">
       <div className="flex items-center">
-        <Link to="/" className="text-2xl font-medium tracking-tight transition-opacity hover:opacity-80 mr-8">
-          VideoResponse
+        <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
+          <img 
+            src={openMuseLogo} 
+            alt="OpenMuse Logo" 
+            className="h-12 w-auto" 
+          />
         </Link>
         
         {!isAuthPage && (
