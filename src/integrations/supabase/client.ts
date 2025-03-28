@@ -132,7 +132,17 @@ export const testRLSPermissions = async () => {
 if (typeof window !== 'undefined') {
   // Delay the initial checks to ensure auth is initialized first
   setTimeout(() => {
-    checkVideoBucket().catch(err => logger.error('Error checking video bucket:', err));
-    testRLSPermissions().catch(err => logger.error('Error testing RLS permissions:', err));
+    // Use promise handling with try/catch instead of .catch()
+    try {
+      checkVideoBucket();
+    } catch (err) {
+      logger.error('Error checking video bucket:', err);
+    }
+    
+    try {
+      testRLSPermissions();
+    } catch (err) {
+      logger.error('Error testing RLS permissions:', err);
+    }
   }, 1000);
 }
