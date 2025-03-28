@@ -119,11 +119,13 @@ const Admin: React.FC = () => {
   const handleApproveToggle = async (entry: VideoEntry) => {
     try {
       const db = await databaseSwitcher.getDatabase();
-      const updatedEntry = await db.setApprovalStatus(entry.id, !entry.admin_approved);
+      // Update to pass a string value instead of a boolean
+      const newStatus = entry.admin_approved === 'Curated' ? 'Listed' : 'Curated';
+      const updatedEntry = await db.setApprovalStatus(entry.id, newStatus);
       
       if (updatedEntry) {
         setEntries(entries.map(e => e.id === entry.id ? updatedEntry : e));
-        toast.success(`Video ${updatedEntry.admin_approved ? 'approved' : 'unapproved'} successfully`);
+        toast.success(`Video ${updatedEntry.admin_approved === 'Curated' ? 'approved' : 'unapproved'} successfully`);
       }
     } catch (error: any) {
       console.error('Error toggling approval:', error);
