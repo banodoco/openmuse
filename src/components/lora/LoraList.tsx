@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,12 +15,9 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [filterText, setFilterText] = useState('');
-  const [approvalFilter, setApprovalFilter] = useState('all');
+  const [approvalFilter, setApprovalFilter] = useState('approved');
   const [refreshing, setRefreshing] = useState(false);
   
-  console.log("LoraList: Received loras:", loras);
-  console.log("LoraList: Types of loras received:", loras.map(lora => ({ id: lora.id, name: lora.name, type: lora.type })));
-
   const handleRefresh = async () => {
     if (onRefresh) {
       setRefreshing(true);
@@ -61,16 +57,8 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       }
     }
     
-    const result = matchesText && matchesApproval;
-    if (!result) {
-      console.log(`LoraList: Filtered out lora ${lora.id} (${lora.name}):`, 
-        { matchesText, matchesApproval, searchTerm, approvalFilter });
-    }
-    
-    return result;
+    return matchesText && matchesApproval;
   });
-  
-  console.log("LoraList: Filtered loras:", filteredLoras.length);
 
   return (
     <div className="w-full">
@@ -125,7 +113,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
               <FileVideo className="h-12 w-12 mx-auto text-muted-foreground" />
               <h3 className="mt-2 text-lg font-medium">No LoRAs found</h3>
               <p className="text-muted-foreground">
-                {filterText || approvalFilter !== 'all' 
+                {filterText || approvalFilter !== 'approved' 
                   ? "Try different filter settings" 
                   : "Upload some LoRAs to get started"}
               </p>
