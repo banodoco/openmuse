@@ -150,6 +150,7 @@ if (typeof window !== 'undefined') {
       }
     };
     
+    // Execute the async function
     runInitialChecks();
   }, 1000);
 }
