@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -147,13 +148,13 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
           isHovering ? "opacity-0" : "opacity-100",
           "transition-opacity duration-200"
         )}>
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between bg-white/20 backdrop-blur-sm rounded px-2 py-1">
             <h3 className="text-base font-medium truncate mr-2">{lora.name}</h3>
             {getApprovalStatus()}
           </div>
           
           {lora.creator && (
-            <p className="text-xs text-white/80 mt-1">{lora.creator}</p>
+            <p className="text-xs text-white/80 mt-1 bg-white/10 backdrop-blur-sm inline-block px-2 py-0.5 rounded">{lora.creator}</p>
           )}
         </div>
       </div>
