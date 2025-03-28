@@ -23,16 +23,21 @@ const Index = () => {
     refetchLoras
   } = useLoraManagement();
   
-  // Filter to show only curated LoRAs (those with admin_approved=true) on the homepage
-  const curatedLoras = React.useMemo(() => {
-    // Only include LoRAs with explicit admin_approved=true
-    return loras.filter(lora => {
-      const loraApproved = lora.admin_approved === true;
-      const primaryVideoApproved = lora.primaryVideo?.admin_approved === true;
-      
-      // Display if either the LoRA itself or its primary video is approved
-      return loraApproved || primaryVideoApproved;
+  // Filter to show all LoRAs initially (both approved and unapproved) to debug the issue
+  const displayLoras = React.useMemo(() => {
+    // Show all LoRAs for now to debug
+    console.log('Total LoRAs available:', loras.length);
+    
+    if (loras.length === 0) {
+      return [];
+    }
+    
+    // Log some debugging info
+    loras.forEach(lora => {
+      console.log(`LoRA ${lora.id} (${lora.name}): LoRA approval=${lora.admin_approved}, Video approval=${lora.primaryVideo?.admin_approved}`);
     });
+    
+    return loras;
   }, [loras]);
   
   // Add a timeout to prevent infinite loading
@@ -64,7 +69,7 @@ const Index = () => {
       <AuthProvider onAuthStateChange={handleAuthStateChange}>
         <main className="flex-1 container mx-auto p-4">
           <PageHeader 
-            title="Curated LoRAs for open video models"
+            title="LoRAs for open video models"
             description="Discover and contribute to a collection of fine-tuned LoRAs for generating high-quality videos with open source models"
             buttonText="Propose New LoRA"
             onButtonClick={handleNavigateToUpload}
@@ -73,7 +78,7 @@ const Index = () => {
           />
           
           <LoraManager 
-            loras={curatedLoras} // Use LoRAs filtered by admin_approved=true on homepage
+            loras={displayLoras} // Show all LoRAs for debugging
             isLoading={isLoading}
             refetchLoras={refetchLoras}
           />
