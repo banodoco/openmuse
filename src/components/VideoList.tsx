@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -38,7 +37,6 @@ import {
 } from "@/components/ui/card"
 import VideoPreview from './VideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
-import { AspectRatio } from './ui/aspect-ratio';
 
 interface VideoListProps {
   videos: VideoEntry[];
@@ -61,7 +59,6 @@ const VideoList: React.FC<VideoListProps> = ({
   const [selectAll, setSelectAll] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
-  const [hoveredCardId, setHoveredCardId] = useState<string | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -278,29 +275,22 @@ const VideoList: React.FC<VideoListProps> = ({
       <ScrollArea className="h-[calc(100vh-220px)]">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
           {filteredVideos.map((video) => (
-            <Card 
-              key={video.id} 
-              className={cn(
-                "overflow-hidden transition-all duration-300 h-full",
-                selectedVideos.includes(video.id) && "ring-2 ring-primary",
-                hoveredCardId === video.id && "transform scale-105 shadow-lg z-10"
-              )}
-              onMouseEnter={() => setHoveredCardId(video.id)}
-              onMouseLeave={() => setHoveredCardId(null)}
-            >
-              <AspectRatio ratio={16/9} className="w-full overflow-hidden">
+            <Card key={video.id} className={cn(
+              "overflow-hidden transition-all h-full",
+              selectedVideos.includes(video.id) && "ring-2 ring-primary"
+            )}>
+              <div className="aspect-video w-full overflow-hidden">
                 {videoUrls[video.id] ? (
                   <VideoPreview 
                     url={videoUrls[video.id]} 
                     className="w-full h-full object-cover"
-                    isHovering={hoveredCardId === video.id}
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center bg-muted">
                     <FileVideo className="h-8 w-8 text-muted-foreground" />
                   </div>
                 )}
-              </AspectRatio>
+              </div>
               
               <CardHeader className="pb-2 pt-3 px-4">
                 <div className="flex items-center justify-between">
