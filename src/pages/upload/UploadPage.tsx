@@ -183,7 +183,7 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
   
   try {
     // Create asset with explicitly set null for user_id if not authenticated
-    // Remove lora_link field as it's not in the database schema
+    // Remove lora_type and lora_link fields as they're not in the database schema
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
@@ -191,8 +191,8 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
         name: loraDetails.loraName,
         description: loraDetails.loraDescription,
         creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
-        user_id: user?.id || null,
-        lora_type: loraDetails.loraType
+        user_id: user?.id || null
+        // Removed: lora_type: loraDetails.loraType
         // Removed: lora_link: loraDetails.loraLink
       })
       .select()

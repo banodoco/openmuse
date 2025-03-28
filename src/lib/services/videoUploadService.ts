@@ -1,3 +1,4 @@
+
 import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
@@ -82,8 +83,7 @@ class VideoUploadService {
           videoFile.metadata.loraName,
           videoFile.metadata.loraDescription || '',
           videoFile.metadata.creatorName || reviewerName,
-          userId || this.currentUserId,
-          videoFile.metadata.loraType
+          userId || this.currentUserId
         );
       }
 
@@ -253,8 +253,7 @@ class VideoUploadService {
     loraName: string,
     loraDescription: string = '',
     creatorName: string,
-    userId: string | null,
-    loraType?: string
+    userId: string | null
   ): Promise<string> {
     logger.log(`Creating new asset for LoRA: ${loraName}`);
     
@@ -268,8 +267,8 @@ class VideoUploadService {
           creator: creatorName,
           user_id: userId,
           primary_media_id: mediaId,
-          admin_approved: 'Listed',
-          lora_type: loraType
+          admin_approved: 'Listed'
+          // Removed: lora_type: loraType
         })
         .select()
         .single();
