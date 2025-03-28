@@ -84,7 +84,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           file,
           url: URL.createObjectURL(file),
           metadata: {
-            title: file.name.split('.')[0], // Use filename as default title
+            title: '', // No default title
             description: '',
             classification: 'art' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',
@@ -121,7 +121,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         file,
         url: URL.createObjectURL(file),
         metadata: {
-          title: file.name.split('.')[0], // Use filename as default title
+          title: '', // No default title
           description: '',
           classification: 'art' as 'art' | 'gen',
           creator: 'self' as 'self' | 'someone_else',
@@ -162,7 +162,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           file: null,
           url: urlInput,
           metadata: {
-            title: 'Video from URL',
+            title: '', // No default title - changed from 'Video from URL'
             description: '',
             classification: 'art' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',

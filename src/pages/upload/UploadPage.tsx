@@ -54,12 +54,6 @@ const UploadPage: React.FC = () => {
       return;
     }
     
-    const missingTitles = videos.filter(video => (video.file || video.url) && !video.metadata.title);
-    if (missingTitles.length > 0) {
-      toast.error('Please provide a title for all videos');
-      return;
-    }
-
     if (!loraDetails.loraName) {
       toast.error('Please provide a LoRA name');
       return;

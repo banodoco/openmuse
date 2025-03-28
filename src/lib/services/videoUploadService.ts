@@ -1,4 +1,3 @@
-
 import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
@@ -14,7 +13,6 @@ class VideoUploadService {
     logger.log(`Current user ID set to: ${userId || 'none'}`);
   }
   
-  // Upload a new video file to the storage
   public async uploadVideo(videoFile: VideoFile, reviewerName: string, userId?: string): Promise<VideoEntry | null> {
     if (!videoFile || !videoFile.blob) {
       logger.error('Attempted to upload a null or invalid video file');
@@ -22,13 +20,11 @@ class VideoUploadService {
     }
 
     try {
-      // Generate unique ID for the video
       const videoId = videoFile.id || uuidv4();
       const videoPath = `videos/${videoId}.webm`;
       
       logger.log(`Uploading video to ${videoPath}`);
       
-      // Upload the video file to Supabase storage
       const { error: uploadError } = await supabase.storage
         .from('videos')
         .upload(videoPath, videoFile.blob, {
@@ -43,18 +39,18 @@ class VideoUploadService {
 
       logger.log(`Video uploaded successfully, creating entry for ${videoId}`);
 
-      // Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('videos')
         .getPublicUrl(videoPath);
       
       const videoUrl = publicUrlData.publicUrl;
 
-      // Create the media entry
+      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : 'Untitled Video';
+
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
-          title: videoFile.metadata?.title || 'Untitled',
+          title: videoTitle,
           url: videoUrl,
           type: 'video',
           classification: videoFile.metadata?.classification || 'art',
@@ -70,19 +66,16 @@ class VideoUploadService {
         throw mediaError;
       }
       
-      // Determine if we're adding to an existing asset or creating a new one
       const isExistingAsset = !!videoFile.metadata?.assetId;
       let assetId = videoFile.metadata?.assetId;
       
       if (isExistingAsset) {
-        // Adding to an existing asset
         await this.addMediaToExistingAsset(
           mediaData.id, 
           assetId!, 
           videoFile.metadata?.isPrimary || false
         );
       } 
-      // Creating a new asset
       else if (videoFile.metadata?.loraName) {
         assetId = await this.createNewAssetWithMedia(
           mediaData.id,
@@ -97,7 +90,6 @@ class VideoUploadService {
 
       logger.log(`Media entry created successfully: ${mediaData.id}`);
       
-      // Construct the VideoEntry object
       const entry: VideoEntry = {
         id: mediaData.id,
         video_location: mediaData.url,
@@ -120,7 +112,6 @@ class VideoUploadService {
     }
   }
   
-  // Specialized method for uploading videos to existing assets - DOES NOT REPLACE EXISTING VIDEOS
   public async uploadVideoToExistingAsset(
     videoFile: VideoFile, 
     assetId: string, 
@@ -134,13 +125,11 @@ class VideoUploadService {
     }
 
     try {
-      // Generate unique ID for the video
       const videoId = videoFile.id || uuidv4();
       const videoPath = `videos/${videoId}.webm`;
       
       logger.log(`Uploading video to ${videoPath} for asset ${assetId}`);
       
-      // Upload the video file to Supabase storage
       const { error: uploadError } = await supabase.storage
         .from('videos')
         .upload(videoPath, videoFile.blob, {
@@ -155,18 +144,18 @@ class VideoUploadService {
 
       logger.log(`Video uploaded successfully for asset ${assetId}, creating entry for ${videoId}`);
 
-      // Get the public URL
       const { data: publicUrlData } = supabase.storage
         .from('videos')
         .getPublicUrl(videoPath);
       
       const videoUrl = publicUrlData.publicUrl;
 
-      // Create the media entry
+      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : 'Untitled Video';
+
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
-          title: videoFile.metadata?.title || 'Untitled',
+          title: videoTitle,
           url: videoUrl,
           type: 'video',
           classification: videoFile.metadata?.classification || 'art',
@@ -182,12 +171,10 @@ class VideoUploadService {
         throw mediaError;
       }
       
-      // Add the media to the existing asset
       await this.addMediaToExistingAsset(mediaData.id, assetId, isPrimary);
       
       logger.log(`Media ${mediaData.id} added to asset ${assetId}`);
       
-      // Construct the VideoEntry object
       const entry: VideoEntry = {
         id: mediaData.id,
         video_location: mediaData.url,
@@ -210,7 +197,6 @@ class VideoUploadService {
     }
   }
   
-  // Add media to an existing asset
   private async addMediaToExistingAsset(
     mediaId: string, 
     assetId: string, 
@@ -219,7 +205,6 @@ class VideoUploadService {
     logger.log(`Adding media ${mediaId} to existing asset ${assetId}`);
     
     try {
-      // First, check if the asset already has a primary media
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
         .select('primary_media_id')
@@ -231,7 +216,6 @@ class VideoUploadService {
         throw assetError;
       }
       
-      // Link to existing asset by creating asset_media relationship
       const { error: linkError } = await supabase
         .from('asset_media')
         .insert({
@@ -244,9 +228,6 @@ class VideoUploadService {
         throw linkError;
       }
       
-      // Only update primary media if:
-      // 1. This media is explicitly set as primary, OR
-      // 2. The asset doesn't have a primary media yet
       const shouldSetAsPrimary = isPrimary || !assetData?.primary_media_id;
       
       if (shouldSetAsPrimary) {
@@ -268,7 +249,6 @@ class VideoUploadService {
     }
   }
   
-  // Create a new asset and link it with media
   private async createNewAssetWithMedia(
     mediaId: string,
     loraName: string,
@@ -281,7 +261,6 @@ class VideoUploadService {
     logger.log(`Creating new asset for LoRA: ${loraName}`);
     
     try {
-      // Create new asset with the media as primary
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
         .insert({
@@ -305,7 +284,6 @@ class VideoUploadService {
       
       const assetId = assetData.id;
       
-      // Link asset and media
       const { error: linkError } = await supabase
         .from('asset_media')
         .insert({
@@ -326,17 +304,14 @@ class VideoUploadService {
     }
   }
   
-  // Add a new video entry to the database
   public async addEntry(entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
     try {
       logger.log(`Adding new entry: ${JSON.stringify(entryData)}`);
       
-      // Ensure reviewer_name is present as it's required
       if (!entryData.reviewer_name) {
         throw new Error('Reviewer name is required for video entries');
       }
       
-      // Create the media entry
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
@@ -356,19 +331,16 @@ class VideoUploadService {
         throw mediaError;
       }
       
-      // Determine if we're adding to an existing asset or creating a new one
       const isExistingAsset = !!entryData.metadata?.assetId;
       let assetId = entryData.metadata?.assetId;
       
       if (isExistingAsset) {
-        // Adding to an existing asset
         await this.addMediaToExistingAsset(
           mediaData.id, 
           assetId!, 
           entryData.metadata?.isPrimary || false
         );
       } 
-      // Creating a new asset
       else if (entryData.metadata?.loraName) {
         assetId = await this.createNewAssetWithMedia(
           mediaData.id,
@@ -379,7 +351,6 @@ class VideoUploadService {
         );
       }
       
-      // Construct the VideoEntry object
       const newEntry: VideoEntry = {
         id: mediaData.id,
         video_location: mediaData.url,
@@ -402,7 +373,6 @@ class VideoUploadService {
     }
   }
   
-  // Specialized method for adding entries to existing assets
   public async addEntryToExistingAsset(
     entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>,
     assetId: string,
@@ -411,12 +381,10 @@ class VideoUploadService {
     try {
       logger.log(`Adding new entry to existing asset ${assetId}: ${JSON.stringify(entryData)}`);
       
-      // Ensure reviewer_name is present as it's required
       if (!entryData.reviewer_name) {
         throw new Error('Reviewer name is required for video entries');
       }
       
-      // Create the media entry
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
@@ -436,12 +404,10 @@ class VideoUploadService {
         throw mediaError;
       }
       
-      // Add the media to the existing asset
       await this.addMediaToExistingAsset(mediaData.id, assetId, isPrimary);
       
       logger.log(`Media ${mediaData.id} added to asset ${assetId}`);
       
-      // Construct the VideoEntry object
       const newEntry: VideoEntry = {
         id: mediaData.id,
         video_location: mediaData.url,
@@ -465,5 +431,4 @@ class VideoUploadService {
   }
 }
 
-// Export a singleton instance
 export const videoUploadService = new VideoUploadService();

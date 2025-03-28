@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -34,14 +33,13 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor={`title-${videoId}`}>Title</Label>
+        <Label htmlFor={`title-${videoId}`}>Title (optional)</Label>
         <Input
           type="text"
           id={`title-${videoId}`}
           placeholder="Enter video title"
           value={metadata.title}
           onChange={(e) => updateMetadata(videoId, 'title', e.target.value)}
-          required
           disabled={disabled}
         />
       </div>
