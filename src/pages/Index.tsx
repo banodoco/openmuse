@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate } from 'react-router-dom';
@@ -38,6 +38,15 @@ const Index = () => {
     
     return loras;
   }, [loras]);
+  
+  // Log page load and auth state for debugging
+  useEffect(() => {
+    logger.log('Index page loaded, auth state:', user ? 'logged in' : 'not logged in');
+    
+    return () => {
+      logger.log('Index page unloading');
+    };
+  }, [user]);
   
   const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');

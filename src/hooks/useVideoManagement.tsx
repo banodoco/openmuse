@@ -1,26 +1,35 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { toast } from 'sonner';
 import { getCurrentUser } from '@/lib/auth';
 import { supabase } from '@/integrations/supabase/client';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('useVideoManagement');
 
 export const useVideoManagement = () => {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
+  const isMounted = useRef(true);
+  const fetchAttempted = useRef(false);
 
   // First check if user is authenticated
   useEffect(() => {
     const checkUser = async () => {
       try {
-        console.log("useVideoManagement: Checking current user");
+        logger.log("useVideoManagement: Checking current user");
         const user = await getCurrentUser();
-        console.log("useVideoManagement: Current user:", user ? user.id : "not authenticated");
-        setUserId(user?.id || null);
+        logger.log("useVideoManagement: Current user:", user ? user.id : "not authenticated");
+        if (isMounted.current) {
+          setUserId(user?.id || null);
+        }
       } catch (error) {
-        console.error("useVideoManagement: Error checking user:", error);
-        setUserId(null);
+        logger.error("useVideoManagement: Error checking user:", error);
+        if (isMounted.current) {
+          setUserId(null);
+        }
       }
     };
     
@@ -28,32 +37,38 @@ export const useVideoManagement = () => {
 
     // Also set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      console.log("useVideoManagement: Auth state changed:", event);
+      logger.log("useVideoManagement: Auth state changed:", event);
+      if (!isMounted.current) return;
+      
       if (event === 'SIGNED_IN' && session?.user) {
-        console.log("useVideoManagement: User signed in:", session.user.id);
+        logger.log("useVideoManagement: User signed in:", session.user.id);
         setUserId(session.user.id);
       } else if (event === 'SIGNED_OUT') {
-        console.log("useVideoManagement: User signed out");
+        logger.log("useVideoManagement: User signed out");
         setUserId(null);
       }
     });
 
     return () => {
-      console.log("useVideoManagement: Cleaning up auth subscription");
+      logger.log("useVideoManagement: Cleaning up auth subscription");
+      isMounted.current = false;
       subscription.unsubscribe();
     };
   }, []);
 
   const loadAllVideos = useCallback(async () => {
+    if (!isMounted.current) return;
+    
     setIsLoading(true);
-    console.log("useVideoManagement: Loading all videos, user ID:", userId);
+    fetchAttempted.current = true;
+    logger.log("useVideoManagement: Loading all videos, user ID:", userId);
     
     try {
-      console.log("useVideoManagement: Getting database from switcher");
+      logger.log("useVideoManagement: Getting database from switcher");
       const db = await databaseSwitcher.getDatabase();
-      console.log("useVideoManagement: Got database, fetching all entries");
+      logger.log("useVideoManagement: Got database, fetching all entries");
       const allEntries = await db.getAllEntries();
-      console.log("useVideoManagement: Loaded entries:", allEntries.length);
+      logger.log("useVideoManagement: Loaded entries:", allEntries.length);
       
       // Transform entries to add isPrimary flag if needed
       const transformedEntries = allEntries.map(entry => {
@@ -71,24 +86,56 @@ export const useVideoManagement = () => {
         return entry;
       });
       
-      setVideos(transformedEntries);
+      if (isMounted.current) {
+        setVideos(transformedEntries);
+        setIsLoading(false);
+      }
     } catch (error) {
-      console.error("useVideoManagement: Error loading videos:", error);
-      toast.error("Error loading videos. Please try again.");
-    } finally {
-      setIsLoading(false);
+      logger.error("useVideoManagement: Error loading videos:", error);
+      if (isMounted.current) {
+        toast.error("Error loading videos. Please try again.");
+        setIsLoading(false);
+      }
     }
   }, [userId]);
 
   useEffect(() => {
-    console.log("useVideoManagement: userId changed, reloading videos");
-    loadAllVideos();
+    // Reset fetch attempt flag when userId changes
+    fetchAttempted.current = false;
+    
+    logger.log("useVideoManagement: userId changed, reloading videos");
+    if (!fetchAttempted.current) {
+      loadAllVideos();
+    }
   }, [loadAllVideos]);
+
+  // Force loading state to false after a timeout to prevent infinite loading
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      if (isLoading && isMounted.current) {
+        logger.warn("useVideoManagement: Loading timeout reached, forcing completion");
+        setIsLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
+
+  // Cleanup effect
+  useEffect(() => {
+    isMounted.current = true;
+    return () => {
+      isMounted.current = false;
+      logger.log("useVideoManagement unmounting");
+    };
+  }, []);
 
   // CRUD operations for videos
   const refetchVideos = useCallback(async () => {
-    await loadAllVideos();
-    toast.success("Videos refreshed");
+    if (isMounted.current) {
+      await loadAllVideos();
+      toast.success("Videos refreshed");
+    }
   }, [loadAllVideos]);
 
   const deleteVideo = useCallback(async (id: string) => {

@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { LoraAsset, VideoEntry } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -14,9 +14,14 @@ export const useLoraManagement = () => {
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const { videos, isLoading: videosLoading } = useVideoManagement();
+  const isMounted = useRef(true);
+  const fetchAttempted = useRef(false);
 
   const loadAllLoras = useCallback(async () => {
+    if (!isMounted.current) return;
+    
     setIsLoading(true);
+    fetchAttempted.current = true;
     logger.log("Loading all LoRAs");
     
     try {
@@ -33,6 +38,8 @@ export const useLoraManagement = () => {
       }
       
       logger.log("LoRA assets from database:", loraAssets?.length || 0);
+      
+      if (!isMounted.current) return;
       
       // Map videos to their assets
       const lorasWithVideos = loraAssets?.map((asset) => {
@@ -61,18 +68,26 @@ export const useLoraManagement = () => {
       }) || [];
       
       logger.log("Final LoRAs with videos:", lorasWithVideos.length);
-      setLoras(lorasWithVideos);
+      if (isMounted.current) {
+        setLoras(lorasWithVideos);
+        setIsLoading(false);
+      }
     } catch (error) {
       logger.error("Error loading LoRAs:", error);
-      toast.error("Error loading LoRAs. Please try again.");
-    } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        toast.error("Error loading LoRAs. Please try again.");
+        setIsLoading(false);
+      }
     }
   }, [videos]);
 
+  // Load LoRAs when videos are loaded
   useEffect(() => {
+    // Reset fetch attempt flag when videos change
+    fetchAttempted.current = false;
+    
     // Load LoRAs even if videos array is empty to avoid perpetual loading
-    if (!videosLoading) {
+    if (!videosLoading && !fetchAttempted.current) {
       logger.log("Videos loaded or empty, loading LoRAs");
       loadAllLoras();
     }
@@ -81,7 +96,7 @@ export const useLoraManagement = () => {
   // Force loading state to false after a timeout to prevent infinite loading
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      if (isLoading) {
+      if (isLoading && isMounted.current) {
         logger.warn("LoRA loading timeout reached, forcing completion");
         setIsLoading(false);
       }
@@ -89,10 +104,28 @@ export const useLoraManagement = () => {
 
     return () => clearTimeout(timeoutId);
   }, [isLoading]);
+  
+  // Log user state for debugging
+  useEffect(() => {
+    logger.log(`Auth state in useLoraManagement: ${user ? 'signed in' : 'not signed in'}`);
+  }, [user]);
+
+  // Cleanup function
+  useEffect(() => {
+    isMounted.current = true;
+    
+    return () => {
+      isMounted.current = false;
+      logger.log("useLoraManagement unmounting, cleaning up");
+    };
+  }, []);
 
   const refetchLoras = useCallback(async () => {
-    await loadAllLoras();
-    toast.success("LoRAs refreshed");
+    if (isMounted.current) {
+      logger.log("Manually refreshing LoRAs");
+      await loadAllLoras();
+      toast.success("LoRAs refreshed");
+    }
   }, [loadAllLoras]);
 
   return {

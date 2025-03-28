@@ -15,12 +15,15 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   isLoading,
   refetchLoras
 }) => {
+  // Ensure loras is always an array
+  const safeLoraList = Array.isArray(loras) ? loras : [];
+  
   return (
     <div className="mt-6">
       {isLoading ? (
         <LoadingState text="Loading LoRAs..." />
       ) : (
-        <LoraList loras={loras || []} onRefresh={refetchLoras} />
+        <LoraList loras={safeLoraList} onRefresh={refetchLoras} />
       )}
     </div>
   );
