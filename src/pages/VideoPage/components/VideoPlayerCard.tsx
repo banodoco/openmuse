@@ -2,16 +2,15 @@
 import React from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { AlertTriangle, FileVideo, RefreshCw } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import StorageVideoPlayer from '@/components/StorageVideoPlayer';
-import { isValidVideoUrl } from '@/lib/utils/videoUtils';
+import VideoPlayer from '@/components/video/VideoPlayer';
 
 interface VideoPlayerCardProps {
   video: VideoEntry;
   videoUrl: string | null;
-  onRefresh: () => Promise<void>;
+  onRefresh: () => void;
   isRefreshing: boolean;
 }
 
@@ -19,74 +18,57 @@ const VideoPlayerCard: React.FC<VideoPlayerCardProps> = ({
   video, 
   videoUrl, 
   onRefresh,
-  isRefreshing 
+  isRefreshing
 }) => {
-  const hasValidVideo = (videoUrl && isValidVideoUrl(videoUrl)) || 
-    (video.video_location && isValidVideoUrl(video.video_location));
+  const hasVideoUrl = Boolean(videoUrl);
   
-  const isBlobUrl = video.video_location?.startsWith('blob:');
-  const showBlobWarning = isBlobUrl && !videoUrl;
-
+  const handleRefresh = (e: React.MouseEvent) => {
+    e.preventDefault();
+    onRefresh();
+  };
+  
   return (
     <Card>
-      <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle>{video.metadata?.title || video.reviewer_name}</CardTitle>
-        
-        {showBlobWarning && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={onRefresh}
-            disabled={isRefreshing}
-            className="gap-1"
-          >
-            <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-            {isRefreshing ? 'Refreshing...' : 'Refresh URL'}
-          </Button>
-        )}
+      <CardHeader>
+        <CardTitle>{video.metadata?.title || video.reviewer_name || 'Untitled Video'}</CardTitle>
       </CardHeader>
       <CardContent>
-        {showBlobWarning && (
-          <Alert variant="warning" className="mb-4">
+        {!hasVideoUrl && (
+          <Alert variant="destructive" className="mb-4">
             <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Temporary URL Expired</AlertTitle>
-            <AlertDescription>
-              The temporary video URL has expired. Click the refresh button to retrieve a permanent URL.
+            <AlertTitle>Video preview unavailable</AlertTitle>
+            <AlertDescription className="flex flex-col gap-2">
+              <span>The temporary URL has expired</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                className="w-28 gap-2"
+                onClick={handleRefresh}
+                disabled={isRefreshing}
+              >
+                {isRefreshing ? 'Refreshing...' : (
+                  <>
+                    <RefreshCw className="h-3.5 w-3.5" />
+                    Refresh
+                  </>
+                )}
+              </Button>
             </AlertDescription>
           </Alert>
         )}
         
-        <div className="aspect-video w-full rounded-md overflow-hidden">
-          {hasValidVideo ? (
-            videoUrl ? (
-              <StorageVideoPlayer 
-                videoLocation={videoUrl} 
-                controls
-                muted={false}
-              />
-            ) : (
-              <StorageVideoPlayer 
-                videoLocation={video.video_location} 
-                controls
-                muted={false}
-              />
-            )
+        <div className="aspect-video w-full bg-muted rounded-md overflow-hidden">
+          {hasVideoUrl ? (
+            <VideoPlayer 
+              src={videoUrl!} 
+              controls
+              muted={false}
+              className="w-full h-full object-contain"
+            />
           ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
+            <div className="w-full h-full flex flex-col items-center justify-center">
               <FileVideo className="h-12 w-12 text-muted-foreground mb-4" />
               <p className="text-sm text-muted-foreground">Video unavailable</p>
-              <p className="text-xs text-muted-foreground mt-2">The video source is invalid or has expired</p>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={onRefresh}
-                disabled={isRefreshing}
-                className="gap-1 mt-4"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRefreshing ? 'animate-spin' : ''}`} />
-                {isRefreshing ? 'Refreshing...' : 'Try Refreshing URL'}
-              </Button>
             </div>
           )}
         </div>

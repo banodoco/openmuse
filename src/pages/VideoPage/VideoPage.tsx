@@ -38,7 +38,7 @@ const VideoPage: React.FC = () => {
         // Fetch the video from the database
         const db = await databaseSwitcher.getDatabase();
         
-        // Instead of getEntryById, use getAllEntries and find the one we want
+        // Use getAllEntries and find the one we want to ensure VideoEntry type consistency
         const allEntries = await db.getAllEntries();
         const videoData = allEntries.find(entry => entry.id === id);
         
@@ -48,8 +48,7 @@ const VideoPage: React.FC = () => {
         
         setVideo(videoData);
         
-        // Specifically use forceRefreshUrl to ensure we get a fresh URL
-        // This helps avoid expired blob URLs
+        // Get fresh URL for the video
         if (videoData.video_location) {
           try {
             const freshUrl = await videoUrlService.forceRefreshUrl(videoData.video_location);
@@ -57,7 +56,7 @@ const VideoPage: React.FC = () => {
           } catch (urlError) {
             console.error('Failed to refresh video URL:', urlError);
             
-            // Fallback to regular URL resolution as a last resort
+            // Fallback to regular URL resolution
             const standardUrl = await videoUrlService.getVideoUrl(videoData.video_location);
             setVideoUrl(standardUrl);
           }
@@ -68,42 +67,23 @@ const VideoPage: React.FC = () => {
         
         // First check if this video is associated with a LoRA
         if (videoData.metadata?.assetId) {
-          // Get other videos with the same asset ID
-          const { data: mediaData, error: mediaError } = await supabase
-            .from('media')
-            .select('*')
-            .eq('type', 'video')
-            .neq('id', id); // Exclude current video
+          // Get other videos with the same asset ID that are also VideoEntry type
+          const otherRelatedVideos = allEntries.filter(entry => 
+            entry.id !== id && 
+            entry.metadata?.assetId === videoData.metadata?.assetId
+          );
           
-          if (!mediaError && mediaData) {
-            // Convert to VideoEntry format
-            relatedData = await Promise.all(
-              mediaData.filter(media => {
-                // Check if the media item has a metadata field with the matching assetId
-                const metadata = media.metadata as Record<string, any> | undefined;
-                return metadata?.assetId === videoData.metadata?.assetId;
-              }).map(async (media) => {
-                const videoUrl = await videoUrlService.forceRefreshUrl(media.url);
-                
-                return {
-                  id: media.id,
-                  video_location: media.url,
-                  reviewer_name: media.creator || 'Unknown',
-                  skipped: false,
-                  created_at: media.created_at,
-                  admin_approved: null,
-                  user_id: media.user_id,
-                  metadata: media.metadata as any
-                };
-              })
-            );
+          if (otherRelatedVideos.length > 0) {
+            relatedData = otherRelatedVideos;
           }
         }
         
         // If no asset-related videos found, fall back to recent videos
         if (relatedData.length === 0) {
-          const recentVideos = await db.getAllEntries();
-          relatedData = recentVideos.filter(v => v.id !== id).slice(0, 5); // Limit to 5 recent videos
+          // Just get a few recent videos (excluding current one)
+          relatedData = allEntries
+            .filter(v => v.id !== id)
+            .slice(0, 5); // Limit to 5 recent videos
         }
         
         setRelatedVideos(relatedData);
