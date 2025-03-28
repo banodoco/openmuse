@@ -17,17 +17,24 @@ interface LoRADetailsFormProps {
     trainingSteps: string;
     resolution: string;
     trainingDataset: string;
+    creator?: string;
   };
   updateMetadata: (id: string, field: string, value: any) => void;
+  disabled?: boolean;
 }
 
-const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, updateMetadata }) => {
+const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ 
+  videoId, 
+  metadata, 
+  updateMetadata, 
+  disabled = false 
+}) => {
   return (
     <Card>
       <CardContent className="pt-6">
         <div className="space-y-6">
           <div className="space-y-4">
-            <h4 className="text-base font-medium">Basic Information</h4>
+            <h4 className="text-lg font-semibold text-foreground">Basic Information</h4>
             
             <div className="grid gap-4">
               <div>
@@ -40,6 +47,7 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, up
                   placeholder="Enter LoRA name"
                   value={metadata.loraName}
                   onChange={(e) => updateMetadata(videoId, 'loraName', e.target.value)}
+                  disabled={disabled}
                   required
                 />
               </div>
@@ -53,6 +61,7 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, up
                   placeholder="Enter LoRA description"
                   value={metadata.loraDescription}
                   onChange={(e) => updateMetadata(videoId, 'loraDescription', e.target.value)}
+                  disabled={disabled}
                   className="min-h-[80px]"
                 />
               </div>
@@ -60,7 +69,7 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, up
           </div>
           
           <div className="space-y-4">
-            <h4 className="text-base font-medium">Technical Details</h4>
+            <h4 className="text-lg font-semibold text-foreground">Technical Details</h4>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
@@ -73,6 +82,7 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, up
                   placeholder="Enter base model"
                   value={metadata.baseModel}
                   onChange={(e) => updateMetadata(videoId, 'baseModel', e.target.value)}
+                  disabled={disabled}
                 />
               </div>
               
@@ -86,6 +96,7 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, up
                   placeholder="Enter training steps"
                   value={metadata.trainingSteps}
                   onChange={(e) => updateMetadata(videoId, 'trainingSteps', e.target.value)}
+                  disabled={disabled}
                 />
               </div>
               
@@ -99,8 +110,25 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, up
                   placeholder="e.g., 512x512"
                   value={metadata.resolution}
                   onChange={(e) => updateMetadata(videoId, 'resolution', e.target.value)}
+                  disabled={disabled}
                 />
               </div>
+
+              {metadata.creator && (
+                <div>
+                  <Label htmlFor={`creator-${videoId}`} className="text-sm font-medium mb-1.5 block">
+                    Creator
+                  </Label>
+                  <Input
+                    type="text"
+                    id={`creator-${videoId}`}
+                    placeholder="Creator name"
+                    value={metadata.creator || ''}
+                    onChange={(e) => updateMetadata(videoId, 'creator', e.target.value)}
+                    disabled={disabled}
+                  />
+                </div>
+              )}
             </div>
           </div>
           
@@ -113,6 +141,7 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ videoId, metadata, up
               placeholder="Enter training dataset details"
               value={metadata.trainingDataset}
               onChange={(e) => updateMetadata(videoId, 'trainingDataset', e.target.value)}
+              disabled={disabled}
               className="min-h-[80px]"
             />
           </div>

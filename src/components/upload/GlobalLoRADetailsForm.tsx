@@ -33,19 +33,12 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
 }) => {
   const { user } = useAuth();
   
-  // Always set creator to 'self' when user is logged in
-  useEffect(() => {
-    if (user) {
-      updateLoRADetails('creator', 'self');
-    }
-  }, [user, updateLoRADetails]);
-
   return (
     <Card>
       <CardContent className="pt-6">
         <div className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Basic Information</h3>
+            <h3 className="text-lg font-semibold text-foreground">Basic Information</h3>
             <div>
               <Label htmlFor="lora-name" className="text-sm font-medium mb-1.5 block">
                 LoRA Name <span className="text-destructive">*</span>
@@ -79,23 +72,25 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
           <Separator />
           
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Creator Information</h3>
+            <h3 className="text-lg font-semibold text-foreground">Creator Information</h3>
             
             <div>
-              <Label className="text-sm font-medium mb-1.5 block">Who made this LoRA?</Label>
+              <Label className="text-sm font-medium mb-2 block">
+                Who made this LoRA?
+              </Label>
               <RadioGroup 
                 value={loraDetails.creator}
-                onValueChange={(value) => updateLoRADetails('creator', value)}
-                className="flex flex-col space-y-1"
-                disabled={disabled || !!user}
+                onValueChange={(value: 'self' | 'someone_else') => updateLoRADetails('creator', value)}
+                className="flex flex-col space-y-2"
+                disabled={disabled}
               >
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="self" id="lora-creator-self" />
-                  <Label htmlFor="lora-creator-self">Me</Label>
+                  <Label htmlFor="lora-creator-self" className="cursor-pointer">Me</Label>
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="someone_else" id="lora-creator-someone" />
-                  <Label htmlFor="lora-creator-someone">Someone else</Label>
+                  <Label htmlFor="lora-creator-someone" className="cursor-pointer">Someone else</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -121,7 +116,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
           <Separator />
           
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Technical Details</h3>
+            <h3 className="text-lg font-semibold text-foreground">Technical Details</h3>
             
             <div>
               <Label htmlFor="lora-model" className="text-sm font-medium mb-1.5 block">

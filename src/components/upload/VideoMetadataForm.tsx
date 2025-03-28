@@ -37,7 +37,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
       <CardContent className="pt-6">
         <div className="space-y-6">
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Video Details</h3>
+            <h3 className="text-lg font-semibold text-foreground">Video Details</h3>
             
             <div>
               <Label htmlFor={`title-${videoId}`} className="text-sm font-medium mb-1.5 block">
@@ -69,11 +69,11 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
           </div>
           
           <div className="space-y-4">
-            <h3 className="text-lg font-medium">Classification</h3>
+            <h3 className="text-lg font-semibold text-foreground">Classification</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
-                <Label className="text-sm font-medium mb-3 block">Video Classification</Label>
+                <Label className="text-sm font-medium mb-2 block">Video Classification</Label>
                 <RadioGroup 
                   value={metadata.classification}
                   onValueChange={(value) => updateMetadata(videoId, 'classification', value)}
@@ -82,17 +82,17 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
-                    <Label htmlFor={`classification-gen-${videoId}`}>Generation</Label>
+                    <Label htmlFor={`classification-gen-${videoId}`} className="cursor-pointer">Generation</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="art" id={`classification-art-${videoId}`} />
-                    <Label htmlFor={`classification-art-${videoId}`}>Artwork</Label>
+                    <Label htmlFor={`classification-art-${videoId}`} className="cursor-pointer">Artwork</Label>
                   </div>
                 </RadioGroup>
               </div>
               
               <div>
-                <Label className="text-sm font-medium mb-3 block">Creator</Label>
+                <Label className="text-sm font-medium mb-2 block">Creator</Label>
                 <RadioGroup 
                   value={metadata.creator}
                   onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
@@ -101,11 +101,11 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 >
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="self" id={`creator-self-${videoId}`} />
-                    <Label htmlFor={`creator-self-${videoId}`}>Me</Label>
+                    <Label htmlFor={`creator-self-${videoId}`} className="cursor-pointer">Me</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="someone_else" id={`creator-someone-else-${videoId}`} />
-                    <Label htmlFor={`creator-someone-else-${videoId}`}>Someone else</Label>
+                    <Label htmlFor={`creator-someone-else-${videoId}`} className="cursor-pointer">Someone else</Label>
                   </div>
                 </RadioGroup>
               </div>
@@ -138,7 +138,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   onCheckedChange={(checked) => updateMetadata(videoId, 'isPrimary', checked)}
                   disabled={disabled}
                 />
-                <Label htmlFor={`is-primary-${videoId}`} className="font-medium">
+                <Label htmlFor={`is-primary-${videoId}`} className="font-medium cursor-pointer">
                   Use as primary media for this LoRA
                 </Label>
               </div>
