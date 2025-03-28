@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VideoEntry } from '@/lib/types';
@@ -56,7 +55,6 @@ const VideoPage: React.FC = () => {
 
       try {
         setIsLoading(true);
-        // Use databaseSwitcher to get the correct database instance
         const db = await databaseSwitcher.getDatabase();
         const entries = await db.getAllEntries();
         const foundVideo = entries.find(entry => entry.id === id);
@@ -65,21 +63,17 @@ const VideoPage: React.FC = () => {
           console.log('Found video:', foundVideo);
           setVideo(foundVideo);
           
-          // Check if video URL is valid
           if (!foundVideo.video_location || !isValidVideoUrl(foundVideo.video_location)) {
             setVideoError("This video has an invalid or expired URL");
           }
           
-          // Find related assets
           if (foundVideo.metadata?.assetId) {
             const assetId = foundVideo.metadata.assetId;
-            // Get all videos with the same assetId
             const related = entries.filter(entry => 
               entry.id !== id && 
               entry.metadata?.assetId === assetId
             );
             
-            // Filter out invalid video URLs
             const validVideos = related.filter(
               video => video.video_location && isValidVideoUrl(video.video_location)
             );
