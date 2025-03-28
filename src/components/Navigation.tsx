@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
-import openMuseLogo from '/lovable-uploads/cf5624c5-2ba2-48da-828a-c7ffa17d3ada.png';
+import openMuseLogo from '/lovable-uploads/50b1d979-6d68-4f4a-a6cc-fcf4579bdfec.png';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
