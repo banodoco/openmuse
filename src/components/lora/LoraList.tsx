@@ -16,7 +16,7 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [filterText, setFilterText] = useState('');
-  const [approvalFilter, setApprovalFilter] = useState('curated');
+  const [approvalFilter, setApprovalFilter] = useState('all'); // Change default to 'all' to show everything
   const [refreshing, setRefreshing] = useState(false);
   
   const handleRefresh = async () => {
@@ -43,38 +43,19 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       ((lora.creator || '').toLowerCase().includes(searchTerm))
     );
     
-    // When 'all' is selected, only apply text filter
-    if (approvalFilter === 'all') {
-      return matchesText;
-    }
-    
-    // Check LoRA approval status first (if available), otherwise fall back to primary video status
-    const loraStatus = lora.admin_approved;
-    const primaryVideo = lora.primaryVideo;
-    const primaryVideoStatus = primaryVideo?.admin_approved;
-    
-    // Use LoRA status if it exists, otherwise use primary video status
-    const effectiveStatus = loraStatus !== undefined ? loraStatus : primaryVideoStatus;
-    
-    if (approvalFilter === 'curated') {
-      return matchesText && effectiveStatus === true;
-    } else if (approvalFilter === 'pending') {
-      return matchesText && (effectiveStatus === null || effectiveStatus === undefined);
-    } else if (approvalFilter === 'rejected') {
-      return matchesText && effectiveStatus === false;
-    }
-    
-    return matchesText; // Fallback (shouldn't reach here)
+    // Return all LoRAs initially for debugging
+    return matchesText;
   });
 
-  // Debug logs to help troubleshoot the issue
+  // Debug logging
   console.log('Total LoRAs:', loras.length);
   console.log('Filtered LoRAs:', filteredLoras.length);
   console.log('Current approval filter:', approvalFilter);
-  console.log('LoRAs with direct admin_approved field:', loras.filter(l => l.admin_approved !== undefined).length);
-  console.log('LoRAs with undefined approval status:', loras.filter(l => 
-    l.admin_approved === undefined && (!l.primaryVideo || l.primaryVideo.admin_approved === undefined)
-  ).length);
+  
+  // More detailed logging to understand what's happening
+  if (loras.length > 0) {
+    console.log('Sample LoRA data:', JSON.stringify(loras[0], null, 2));
+  }
 
   return (
     <div className="w-full">
@@ -129,7 +110,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
               <FileVideo className="h-12 w-12 mx-auto text-muted-foreground" />
               <h3 className="mt-2 text-lg font-medium">No LoRAs found</h3>
               <p className="text-muted-foreground">
-                {filterText || approvalFilter !== 'curated' 
+                {filterText || approvalFilter !== 'all' 
                   ? "Try different filter settings" 
                   : "Upload some LoRAs to get started"}
               </p>
