@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -25,14 +26,34 @@ const AssetDetailPage: React.FC = () => {
   const [isApproving, setIsApproving] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    console.log('AssetDetailPage - Auth State:', {
+      user: user ? { id: user.id, email: user.email } : null,
+      authChecked,
+      isLoading,
+      isAdmin
+    });
+  }, [user, authChecked, isLoading, isAdmin]);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      if (user?.id) {
-        const adminStatus = await checkIsAdmin(user.id);
-        setIsAdmin(adminStatus);
-      } else {
+      try {
+        if (user?.id) {
+          console.log('AssetDetailPage - Checking admin status for user:', user.id);
+          const adminStatus = await checkIsAdmin(user.id);
+          console.log('AssetDetailPage - Admin status result:', adminStatus);
+          setIsAdmin(adminStatus);
+        } else {
+          console.log('AssetDetailPage - No user, setting isAdmin to false');
+          setIsAdmin(false);
+        }
+        setAuthChecked(true);
+      } catch (error) {
+        console.error('Error checking admin status:', error);
         setIsAdmin(false);
+        setAuthChecked(true);
       }
     };
     
@@ -52,25 +73,38 @@ const AssetDetailPage: React.FC = () => {
     }
 
     try {
+      console.log('AssetDetailPage - Fetching asset details for ID:', id);
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
         .select('*')
         .eq('id', id)
         .single();
 
-      if (assetError) throw assetError;
+      if (assetError) {
+        console.error('AssetDetailPage - Error fetching asset:', assetError);
+        throw assetError;
+      }
+
+      console.log('AssetDetailPage - Asset data retrieved:', assetData);
 
       const { data: videoData, error: videoError } = await supabase
         .from('media')
         .select('*')
         .eq('type', 'video');
 
-      if (videoError) throw videoError;
+      if (videoError) {
+        console.error('AssetDetailPage - Error fetching videos:', videoError);
+        throw videoError;
+      }
+
+      console.log('AssetDetailPage - All videos retrieved:', videoData?.length || 0);
 
       const assetVideos = videoData.filter(video => 
         video.title?.includes(assetData.name) || 
         video.id === assetData.primary_media_id
       );
+
+      console.log('AssetDetailPage - Videos for this asset:', assetVideos?.length || 0);
 
       const convertedVideos: VideoEntry[] = await Promise.all(
         assetVideos.map(async (media: any) => {
@@ -104,6 +138,7 @@ const AssetDetailPage: React.FC = () => {
 
       setAsset(assetData);
       setVideos(convertedVideos.filter(v => v !== null) as VideoEntry[]);
+      console.log('AssetDetailPage - Final processed videos:', convertedVideos.filter(v => v !== null).length);
     } catch (error) {
       console.error('Error fetching asset details:', error);
       toast.error('Failed to load asset details');
@@ -275,15 +310,28 @@ const AssetDetailPage: React.FC = () => {
       userDetails: user ? {
         id: user.id, 
         email: user.email
-      } : null
+      } : null,
+      authChecked: authChecked,
+      isLoading: isLoading
     });
-  }, [user, asset]);
+  }, [user, asset, authChecked, isLoading]);
 
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
         <main className="flex-1 container max-w-6xl py-8 px-4">
+          <div className="mb-4 flex items-center">
+            <Button 
+              variant="outline" 
+              onClick={handleGoBack}
+              className="mr-4 gap-2"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+            <h1 className="text-2xl font-bold">Loading Asset Details...</h1>
+          </div>
           <LoadingState />
         </main>
       </div>
@@ -326,6 +374,22 @@ const AssetDetailPage: React.FC = () => {
           <h1 className="text-2xl font-bold">Asset Details</h1>
         </div>
         
+        {/* Debug information for troubleshooting */}
+        {process.env.NODE_ENV !== 'production' && (
+          <div className="mb-4 p-2 bg-gray-100 text-xs rounded">
+            <details>
+              <summary className="cursor-pointer font-medium">Debug Info</summary>
+              <div className="mt-2">
+                <div>User: {user ? `${user.email} (${user.id})` : 'Not logged in'}</div>
+                <div>Auth checked: {authChecked ? 'Yes' : 'No'}</div>
+                <div>Is admin: {isAdmin ? 'Yes' : 'No'}</div>
+                <div>Asset ID: {id}</div>
+                <div>Videos count: {videos.length}</div>
+              </div>
+            </details>
+          </div>
+        )}
+        
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <Card className="md:col-span-1">
             <CardHeader>
@@ -357,7 +421,7 @@ const AssetDetailPage: React.FC = () => {
                 <p>{asset?.created_at ? new Date(asset.created_at).toLocaleDateString() : 'Unknown'}</p>
               </div>
             </CardContent>
-            {isAdmin && (
+            {isAdmin && authChecked && (
               <CardFooter className="flex-col items-stretch space-y-2">
                 <div className="text-sm font-medium text-muted-foreground mb-2">Admin Actions</div>
                 <div className="grid grid-cols-3 gap-2">
