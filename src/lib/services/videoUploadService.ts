@@ -59,7 +59,8 @@ class VideoUploadService {
           type: 'video',
           classification: videoFile.metadata?.classification || 'art',
           creator: videoFile.metadata?.creatorName || reviewerName,
-          user_id: userId || this.currentUserId
+          user_id: userId || this.currentUserId,
+          admin_approved: 'Listed'
         })
         .select()
         .single();
@@ -82,7 +83,8 @@ class VideoUploadService {
             description: videoFile.metadata.loraDescription || '',
             creator: videoFile.metadata.creatorName || reviewerName,
             user_id: userId || this.currentUserId,
-            primary_media_id: mediaData.id
+            primary_media_id: mediaData.id,
+            admin_approved: 'Listed'
           })
           .select()
           .single();
@@ -127,7 +129,7 @@ class VideoUploadService {
         reviewer_name: reviewerName,
         skipped: false,
         created_at: mediaData.created_at,
-        admin_approved: false,
+        admin_approved: 'Listed',
         user_id: mediaData.user_id,
         metadata: {
           ...(videoFile.metadata || {}),
@@ -162,7 +164,8 @@ class VideoUploadService {
           type: 'video',
           classification: entryData.metadata?.classification || 'art',
           creator: entryData.metadata?.creatorName || entryData.reviewer_name,
-          user_id: entryData.user_id || this.currentUserId
+          user_id: entryData.user_id || this.currentUserId,
+          admin_approved: 'Listed'
         })
         .select()
         .single();
@@ -185,7 +188,8 @@ class VideoUploadService {
             description: entryData.metadata.loraDescription || '',
             creator: entryData.metadata.creatorName || entryData.reviewer_name,
             user_id: entryData.user_id || this.currentUserId,
-            primary_media_id: mediaData.id
+            primary_media_id: mediaData.id,
+            admin_approved: 'Listed'
           })
           .select()
           .single();
@@ -228,7 +232,7 @@ class VideoUploadService {
         reviewer_name: entryData.reviewer_name,
         skipped: entryData.skipped || false,
         created_at: mediaData.created_at,
-        admin_approved: false,
+        admin_approved: 'Listed',
         user_id: mediaData.user_id,
         metadata: {
           ...(entryData.metadata || {}),

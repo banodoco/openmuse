@@ -42,8 +42,8 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
   };
 
   const filteredVideos = videos.filter(video => {
-    if (assetFilter.approved && video.admin_approved === true) return true;
-    if (assetFilter.notApproved && (video.admin_approved === false || video.admin_approved === null)) return true;
+    if (assetFilter.approved && video.admin_approved === "Curated") return true;
+    if (assetFilter.notApproved && video.admin_approved !== "Curated") return true;
     return false;
   });
 
@@ -110,15 +110,19 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
                 <TableCell>{relatedVideo.metadata?.creatorName || relatedVideo.reviewer_name}</TableCell>
                 <TableCell>{formatDate(relatedVideo.created_at)}</TableCell>
                 <TableCell>
-                  {relatedVideo.admin_approved === true ? (
+                  {relatedVideo.admin_approved === "Curated" ? (
                     <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                       <Check className="h-3 w-3" />
                       Curated
                     </Badge>
-                  ) : (
+                  ) : relatedVideo.admin_approved === "Rejected" ? (
                     <Badge variant="destructive" className="gap-1">
                       <X className="h-3 w-3" />
-                      Not Curated
+                      Rejected
+                    </Badge>
+                  ) : (
+                    <Badge variant="outline" className="gap-1">
+                      Listed
                     </Badge>
                   )}
                 </TableCell>

@@ -50,7 +50,7 @@ export class VideoEntryService {
           reviewer_name: media.creator || 'Unknown',
           skipped: false,
           created_at: media.created_at,
-          admin_approved: false,
+          admin_approved: media.admin_approved || 'Listed',
           user_id: media.user_id,
           metadata: {
             title: media.title,
@@ -82,7 +82,8 @@ export class VideoEntryService {
         .update({
           title: update.metadata?.title,
           classification: update.metadata?.classification,
-          creator: update.metadata?.creatorName || update.reviewer_name
+          creator: update.metadata?.creatorName || update.reviewer_name,
+          admin_approved: update.admin_approved
         })
         .eq('id', id)
         .select('*, assets!asset_media(id, name, description, type, creator, primary_media_id)')
@@ -120,7 +121,7 @@ export class VideoEntryService {
         reviewer_name: data.creator || 'Unknown',
         skipped: update.skipped || false,
         created_at: data.created_at,
-        admin_approved: update.admin_approved || false,
+        admin_approved: data.admin_approved || 'Listed',
         user_id: data.user_id,
         metadata: {
           title: data.title,
@@ -147,7 +148,7 @@ export class VideoEntryService {
     return this.updateEntry(id, { skipped: true });
   }
   
-  async setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null> {
+  async setApprovalStatus(id: string, approved: string): Promise<VideoEntry | null> {
     this.logger.log(`Setting approval status for entry ${id} to ${approved}`);
     
     if (this.currentUserId) {
