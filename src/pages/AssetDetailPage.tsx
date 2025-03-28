@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Check, X, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Check, X, AlertTriangle, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import VideoList from '@/components/VideoList';
@@ -382,7 +382,7 @@ const AssetDetailPage: React.FC = () => {
             </div>
             
             {user && (
-              <div className="mb-4">
+              <div className="mb-4 flex">
                 <LoRAVideoUploader 
                   assetId={asset.id} 
                   assetName={asset.name || ''} 

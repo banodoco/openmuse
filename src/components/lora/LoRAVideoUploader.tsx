@@ -87,7 +87,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
 
           return videoUploadService.uploadVideo(videoFile, username, user?.id);
         } else if (video.url) {
-          // URL entry - Fixed: Removed the 'id' property from this object
+          // URL entry
           return videoUploadService.addEntry({
             video_location: video.url,
             reviewer_name: username,
@@ -122,6 +122,8 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
       setIsUploading(false);
     }
   };
+
+  console.log("LoRAVideoUploader rendering with assetId:", assetId, "user:", !!user);
 
   return (
     <>
