@@ -2,17 +2,10 @@
 import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { NavigateFunction } from 'react-router-dom';
-import { Check, X, Filter, Eye } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import EmptyState from '@/components/EmptyState';
-import { 
-  Popover,
-  PopoverContent,
-  PopoverTrigger 
-} from "@/components/ui/popover";
+import { Button } from '@/components/ui/button';
+import { Filter, Check, X, ArrowRight } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
 import { 
   Table, 
   TableBody, 
@@ -22,14 +15,21 @@ import {
   TableHeader, 
   TableRow 
 } from '@/components/ui/table';
+import { 
+  Popover,
+  PopoverContent,
+  PopoverTrigger 
+} from "@/components/ui/popover";
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
-interface RelatedVideosProps {
-  assetId: string;
+export interface RelatedVideosProps {
   videos: VideoEntry[];
+  assetId?: string;
   navigate: NavigateFunction;
 }
 
-const RelatedVideos: React.FC<RelatedVideosProps> = ({ assetId, videos, navigate }) => {
+const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate }) => {
   const [assetFilter, setAssetFilter] = useState<{approved: boolean, notApproved: boolean}>({
     approved: true,
     notApproved: true
@@ -40,17 +40,21 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ assetId, videos, navigate
     const date = new Date(dateString);
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
-  
-  const filteredRelatedVideos = videos.filter(video => {
+
+  const filteredVideos = videos.filter(video => {
     if (assetFilter.approved && video.admin_approved === true) return true;
     if (assetFilter.notApproved && (video.admin_approved === false || video.admin_approved === null)) return true;
     return false;
   });
 
+  if (videos.length === 0) {
+    return null;
+  }
+
   return (
     <div className="mt-8">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">Related Assets</h2>
+        <h2 className="text-xl font-bold">Related {assetId ? 'Assets' : 'Videos'}</h2>
         
         <Popover>
           <PopoverTrigger asChild>
@@ -87,9 +91,9 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ assetId, videos, navigate
         </Popover>
       </div>
       
-      {filteredRelatedVideos.length > 0 ? (
+      {filteredVideos.length > 0 ? (
         <Table>
-          <TableCaption>List of related videos with the same asset ID.</TableCaption>
+          <TableCaption>List of related videos{assetId ? ' with the same asset ID' : ''}.</TableCaption>
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
@@ -100,7 +104,7 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ assetId, videos, navigate
             </TableRow>
           </TableHeader>
           <TableBody>
-            {filteredRelatedVideos.map(relatedVideo => (
+            {filteredVideos.map(relatedVideo => (
               <TableRow key={relatedVideo.id}>
                 <TableCell>{relatedVideo.metadata?.title || 'Untitled'}</TableCell>
                 <TableCell>{relatedVideo.metadata?.creatorName || relatedVideo.reviewer_name}</TableCell>
@@ -123,8 +127,9 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ assetId, videos, navigate
                     size="sm" 
                     variant="outline"
                     onClick={() => navigate(`/videos/${relatedVideo.id}`)}
+                    className="gap-1"
                   >
-                    <Eye className="h-3 w-3 mr-1" />
+                    <ArrowRight className="h-3 w-3" />
                     View
                   </Button>
                 </TableCell>
@@ -134,8 +139,8 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ assetId, videos, navigate
         </Table>
       ) : (
         <EmptyState 
-          title="No related assets found"
-          description="There are no other assets associated with this video, or none match your current filter."
+          title="No related videos found"
+          description="There are no other videos associated with this video, or none match your current filter."
         />
       )}
     </div>

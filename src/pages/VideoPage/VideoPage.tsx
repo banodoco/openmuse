@@ -37,7 +37,10 @@ const VideoPage: React.FC = () => {
       try {
         // Fetch the video from the database
         const db = await databaseSwitcher.getDatabase();
-        const videoData = await db.getEntryById(id);
+        
+        // Instead of getEntryById, use getAllEntries and find the one we want
+        const allEntries = await db.getAllEntries();
+        const videoData = allEntries.find(entry => entry.id === id);
         
         if (!videoData) {
           throw new Error("Video not found");
@@ -66,29 +69,31 @@ const VideoPage: React.FC = () => {
         // First check if this video is associated with a LoRA
         if (videoData.metadata?.assetId) {
           // Get other videos with the same asset ID
-          const { data: assetVideos, error: assetError } = await supabase
+          const { data: mediaData, error: mediaError } = await supabase
             .from('media')
             .select('*')
             .eq('type', 'video')
             .neq('id', id); // Exclude current video
           
-          if (!assetError && assetVideos) {
+          if (!mediaError && mediaData) {
             // Convert to VideoEntry format
             relatedData = await Promise.all(
-              assetVideos.filter(media => 
-                media.metadata?.assetId === videoData.metadata?.assetId
-              ).map(async (media) => {
+              mediaData.filter(media => {
+                // Check if the media item has a metadata field with the matching assetId
+                const metadata = media.metadata as Record<string, any> | undefined;
+                return metadata?.assetId === videoData.metadata?.assetId;
+              }).map(async (media) => {
                 const videoUrl = await videoUrlService.forceRefreshUrl(media.url);
                 
                 return {
                   id: media.id,
-                  video_location: videoUrl,
+                  video_location: media.url,
                   reviewer_name: media.creator || 'Unknown',
                   skipped: false,
                   created_at: media.created_at,
                   admin_approved: null,
                   user_id: media.user_id,
-                  metadata: media.metadata
+                  metadata: media.metadata as any
                 };
               })
             );
@@ -97,8 +102,8 @@ const VideoPage: React.FC = () => {
         
         // If no asset-related videos found, fall back to recent videos
         if (relatedData.length === 0) {
-          const recentVideos = await db.getAllEntries(5); // Limit to 5 recent videos
-          relatedData = recentVideos.filter(v => v.id !== id);
+          const recentVideos = await db.getAllEntries();
+          relatedData = recentVideos.filter(v => v.id !== id).slice(0, 5); // Limit to 5 recent videos
         }
         
         setRelatedVideos(relatedData);
@@ -196,7 +201,11 @@ const VideoPage: React.FC = () => {
           </div>
         </div>
         
-        <RelatedVideos videos={relatedVideos} />
+        <RelatedVideos 
+          videos={relatedVideos} 
+          assetId={video.metadata?.assetId} 
+          navigate={navigate}
+        />
       </main>
     </div>
   );
