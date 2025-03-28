@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -73,7 +72,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
     return matchesText && matchesApproval;
   });
 
-  // Updated filter button styling to match VideoFilter component
   const getFilterButtonClass = (filter: string) => {
     return cn(
       "px-4 py-2 rounded-md text-sm font-medium transition-colors",
@@ -84,7 +82,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   };
 
   return (
-    <div className="w-full">
+    <div className="w-full flex flex-col">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
         <div className="flex flex-1 gap-4">
           <Input
@@ -138,7 +136,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
         </div>
       </div>
       
-      <ScrollArea className="h-[calc(100vh-220px)]">
+      <div className="flex-grow">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filteredLoras.length > 0 ? (
             filteredLoras.map((lora) => (
@@ -156,7 +154,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
             </div>
           )}
         </div>
-      </ScrollArea>
+      </div>
     </div>
   );
 };
