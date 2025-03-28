@@ -1,4 +1,3 @@
-
 import { supabase } from '../supabase';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';

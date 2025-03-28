@@ -47,41 +47,37 @@ export const testRLSPermissions = async () => {
   console.info(`[SupabaseClient] Auth status (${testId}): ${session?.user ? 'Authenticated' : 'Not authenticated'}`);
   
   try {
-    // Test media table access
-    const mediaPromise = supabase
-      .from('media')
-      .select('id')
-      .limit(1)
-      .single();
-    
-    // Test assets table access
-    const assetsPromise = supabase
-      .from('assets')
-      .select('id')
-      .limit(1)
-      .single();
-    
-    // Wait for both checks to complete using try/catch instead of Promise.catch
-    let mediaResult = { error: null, data: null };
-    let assetsResult = { error: null, data: null };
-    
+    // Test media table access - Fix the query to avoid 406 errors by using count instead of select id
+    let mediaAccess = false;
     try {
-      mediaResult = await mediaPromise;
+      const { count, error: mediaError } = await supabase
+        .from('media')
+        .select('*', { count: 'exact', head: true });
+      
+      mediaAccess = !mediaError;
     } catch (err) {
-      mediaResult = { error: err, data: null };
+      console.error("[SupabaseClient] Error testing media access:", err);
+      mediaAccess = false;
     }
     
+    // Test assets table access - Fix the query to avoid 406 errors by using count instead of select id
+    let assetsAccess = false;
     try {
-      assetsResult = await assetsPromise;
+      const { count, error: assetsError } = await supabase
+        .from('assets')
+        .select('*', { count: 'exact', head: true });
+      
+      assetsAccess = !assetsError;
     } catch (err) {
-      assetsResult = { error: err, data: null };
+      console.error("[SupabaseClient] Error testing assets access:", err);
+      assetsAccess = false;
     }
     
     console.info(`[SupabaseClient] RLS permission test complete (${testId})`);
     
     return {
-      mediaAccess: !mediaResult.error || mediaResult.error.code === 'PGRST116',  // No error or empty result
-      assetsAccess: !assetsResult.error || assetsResult.error.code === 'PGRST116'  // No error or empty result
+      mediaAccess,
+      assetsAccess
     };
   } catch (error) {
     console.error("[SupabaseClient] Error testing RLS permissions:", error);
