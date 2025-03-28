@@ -151,10 +151,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             <h3 className="text-base font-medium truncate mr-2">{lora.name}</h3>
             {getApprovalStatus()}
           </div>
-          
-          {lora.creator && (
-            <p className="text-xs text-white/80 mt-1 bg-white/10 backdrop-blur-sm inline-block px-2 py-0.5 rounded">{lora.creator}</p>
-          )}
         </div>
       </div>
       
