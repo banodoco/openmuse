@@ -41,8 +41,8 @@ const AuthCallback = () => {
           returnUrl
         });
 
-        // Let Supabase handle the OAuth callback
-        // The supabase.auth.getSession() call below will trigger the internal processing
+        // Let Supabase handle the OAuth callback - this will automatically
+        // process any tokens in the URL hash or code in search params
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -55,6 +55,18 @@ const AuthCallback = () => {
             userId: data.session.user.id,
             expiresAt: data.session.expires_at
           });
+          
+          // Explicitly store session in localStorage to improve cross-domain persistence
+          try {
+            localStorage.setItem('supabase.auth.token', JSON.stringify({
+              access_token: data.session.access_token,
+              refresh_token: data.session.refresh_token,
+              expires_at: data.session.expires_at
+            }));
+          } catch (storageError) {
+            logger.error('Error storing session in localStorage:', storageError);
+            // Continue even if localStorage fails
+          }
           
           // Force refresh the session to ensure we have the latest tokens
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();

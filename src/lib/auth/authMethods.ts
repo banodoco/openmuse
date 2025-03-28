@@ -24,6 +24,15 @@ export const signInWithDiscord = async () => {
       logger.log('Ignoring error during preventative sign out:', signOutError);
     }
     
+    // Clear any localStorage lingering tokens manually
+    try {
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase_auth_token');
+      localStorage.removeItem('actual_auth_origin');
+    } catch (e) {
+      logger.log('Error clearing localStorage items:', e);
+    }
+    
     logger.log('Starting Discord sign in, redirect URL:', redirectUrl);
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: 'discord',
@@ -57,6 +66,15 @@ export const signOut = async () => {
     // Clear caches first
     userProfileCache.clear();
     userRolesCache.clear();
+    
+    // Manually clear any localStorage tokens to ensure complete cleanup
+    try {
+      localStorage.removeItem('supabase.auth.token');
+      localStorage.removeItem('supabase_auth_token');
+      localStorage.removeItem('actual_auth_origin');
+    } catch (e) {
+      logger.log('Error clearing localStorage items during signOut:', e);
+    }
     
     // Sign out from Supabase with global scope to clear all sessions
     const { error } = await supabase.auth.signOut({
