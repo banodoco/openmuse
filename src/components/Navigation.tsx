@@ -5,7 +5,9 @@ import { cn } from '@/lib/utils';
 import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
-import openMuseLogo from '/lovable-uploads/930b1b86-2014-499d-8db6-c9d13b3dde86.png';
+
+// Use the working logo path directly instead of importing it
+const logoPath = '/lovable-uploads/50b1d979-6d68-4f4a-a6cc-fcf4579bdfec.png';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -44,7 +46,7 @@ const Navigation: React.FC = () => {
       <div className="flex items-center">
         <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
           <img 
-            src={imageError ? '/lovable-uploads/50b1d979-6d68-4f4a-a6cc-fcf4579bdfec.png' : openMuseLogo} 
+            src={logoPath} 
             alt="OpenMuse Logo" 
             className="h-20 w-auto"
             onError={handleImageError}
