@@ -6,6 +6,7 @@ import VideoPreview from '@/components/VideoPreview';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import { toast } from 'sonner';
 import { VideoMetadata } from '@/lib/types';
+import { useAuth } from '@/hooks/useAuth';
 
 interface VideoMetadataForm {
   title: string;
@@ -27,13 +28,17 @@ interface MultipleVideoUploaderProps {
   videos: VideoItem[];
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
   hideIsPrimary?: boolean;
+  disabled?: boolean;
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
   videos, 
   setVideos,
-  hideIsPrimary = false
+  hideIsPrimary = false,
+  disabled = false
 }) => {
+  const { user } = useAuth();
+  
   const initialMetadata: VideoMetadataForm = {
     title: '',
     description: '',
@@ -78,6 +83,21 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     }
   }, [videos]);
 
+  // Always set video creator to 'self' when user is logged in
+  React.useEffect(() => {
+    if (user) {
+      setVideos(prev => 
+        prev.map(video => ({
+          ...video,
+          metadata: {
+            ...video.metadata,
+            creator: 'self'
+          }
+        }))
+      );
+    }
+  }, [user]);
+
   // Only manage primary videos if not hiding the option
   React.useEffect(() => {
     if (hideIsPrimary) return;
@@ -101,6 +121,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   }, [videos, setVideos, hideIsPrimary]);
   
   const handleRemoveVideo = (id: string) => {
+    if (disabled) return;
+    
     const videoToRemove = videos.find(v => v.id === id);
     if (!videoToRemove?.file && !videoToRemove?.url) {
       return;
@@ -126,8 +148,15 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: keyof VideoMetadataForm, value: any) => {
+    if (disabled) return;
+    
     // Skip isPrimary handling if hiding the option
     if (hideIsPrimary && field === 'isPrimary') return;
+
+    // Always keep creator as 'self' if user is logged in
+    if (field === 'creator' && user) {
+      return;
+    }
     
     if (field === 'isPrimary' && value === true && !hideIsPrimary) {
       setVideos(prev => 
@@ -154,6 +183,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   
   const handleVideoFileDrop = (id: string) => {
     return (acceptedFiles: File[]) => {
+      if (disabled) return;
+      
       console.log("File dropped:", acceptedFiles);
       
       if (acceptedFiles.length === 0) return;
@@ -178,7 +209,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                     url: url,
                     metadata: {
                       ...video.metadata,
-                      title: defaultTitle
+                      title: defaultTitle,
+                      creator: 'self' // Always set to 'self' for logged-in users
                     }
                   } 
                 : video
@@ -211,7 +243,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             metadata: {
               ...initialMetadata,
               title: defaultTitle,
-              isPrimary: false
+              isPrimary: false,
+              creator: 'self' // Always set to 'self' for logged-in users
             }
           };
         });
@@ -227,7 +260,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                 url: firstUrl,
                 metadata: {
                   ...video.metadata,
-                  title: firstDefaultTitle
+                  title: firstDefaultTitle,
+                  creator: 'self' // Always set to 'self' for logged-in users
                 }
               };
             }
@@ -243,6 +277,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   
   const handleVideoLinkAdded = (id: string) => {
     return (linkUrl: string) => {
+      if (disabled) return;
+      
       console.log("Link added:", linkUrl);
       
       let defaultTitle = '';
@@ -277,7 +313,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                 url: linkUrl,
                 metadata: {
                   ...video.metadata,
-                  title: defaultTitle
+                  title: defaultTitle,
+                  creator: 'self' // Always set to 'self' for logged-in users
                 }
               } 
             : video
@@ -287,6 +324,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const handleRemoveVideoFile = (id: string) => {
+    if (disabled) return;
+    
     setVideos(prev => 
       prev.map(video => 
         video.id === id ? { ...video, file: null, url: null } : video
@@ -306,6 +345,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                 variant="ghost" 
                 size="sm" 
                 onClick={() => handleRemoveVideo(video.id)}
+                disabled={disabled}
               >
                 <X className="h-4 w-4 mr-1" />
                 Remove
@@ -327,6 +367,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                   metadata={video.metadata}
                   updateMetadata={updateVideoMetadata}
                   canSetPrimary={!hideIsPrimary}
+                  disabled={disabled}
                 />
               </div>
             </div>
@@ -345,11 +386,18 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                 onLinkAdded={handleVideoLinkAdded(video.id)}
                 onRemove={() => handleRemoveVideoFile(video.id)}
                 multiple={true}
+                disabled={disabled}
               />
             </div>
           </div>
         ))}
       </div>
+      
+      {disabled && (
+        <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-gray-500 text-sm">
+          Please sign in to upload videos.
+        </div>
+      )}
     </>
   );
 };

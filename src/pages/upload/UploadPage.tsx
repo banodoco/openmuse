@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -152,7 +153,11 @@ const UploadPage: React.FC = () => {
               <p className="text-sm text-muted-foreground mb-4">
                 These details will be applied to all videos in this upload.
               </p>
-              <LoRADetailsForm loraDetails={loraDetails} updateLoRADetails={updateLoRADetails} />
+              <LoRADetailsForm 
+                loraDetails={loraDetails} 
+                updateLoRADetails={updateLoRADetails}
+                disabled={!user} // Disable the form fields if not signed in
+              />
             </div>
             
             <h2 className="text-xl font-semibold">Videos</h2>
@@ -160,6 +165,7 @@ const UploadPage: React.FC = () => {
             <MultipleVideoUploader 
               videos={videos} 
               setVideos={setVideos} 
+              disabled={!user} // Disable video uploads if not signed in
             />
             
             <div className="flex items-center space-x-2">
@@ -167,13 +173,21 @@ const UploadPage: React.FC = () => {
                 id="terms"
                 checked={termsAccepted}
                 onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+                disabled={!user} // Disable checkbox if not signed in
               />
               <Label htmlFor="terms">I accept the terms and conditions</Label>
             </div>
             
-            <Button type="submit" disabled={isSubmitting} size={isMobile ? "sm" : "default"}>
+            <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
               {isSubmitting ? 'Submitting...' : 'Submit Videos'}
             </Button>
+            
+            {!user && (
+              <div className="p-4 border border-yellow-200 bg-yellow-50 rounded-md text-yellow-800">
+                <p className="font-medium">You must be signed in to submit videos.</p>
+                <p className="text-sm mt-1">Please sign in to access all features.</p>
+              </div>
+            )}
           </form>
         </main>
       </div>

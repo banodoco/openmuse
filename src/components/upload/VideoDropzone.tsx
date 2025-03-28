@@ -14,6 +14,7 @@ interface VideoDropzoneProps {
   onLinkAdded?: (link: string) => void;
   onRemove?: () => void;
   multiple?: boolean;
+  disabled?: boolean;
 }
 
 const VideoDropzone: React.FC<VideoDropzoneProps> = ({ 
@@ -23,7 +24,8 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
   onDrop, 
   onLinkAdded, 
   onRemove,
-  multiple = true // Default to true to enable multiple file uploads
+  multiple = true, // Default to true to enable multiple file uploads
+  disabled = false
 }) => {
   // Log props to make sure they're being passed correctly
   console.log(`VideoDropzone props - id: ${id}, file: ${file ? file.name : 'null'}, url: ${url}`);
@@ -33,6 +35,8 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
   
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop: (acceptedFiles) => {
+      if (disabled) return;
+      
       console.log("Dropzone onDrop called with files:", acceptedFiles);
       if (acceptedFiles && acceptedFiles.length > 0) {
         onDrop(acceptedFiles);
@@ -43,14 +47,18 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
     },
     maxSize: 100 * 1024 * 1024, // 100MB max size
     multiple: multiple, // Allow multiple files to be selected
+    disabled: disabled, // Disable dropzone if needed
   });
   
   const toggleLinkInput = () => {
+    if (disabled) return;
     setShowLinkInput(!showLinkInput);
   };
   
   const handleLinkSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (disabled) return;
     
     // Basic validation for video URLs
     const isYoutubeUrl = videoLink.includes('youtube.com/') || videoLink.includes('youtu.be/');
@@ -75,6 +83,8 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
   };
 
   const handleRemoveVideo = () => {
+    if (disabled) return;
+    
     if (onRemove) {
       onRemove();
     }
@@ -96,11 +106,12 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
               onChange={(e) => setVideoLink(e.target.value)}
               placeholder="Paste YouTube, Vimeo, or direct video URL"
               className="w-full"
+              disabled={disabled}
             />
           </div>
           <div className="flex gap-2">
-            <Button type="button" size="sm" onClick={handleLinkSubmit}>Add Video</Button>
-            <Button type="button" variant="outline" size="sm" onClick={toggleLinkInput}>
+            <Button type="button" size="sm" onClick={handleLinkSubmit} disabled={disabled}>Add Video</Button>
+            <Button type="button" variant="outline" size="sm" onClick={toggleLinkInput} disabled={disabled}>
               Cancel
             </Button>
           </div>
@@ -122,6 +133,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
             size="sm" 
             onClick={handleRemoveVideo}
             className="mb-2"
+            disabled={disabled}
           >
             <X className="h-4 w-4 mr-2" />
             Remove Video
@@ -131,9 +143,9 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
       
       <div 
         {...getRootProps()} 
-        className="dropzone mt-1 border-2 border-dashed rounded-md p-8 text-center cursor-pointer bg-muted/50 w-full md:w-1/2 mx-auto"
+        className={`dropzone mt-1 border-2 border-dashed rounded-md p-8 text-center cursor-pointer bg-muted/50 w-full md:w-1/2 mx-auto ${disabled ? 'opacity-60 cursor-not-allowed' : ''}`}
       >
-        <input {...getInputProps()} id={`video-${id}`} />
+        <input {...getInputProps()} id={`video-${id}`} disabled={disabled} />
         <div className="flex flex-col items-center justify-center">
           <UploadIcon className="h-12 w-12 text-muted-foreground mb-4" />
           {
@@ -143,18 +155,22 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
                 <p className="text-lg font-medium mb-2">Drag 'n' drop videos here</p>
                 <p className="text-sm text-muted-foreground">or click to select files</p>
                 <p className="text-xs text-muted-foreground mt-2">Max size: 100MB per file</p>
+                {disabled && <p className="text-xs text-red-500 mt-2">Sign in to upload videos</p>}
               </>
           }
         </div>
       </div>
       <div className="text-center mt-2">
-        <button 
-          className="text-sm text-primary underline cursor-pointer" 
-          onClick={toggleLinkInput}
-          type="button"
-        >
-          Or share a link
-        </button>
+        {!disabled && (
+          <button 
+            className="text-sm text-primary underline cursor-pointer" 
+            onClick={toggleLinkInput}
+            type="button"
+            disabled={disabled}
+          >
+            Or share a link
+          </button>
+        )}
       </div>
     </div>
   );

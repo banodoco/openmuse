@@ -5,6 +5,7 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/hooks/useAuth';
 
 interface LoRADetailsForm {
   loraName: string;
@@ -19,12 +20,23 @@ interface LoRADetailsForm {
 interface GlobalLoRADetailsFormProps {
   loraDetails: LoRADetailsForm;
   updateLoRADetails: (field: keyof LoRADetailsForm, value: string) => void;
+  disabled?: boolean;
 }
 
 const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({ 
   loraDetails, 
-  updateLoRADetails 
+  updateLoRADetails,
+  disabled = false
 }) => {
+  const { user } = useAuth();
+  
+  // Always set creator to 'self' when user is logged in
+  React.useEffect(() => {
+    if (user) {
+      updateLoRADetails('creator', 'self');
+    }
+  }, [user]);
+
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
       <div className="space-y-4">
@@ -37,6 +49,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             value={loraDetails.loraName}
             onChange={(e) => updateLoRADetails('loraName', e.target.value)}
             required
+            disabled={disabled}
           />
         </div>
         
@@ -47,6 +60,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             placeholder="Enter LoRA description"
             value={loraDetails.loraDescription}
             onChange={(e) => updateLoRADetails('loraDescription', e.target.value)}
+            disabled={disabled}
           />
         </div>
 
@@ -55,6 +69,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
           <Select 
             value={loraDetails.loraType} 
             onValueChange={(value) => updateLoRADetails('loraType', value)}
+            disabled={disabled}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select LoRA type" />
@@ -77,40 +92,25 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             placeholder="Enter LoRA link"
             value={loraDetails.loraLink}
             onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
+            disabled={disabled}
           />
         </div>
         
-        <div>
+        {/* Creator field is hidden as we always use the logged-in user */}
+        <div className="hidden">
           <Label className="block mb-2">Was this made by you or someone else?</Label>
           <RadioGroup 
-            value={loraDetails.creator}
+            value="self"
             onValueChange={(value) => updateLoRADetails('creator', value)}
             className="flex flex-col space-y-1"
+            disabled={disabled}
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="self" id="lora-creator-self" />
               <Label htmlFor="lora-creator-self">Me</Label>
             </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="someone_else" id="lora-creator-someone" />
-              <Label htmlFor="lora-creator-someone">Someone else</Label>
-            </div>
           </RadioGroup>
         </div>
-        
-        {loraDetails.creator === 'someone_else' && (
-          <div>
-            <Label htmlFor="lora-creator-name">Who?</Label>
-            <Input
-              type="text"
-              id="lora-creator-name"
-              placeholder="Enter creator's name"
-              value={loraDetails.creatorName}
-              onChange={(e) => updateLoRADetails('creatorName', e.target.value)}
-              required={loraDetails.creator === 'someone_else'}
-            />
-          </div>
-        )}
       </div>
       
       <div className="space-y-4">
@@ -119,6 +119,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
           <Select 
             value={loraDetails.model} 
             onValueChange={(value: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff') => updateLoRADetails('model', value)}
+            disabled={disabled}
           >
             <SelectTrigger className="w-full">
               <SelectValue placeholder="Select Model" />
