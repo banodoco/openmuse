@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { ArrowUpRight, FileVideo } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { videoUrlService } from '@/lib/services/videoUrlService';
@@ -89,14 +90,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
           </div>
         )}
       </div>
-      
-      <CardHeader className="pb-2 pt-4 px-4">
-        <div className="flex items-start justify-between">
-          <CardTitle className="text-lg font-medium truncate">
-            {lora.name}
-          </CardTitle>
-        </div>
-      </CardHeader>
     </Card>
   );
 };
