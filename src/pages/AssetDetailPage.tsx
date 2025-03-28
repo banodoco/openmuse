@@ -381,8 +381,12 @@ const AssetDetailPage: React.FC = () => {
               <h2 className="text-xl font-bold">Associated Videos</h2>
             </div>
             
-            {user && (
-              <div className="mb-4 flex">
+            {/* Debug logging for upload button visibility */}
+            {console.log('User for upload button:', user)}
+            {console.log('Asset exists:', !!asset)}
+            
+            {user && asset && (
+              <div className="mb-4">
                 <LoRAVideoUploader 
                   assetId={asset.id} 
                   assetName={asset.name || ''} 
