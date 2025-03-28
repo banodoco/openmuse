@@ -78,11 +78,17 @@ const AssetDetailPage: React.FC = () => {
         .from('assets')
         .select('*')
         .eq('id', id)
-        .single();
+        .maybeSingle(); // Changed from single() to maybeSingle() to prevent errors if no data is found
 
       if (assetError) {
         console.error('AssetDetailPage - Error fetching asset:', assetError);
         throw assetError;
+      }
+
+      if (!assetData) {
+        console.error('AssetDetailPage - No asset found with ID:', id);
+        setIsLoading(false);
+        return;
       }
 
       console.log('AssetDetailPage - Asset data retrieved:', assetData);
@@ -99,10 +105,10 @@ const AssetDetailPage: React.FC = () => {
 
       console.log('AssetDetailPage - All videos retrieved:', videoData?.length || 0);
 
-      const assetVideos = videoData.filter(video => 
+      const assetVideos = videoData?.filter(video => 
         video.title?.includes(assetData.name) || 
         video.id === assetData.primary_media_id
-      );
+      ) || [];
 
       console.log('AssetDetailPage - Videos for this asset:', assetVideos?.length || 0);
 
@@ -358,6 +364,9 @@ const AssetDetailPage: React.FC = () => {
     );
   }
 
+  // Determine if the upload button should be shown
+  const showUploadButton = user !== null && asset !== null;
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -385,6 +394,7 @@ const AssetDetailPage: React.FC = () => {
                 <div>Is admin: {isAdmin ? 'Yes' : 'No'}</div>
                 <div>Asset ID: {id}</div>
                 <div>Videos count: {videos.length}</div>
+                <div>Show upload button: {showUploadButton ? 'Yes' : 'No'}</div>
               </div>
             </details>
           </div>
@@ -461,7 +471,7 @@ const AssetDetailPage: React.FC = () => {
               <h2 className="text-xl font-bold">Associated Videos</h2>
             </div>
             
-            {user && asset && (
+            {showUploadButton && (
               <div className="mb-4">
                 <LoRAVideoUploader 
                   assetId={asset.id} 
