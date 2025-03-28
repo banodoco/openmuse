@@ -1,4 +1,3 @@
-
 import { supabase } from '../supabase';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
@@ -111,7 +110,7 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
     const { data, error } = await supabase
       .from('user_roles')
       .select('role')
-      .eq('user_id', userId);
+      .eq('user_roles.user_id', userId);
     
     if (error) {
       logger.error('Error getting user roles:', error);
@@ -134,8 +133,8 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   logger.log(`Checking if user ${userId} is admin`);
   
   try {
-    // Use a direct query to check for admin role
-    // Explicitly specify the table name for the user_id column to avoid ambiguity
+    // Use a direct query with fully qualified column names to avoid ambiguity
+    // The 'user_roles.user_id' is fully qualified to avoid the ambiguous column reference
     const { data, error } = await supabase
       .from('user_roles')
       .select('*')
