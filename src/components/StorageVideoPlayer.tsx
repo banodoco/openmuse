@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -32,7 +31,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
 
-  // Load the video URL
   useEffect(() => {
     let isMounted = true;
     
@@ -45,7 +43,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           throw new Error('No video location provided');
         }
         
-        // Use the video URL service to get a permanent URL
         const url = await videoUrlService.getVideoUrl(videoLocation);
         
         if (!url) {
@@ -80,7 +77,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   };
 
   const handleRetry = () => {
-    // Force a refresh by incrementing retry count
     setLoading(true);
     setError(null);
     setErrorDetails(null);
@@ -96,7 +92,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       <div className="relative h-full w-full bg-secondary/30 rounded-lg">
         <VideoPreviewError 
           error={error} 
-          details={errorDetails || undefined} .
+          details={errorDetails || undefined}
           onRetry={handleRetry} 
           videoSource={videoUrl}
         />
