@@ -16,6 +16,7 @@ import { useAuth } from '@/hooks/useAuth';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
 import VideoLightbox from '@/components/VideoLightbox';
 import { useVideoHover } from '@/hooks/useVideoHover';
+import StorageVideoPlayer from '@/components/StorageVideoPlayer';
 
 const AssetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
