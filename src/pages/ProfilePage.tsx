@@ -1,7 +1,7 @@
 
 import React from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
-import { PageHeader } from '@/components/PageHeader';
+import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
 import RequireAuth from '@/components/RequireAuth';
 
