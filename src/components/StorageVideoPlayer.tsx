@@ -46,6 +46,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           throw new Error('No video location provided');
         }
         
+        // Pass previewMode flag to allow blob URLs in preview mode
         const url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
         
         if (!url) {
@@ -98,6 +99,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           details={errorDetails || undefined}
           onRetry={handleRetry} 
           videoSource={videoUrl}
+          // Show recovery options only if not in preview mode
+          canRecover={!previewMode}
         />
       </div>
     );

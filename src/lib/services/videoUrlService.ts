@@ -12,11 +12,25 @@ export class VideoUrlService {
       return '';
     }
     
-    // For blob URLs, return them directly if allowBlobUrls is true (for preview purposes)
+    // For blob URLs, handle them based on allowBlobUrls flag
     if (videoLocation.startsWith('blob:')) {
       if (allowBlobUrls) {
         this.logger.log(`Using blob URL for preview: ${videoLocation.substring(0, 30)}...`);
-        return videoLocation;
+        
+        try {
+          // Test if blob URL is still valid by fetching a head request
+          const response = await fetch(videoLocation, { method: 'HEAD' }).catch(() => null);
+          if (response && response.ok) {
+            return videoLocation;
+          } else {
+            this.logger.warn(`Blob URL appears to be invalid or expired`);
+            // If in preview mode, still return the URL to show error UI
+            return videoLocation;
+          }
+        } catch (error) {
+          this.logger.warn(`Error checking blob URL: ${error}`);
+          return videoLocation; // Still return it in preview mode
+        }
       } else {
         this.logger.warn(`Blob URL detected, ignoring as it's not permanent`);
         return '';

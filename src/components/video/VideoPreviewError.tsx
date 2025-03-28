@@ -36,7 +36,11 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
 
   // Determine if this is likely a format issue or a blob URL issue
   const isFormatError = error.includes('format') || error.includes('not supported');
-  const isBlobError = videoSource?.startsWith('blob:') && error.includes('Invalid video source');
+  const isBlobError = videoSource?.startsWith('blob:') && (
+    error.includes('Invalid video source') || 
+    error.includes('blob') || 
+    error.includes('URL')
+  );
   const detectedFormat = videoSource ? getVideoFormat(videoSource) : 'Unknown';
   
   // State to track if we're actively refreshing
@@ -133,9 +137,11 @@ const VideoPreviewError: React.FC<VideoPreviewErrorProps> = ({
         
         {isBlobError && (
           <div className="mb-3 text-xs bg-amber-50 p-2 rounded-md text-amber-800">
-            <p>The temporary video URL has expired.</p>
-            {canRecover && (
-              <p className="mt-1">Click "Recover Video" to retrieve the permanent URL.</p>
+            <p>The temporary preview URL cannot be displayed.</p>
+            {canRecover ? (
+              <p className="mt-1">Try uploading the video for permanent storage.</p>
+            ) : (
+              <p className="mt-1">This is normal for previews during upload.</p>
             )}
           </div>
         )}

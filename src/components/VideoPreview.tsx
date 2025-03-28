@@ -84,11 +84,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           onError={handleVideoError}
         />
       ) : url?.startsWith('blob:') ? (
-        // For blob URLs, use standard preview
-        <StandardVideoPreview 
-          url={url}
-          posterUrl={posterUrl}
-          onError={handleVideoError}
+        // For blob URLs, use special preview mode
+        <StorageVideoPlayer
+          videoLocation={url}
+          controls={false}
+          muted={true}
+          className="w-full h-full object-cover"
+          playOnHover={true}
+          previewMode={true}
         />
       ) : url ? (
         // For storage URLs, use the StorageVideoPlayer in preview mode
@@ -102,7 +105,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
         />
       ) : null}
 
-      {error && <VideoPreviewError error={error} onRetry={handleRetry} />}
+      {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} />}
     </div>
   );
 };
