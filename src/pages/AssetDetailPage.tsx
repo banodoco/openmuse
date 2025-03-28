@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -15,6 +14,7 @@ import EmptyState from '@/components/EmptyState';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { checkIsAdmin } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
+import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
 
 const AssetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -46,7 +46,6 @@ const AssetDetailPage: React.FC = () => {
     }
 
     try {
-      // Fetch asset details
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
         .select('*')
@@ -55,7 +54,6 @@ const AssetDetailPage: React.FC = () => {
 
       if (assetError) throw assetError;
 
-      // Fetch associated videos from asset_media or directly from media table
       const { data: videoData, error: videoError } = await supabase
         .from('media')
         .select('*')
@@ -63,13 +61,11 @@ const AssetDetailPage: React.FC = () => {
 
       if (videoError) throw videoError;
 
-      // Filter videos that match this asset (by name or through primary_media_id)
       const assetVideos = videoData.filter(video => 
         video.title?.includes(assetData.name) || 
         video.id === assetData.primary_media_id
       );
 
-      // Convert Supabase media format to VideoEntry format
       const convertedVideos: VideoEntry[] = await Promise.all(
         assetVideos.map(async (media: any) => {
           try {
@@ -145,7 +141,6 @@ const AssetDetailPage: React.FC = () => {
       if (error) throw error;
       
       toast.success('LoRA curated successfully');
-      // Update local state
       setAsset(prev => prev ? { ...prev, admin_approved: 'Curated' } : null);
     } catch (error) {
       console.error('Error curating LoRA:', error);
@@ -168,7 +163,6 @@ const AssetDetailPage: React.FC = () => {
       if (error) throw error;
       
       toast.success('LoRA listed successfully');
-      // Update local state
       setAsset(prev => prev ? { ...prev, admin_approved: 'Listed' } : null);
     } catch (error) {
       console.error('Error listing LoRA:', error);
@@ -191,7 +185,6 @@ const AssetDetailPage: React.FC = () => {
       if (error) throw error;
       
       toast.success('LoRA rejected');
-      // Update local state
       setAsset(prev => prev ? { ...prev, admin_approved: 'Rejected' } : null);
     } catch (error) {
       console.error('Error rejecting LoRA:', error);
@@ -203,7 +196,6 @@ const AssetDetailPage: React.FC = () => {
 
   const handleDeleteVideo = async (videoId: string) => {
     try {
-      // Call the deleteEntry function from a relevant service
       const { error } = await supabase
         .from('media')
         .delete()
@@ -212,7 +204,6 @@ const AssetDetailPage: React.FC = () => {
       if (error) throw error;
       
       toast.success('Video deleted successfully');
-      // Refresh videos list
       fetchAssetDetails();
     } catch (error) {
       console.error('Error deleting video:', error);
@@ -230,7 +221,6 @@ const AssetDetailPage: React.FC = () => {
       if (error) throw error;
       
       toast.success('Video curated successfully');
-      // Refresh videos list
       fetchAssetDetails();
     } catch (error) {
       console.error('Error curating video:', error);
@@ -248,7 +238,6 @@ const AssetDetailPage: React.FC = () => {
       if (error) throw error;
       
       toast.success('Video listed successfully');
-      // Refresh videos list
       fetchAssetDetails();
     } catch (error) {
       console.error('Error listing video:', error);
@@ -266,7 +255,6 @@ const AssetDetailPage: React.FC = () => {
       if (error) throw error;
       
       toast.success('Video rejected');
-      // Refresh videos list
       fetchAssetDetails();
     } catch (error) {
       console.error('Error rejecting video:', error);
@@ -388,7 +376,17 @@ const AssetDetailPage: React.FC = () => {
           </Card>
           
           <div className="md:col-span-2">
-            <h2 className="text-xl font-bold mb-4">Associated Videos</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">Associated Videos</h2>
+              {user && (
+                <LoRAVideoUploader 
+                  assetId={asset.id} 
+                  assetName={asset.name || ''} 
+                  onUploadsComplete={fetchAssetDetails} 
+                />
+              )}
+            </div>
+            
             {videos.length > 0 ? (
               <VideoList 
                 videos={videos} 
