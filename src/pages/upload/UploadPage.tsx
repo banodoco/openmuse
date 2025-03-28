@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -12,6 +11,7 @@ import { Logger } from '@/lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseStorage } from '@/lib/supabaseStorage';
 import RequireAuth from '@/components/RequireAuth';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const logger = new Logger('Upload');
 
@@ -123,51 +123,51 @@ const UploadPage: React.FC = () => {
   };
   
   return (
-    <RequireAuth>
-      <div className="flex flex-col min-h-screen bg-background">
-        <Navigation />
+    <div className="flex flex-col min-h-screen bg-background">
+      <Navigation />
+      
+      <main className="flex-1 container mx-auto p-4">
+        <h1 className="text-3xl font-bold tracking-tight mb-4">Add LoRA</h1>
+        <p className="text-muted-foreground mb-8">
+          Submit a LoRA that you or someone else made to be featured.
+        </p>
         
-        <main className="flex-1 container mx-auto p-4">
-          <h1 className="text-3xl font-bold tracking-tight mb-4">Add LoRA</h1>
-          <p className="text-muted-foreground mb-8">
-            Submit a LoRA that you or someone else made to be featured.
-          </p>
+        {!user && (
+          <Alert className="mb-8 border border-yellow-200 bg-yellow-50 text-yellow-800">
+            <AlertTitle className="font-medium">You must be signed in to submit videos.</AlertTitle>
+            <AlertDescription className="mt-1">
+              Please <Link to="/auth" className="font-medium underline">sign in</Link> to access all features.
+            </AlertDescription>
+          </Alert>
+        )}
+        
+        <form onSubmit={handleSubmit} className="space-y-8">
+          <div className="p-6 border rounded-lg bg-card space-y-4">
+            <h2 className="text-xl font-semibold">LoRA Details</h2>
+            <LoRADetailsForm 
+              loraDetails={loraDetails} 
+              updateLoRADetails={updateLoRADetails}
+              disabled={!user} 
+            />
+          </div>
           
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="p-6 border rounded-lg bg-card space-y-4">
-              <h2 className="text-xl font-semibold">LoRA Details</h2>
-              <LoRADetailsForm 
-                loraDetails={loraDetails} 
-                updateLoRADetails={updateLoRADetails}
-                disabled={!user} 
-              />
-            </div>
-            
-            <div className="p-6 border rounded-lg bg-card space-y-4">
-              <h2 className="text-xl font-semibold">Videos made with it</h2>
-              <MultipleVideoUploader 
-                videos={videos} 
-                setVideos={setVideos} 
-                disabled={!user}
-              />
-            </div>
-            
-            <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
-              {isSubmitting ? 'Submitting...' : 'Submit LoRA'}
-            </Button>
-            
-            {!user && (
-              <div className="p-4 border border-yellow-200 bg-yellow-50 rounded-md text-yellow-800">
-                <p className="font-medium">You must be signed in to submit videos.</p>
-                <p className="text-sm mt-1">Please sign in to access all features.</p>
-              </div>
-            )}
-          </form>
-        </main>
-        
-        <Footer />
-      </div>
-    </RequireAuth>
+          <div className="p-6 border rounded-lg bg-card space-y-4">
+            <h2 className="text-xl font-semibold">Videos made with it</h2>
+            <MultipleVideoUploader 
+              videos={videos} 
+              setVideos={setVideos} 
+              disabled={!user}
+            />
+          </div>
+          
+          <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
+            {isSubmitting ? 'Submitting...' : 'Submit LoRA'}
+          </Button>
+        </form>
+      </main>
+      
+      <Footer />
+    </div>
   );
 };
 
