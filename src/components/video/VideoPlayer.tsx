@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -25,6 +24,7 @@ interface VideoPlayerProps {
   showPlayButtonOnHover?: boolean;
   externallyControlled?: boolean;
   isHovering?: boolean;
+  expandOnHover?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -43,6 +43,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   showPlayButtonOnHover = true,
   externallyControlled = false,
   isHovering = false,
+  expandOnHover = true,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
@@ -53,34 +54,29 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
   const [hover, setHover] = useState(isHovering);
-  const [videoLoaded, setVideoLoaded] = useState(false);
 
-  // Add debug logs for hover state changes
   useEffect(() => {
     logger.log(`VideoPlayer: Initial hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
   }, []);
 
-  // Sync external hover state
   useEffect(() => {
     const prevHover = hover;
     setHover(isHovering);
     
     if (!prevHover && isHovering) {
       logger.log('VideoPlayer: External hover state changed to true');
-      logger.log('VideoPlayer: Video should now expand to show full content');
+      logger.log('VideoPlayer: Video should now expand');
     } else if (prevHover && !isHovering) {
       logger.log('VideoPlayer: External hover state changed to false');
       logger.log('VideoPlayer: Video should revert to normal display');
     }
   }, [isHovering, hover]);
 
-  // Setup hover behavior - only if not externally controlled
   useVideoHover(containerRef, videoRef, {
     enabled: playOnHover && !externallyControlled,
     resetOnLeave: true
   });
-  
-  // Handle external hover control
+
   useEffect(() => {
     const video = videoRef.current;
     if (externallyControlled && video) {
@@ -96,7 +92,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isHovering, externallyControlled, muted]);
 
-  // Validate video source
   useEffect(() => {
     setIsBlobUrl(src?.startsWith('blob:') || false);
     
@@ -108,7 +103,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    // Allow blob URLs to pass validation
     if (!isBlobUrl && !isValidVideoUrl(src)) {
       const format = getVideoFormat(src);
       const errorMsg = `Invalid video source: ${src.substring(0, 50)}...`;
@@ -120,7 +114,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [src, onError, isBlobUrl]);
 
-  // Handle video element setup when src changes
   useEffect(() => {
     setError(null);
     setErrorDetails('');
@@ -149,12 +142,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setVideoLoaded(true);
       if (onLoadedData) onLoadedData();
       
-      // Don't autoplay if we're using hover to play
       if (autoPlay && !playOnHover && !externallyControlled) {
         attemptVideoPlay(video, muted);
       }
       
-      // For externally controlled video, check if we should play immediately
       if (externallyControlled && isHovering) {
         logger.log('VideoPlayer: Initially hovering - playing video immediately');
         attemptVideoPlay(video, muted);
@@ -165,7 +156,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const { message, details } = getVideoErrorMessage(video.error, src);
       const format = getVideoFormat(src);
       
-      // Special message for blob URLs
       if (isBlobUrl) {
         setError('The temporary preview cannot be played');
         setErrorDetails('This may be due to the blob URL being created in a different browser context or session');
@@ -187,11 +177,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('error', handleError);
     
-    // Always pause first to ensure consistent state
     video.pause();
     
     try {
-      video.preload = "auto"; // Ensure video preloads
+      video.preload = "auto";
       video.src = src;
       if (poster) {
         video.poster = poster;
@@ -224,14 +213,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setErrorDetails('');
     setIsLoading(true);
     
-    // Simply reload the video
     video.load();
   };
 
   return (
     <div 
       ref={containerRef} 
-      className="relative w-full h-full overflow-hidden rounded-lg"
+      className={cn(
+        "relative w-full h-full overflow-visible rounded-lg",
+        expandOnHover && hover ? "absolute z-50 inset-0" : "relative"
+      )}
+      style={{
+        position: expandOnHover && hover ? 'fixed' : 'relative',
+        top: expandOnHover && hover ? '50%' : 'auto',
+        left: expandOnHover && hover ? '50%' : 'auto',
+        transform: expandOnHover && hover ? 'translate(-50%, -50%)' : 'none',
+        width: expandOnHover && hover ? '90vw' : '100%',
+        height: expandOnHover && hover ? '90vh' : '100%',
+        maxWidth: expandOnHover && hover ? '1200px' : '100%',
+        maxHeight: expandOnHover && hover ? '800px' : '100%',
+        zIndex: expandOnHover && hover ? 1000 : 'auto',
+      }}
     >
       {isLoading && <VideoLoader posterImage={poster} />}
       
@@ -248,8 +250,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         ref={videoRef}
         className={cn(
           "w-full h-full transition-all duration-300",
-          hover ? "object-contain transform-gpu scale-100" : "object-cover",
-          videoLoaded && hover ? "scale-100" : "",
+          hover && expandOnHover ? "object-contain" : "object-cover",
           className
         )}
         autoPlay={autoPlay && !playOnHover && !externallyControlled}
@@ -262,7 +263,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         src={src}
         crossOrigin="anonymous"
         style={{
-          objectFit: hover ? 'contain' : 'cover'
+          objectFit: hover && expandOnHover ? 'contain' : 'cover'
         }}
       >
         Your browser does not support the video tag.

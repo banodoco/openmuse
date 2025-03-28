@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -20,6 +19,7 @@ interface StandardVideoPreviewProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   isHovering?: boolean;
+  expandOnHover?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -29,7 +29,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   videoId,
   onRefresh,
   isRefreshing = false,
-  isHovering = false
+  isHovering = false,
+  expandOnHover = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -40,7 +41,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
   const [hover, setHover] = useState(isHovering);
   
-  // Sync external hover state
   useEffect(() => {
     const prevHover = hover;
     setHover(isHovering);
@@ -52,24 +52,19 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     }
   }, [isHovering, hover]);
   
-  // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
   
-  // Check URL validity on mount and when URL changes
   useEffect(() => {
-    // If there's no URL, don't even try to show anything
     if (!url) {
       setIsValidUrl(false);
       return;
     }
     
-    // For blob URLs, always consider them valid for preview purposes
     if (isBlobUrl) {
       setIsValidUrl(true);
       return;
     }
     
-    // For other URLs, check if they're valid video URLs
     if (isValidVideoUrl(url)) {
       setIsValidUrl(true);
     } else {
@@ -77,7 +72,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     }
   }, [url, isBlobUrl]);
   
-  // Update currentUrl whenever the url prop changes
   useEffect(() => {
     setCurrentUrl(url);
   }, [url]);
@@ -93,7 +87,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     logger.error(`Error count: ${errorCount + 1}`);
     logger.error(`Time since last error: ${lastErrorTime ? now - lastErrorTime : 'first error'} ms`);
     
-    // Extract any potential details from the error message
     if (msg.includes(':')) {
       const parts = msg.split(':');
       setErrorDetails(parts.slice(1).join(':').trim());
@@ -108,7 +101,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setCurrentError(null);
     setErrorDetails(null);
     
-    // If onRefresh is provided, call it
     if (onRefresh) {
       onRefresh();
     }
@@ -124,7 +116,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setHover(false);
   };
 
-  // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
     return null;
   }
@@ -156,6 +147,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           containerRef={containerRef}
           showPlayButtonOnHover={false}
           isHovering={hover}
+          expandOnHover={expandOnHover}
         />
       )}
       

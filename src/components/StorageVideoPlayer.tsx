@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -18,6 +17,7 @@ interface StorageVideoPlayerProps {
   previewMode?: boolean;
   showPlayButtonOnHover?: boolean;
   isHoveringExternally?: boolean;
+  expandOnHover?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
@@ -30,7 +30,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   playOnHover = false,
   previewMode = false,
   showPlayButtonOnHover = true,
-  isHoveringExternally
+  isHoveringExternally,
+  expandOnHover = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -182,6 +183,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
         videoRef={videoRef}
         externallyControlled={isHoveringExternally !== undefined}
         isHovering={isHovering}
+        expandOnHover={expandOnHover}
       />
     </div>
   );

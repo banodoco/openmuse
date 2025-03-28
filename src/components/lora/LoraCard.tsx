@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card } from "@/components/ui/card";
@@ -70,7 +69,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
   
   return (
     <Card 
-      className={`overflow-hidden h-full flex flex-col transition-all duration-300 ${isHovering ? 'z-10 shadow-lg' : ''}`}
+      className={`overflow-visible h-full flex flex-col transition-all duration-300 ${isHovering ? 'z-50' : 'z-10'}`}
     >
       <div 
         className="aspect-video relative cursor-pointer group" 
@@ -83,15 +82,14 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
             <FileVideo className="h-8 w-8 text-muted-foreground animate-pulse" />
           </div>
         ) : primaryVideoUrl ? (
-          <>
-            <VideoPreview 
-              url={primaryVideoUrl} 
-              className="w-full h-full" 
-              title={lora.name}
-              creator={`By: ${lora.creator || 'Unknown'}`}
-              isHovering={isHovering}
-            />
-          </>
+          <VideoPreview 
+            url={primaryVideoUrl} 
+            className="w-full h-full" 
+            title={lora.name}
+            creator={`By: ${lora.creator || 'Unknown'}`}
+            isHovering={isHovering}
+            expandOnHover={true}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <FileVideo className="h-8 w-8 text-muted-foreground" />

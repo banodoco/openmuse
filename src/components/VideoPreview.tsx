@@ -16,19 +16,17 @@ interface VideoPreviewProps {
   title?: string;
   creator?: string;
   isHovering?: boolean;
+  expandOnHover?: boolean;
 }
 
-/**
- * VideoPreview component for displaying video previews with thumbnail generation
- * and play on hover functionality.
- */
 const VideoPreview: React.FC<VideoPreviewProps> = ({ 
   file, 
   url, 
   className,
   title,
   creator,
-  isHovering: externalHoverState 
+  isHovering: externalHoverState,
+  expandOnHover = false 
 }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
@@ -107,7 +105,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   return (
     <div 
       ref={previewRef}
-      className={`relative rounded-md overflow-hidden aspect-video ${className}`}
+      className={`relative rounded-md overflow-visible aspect-video ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -130,6 +128,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           posterUrl={posterUrl}
           onError={handleVideoError}
           isHovering={isHovering}
+          expandOnHover={expandOnHover}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -142,6 +141,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           showPlayButtonOnHover={false}
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
+          expandOnHover={expandOnHover}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -154,6 +154,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           showPlayButtonOnHover={false}
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
+          expandOnHover={expandOnHover}
         />
       ) : null}
 
