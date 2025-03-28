@@ -511,7 +511,7 @@ const AssetDetailPage: React.FC = () => {
                 {videos.map(video => (
                   <div 
                     key={video.id} 
-                    className="relative rounded-lg overflow-hidden shadow-md"
+                    className="relative rounded-lg overflow-hidden shadow-md group"
                     onMouseEnter={() => setHoveredVideoId(video.id)}
                     onMouseLeave={() => setHoveredVideoId(null)}
                     onClick={() => handleOpenLightbox(video)}
@@ -532,12 +532,14 @@ const AssetDetailPage: React.FC = () => {
                           />
                           
                           <div 
-                            className={`absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity duration-200 ${
-                              hoveredVideoId === video.id ? 'opacity-100' : 'opacity-0'
-                            }`}
+                            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 
+                              ${hoveredVideoId === video.id 
+                                ? 'opacity-100' 
+                                : 'opacity-0'
+                              }`}
                           >
-                            <div className="bg-white/80 rounded-full p-3">
-                              <Play className="h-8 w-8 text-gray-800" />
+                            <div className="bg-white/20 rounded-full p-2 backdrop-blur-sm">
+                              <Play className="h-6 w-6 text-white/70 group-hover:text-white transition-colors" />
                             </div>
                           </div>
                         </div>
