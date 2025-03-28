@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -23,6 +22,8 @@ interface VideoPlayerProps {
   playOnHover?: boolean;
   containerRef?: React.RefObject<HTMLDivElement>;
   showPlayButtonOnHover?: boolean;
+  externallyControlled?: boolean;
+  isHovering?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -39,6 +40,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   playOnHover = false,
   containerRef: externalContainerRef,
   showPlayButtonOnHover = true,
+  externallyControlled = false,
+  isHovering = false,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
@@ -49,11 +52,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
 
-  // Setup hover behavior
+  // Setup hover behavior - only if not externally controlled
   useVideoHover(containerRef, videoRef, {
-    enabled: playOnHover,
+    enabled: playOnHover && !externallyControlled,
     resetOnLeave: true
   });
+  
+  // Handle external hover control
+  useEffect(() => {
+    const video = videoRef.current;
+    if (externallyControlled && video) {
+      logger.log(`External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
+      
+      if (isHovering && (video.paused || video.ended)) {
+        logger.log('VideoPlayer: External hover detected - playing video');
+        attemptVideoPlay(video, muted);
+      } else if (!isHovering && !video.paused) {
+        logger.log('VideoPlayer: External hover ended - pausing video');
+        video.pause();
+      }
+    }
+  }, [isHovering, externallyControlled, muted]);
 
   // Validate video source
   useEffect(() => {
@@ -107,7 +126,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (onLoadedData) onLoadedData();
       
       // Don't autoplay if we're using hover to play
-      if (autoPlay && !playOnHover) {
+      if (autoPlay && !playOnHover && !externallyControlled) {
+        attemptVideoPlay(video, muted);
+      }
+      
+      // For externally controlled video, check if we should play immediately
+      if (externallyControlled && isHovering) {
+        logger.log('VideoPlayer: Initially hovering - playing video immediately');
         attemptVideoPlay(video, muted);
       }
     };
@@ -164,7 +189,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl]);
+  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering]);
 
   const handleRetry = () => {
     const video = videoRef.current;
@@ -195,7 +220,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <video
         ref={videoRef}
         className={cn("w-full h-full object-cover", className)}
-        autoPlay={autoPlay && !playOnHover}
+        autoPlay={autoPlay && !playOnHover && !externallyControlled}
         muted={muted}
         loop={loop}
         controls={showPlayButtonOnHover ? controls : false}

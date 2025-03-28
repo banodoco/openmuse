@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -12,6 +11,7 @@ interface VideoPreviewProps {
   className?: string;
   title?: string;
   creator?: string;
+  isHovering?: boolean;
 }
 
 /**
@@ -23,7 +23,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   url, 
   className,
   title,
-  creator 
+  creator,
+  isHovering: externalHoverState 
 }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
@@ -31,11 +32,22 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
-  const [isHovering, setIsHovering] = useState(false);
+  const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const previewRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
-    // Set up object URL for file preview
+    if (externalHoverState !== undefined) {
+      setIsHovering(externalHoverState);
+      
+      if (externalHoverState) {
+        setIsPlaying(true);
+      } else {
+        setIsPlaying(false);
+      }
+    }
+  }, [externalHoverState]);
+  
+  useEffect(() => {
     if (file) {
       const fileUrl = URL.createObjectURL(file);
       setObjectUrl(fileUrl);
@@ -65,13 +77,17 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   };
 
   const handleMouseEnter = () => {
-    setIsHovering(true);
-    setIsPlaying(true);
+    if (externalHoverState === undefined) {
+      setIsHovering(true);
+      setIsPlaying(true);
+    }
   };
 
   const handleMouseLeave = () => {
-    setIsHovering(false);
-    setIsPlaying(false);
+    if (externalHoverState === undefined) {
+      setIsHovering(false);
+      setIsPlaying(false);
+    }
   };
 
   if (!file && !url) {
@@ -99,48 +115,45 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           onTogglePlay={() => setIsPlaying(!isPlaying)}
         />
       ) : file ? (
-        // For local file uploads, use standard preview with blob URLs
         <StandardVideoPreview 
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
         />
       ) : isBlobUrl ? (
-        // For blob URLs, use the StorageVideoPlayer with preview mode enabled
         <StorageVideoPlayer
           videoLocation={url}
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}  // Always enable playOnHover for blob URLs
+          playOnHover={true}
           previewMode={true}
           showPlayButtonOnHover={false}
-          autoPlay={isHovering} // Use isHovering to control autoPlay
+          autoPlay={isHovering}
+          isHoveringExternally={isHovering}
         />
       ) : url ? (
-        // For storage URLs, use the StorageVideoPlayer
         <StorageVideoPlayer
           videoLocation={url}
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}  // Always enable playOnHover
+          playOnHover={true}
           previewMode={false}
           showPlayButtonOnHover={false}
-          autoPlay={isHovering} // Use isHovering to control autoPlay
+          autoPlay={isHovering}
+          isHoveringExternally={isHovering}
         />
       ) : null}
 
       {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} canRecover={false} />}
       
-      {/* Title overlay in top left corner */}
       {title && (
         <div className={`absolute top-2 left-2 z-20 px-3 py-1.5 bg-white bg-opacity-70 rounded transition-opacity duration-300 ${isHovering ? 'opacity-30' : 'opacity-90'}`}>
           <p className="text-sm font-medium text-gray-900 truncate max-w-[200px]">{title}</p>
         </div>
       )}
       
-      {/* Creator overlay in bottom right corner */}
       {creator && (
         <div className={`absolute bottom-2 right-2 z-20 px-3 py-1.5 bg-white bg-opacity-70 rounded transition-opacity duration-300 ${isHovering ? 'opacity-30' : 'opacity-90'}`}>
           <p className="text-xs text-gray-800">{creator}</p>

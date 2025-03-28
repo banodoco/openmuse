@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card } from "@/components/ui/card";
@@ -59,12 +58,12 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
   };
   
   const handleMouseEnter = () => {
-    logger.log('Mouse entered LoraCard');
+    logger.log('Mouse entered LoraCard - setting isHovering to true');
     setIsHovering(true);
   };
   
   const handleMouseLeave = () => {
-    logger.log('Mouse left LoraCard');
+    logger.log('Mouse left LoraCard - setting isHovering to false');
     setIsHovering(false);
   };
   
@@ -87,12 +86,8 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
               className="w-full h-full" 
               title={lora.name}
               creator={`By: ${lora.creator || 'Unknown'}`}
+              isHovering={isHovering}
             />
-            <div className={`absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center`}>
-              <div className="bg-white bg-opacity-0 group-hover:bg-opacity-70 rounded-full p-2 transform scale-0 group-hover:scale-100 transition-all duration-300">
-                <ArrowUpRight className="h-5 w-5 text-primary" />
-              </div>
-            </div>
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
