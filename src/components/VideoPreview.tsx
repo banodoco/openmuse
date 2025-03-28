@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
 import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
@@ -18,7 +19,7 @@ interface VideoPreviewProps {
  * VideoPreview component for displaying video previews with thumbnail generation
  * and play on hover functionality.
  */
-const VideoPreview: React.FC<VideoPreviewProps> = ({ 
+const VideoPreview: React.FC<VideoPreviewProps> = memo(({ 
   file, 
   url, 
   className,
@@ -158,6 +159,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       )}
     </div>
   );
-};
+});
+
+VideoPreview.displayName = 'VideoPreview';
 
 export default VideoPreview;

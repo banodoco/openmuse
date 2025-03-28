@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, memo } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { X } from 'lucide-react';
 import StorageVideoPlayer from './StorageVideoPlayer';
@@ -12,7 +12,7 @@ interface VideoLightboxProps {
   creator?: string;
 }
 
-const VideoLightbox: React.FC<VideoLightboxProps> = ({
+const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
   isOpen,
   onClose,
   videoUrl,
@@ -64,6 +64,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       </DialogContent>
     </Dialog>
   );
-};
+});
+
+VideoLightbox.displayName = 'VideoLightbox';
 
 export default VideoLightbox;

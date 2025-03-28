@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from 'react';
+
+import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -19,7 +20,7 @@ interface StorageVideoPlayerProps {
   isHoveringExternally?: boolean;
 }
 
-const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
+const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   videoLocation,
   className,
   controls = true,
@@ -42,6 +43,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   
   const isBlobUrl = videoLocation.startsWith('blob:');
   
+  // Handle external hover state changes without causing re-renders
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
       setIsHovering(isHoveringExternally);
@@ -62,6 +64,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
     }
   }, [isHoveringExternally, previewMode]);
   
+  // Load video URL only once when component mounts or videoLocation changes
   useEffect(() => {
     let isMounted = true;
     
@@ -159,6 +162,17 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       isHovering={isHovering}
     />
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.videoLocation === nextProps.videoLocation &&
+    prevProps.isHoveringExternally === nextProps.isHoveringExternally &&
+    prevProps.className === nextProps.className &&
+    prevProps.controls === nextProps.controls &&
+    prevProps.autoPlay === nextProps.autoPlay &&
+    prevProps.muted === nextProps.muted &&
+    prevProps.loop === nextProps.loop
+  );
+});
 
 export default StorageVideoPlayer;

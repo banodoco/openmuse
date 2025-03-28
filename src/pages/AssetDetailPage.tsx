@@ -15,8 +15,7 @@ import { checkIsAdmin } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
 import VideoLightbox from '@/components/VideoLightbox';
-import { useVideoHover } from '@/hooks/useVideoHover';
-import StorageVideoPlayer from '@/components/StorageVideoPlayer';
+import VideoCard from '@/components/video/VideoCard';
 
 const AssetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -31,7 +30,6 @@ const AssetDetailPage: React.FC = () => {
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -508,86 +506,16 @@ const AssetDetailPage: React.FC = () => {
             
             {videos.length > 0 ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {videos.map(video => {
-                  const isHovering = hoveredVideoId === video.id;
-                  
-                  return (
-                    <div 
-                      key={video.id} 
-                      className="relative rounded-lg overflow-hidden shadow-md group"
-                      onMouseEnter={() => setHoveredVideoId(video.id)}
-                      onMouseLeave={() => setHoveredVideoId(null)}
-                      onClick={() => handleOpenLightbox(video)}
-                    >
-                      <div className="aspect-video">
-                        <div className="w-full h-full">
-                          <div className="w-full h-full relative">
-                            <StorageVideoPlayer
-                              key={`video-${video.id}`}
-                              videoLocation={video.video_location}
-                              controls={false}
-                              muted={true}
-                              className="w-full h-full object-cover"
-                              playOnHover={false}
-                              previewMode={true}
-                              showPlayButtonOnHover={false}
-                              autoPlay={isHovering}
-                              isHoveringExternally={isHovering}
-                            />
-                            
-                            <div 
-                              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 
-                                ${isHovering 
-                                  ? 'opacity-100' 
-                                  : 'opacity-0'
-                                }`}
-                            >
-                              <div className="bg-white/20 rounded-full p-2 backdrop-blur-sm">
-                                <Play className="h-6 w-6 text-white/70 group-hover:text-white transition-colors" />
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      <div className="p-2 bg-card">
-                        <h3 className="font-medium text-sm truncate">
-                          {video.metadata?.title || `Video by ${video.reviewer_name}`}
-                        </h3>
-                        {video.reviewer_name && (
-                          <p className="text-xs text-muted-foreground">By {video.reviewer_name}</p>
-                        )}
-                      </div>
-                      
-                      {isAdmin && (
-                        <div className="absolute top-2 right-2 flex space-x-1 z-10">
-                          <Button 
-                            variant="secondary" 
-                            size="icon" 
-                            className="h-6 w-6 bg-black/40 hover:bg-black/60 text-white"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleApproveVideo(video.id);
-                            }}
-                          >
-                            <Check className="h-3 w-3" />
-                          </Button>
-                          <Button 
-                            variant="destructive" 
-                            size="icon" 
-                            className="h-6 w-6 text-white"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteVideo(video.id);
-                            }}
-                          >
-                            <X className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
+                {videos.map(video => (
+                  <VideoCard
+                    key={video.id}
+                    video={video}
+                    isAdmin={isAdmin}
+                    onOpenLightbox={handleOpenLightbox}
+                    onApproveVideo={handleApproveVideo}
+                    onDeleteVideo={handleDeleteVideo}
+                  />
+                ))}
               </div>
             ) : (
               <EmptyState 
