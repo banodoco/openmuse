@@ -3,7 +3,6 @@ import React, { useState, useEffect } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
-import { supabase } from '@/integrations/supabase/client';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 
 const logger = new Logger('StorageVideoPlayer');
@@ -46,37 +45,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           throw new Error('No video location provided');
         }
         
-        // Check if this is a blob URL that might be expired
-        if (videoLocation.startsWith('blob:')) {
-          try {
-            const blobUrl = new URL(videoLocation);
-            if (blobUrl.origin !== window.location.origin) {
-              logger.warn('Blob URL from different origin detected, trying to resolve from database');
-              const freshUrl = await videoUrlService.forceRefreshUrl(videoLocation);
-              if (freshUrl) {
-                logger.log(`Resolved fresh URL for blob: ${freshUrl.substring(0, 30)}...`);
-                if (isMounted) setVideoUrl(freshUrl);
-              } else {
-                throw new Error('Failed to resolve video reference');
-              }
-              return;
-            }
-          } catch (e) {
-            // If URL parsing fails, it's likely an invalid blob URL
-            logger.warn('Invalid blob URL detected, trying to resolve from database');
-            const freshUrl = await videoUrlService.forceRefreshUrl(videoLocation);
-            if (freshUrl) {
-              logger.log(`Resolved fresh URL: ${freshUrl.substring(0, 30)}...`);
-              if (isMounted) setVideoUrl(freshUrl);
-              setLoading(false);
-              return;
-            } else {
-              throw new Error('Failed to resolve video reference');
-            }
-          }
-        }
-        
-        // Use the video URL service for all other cases
+        // Use the video URL service to get a permanent URL
         const url = await videoUrlService.getVideoUrl(videoLocation);
         
         if (!url) {
@@ -127,7 +96,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       <div className="relative h-full w-full bg-secondary/30 rounded-lg">
         <VideoPreviewError 
           error={error} 
-          details={errorDetails || undefined} 
+          details={errorDetails || undefined} .
           onRetry={handleRetry} 
           videoSource={videoUrl}
         />

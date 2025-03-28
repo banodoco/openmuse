@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
+import { Play, FileVideo, Eye } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,17 +17,13 @@ interface StandardVideoPreviewProps {
   posterUrl: string | null;
   onError: (msg: string) => void;
   videoId?: string;
-  onRefresh?: (e: React.MouseEvent) => void;
-  isRefreshing?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   url,
   posterUrl,
   onError,
-  videoId,
-  onRefresh,
-  isRefreshing = false
+  videoId
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -36,39 +32,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(url);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
-  const [canRecover, setCanRecover] = useState<boolean>(true);
-  
-  // Check if this URL can potentially be recovered from the database
-  useEffect(() => {
-    const checkRecoverability = async () => {
-      if (!url) {
-        setCanRecover(false);
-        return;
-      }
-      
-      // If the URL is a blob URL, check if we have a corresponding ID in the database
-      if (url.startsWith('blob:')) {
-        const uuidMatch = url.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
-        if (uuidMatch && uuidMatch[1]) {
-          const dbUrl = await videoUrlService.lookupUrlFromDatabase(uuidMatch[1]);
-          setCanRecover(!!dbUrl);
-          return;
-        }
-      }
-      
-      // If we have a videoId, check if that has a permanent URL
-      if (videoId) {
-        const dbUrl = await videoUrlService.lookupUrlFromDatabase(videoId);
-        setCanRecover(!!dbUrl);
-        return;
-      }
-      
-      // Default: assume we can't recover
-      setCanRecover(false);
-    };
-    
-    checkRecoverability();
-  }, [url, videoId]);
   
   // Check URL validity on mount and when URL changes
   useEffect(() => {
@@ -86,31 +49,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   useEffect(() => {
     setCurrentUrl(url);
   }, [url]);
-  
-  // Listen for URL refresh events
-  useEffect(() => {
-    const handleUrlRefreshed = (event: CustomEvent) => {
-      const { original, fresh } = event.detail;
-      logger.log(`URL refresh event received`);
-      
-      // If this component is using the expired URL, update to the fresh one
-      if (currentUrl === original) {
-        logger.log(`Updating expired URL to fresh URL: ${fresh.substring(0, 30)}...`);
-        setCurrentUrl(fresh);
-        setCurrentError(null);
-        setErrorDetails(null);
-        setErrorCount(0);
-      }
-    };
-    
-    // Add event listener
-    document.addEventListener('videoUrlRefreshed', handleUrlRefreshed as EventListener);
-    
-    // Clean up
-    return () => {
-      document.removeEventListener('videoUrlRefreshed', handleUrlRefreshed as EventListener);
-    };
-  }, [currentUrl]);
   
   const handleError = (msg: string) => {
     const now = Date.now();
@@ -138,32 +76,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setCurrentError(null);
     setErrorDetails(null);
   };
-  
-  // Handle the refresh button click - attempt to recover directly from db
-  const handleRefreshVideo = async (e: React.MouseEvent) => {
-    if (onRefresh) {
-      onRefresh(e);
-      return;
-    }
-    
-    if (!currentUrl) return;
-    
-    // If no external refresh handler provided, implement our own
-    e.stopPropagation();
-    setCurrentError(null);
-    setErrorDetails(null);
-    
-    try {
-      const freshUrl = await videoUrlService.forceRefreshUrl(currentUrl);
-      if (freshUrl) {
-        logger.log(`Refreshed URL: ${freshUrl.substring(0, 30)}...`);
-        setCurrentUrl(freshUrl);
-      }
-    } catch (error) {
-      logger.error('Error refreshing URL:', error);
-      handleError('Error refreshing video');
-    }
-  };
 
   // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
@@ -178,7 +90,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           details={errorDetails || undefined}
           onRetry={handleRetry}
           videoSource={currentUrl}
-          canRecover={canRecover}
         />
       ) : (
         <VideoPlayer 
@@ -202,21 +113,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
               View
             </Button>
           </Link>
-        </div>
-      )}
-      
-      {canRecover && (
-        <div className="absolute top-2 right-2 z-10">
-          <Button 
-            size="sm" 
-            variant="secondary" 
-            className="gap-1 opacity-90 hover:opacity-100"
-            onClick={handleRefreshVideo}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
-            {isRefreshing ? "..." : "Refresh"}
-          </Button>
         </div>
       )}
     </div>
