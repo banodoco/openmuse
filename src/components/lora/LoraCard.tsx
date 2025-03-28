@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -142,7 +143,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
   
   return (
     <Card 
-      className="overflow-hidden transition-all h-full flex flex-col cursor-pointer hover:shadow-md" 
+      className="overflow-hidden h-full flex flex-col cursor-pointer hover:shadow-md" 
       onClick={handleView}
     >
       <div 
@@ -165,8 +166,8 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         )}
       </div>
       
-      <CardContent className="px-4 py-2 flex-1 flex items-center justify-center">
-        {lora.lora_link && (
+      {lora.lora_link ? (
+        <CardContent className="p-2 min-h-[3rem] flex items-center justify-center">
           <Button 
             variant="ghost" 
             size="sm" 
@@ -179,8 +180,10 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             <ExternalLink className="h-3 w-3" />
             View Original
           </Button>
-        )}
-      </CardContent>
+        </CardContent>
+      ) : (
+        <CardContent className="p-2 min-h-[3rem]" />
+      )}
       
       {isAdmin && (
         <CardFooter className="p-3 border-t grid gap-2" onClick={(e) => e.stopPropagation()}>
