@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -47,7 +46,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
     
     setIsDeleting(true);
     try {
-      // Delete asset
       const { error } = await supabase
         .from('assets')
         .delete()
@@ -56,7 +54,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
       if (error) throw error;
       
       toast.success('LoRA deleted successfully');
-      // Refresh the page or list
       window.location.reload();
     } catch (error) {
       console.error('Error deleting LoRA:', error);
@@ -79,7 +76,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
       if (error) throw error;
       
       toast.success('LoRA curated successfully');
-      // Update the lora object locally
       lora.admin_approved = 'Curated';
     } catch (error) {
       console.error('Error curating LoRA:', error);
@@ -102,7 +98,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
       if (error) throw error;
       
       toast.success('LoRA rejected');
-      // Update the lora object locally
       lora.admin_approved = 'Rejected';
     } catch (error) {
       console.error('Error rejecting LoRA:', error);
@@ -124,7 +119,10 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
   };
   
   return (
-    <Card className="overflow-hidden transition-all h-full flex flex-col">
+    <Card 
+      className="overflow-hidden transition-all h-full flex flex-col cursor-pointer hover:shadow-md" 
+      onClick={handleView}
+    >
       <div 
         className="aspect-video w-full overflow-hidden bg-muted relative"
         onMouseEnter={() => setIsHovering(true)}
@@ -186,7 +184,10 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             variant="ghost" 
             size="sm" 
             className="mt-2 w-full h-7 text-xs gap-1"
-            onClick={() => window.open(lora.lora_link, '_blank')}
+            onClick={(e) => {
+              e.stopPropagation();
+              window.open(lora.lora_link, '_blank');
+            }}
           >
             <ExternalLink className="h-3 w-3" />
             View Original
@@ -194,18 +195,8 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         )}
       </CardContent>
       
-      <CardFooter className="p-3 border-t grid grid-cols-2 gap-2">
-        <Button 
-          variant="default" 
-          size="sm" 
-          onClick={handleView}
-          className="text-xs h-8 w-full"
-        >
-          <Play className="h-3 w-3 mr-1" /> 
-          View Details
-        </Button>
-        
-        {isAdmin && (
+      {isAdmin && (
+        <CardFooter className="p-3 border-t grid grid-cols-2 gap-2" onClick={(e) => e.stopPropagation()}>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button 
@@ -236,9 +227,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-        )}
-        
-        {isAdmin && (
+          
           <div className="col-span-2 grid grid-cols-2 gap-2 mt-2">
             <Button 
               variant="outline" 
@@ -268,8 +257,8 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
               Reject
             </Button>
           </div>
-        )}
-      </CardFooter>
+        </CardFooter>
+      )}
     </Card>
   );
 };
