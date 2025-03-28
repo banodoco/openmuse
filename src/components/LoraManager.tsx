@@ -44,7 +44,6 @@ const LoraManager: React.FC<LoraManagerProps> = ({
       <div className="mb-12">
         <LoraList 
           loras={loras} 
-          isLoading={isLoading} 
         />
       </div>
     </div>

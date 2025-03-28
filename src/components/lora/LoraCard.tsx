@@ -70,8 +70,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
   
   return (
     <Card 
-      className={`overflow-hidden h-full flex flex-col transition-all duration-300 ${isHovering ? 'transform scale-110 shadow-lg z-20' : ''}`}
-      style={{ transformOrigin: 'center' }}
+      className={`overflow-hidden h-full flex flex-col transition-all duration-300 ${isHovering ? 'z-10' : ''}`}
     >
       <div 
         className="aspect-video relative cursor-pointer group" 

@@ -5,6 +5,9 @@ import VideoPreviewError from './video/VideoPreviewError';
 import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
 import StandardVideoPreview from './video/StandardVideoPreview';
 import StorageVideoPlayer from './StorageVideoPlayer';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoPreview');
 
 interface VideoPreviewProps {
   file?: File;
@@ -38,15 +41,18 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   
   useEffect(() => {
     if (externalHoverState !== undefined) {
+      const prevHover = isHovering;
       setIsHovering(externalHoverState);
       
-      if (externalHoverState) {
+      if (!prevHover && externalHoverState) {
+        logger.log('VideoPreview: External hover state changed to true');
         setIsPlaying(true);
-      } else {
+      } else if (prevHover && !externalHoverState) {
+        logger.log('VideoPreview: External hover state changed to false');
         setIsPlaying(false);
       }
     }
-  }, [externalHoverState]);
+  }, [externalHoverState, isHovering]);
   
   useEffect(() => {
     if (file) {
@@ -79,6 +85,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const handleMouseEnter = () => {
     if (externalHoverState === undefined) {
+      logger.log('VideoPreview: Mouse entered - setting isHovering to true');
       setIsHovering(true);
       setIsPlaying(true);
     }
@@ -86,6 +93,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const handleMouseLeave = () => {
     if (externalHoverState === undefined) {
+      logger.log('VideoPreview: Mouse left - setting isHovering to false');
       setIsHovering(false);
       setIsPlaying(false);
     }

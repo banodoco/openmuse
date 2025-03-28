@@ -56,8 +56,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Sync external hover state
   useEffect(() => {
+    const prevHover = hover;
     setHover(isHovering);
-  }, [isHovering]);
+    
+    if (!prevHover && isHovering) {
+      logger.log('VideoPlayer: External hover state changed to true');
+    } else if (prevHover && !isHovering) {
+      logger.log('VideoPlayer: External hover state changed to false');
+    }
+  }, [isHovering, hover]);
 
   // Setup hover behavior - only if not externally controlled
   useVideoHover(containerRef, videoRef, {
@@ -69,7 +76,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   useEffect(() => {
     const video = videoRef.current;
     if (externallyControlled && video) {
-      logger.log(`External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
+      logger.log(`VideoPlayer: External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
       
       if (isHovering && (video.paused || video.ended)) {
         logger.log('VideoPlayer: External hover detected - playing video');
@@ -214,8 +221,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div 
       ref={containerRef} 
-      className={`relative w-full h-full overflow-hidden rounded-lg transition-transform duration-300 ${hover ? 'transform scale-110 z-20' : ''}`}
-      style={{ transformOrigin: 'center' }}
+      className="relative w-full h-full overflow-hidden rounded-lg"
     >
       {isLoading && <VideoLoader posterImage={poster} />}
       
@@ -230,7 +236,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       <video
         ref={videoRef}
-        className={cn("w-full h-full object-contain", className)}
+        className={cn(
+          "w-full h-full object-cover transition-all duration-300",
+          isHovering ? "object-contain" : "object-cover",
+          className
+        )}
         autoPlay={autoPlay && !playOnHover && !externallyControlled}
         muted={muted}
         loop={loop}

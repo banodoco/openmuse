@@ -42,8 +42,15 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   
   // Sync external hover state
   useEffect(() => {
+    const prevHover = hover;
     setHover(isHovering);
-  }, [isHovering]);
+    
+    if (!prevHover && isHovering) {
+      logger.log('StandardVideoPreview: External hover state changed to true');
+    } else if (prevHover && !isHovering) {
+      logger.log('StandardVideoPreview: External hover state changed to false');
+    }
+  }, [isHovering, hover]);
   
   // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
@@ -108,10 +115,12 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   };
 
   const handleMouseEnter = () => {
+    logger.log('StandardVideoPreview: Mouse entered - setting hover state to true');
     setHover(true);
   };
 
   const handleMouseLeave = () => {
+    logger.log('StandardVideoPreview: Mouse left - setting hover state to false');
     setHover(false);
   };
 
@@ -123,8 +132,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   return (
     <div 
       ref={containerRef} 
-      className={`w-full h-full relative transition-transform duration-300 ${hover ? 'transform scale-110 z-20' : ''}`}
-      style={{ transformOrigin: 'center' }}
+      className="w-full h-full relative"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

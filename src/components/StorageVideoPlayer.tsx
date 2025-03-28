@@ -45,20 +45,27 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
+      const prevHovering = isHovering;
       setIsHovering(isHoveringExternally);
+      
+      if (!prevHovering && isHoveringExternally) {
+        logger.log('StorageVideoPlayer: External hover state changed to true');
+      } else if (prevHovering && !isHoveringExternally) {
+        logger.log('StorageVideoPlayer: External hover state changed to false');
+      }
       
       const video = videoRef.current;
       if (video) {
         if (isHoveringExternally && video.paused) {
-          logger.log('External hover detected - attempting to play video');
+          logger.log('StorageVideoPlayer: External hover detected - attempting to play video');
           video.play().catch(e => logger.error('Error playing video on hover:', e));
         } else if (!isHoveringExternally && !video.paused) {
-          logger.log('External hover ended - pausing video');
+          logger.log('StorageVideoPlayer: External hover ended - pausing video');
           video.pause();
         }
       }
     }
-  }, [isHoveringExternally]);
+  }, [isHoveringExternally, isHovering]);
 
   useEffect(() => {
     let isMounted = true;
@@ -124,12 +131,14 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
 
   const handleMouseEnter = () => {
     if (isHoveringExternally === undefined) {
+      logger.log('StorageVideoPlayer: Mouse entered - setting isHovering to true');
       setIsHovering(true);
     }
   };
 
   const handleMouseLeave = () => {
     if (isHoveringExternally === undefined) {
+      logger.log('StorageVideoPlayer: Mouse left - setting isHovering to false');
       setIsHovering(false);
     }
   };
@@ -154,8 +163,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
 
   return (
     <div 
-      className={`transition-transform duration-300 ${isHovering ? 'transform scale-110 z-20' : ''}`}
-      style={{ transformOrigin: 'center' }}
+      ref={containerRef}
+      className="w-full h-full"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
