@@ -18,9 +18,9 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   return (
     <div className="mt-6">
       {isLoading ? (
-        <LoadingState />
+        <LoadingState text="Loading LoRAs..." />
       ) : (
-        <LoraList loras={loras} onRefresh={refetchLoras} />
+        <LoraList loras={loras || []} onRefresh={refetchLoras} />
       )}
     </div>
   );

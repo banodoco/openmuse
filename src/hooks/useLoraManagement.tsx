@@ -78,10 +78,17 @@ export const useLoraManagement = () => {
     }
   }, [videos, videosLoading, loadAllLoras]);
 
-  // Watch for auth state changes
+  // Force loading state to false after a timeout to prevent infinite loading
   useEffect(() => {
-    logger.log(`Auth state changed, user: ${user?.id || 'not signed in'}`);
-  }, [user]);
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        logger.warn("LoRA loading timeout reached, forcing completion");
+        setIsLoading(false);
+      }
+    }, 10000); // 10 second timeout
+
+    return () => clearTimeout(timeoutId);
+  }, [isLoading]);
 
   const refetchLoras = useCallback(async () => {
     await loadAllLoras();

@@ -7,7 +7,6 @@ import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
 import LoraManager from '@/components/LoraManager';
-import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 
 const logger = new Logger('Index');
@@ -15,8 +14,7 @@ const logger = new Logger('Index');
 const Index = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const { user, isLoading: authLoading } = useAuth();
+  const { user } = useAuth();
   
   const { 
     loras, 
@@ -45,23 +43,6 @@ const Index = () => {
     navigate('/upload');
   }, [navigate]);
   
-  // Determine if we're in a loading state
-  const pageIsLoading = authLoading || lorasLoading || isLoading;
-  
-  // If loading takes too long, force completion
-  useEffect(() => {
-    if (!pageIsLoading) return;
-    
-    const timer = setTimeout(() => {
-      if (pageIsLoading) {
-        logger.log('Loading timeout reached, forcing completion');
-        setIsLoading(false);
-      }
-    }, 5000);
-    
-    return () => clearTimeout(timer);
-  }, [pageIsLoading]);
-  
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navigation />
@@ -73,12 +54,12 @@ const Index = () => {
           buttonText="Propose New LoRA"
           onButtonClick={handleNavigateToUpload}
           buttonSize={isMobile ? "sm" : "default"}
-          buttonDisabled={pageIsLoading}
+          buttonDisabled={lorasLoading}
         />
         
         <LoraManager 
-          loras={displayLoras || []} // Ensure we always pass an array, even if displayLoras is undefined
-          isLoading={pageIsLoading}
+          loras={displayLoras} 
+          isLoading={lorasLoading}
           refetchLoras={refetchLoras}
         />
       </main>
