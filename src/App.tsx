@@ -15,7 +15,7 @@ import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { videoDB } from '@/lib/database';
 import { getCurrentUser } from '@/lib/auth';
 import AssetDetailPage from '@/pages/AssetDetailPage';
-import { AuthProvider } from '@/hooks/useAuth'; // Use the unified AuthProvider
+import { AuthProvider } from '@/hooks/useAuth';
 
 function App() {
   useEffect(() => {

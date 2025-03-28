@@ -26,11 +26,12 @@ const Index = () => {
   
   // Show all LoRAs by default
   const displayLoras = React.useMemo(() => {
-    logger.log('Total LoRAs available:', loras.length);
-    
-    if (loras.length === 0) {
+    if (!loras || loras.length === 0) {
+      logger.log('No LoRAs available');
       return [];
     }
+    
+    logger.log('Total LoRAs available:', loras.length);
     
     // Log for debugging
     loras.forEach(lora => {
@@ -48,7 +49,9 @@ const Index = () => {
   const pageIsLoading = authLoading || lorasLoading || isLoading;
   
   // If loading takes too long, force completion
-  React.useEffect(() => {
+  useEffect(() => {
+    if (!pageIsLoading) return;
+    
     const timer = setTimeout(() => {
       if (pageIsLoading) {
         logger.log('Loading timeout reached, forcing completion');
