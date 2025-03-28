@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card } from "@/components/ui/card";
@@ -68,7 +69,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
   };
   
   return (
-    <Card className="overflow-hidden h-full flex flex-col">
+    <Card className={`overflow-hidden h-full flex flex-col transition-all duration-300 ${isHovering ? 'transform scale-105 shadow-lg z-10' : ''}`}>
       <div 
         className="aspect-video relative cursor-pointer group" 
         onClick={handleNavigate}

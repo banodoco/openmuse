@@ -19,6 +19,7 @@ interface StandardVideoPreviewProps {
   videoId?: string;
   onRefresh?: () => void;
   isRefreshing?: boolean;
+  isHovering?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -27,7 +28,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   onError,
   videoId,
   onRefresh,
-  isRefreshing = false
+  isRefreshing = false,
+  isHovering = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -36,6 +38,12 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(url);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
+  const [hover, setHover] = useState(isHovering);
+  
+  // Sync external hover state
+  useEffect(() => {
+    setHover(isHovering);
+  }, [isHovering]);
   
   // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
@@ -99,13 +107,26 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     }
   };
 
+  const handleMouseEnter = () => {
+    setHover(true);
+  };
+
+  const handleMouseLeave = () => {
+    setHover(false);
+  };
+
   // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
     return null;
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full relative">
+    <div 
+      ref={containerRef} 
+      className={`w-full h-full relative transition-transform duration-300 ${hover ? 'transform scale-105 z-10' : ''}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {currentError ? (
         <VideoPreviewError
           error={currentError}
@@ -125,6 +146,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           playOnHover={true}
           containerRef={containerRef}
           showPlayButtonOnHover={false}
+          isHovering={hover}
         />
       )}
       

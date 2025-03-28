@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -51,6 +52,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
+  const [hover, setHover] = useState(isHovering);
+
+  // Sync external hover state
+  useEffect(() => {
+    setHover(isHovering);
+  }, [isHovering]);
 
   // Setup hover behavior - only if not externally controlled
   useVideoHover(containerRef, videoRef, {
@@ -205,7 +212,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden rounded-lg">
+    <div 
+      ref={containerRef} 
+      className={`relative w-full h-full overflow-hidden rounded-lg transition-transform duration-300 ${hover ? 'transform scale-105 z-10' : ''}`}
+    >
       {isLoading && <VideoLoader posterImage={poster} />}
       
       {error && !onError && (
@@ -219,7 +229,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       <video
         ref={videoRef}
-        className={cn("w-full h-full object-cover", className)}
+        className={cn("w-full h-full object-contain", className)}
         autoPlay={autoPlay && !playOnHover && !externallyControlled}
         muted={muted}
         loop={loop}

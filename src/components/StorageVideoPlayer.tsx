@@ -152,7 +152,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       onError={handleError}
       showPlayButtonOnHover={showPlayButtonOnHover}
       containerRef={containerRef}
-      videoRef={videoRef}
       externallyControlled={isHoveringExternally !== undefined}
       isHovering={isHovering}
     />
