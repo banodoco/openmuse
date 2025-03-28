@@ -120,6 +120,96 @@ class VideoUploadService {
     }
   }
   
+  // Specialized method for uploading videos to existing assets - DOES NOT REPLACE EXISTING VIDEOS
+  public async uploadVideoToExistingAsset(
+    videoFile: VideoFile, 
+    assetId: string, 
+    reviewerName: string, 
+    userId?: string,
+    isPrimary: boolean = false
+  ): Promise<VideoEntry | null> {
+    if (!videoFile || !videoFile.blob || !assetId) {
+      logger.error('Attempted to upload a null or invalid video file to asset');
+      throw new Error('Invalid video file or asset ID');
+    }
+
+    try {
+      // Generate unique ID for the video
+      const videoId = videoFile.id || uuidv4();
+      const videoPath = `videos/${videoId}.webm`;
+      
+      logger.log(`Uploading video to ${videoPath} for asset ${assetId}`);
+      
+      // Upload the video file to Supabase storage
+      const { error: uploadError } = await supabase.storage
+        .from('videos')
+        .upload(videoPath, videoFile.blob, {
+          contentType: 'video/webm',
+          upsert: true,
+        });
+
+      if (uploadError) {
+        logger.error('Error uploading video to storage:', uploadError);
+        throw uploadError;
+      }
+
+      logger.log(`Video uploaded successfully for asset ${assetId}, creating entry for ${videoId}`);
+
+      // Get the public URL
+      const { data: publicUrlData } = supabase.storage
+        .from('videos')
+        .getPublicUrl(videoPath);
+      
+      const videoUrl = publicUrlData.publicUrl;
+
+      // Create the media entry
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
+        .insert({
+          title: videoFile.metadata?.title || 'Untitled',
+          url: videoUrl,
+          type: 'video',
+          classification: videoFile.metadata?.classification || 'art',
+          creator: videoFile.metadata?.creatorName || reviewerName,
+          user_id: userId || this.currentUserId,
+          admin_approved: 'Listed'
+        })
+        .select()
+        .single();
+
+      if (mediaError) {
+        logger.error('Error creating media entry:', mediaError);
+        throw mediaError;
+      }
+      
+      // Add the media to the existing asset
+      await this.addMediaToExistingAsset(mediaData.id, assetId, isPrimary);
+      
+      logger.log(`Media ${mediaData.id} added to asset ${assetId}`);
+      
+      // Construct the VideoEntry object
+      const entry: VideoEntry = {
+        id: mediaData.id,
+        video_location: mediaData.url,
+        reviewer_name: reviewerName,
+        skipped: false,
+        created_at: mediaData.created_at,
+        admin_approved: 'Listed',
+        user_id: mediaData.user_id,
+        metadata: {
+          ...(videoFile.metadata || {}),
+          title: mediaData.title,
+          assetId
+        }
+      };
+      
+      return entry;
+    } catch (error) {
+      logger.error(`Error in uploadVideoToExistingAsset for asset ${assetId}:`, error);
+      throw error;
+    }
+  }
+  
   // Add media to an existing asset
   private async addMediaToExistingAsset(
     mediaId: string, 
@@ -308,6 +398,68 @@ class VideoUploadService {
       return newEntry;
     } catch (error) {
       logger.error('Error in addEntry:', error);
+      throw error;
+    }
+  }
+  
+  // Specialized method for adding entries to existing assets
+  public async addEntryToExistingAsset(
+    entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>,
+    assetId: string,
+    isPrimary: boolean = false
+  ): Promise<VideoEntry> {
+    try {
+      logger.log(`Adding new entry to existing asset ${assetId}: ${JSON.stringify(entryData)}`);
+      
+      // Ensure reviewer_name is present as it's required
+      if (!entryData.reviewer_name) {
+        throw new Error('Reviewer name is required for video entries');
+      }
+      
+      // Create the media entry
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('media')
+        .insert({
+          title: entryData.metadata?.title || 'Untitled',
+          url: entryData.video_location,
+          type: 'video',
+          classification: entryData.metadata?.classification || 'art',
+          creator: entryData.metadata?.creatorName || entryData.reviewer_name,
+          user_id: entryData.user_id || this.currentUserId,
+          admin_approved: 'Listed'
+        })
+        .select()
+        .single();
+      
+      if (mediaError) {
+        logger.error('Error creating media entry:', mediaError);
+        throw mediaError;
+      }
+      
+      // Add the media to the existing asset
+      await this.addMediaToExistingAsset(mediaData.id, assetId, isPrimary);
+      
+      logger.log(`Media ${mediaData.id} added to asset ${assetId}`);
+      
+      // Construct the VideoEntry object
+      const newEntry: VideoEntry = {
+        id: mediaData.id,
+        video_location: mediaData.url,
+        reviewer_name: entryData.reviewer_name,
+        skipped: entryData.skipped || false,
+        created_at: mediaData.created_at,
+        admin_approved: 'Listed',
+        user_id: mediaData.user_id,
+        metadata: {
+          ...(entryData.metadata || {}),
+          title: mediaData.title,
+          assetId
+        }
+      };
+      
+      return newEntry;
+    } catch (error) {
+      logger.error(`Error in addEntryToExistingAsset for asset ${assetId}:`, error);
       throw error;
     }
   }

@@ -8,7 +8,6 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { videoUploadService } from '@/lib/services/videoUploadService';
 import { VideoFile, VideoMetadata } from '@/lib/types';
-import { v4 as uuidv4 } from 'uuid';
 import { useAuth } from '@/hooks/useAuth';
 
 interface VideoItem {
@@ -113,7 +112,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
         console.log(`Asset ${assetId} already has primary media. Not changing primary status.`);
       }
       
-      // Process and upload all videos
+      // Process and upload all videos - USE SEPARATE FUNCTION FOR EXISTING ASSETS
       const uploadPromises = videosWithContent.map(async (video) => {
         if (video.file) {
           // File upload
@@ -131,12 +130,19 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             metadata: videoMetadata
           };
 
-          return videoUploadService.uploadVideo(videoFile, username, user?.id);
+          // Use the addVideoToExistingAsset method for existing assets
+          return videoUploadService.uploadVideoToExistingAsset(
+            videoFile, 
+            assetId, 
+            username, 
+            user?.id,
+            video.metadata.isPrimary || false
+          );
         } else if (video.url) {
-          // URL entry
+          // URL entry - use the addEntryToExistingAsset method
           console.log(`Adding video URL: isPrimary=${video.metadata.isPrimary}, title=${video.metadata.title}`);
           
-          return videoUploadService.addEntry({
+          return videoUploadService.addEntryToExistingAsset({
             video_location: video.url,
             reviewer_name: username,
             skipped: false,
@@ -146,7 +152,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
               loraName: assetName,
               assetId: assetId
             }
-          });
+          }, assetId, video.metadata.isPrimary || false);
         }
         return null;
       });
