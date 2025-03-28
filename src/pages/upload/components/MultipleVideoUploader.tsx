@@ -1,404 +1,424 @@
-import React from 'react';
+
+import React, { useState, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
-import { X } from 'lucide-react';
-import VideoDropzoneComponent from '@/components/upload/VideoDropzone';
-import VideoPreview from '@/components/VideoPreview';
+import { Card, CardContent } from '@/components/ui/card';
+import { Separator } from '@/components/ui/separator';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { X, Upload, XCircle, Link } from 'lucide-react';
+import VideoDropzone from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
-import { toast } from 'sonner';
-import { VideoMetadata } from '@/lib/types';
+import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
-interface VideoMetadataForm {
-  title: string;
-  description: string;
-  classification: 'art' | 'gen';
-  creator: 'self' | 'someone_else';
-  creatorName: string;
-  isPrimary?: boolean;
-}
-
+// Define the shape of a video item
 interface VideoItem {
-  id: string;
   file: File | null;
   url: string | null;
-  metadata: VideoMetadataForm;
+  metadata: {
+    title: string;
+    description: string;
+    classification: 'art' | 'gen';
+    creator: 'self' | 'someone_else';
+    creatorName: string;
+    isPrimary?: boolean;
+  };
+  id: string;
 }
 
 interface MultipleVideoUploaderProps {
   videos: VideoItem[];
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
-  hideIsPrimary?: boolean;
   disabled?: boolean;
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
   videos, 
   setVideos,
-  hideIsPrimary = false,
   disabled = false
 }) => {
+  const { toast } = useToast();
   const { user } = useAuth();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeTab, setActiveTab] = useState('upload');
+  const [urlInput, setUrlInput] = useState('');
   
-  const initialMetadata: VideoMetadataForm = {
-    title: '',
-    description: '',
-    classification: 'gen',
-    creator: 'self',
-    creatorName: '',
-    isPrimary: hideIsPrimary ? false : true,
-  };
-
-  React.useEffect(() => {
-    if (videos.length === 0) {
-      setVideos([{
-        id: crypto.randomUUID(),
-        file: null,
-        url: null,
-        metadata: {...initialMetadata}
-      }]);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    // Ensure only one empty slot exists
-    const emptySlots = videos.filter(v => !v.file && !v.url);
+  // Helper to create an empty video item
+  const createEmptyVideoItem = (): VideoItem => ({
+    file: null,
+    url: null,
+    metadata: {
+      title: '',
+      description: '',
+      classification: 'art',
+      creator: 'self',
+      creatorName: user?.email || '',
+      isPrimary: videos.length === 0 // First video is primary by default
+    },
+    id: uuidv4()
+  });
+  
+  // Handle file drops from the dropzone
+  const handleFileDrop = (acceptedFiles: File[]) => {
+    if (disabled) return;
     
-    if (emptySlots.length > 1) {
-      // Remove extra empty slots, keeping only the last one
-      setVideos(prev => {
-        const withContent = prev.filter(v => v.file || v.url);
-        const lastEmptySlot = [...prev].reverse().find(v => !v.file && !v.url);
-        return [...withContent, lastEmptySlot!];
+    if (acceptedFiles.length > 0) {
+      // Filter for video files and add each one
+      const videoFiles = acceptedFiles.filter(file => file.type.startsWith('video/'));
+      
+      if (videoFiles.length === 0) {
+        toast({
+          title: 'Invalid file type',
+          description: 'Please upload video files only.',
+          variant: 'destructive'
+        });
+        return;
+      }
+      
+      const newVideos = videoFiles.map((file, index) => {
+        const isFirst = videos.length === 0 && index === 0;
+        
+        return {
+          file,
+          url: URL.createObjectURL(file),
+          metadata: {
+            title: file.name.split('.')[0], // Use filename as default title
+            description: '',
+            classification: 'art',
+            creator: 'self',
+            creatorName: user?.email || '',
+            isPrimary: isFirst // First video is primary by default
+          },
+          id: uuidv4()
+        };
+      });
+      
+      setVideos(prev => [...prev, ...newVideos]);
+      setActiveTab('upload'); // Switch to upload tab after dropping files
+    }
+  };
+  
+  // Handle manual file selection
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (disabled || !event.target.files || event.target.files.length === 0) return;
+    
+    const file = event.target.files[0];
+    if (!file.type.startsWith('video/')) {
+      toast({
+        title: 'Invalid file type',
+        description: 'Please upload video files only.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    const isFirst = videos.length === 0;
+    
+    setVideos(prev => [
+      ...prev,
+      {
+        file,
+        url: URL.createObjectURL(file),
+        metadata: {
+          title: file.name.split('.')[0], // Use filename as default title
+          description: '',
+          classification: 'art',
+          creator: 'self',
+          creatorName: user?.email || '',
+          isPrimary: isFirst // First video is primary by default
+        },
+        id: uuidv4()
+      }
+    ]);
+    
+    // Reset the file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+  
+  // Add a URL video
+  const handleAddUrlVideo = () => {
+    if (disabled) return;
+    
+    if (!urlInput) {
+      toast({
+        title: 'Missing URL',
+        description: 'Please enter a valid video URL.',
+        variant: 'destructive'
+      });
+      return;
+    }
+    
+    try {
+      new URL(urlInput); // Validate URL format
+      
+      const isFirst = videos.length === 0;
+      
+      setVideos(prev => [
+        ...prev,
+        {
+          file: null,
+          url: urlInput,
+          metadata: {
+            title: 'Video from URL',
+            description: '',
+            classification: 'art',
+            creator: 'self',
+            creatorName: user?.email || '',
+            isPrimary: isFirst // First video is primary by default
+          },
+          id: uuidv4()
+        }
+      ]);
+      
+      setUrlInput(''); // Clear URL input
+      toast({
+        title: 'Video URL added',
+        description: 'The video URL has been added to your upload list.',
+      });
+    } catch (error) {
+      toast({
+        title: 'Invalid URL',
+        description: 'Please enter a valid video URL.',
+        variant: 'destructive'
       });
     }
-    
-    // If no empty slots exist, add one
-    if (emptySlots.length === 0) {
-      setVideos(prev => [...prev, {
-        id: crypto.randomUUID(),
-        file: null,
-        url: null,
-        metadata: {...initialMetadata, isPrimary: false}
-      }]);
-    }
-  }, [videos]);
-
-  // Always set video creator to 'self' when user is logged in
-  React.useEffect(() => {
-    if (user) {
-      setVideos(prev => 
-        prev.map(video => ({
-          ...video,
-          metadata: {
-            ...video.metadata,
-            creator: 'self'
-          }
-        }))
-      );
-    }
-  }, [user]);
-
-  // Only manage primary videos if not hiding the option
-  React.useEffect(() => {
-    if (hideIsPrimary) return;
-    
-    const primaryCount = videos.filter(v => v.metadata.isPrimary).length;
-    
-    if (primaryCount === 0 && videos.length > 0) {
-      setVideos(prev => prev.map((video, index) => 
-        index === 0 ? { ...video, metadata: { ...video.metadata, isPrimary: true } } : video
-      ));
-    }
-    else if (primaryCount > 1) {
-      const lastPrimaryIndex = [...videos].reverse().findIndex(v => v.metadata.isPrimary);
-      if (lastPrimaryIndex !== -1) {
-        const actualIndex = videos.length - 1 - lastPrimaryIndex;
-        setVideos(prev => prev.map((video, index) => 
-          ({ ...video, metadata: { ...video.metadata, isPrimary: index === actualIndex } })
-        ));
-      }
-    }
-  }, [videos, setVideos, hideIsPrimary]);
-  
-  const handleRemoveVideo = (id: string) => {
-    if (disabled) return;
-    
-    const videoToRemove = videos.find(v => v.id === id);
-    if (!videoToRemove?.file && !videoToRemove?.url) {
-      return;
-    }
-    
-    if (videos.filter(v => v.file || v.url).length <= 1) {
-      toast.error('You must have at least one video');
-      return;
-    }
-    
-    const isRemovingPrimary = videos.find(v => v.id === id)?.metadata.isPrimary;
-    
-    const updatedVideos = videos.filter(video => video.id !== id);
-    
-    if (isRemovingPrimary && updatedVideos.some(v => v.file || v.url)) {
-      const firstVideoWithContent = updatedVideos.find(v => v.file || v.url);
-      if (firstVideoWithContent) {
-        firstVideoWithContent.metadata.isPrimary = true;
-      }
-    }
-    
-    setVideos(updatedVideos);
   };
   
-  const updateVideoMetadata = (id: string, field: keyof VideoMetadataForm, value: any) => {
+  // Update video metadata
+  const updateVideoMetadata = (id: string, field: string, value: any) => {
     if (disabled) return;
     
-    // Skip isPrimary handling if hiding the option
-    if (hideIsPrimary && field === 'isPrimary') return;
-
-    // Always keep creator as 'self' if user is logged in
-    if (field === 'creator' && user) {
-      return;
-    }
-    
-    if (field === 'isPrimary' && value === true && !hideIsPrimary) {
-      setVideos(prev => 
-        prev.map(video => 
-          video.id === id 
-            ? { ...video, metadata: { ...video.metadata, [field]: value } } 
-            : { ...video, metadata: { ...video.metadata, isPrimary: false } }
-        )
-      );
-    } else {
-      setVideos(prev => 
-        prev.map(video => 
-          video.id === id ? { 
-            ...video, 
-            metadata: { 
-              ...video.metadata, 
-              [field]: value 
-            } 
-          } : video
-        )
-      );
-    }
-  };
-  
-  const handleVideoFileDrop = (id: string) => {
-    return (acceptedFiles: File[]) => {
-      if (disabled) return;
-      
-      console.log("File dropped:", acceptedFiles);
-      
-      if (acceptedFiles.length === 0) return;
-      
-      if (acceptedFiles.length === 1) {
-        // Single file upload - process as before
-        const file = acceptedFiles[0];
-        if (file) {
-          const url = URL.createObjectURL(file);
-          console.log("Created URL:", url);
-          
-          const fileName = file.name;
-          const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
-          const defaultTitle = fileNameWithoutExtension || fileName;
-          
-          setVideos(prev => 
-            prev.map(video => 
-              video.id === id 
-                ? { 
-                    ...video, 
-                    file: file, 
-                    url: url,
-                    metadata: {
-                      ...video.metadata,
-                      title: defaultTitle,
-                      creator: 'self' // Always set to 'self' for logged-in users
-                    }
-                  } 
-                : video
-            )
-          );
-        }
-      } else {
-        // Multiple files uploaded - create new video items for all files after the first one
-        const currentVideoIndex = videos.findIndex(v => v.id === id);
-        const hasChanged = { current: false };
-        
-        // Process the first file for the current dropzone
-        const firstFile = acceptedFiles[0];
-        const firstUrl = URL.createObjectURL(firstFile);
-        const firstFileName = firstFile.name;
-        const firstFileNameWithoutExtension = firstFileName.split('.').slice(0, -1).join('.');
-        const firstDefaultTitle = firstFileNameWithoutExtension || firstFileName;
-        
-        // Create new video items for the remaining files
-        const additionalVideos = acceptedFiles.slice(1).map(file => {
-          const url = URL.createObjectURL(file);
-          const fileName = file.name;
-          const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
-          const defaultTitle = fileNameWithoutExtension || fileName;
-          
+    setVideos(prev => {
+      const updated = prev.map(video => {
+        if (video.id === id) {
           return {
-            id: crypto.randomUUID(),
-            file: file,
-            url: url,
+            ...video,
             metadata: {
-              ...initialMetadata,
-              title: defaultTitle,
-              isPrimary: false,
-              creator: 'self' // Always set to 'self' for logged-in users
+              ...video.metadata,
+              [field]: value
             }
           };
-        });
+        }
         
-        setVideos(prev => {
-          // First update the current dropzone video with the first file
-          const updatedVideos = prev.map((video, index) => {
-            if (video.id === id) {
-              hasChanged.current = true;
-              return { 
-                ...video, 
-                file: firstFile, 
-                url: firstUrl,
-                metadata: {
-                  ...video.metadata,
-                  title: firstDefaultTitle,
-                  creator: 'self' // Always set to 'self' for logged-in users
-                }
-              };
+        // If setting this video as primary, unset primary from all others
+        if (field === 'isPrimary' && value === true) {
+          return {
+            ...video,
+            metadata: {
+              ...video.metadata,
+              isPrimary: video.id === id
             }
-            return video;
-          });
-          
-          // Then add the additional videos
-          return [...updatedVideos, ...additionalVideos];
-        });
-      }
-    };
+          };
+        }
+        
+        return video;
+      });
+      
+      return updated;
+    });
   };
   
-  const handleVideoLinkAdded = (id: string) => {
-    return (linkUrl: string) => {
-      if (disabled) return;
-      
-      console.log("Link added:", linkUrl);
-      
-      let defaultTitle = '';
-      
-      try {
-        if (linkUrl.includes('youtube.com/') || linkUrl.includes('youtu.be/')) {
-          const url = new URL(linkUrl);
-          const videoId = url.searchParams.get('v') || 
-                          linkUrl.split('/').pop()?.split('?')[0] || 
-                          'YouTube Video';
-          defaultTitle = `YouTube Video - ${videoId}`;
-        } 
-        else if (linkUrl.includes('vimeo.com/')) {
-          const videoId = linkUrl.split('/').pop() || 'Vimeo Video';
-          defaultTitle = `Vimeo Video - ${videoId}`;
-        }
-        else {
-          const fileName = linkUrl.split('/').pop() || 'Video';
-          const fileNameWithoutExtension = fileName.split('.').slice(0, -1).join('.');
-          defaultTitle = fileNameWithoutExtension || fileName;
-        }
-      } catch (e) {
-        defaultTitle = 'External Video';
-      }
-      
-      setVideos(prev => 
-        prev.map(video => 
-          video.id === id 
-            ? { 
-                ...video, 
-                file: null, 
-                url: linkUrl,
-                metadata: {
-                  ...video.metadata,
-                  title: defaultTitle,
-                  creator: 'self' // Always set to 'self' for logged-in users
-                }
-              } 
-            : video
-        )
-      );
-    };
-  };
-  
-  const handleRemoveVideoFile = (id: string) => {
+  // Remove a video
+  const removeVideo = (id: string) => {
     if (disabled) return;
     
-    setVideos(prev => 
-      prev.map(video => 
-        video.id === id ? { ...video, file: null, url: null } : video
-      )
-    );
+    setVideos(prev => {
+      // Check if we're removing the primary video
+      const removingPrimary = prev.find(v => v.id === id)?.metadata.isPrimary;
+      const filtered = prev.filter(video => video.id !== id);
+      
+      // If we removed the primary and have other videos, make the first one primary
+      if (removingPrimary && filtered.length > 0) {
+        return filtered.map((video, index) => {
+          if (index === 0) {
+            return {
+              ...video,
+              metadata: {
+                ...video.metadata,
+                isPrimary: true
+              }
+            };
+          }
+          return video;
+        });
+      }
+      
+      return filtered;
+    });
   };
-
+  
+  // Add empty video card
+  const addEmptyVideo = () => {
+    if (disabled) return;
+    
+    setVideos(prev => [...prev, createEmptyVideoItem()]);
+  };
+  
   return (
-    <>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* First render videos with content */}
-        {videos.filter(v => v.file || v.url).map((video) => (
-          <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <Button 
-                type="button"
-                variant="ghost" 
-                size="sm" 
-                onClick={() => handleRemoveVideo(video.id)}
-                disabled={disabled}
-              >
-                <X className="h-4 w-4 mr-1" />
-                Remove
-              </Button>
+    <div className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="mb-4">
+          <TabsTrigger value="upload">Upload Files</TabsTrigger>
+          <TabsTrigger value="link">Add Video Links</TabsTrigger>
+        </TabsList>
+        
+        <TabsContent value="upload" className="space-y-4">
+          <VideoDropzone 
+            onDrop={handleFileDrop} 
+            disabled={disabled}
+          />
+          
+          <div className="flex items-center justify-center">
+            <input
+              type="file"
+              ref={fileInputRef}
+              onChange={handleFileSelect}
+              className="hidden"
+              accept="video/*"
+              disabled={disabled}
+            />
+            <Button 
+              variant="outline" 
+              onClick={() => fileInputRef.current?.click()}
+              disabled={disabled}
+              className="flex items-center gap-2"
+            >
+              <Upload size={16} />
+              Select Video File
+            </Button>
+          </div>
+        </TabsContent>
+        
+        <TabsContent value="link" className="space-y-4">
+          <div className="grid gap-4">
+            <div className="flex flex-col space-y-2">
+              <Label htmlFor="video-url">Video URL</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="video-url"
+                  type="url"
+                  placeholder="https://example.com/video.mp4"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  disabled={disabled}
+                  className="flex-1"
+                />
+                <Button 
+                  onClick={handleAddUrlVideo}
+                  disabled={!urlInput || disabled}
+                >
+                  <Link size={16} className="mr-2" />
+                  Add
+                </Button>
+              </div>
             </div>
             
-            <div className="space-y-6">
-              <div className="relative">
-                <VideoPreview 
-                  file={video.file} 
-                  url={video.url} 
-                  className="w-full mx-auto"
-                />
-              </div>
-              
-              <div className="mt-4">
-                <VideoMetadataForm
-                  videoId={video.id}
-                  metadata={video.metadata}
-                  updateMetadata={updateVideoMetadata}
-                  canSetPrimary={!hideIsPrimary}
-                  disabled={disabled}
-                />
-              </div>
-            </div>
+            <Alert>
+              <AlertDescription>
+                Add a direct URL to a video file (MP4, WebM, etc.) or a link from YouTube, Vimeo, etc.
+              </AlertDescription>
+            </Alert>
           </div>
-        ))}
-        
-        {/* Then render only ONE empty dropzone */}
-        {videos.filter(v => !v.file && !v.url).slice(0, 1).map((video) => (
-          <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
-            <div className="w-full flex justify-center">
-              <VideoDropzoneComponent 
-                id={video.id} 
-                file={video.file} 
-                url={video.url} 
-                onDrop={handleVideoFileDrop(video.id)}
-                onLinkAdded={handleVideoLinkAdded(video.id)}
-                onRemove={() => handleRemoveVideoFile(video.id)}
-                multiple={true}
-                disabled={disabled}
-              />
-            </div>
-          </div>
-        ))}
-      </div>
+        </TabsContent>
+      </Tabs>
       
-      {disabled && (
-        <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded text-gray-500 text-sm">
-          Please sign in to upload videos.
+      {videos.length > 0 ? (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-medium">Added Videos ({videos.length})</h3>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={addEmptyVideo}
+              disabled={disabled}
+            >
+              Add Empty Slot
+            </Button>
+          </div>
+          
+          <div className="grid gap-4 md:grid-cols-1">
+            {videos.map((video, index) => (
+              <Card key={video.id} className="relative overflow-hidden">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 z-10 bg-background/80 rounded-full"
+                  onClick={() => removeVideo(video.id)}
+                  disabled={disabled}
+                >
+                  <XCircle size={18} />
+                  <span className="sr-only">Remove</span>
+                </Button>
+                
+                <CardContent className="p-4 grid md:grid-cols-2 gap-6">
+                  <div className="flex flex-col space-y-2">
+                    <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                      {video.url ? (
+                        <video
+                          src={video.url}
+                          controls
+                          className="w-full h-full object-contain"
+                          preload="metadata"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-muted-foreground">No video selected</span>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {!video.url && !video.file && (
+                      <div className="flex justify-center gap-2 mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={disabled}
+                        >
+                          <Upload size={16} className="mr-2" />
+                          Upload
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setActiveTab('link')}
+                          disabled={disabled}
+                        >
+                          <Link size={16} className="mr-2" />
+                          Add URL
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <VideoMetadataForm
+                      videoId={video.id}
+                      metadata={video.metadata}
+                      updateMetadata={updateVideoMetadata}
+                      canSetPrimary={true}
+                      disabled={disabled}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      ) : (
+        <div className="flex flex-col items-center justify-center p-8 border rounded-lg border-dashed text-center">
+          <h3 className="mb-2 text-lg font-medium">No Videos Added</h3>
+          <p className="mb-4 text-sm text-muted-foreground">
+            Upload files or add video links to get started.
+          </p>
         </div>
       )}
-    </>
+    </div>
   );
 };
 
