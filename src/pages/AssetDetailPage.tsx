@@ -1,10 +1,9 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import Navigation from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Check, X, AlertTriangle, Upload } from 'lucide-react';
+import { ArrowLeft, Check, X, Upload } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import VideoList from '@/components/VideoList';
@@ -27,16 +26,7 @@ const AssetDetailPage: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
   const [authChecked, setAuthChecked] = useState(false);
-
-  // Debug info logging
-  useEffect(() => {
-    console.log('AssetDetailPage - Auth State:', {
-      user: user ? { id: user.id, email: user.email } : null,
-      authChecked,
-      isLoading,
-      isAdmin
-    });
-  }, [user, authChecked, isLoading, isAdmin]);
+  const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
 
   // Check admin status whenever user changes
   useEffect(() => {
@@ -62,17 +52,12 @@ const AssetDetailPage: React.FC = () => {
     checkAdminStatus();
   }, [user]);
 
-  // Additional debug logging
-  useEffect(() => {
-    console.log('AssetDetailPage - User:', user);
-    console.log('AssetDetailPage - Asset:', asset);
-    console.log('AssetDetailPage - Asset ID:', id);
-  }, [user, asset, id]);
-
   // Fetch asset details using useCallback to avoid recreating the function on rerenders
   const fetchAssetDetails = useCallback(async () => {
     if (!id) {
       toast.error('No asset ID provided');
+      setIsLoading(false);
+      setDataFetchAttempted(true);
       return;
     }
 
@@ -82,7 +67,7 @@ const AssetDetailPage: React.FC = () => {
         .from('assets')
         .select('*')
         .eq('id', id)
-        .maybeSingle(); // Changed from single() to maybeSingle() to prevent errors if no data is found
+        .maybeSingle();
 
       if (assetError) {
         console.error('AssetDetailPage - Error fetching asset:', assetError);
@@ -92,6 +77,7 @@ const AssetDetailPage: React.FC = () => {
       if (!assetData) {
         console.error('AssetDetailPage - No asset found with ID:', id);
         setIsLoading(false);
+        setDataFetchAttempted(true);
         return;
       }
 
@@ -154,13 +140,22 @@ const AssetDetailPage: React.FC = () => {
       toast.error('Failed to load asset details');
     } finally {
       setIsLoading(false);
+      setDataFetchAttempted(true);
     }
   }, [id]);
 
   // Fetch asset details when the component mounts or ID changes
   useEffect(() => {
-    fetchAssetDetails();
-  }, [fetchAssetDetails]);
+    if (!dataFetchAttempted) {
+      fetchAssetDetails();
+    }
+  }, [fetchAssetDetails, dataFetchAttempted]);
+
+  // Handle retry
+  const handleRetry = () => {
+    setIsLoading(true);
+    setDataFetchAttempted(false);
+  };
 
   const handleGoBack = () => {
     navigate('/');
@@ -317,19 +312,8 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
-  // Log upload button conditions for debugging
-  useEffect(() => {
-    console.log('Upload Button Conditions:', {
-      hasUser: !!user, 
-      hasAsset: !!asset, 
-      userDetails: user ? {
-        id: user.id, 
-        email: user.email
-      } : null,
-      authChecked: authChecked,
-      isLoading: isLoading
-    });
-  }, [user, asset, authChecked, isLoading]);
+  // Determine if the upload button should be shown - simplified condition for better reliability
+  const showUploadButton = Boolean(user) && Boolean(asset);
 
   if (isLoading) {
     return (
@@ -353,7 +337,7 @@ const AssetDetailPage: React.FC = () => {
     );
   }
 
-  if (!asset) {
+  if (!asset && dataFetchAttempted) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
@@ -362,19 +346,19 @@ const AssetDetailPage: React.FC = () => {
             title="Asset not found"
             description="The requested asset could not be found."
           />
-          <div className="flex justify-center mt-6">
+          <div className="flex justify-center gap-4 mt-6">
             <Button onClick={handleGoBack} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
               Back to Home
+            </Button>
+            <Button onClick={handleRetry} variant="outline">
+              Retry Loading
             </Button>
           </div>
         </main>
       </div>
     );
   }
-
-  // Determine if the upload button should be shown
-  const showUploadButton = user !== null && asset !== null;
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -404,6 +388,7 @@ const AssetDetailPage: React.FC = () => {
                 <div>Asset ID: {id}</div>
                 <div>Videos count: {videos.length}</div>
                 <div>Show upload button: {showUploadButton ? 'Yes' : 'No'}</div>
+                <div>Asset name: {asset?.name || 'Not loaded'}</div>
               </div>
             </details>
           </div>
@@ -448,24 +433,26 @@ const AssetDetailPage: React.FC = () => {
                     variant="default" 
                     className="flex-1 gap-1"
                     onClick={handleCurateAsset}
-                    disabled={isApproving || asset.admin_approved === 'Curated'}
+                    disabled={isApproving || asset?.admin_approved === 'Curated'}
                   >
                     <Check className="h-4 w-4" />
                     Curate
                   </Button>
+                  
                   <Button 
                     variant="outline" 
                     className="flex-1 gap-1"
                     onClick={handleListAsset}
-                    disabled={isApproving || asset.admin_approved === 'Listed'}
+                    disabled={isApproving || asset?.admin_approved === 'Listed'}
                   >
                     List
                   </Button>
+                  
                   <Button 
                     variant="destructive" 
                     className="flex-1 gap-1"
                     onClick={handleRejectAsset}
-                    disabled={isApproving || asset.admin_approved === 'Rejected'}
+                    disabled={isApproving || asset?.admin_approved === 'Rejected'}
                   >
                     <X className="h-4 w-4" />
                     Reject
@@ -483,8 +470,8 @@ const AssetDetailPage: React.FC = () => {
             {showUploadButton && (
               <div className="mb-4">
                 <LoRAVideoUploader 
-                  assetId={asset.id} 
-                  assetName={asset.name || ''} 
+                  assetId={asset?.id || ''} 
+                  assetName={asset?.name || ''} 
                   onUploadsComplete={fetchAssetDetails} 
                 />
               </div>
