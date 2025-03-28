@@ -1,92 +1,137 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { VideoEntry } from '@/lib/types';
+import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import Navigation from '@/components/Navigation';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, FileVideo } from 'lucide-react';
 import { toast } from 'sonner';
+import { databaseSwitcher } from '@/lib/databaseSwitcher';
+import { supabase } from '@/integrations/supabase/client';
+import { VideoEntry } from '@/lib/types';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
-import { databaseSwitcher } from '@/lib/databaseSwitcher';
-import { isValidVideoUrl } from '@/lib/utils/videoUtils';
-import VideoDetails from './components/VideoDetails';
+import Navigation from '@/components/Navigation';
 import VideoPlayerCard from './components/VideoPlayerCard';
+import VideoDetails from './components/VideoDetails';
 import RelatedVideos from './components/RelatedVideos';
+import { videoUrlService } from '@/lib/services/videoUrlService';
 
 const VideoPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [video, setVideo] = useState<VideoEntry | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState<string | null>(null);
   const [relatedVideos, setRelatedVideos] = useState<VideoEntry[]>([]);
-  const [validRelatedVideos, setValidRelatedVideos] = useState<VideoEntry[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
 
   useEffect(() => {
-    const loadVideo = async () => {
+    const fetchVideo = async () => {
       if (!id) {
-        setError("No video ID provided");
-        setIsLoading(false);
+        toast.error("No video ID provided");
+        navigate('/');
         return;
       }
 
+      setIsLoading(true);
       try {
-        setIsLoading(true);
+        // Fetch the video from the database
         const db = await databaseSwitcher.getDatabase();
-        const entries = await db.getAllEntries();
-        const foundVideo = entries.find(entry => entry.id === id);
+        const videoData = await db.getEntryById(id);
         
-        if (foundVideo) {
-          console.log('Found video:', foundVideo);
-          setVideo(foundVideo);
-          
-          if (!foundVideo.video_location || !isValidVideoUrl(foundVideo.video_location)) {
-            setVideoError("This video has an invalid or expired URL");
-          }
-          
-          if (foundVideo.metadata?.assetId) {
-            const assetId = foundVideo.metadata.assetId;
-            const related = entries.filter(entry => 
-              entry.id !== id && 
-              entry.metadata?.assetId === assetId
-            );
-            
-            const validVideos = related.filter(
-              video => video.video_location && isValidVideoUrl(video.video_location)
-            );
-            
-            setRelatedVideos(related);
-            setValidRelatedVideos(validVideos);
-          }
-        } else {
-          console.error('Video not found with ID:', id);
-          setError("Video not found");
+        if (!videoData) {
+          throw new Error("Video not found");
         }
-      } catch (err) {
-        console.error("Error loading video:", err);
-        setError("Failed to load video");
-        toast.error("Could not load the requested video");
+        
+        setVideo(videoData);
+        
+        // Specifically use forceRefreshUrl to ensure we get a fresh URL
+        // This helps avoid expired blob URLs
+        if (videoData.video_location) {
+          try {
+            const freshUrl = await videoUrlService.forceRefreshUrl(videoData.video_location);
+            setVideoUrl(freshUrl);
+          } catch (urlError) {
+            console.error('Failed to refresh video URL:', urlError);
+            
+            // Fallback to regular URL resolution as a last resort
+            const standardUrl = await videoUrlService.getVideoUrl(videoData.video_location);
+            setVideoUrl(standardUrl);
+          }
+        }
+        
+        // Fetch related videos
+        let relatedData: VideoEntry[] = [];
+        
+        // First check if this video is associated with a LoRA
+        if (videoData.metadata?.assetId) {
+          // Get other videos with the same asset ID
+          const { data: assetVideos, error: assetError } = await supabase
+            .from('media')
+            .select('*')
+            .eq('type', 'video')
+            .neq('id', id); // Exclude current video
+          
+          if (!assetError && assetVideos) {
+            // Convert to VideoEntry format
+            relatedData = await Promise.all(
+              assetVideos.filter(media => 
+                media.metadata?.assetId === videoData.metadata?.assetId
+              ).map(async (media) => {
+                const videoUrl = await videoUrlService.forceRefreshUrl(media.url);
+                
+                return {
+                  id: media.id,
+                  video_location: videoUrl,
+                  reviewer_name: media.creator || 'Unknown',
+                  skipped: false,
+                  created_at: media.created_at,
+                  admin_approved: null,
+                  user_id: media.user_id,
+                  metadata: media.metadata
+                };
+              })
+            );
+          }
+        }
+        
+        // If no asset-related videos found, fall back to recent videos
+        if (relatedData.length === 0) {
+          const recentVideos = await db.getAllEntries(5); // Limit to 5 recent videos
+          relatedData = recentVideos.filter(v => v.id !== id);
+        }
+        
+        setRelatedVideos(relatedData);
+        
+      } catch (error) {
+        console.error('Error fetching video:', error);
+        toast.error("Failed to load video");
       } finally {
         setIsLoading(false);
       }
     };
-
-    loadVideo();
-  }, [id]);
-
-  const handleVideoLoaded = () => {
-    console.log("Video loaded successfully");
-    setVideoError(null);
+    
+    fetchVideo();
+  }, [id, navigate]);
+  
+  const handleRefreshUrl = async () => {
+    if (!video?.video_location) return;
+    
+    setIsRefreshingUrl(true);
+    try {
+      const freshUrl = await videoUrlService.forceRefreshUrl(video.video_location);
+      setVideoUrl(freshUrl);
+      toast.success("Video URL refreshed");
+    } catch (error) {
+      console.error('Error refreshing URL:', error);
+      toast.error("Could not refresh video URL");
+    } finally {
+      setIsRefreshingUrl(false);
+    }
   };
   
-  const handleVideoError = () => {
-    setVideoError("Could not load video. The source may be invalid or expired.");
-  };
-
   const handleGoBack = () => {
-    navigate('/');
+    navigate(-1);
   };
 
   if (isLoading) {
@@ -100,19 +145,19 @@ const VideoPage: React.FC = () => {
     );
   }
 
-  if (error || !video) {
+  if (!video) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
         <main className="flex-1 container max-w-6xl py-8 px-4">
           <EmptyState 
             title="Video not found"
-            description={error || "The requested video could not be found."}
+            description="The requested video could not be found."
           />
           <div className="flex justify-center mt-6">
             <Button onClick={handleGoBack} className="gap-2">
               <ArrowLeft className="h-4 w-4" />
-              Back to Home
+              Back
             </Button>
           </div>
         </main>
@@ -133,16 +178,16 @@ const VideoPage: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">Video Details</h1>
+          <h1 className="text-2xl font-bold">{video.metadata?.title || 'Video Details'}</h1>
         </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <VideoPlayerCard 
               video={video} 
-              videoError={videoError}
-              onVideoLoaded={handleVideoLoaded}
-              onVideoError={handleVideoError}
+              videoUrl={videoUrl} 
+              onRefresh={handleRefreshUrl}
+              isRefreshing={isRefreshingUrl}
             />
           </div>
           
@@ -151,13 +196,7 @@ const VideoPage: React.FC = () => {
           </div>
         </div>
         
-        {video.metadata?.assetId && validRelatedVideos.length > 0 && (
-          <RelatedVideos 
-            assetId={video.metadata.assetId} 
-            videos={validRelatedVideos} 
-            navigate={navigate}
-          />
-        )}
+        <RelatedVideos videos={relatedVideos} />
       </main>
     </div>
   );

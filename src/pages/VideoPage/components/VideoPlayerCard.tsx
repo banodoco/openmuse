@@ -1,60 +1,52 @@
 
 import React from 'react';
 import { VideoEntry } from '@/lib/types';
-import { FileVideo, AlertTriangle } from 'lucide-react';
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import VideoPlayer from '@/components/video/VideoPlayer';
-import { isValidVideoUrl } from '@/lib/utils/videoUtils';
+import { Card, CardContent } from '@/components/ui/card';
+import StorageVideoPlayer from '@/components/StorageVideoPlayer';
+import { Button } from '@/components/ui/button';
+import { RefreshCw } from 'lucide-react';
 
 interface VideoPlayerCardProps {
   video: VideoEntry;
-  videoError: string | null;
-  onVideoLoaded: () => void;
-  onVideoError: () => void;
+  videoUrl: string | null;
+  onRefresh: () => void;
+  isRefreshing: boolean;
 }
 
 const VideoPlayerCard: React.FC<VideoPlayerCardProps> = ({ 
   video, 
-  videoError, 
-  onVideoLoaded, 
-  onVideoError 
+  videoUrl, 
+  onRefresh,
+  isRefreshing 
 }) => {
-  const hasValidVideo = video.video_location && isValidVideoUrl(video.video_location);
-
+  // Use the provided videoUrl if available, otherwise fall back to video_location
+  const videoSource = videoUrl || video.video_location;
+  
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>{video.metadata?.title || video.reviewer_name}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        {videoError && (
-          <Alert variant="destructive" className="mb-4">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Error</AlertTitle>
-            <AlertDescription>
-              {videoError}
-            </AlertDescription>
-          </Alert>
-        )}
-        
-        <div className="aspect-video w-full bg-muted rounded-md overflow-hidden">
-          {hasValidVideo ? (
-            <VideoPlayer 
-              src={video.video_location} 
-              controls
-              onLoadedData={onVideoLoaded}
-              onError={onVideoError}
-              muted={false}
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center">
-              <FileVideo className="h-12 w-12 text-muted-foreground mb-4" />
-              <p className="text-sm text-muted-foreground">Video unavailable</p>
-              <p className="text-xs text-muted-foreground mt-2">The video source is invalid or has expired</p>
-            </div>
-          )}
+    <Card className="overflow-hidden">
+      <CardContent className="p-0 relative">
+        <div className="aspect-video w-full">
+          <StorageVideoPlayer 
+            videoLocation={videoSource}
+            controls={true}
+            autoPlay={false}
+            muted={false}
+            loop={false}
+            className="w-full h-full"
+          />
         </div>
+        
+        {/* Add refresh button */}
+        <Button 
+          variant="secondary" 
+          size="sm" 
+          className="absolute top-2 right-2 gap-1 opacity-90 hover:opacity-100"
+          onClick={onRefresh}
+          disabled={isRefreshing}
+        >
+          <RefreshCw className={`h-3 w-3 ${isRefreshing ? 'animate-spin' : ''}`} />
+          {isRefreshing ? 'Refreshing...' : 'Refresh Video'}
+        </Button>
       </CardContent>
     </Card>
   );
