@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -133,10 +134,10 @@ const UploadPage: React.FC = () => {
         </p>
         
         {!user && (
-          <Alert className="mb-8 border border-yellow-200 bg-yellow-50 text-yellow-800">
-            <AlertTitle className="font-medium">You must be signed in to submit videos.</AlertTitle>
-            <AlertDescription className="mt-1">
-              Please <Link to="/auth" className="font-medium underline">sign in</Link> to access all features.
+          <Alert className="mb-8 border border-olive/20 bg-cream-light text-foreground font-body">
+            <AlertTitle className="font-heading font-medium">You must be signed in to submit videos.</AlertTitle>
+            <AlertDescription className="mt-1 font-body">
+              Please <Link to="/auth" className="font-medium text-olive hover:text-olive-dark underline">sign in</Link> to access all features.
             </AlertDescription>
           </Alert>
         )}
