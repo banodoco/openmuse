@@ -160,7 +160,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
       
       <CardContent className="px-4 py-3 text-xs flex-grow">
         {lora.description && (
-          <p className="text-muted-foreground mb-2 line-clamp-2">{lora.description}</p>
+          <p className="text-muted-foreground line-clamp-2">{lora.description}</p>
         )}
         
         {lora.lora_link && (
