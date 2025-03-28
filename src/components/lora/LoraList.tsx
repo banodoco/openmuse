@@ -8,6 +8,8 @@ import LoraCard from './LoraCard';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
+import { checkIsAdmin } from '@/lib/auth';
 
 interface LoraListProps {
   loras: LoraAsset[];
@@ -16,8 +18,30 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [filterText, setFilterText] = useState('');
-  const [approvalFilter, setApprovalFilter] = useState('all'); // Default to 'all' to show everything
+  const [approvalFilter, setApprovalFilter] = useState('curated'); // Default to 'curated' instead of 'all'
   const [refreshing, setRefreshing] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const { user } = useAuth();
+  
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      if (user?.id) {
+        const adminStatus = await checkIsAdmin(user.id);
+        setIsAdmin(adminStatus);
+      } else {
+        setIsAdmin(false);
+      }
+    };
+    
+    checkAdminStatus();
+  }, [user]);
+  
+  useEffect(() => {
+    // If user is not admin and filter is 'rejected', switch to 'curated'
+    if (!isAdmin && approvalFilter === 'rejected') {
+      setApprovalFilter('curated');
+    }
+  }, [isAdmin, approvalFilter]);
   
   const handleRefresh = async () => {
     if (onRefresh) {
@@ -61,16 +85,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     return matchesText && matchesApproval;
   });
 
-  // Debug logging
-  console.log('Total LoRAs:', loras.length);
-  console.log('Filtered LoRAs:', filteredLoras.length);
-  console.log('Current approval filter:', approvalFilter);
-  
-  // More detailed logging to understand what's happening
-  loras.forEach(lora => {
-    console.log(`LoRA ${lora.id} (${lora.name}): LoRA approval=${lora.admin_approved}, Video approval=${lora.primaryVideo?.admin_approved}`);
-  });
-
   return (
     <div className="w-full">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
@@ -91,10 +105,11 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All</SelectItem>
               <SelectItem value="curated">Curated</SelectItem>
               <SelectItem value="listed">Listed</SelectItem>
-              <SelectItem value="rejected">Rejected</SelectItem>
+              {isAdmin && (
+                <SelectItem value="rejected">Rejected</SelectItem>
+              )}
             </SelectContent>
           </Select>
         </div>

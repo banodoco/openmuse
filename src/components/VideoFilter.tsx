@@ -9,13 +9,15 @@ interface VideoFilterProps {
   setVideoFilter: (filter: string) => void;
   onRefresh: () => void;
   isDisabled?: boolean;
+  isAdmin?: boolean;
 }
 
 const VideoFilter: React.FC<VideoFilterProps> = ({
   videoFilter,
   setVideoFilter,
   onRefresh,
-  isDisabled = false
+  isDisabled = false,
+  isAdmin = false
 }) => {
   return (
     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -29,10 +31,11 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
             <SelectValue placeholder="Filter by status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Videos</SelectItem>
             <SelectItem value="curated">Curated Videos</SelectItem>
             <SelectItem value="listed">Listed Videos</SelectItem>
-            <SelectItem value="rejected">Rejected Videos</SelectItem>
+            {isAdmin && (
+              <SelectItem value="rejected">Rejected Videos</SelectItem>
+            )}
           </SelectContent>
         </Select>
       </div>

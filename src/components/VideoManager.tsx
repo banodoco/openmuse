@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoList from './VideoList';
@@ -46,9 +45,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   }, [videos]);
   
   const filteredVideos = React.useMemo(() => {
-    if (videoFilter === 'all') {
-      return sortedVideos;
-    } else if (videoFilter === 'curated') {
+    if (videoFilter === 'curated') {
       return sortedVideos.filter(video => video.admin_approved === 'Curated');
     } else if (videoFilter === 'listed') {
       return sortedVideos.filter(video => !video.admin_approved || video.admin_approved === 'Listed');
@@ -128,6 +125,12 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   }
   
   if (!isAdmin) {
+    React.useEffect(() => {
+      if (videoFilter === 'rejected' && !isAdmin) {
+        setVideoFilter('curated');
+      }
+    }, [videoFilter, isAdmin]);
+    
     return (
       <div className="mt-8">
         <VideoFilter
@@ -135,6 +138,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
           setVideoFilter={setVideoFilter}
           onRefresh={refetchVideos}
           isDisabled={isLoading}
+          isAdmin={isAdmin}
         />
         <VideoList
           videos={filteredVideos}
@@ -155,13 +159,11 @@ const VideoManager: React.FC<VideoManagerProps> = ({
         setVideoFilter={setVideoFilter}
         onRefresh={refetchVideos}
         isDisabled={isLoading}
+        isAdmin={isAdmin}
       />
       
       <Tabs defaultValue="curated" className="mt-4">
         <TabsList className="mb-4">
-          <TabsTrigger value="all">
-            All ({videos.length})
-          </TabsTrigger>
           <TabsTrigger value="curated">
             Curated ({curatedVideos.length})
           </TabsTrigger>
@@ -172,17 +174,6 @@ const VideoManager: React.FC<VideoManagerProps> = ({
             Rejected ({rejectedVideos.length})
           </TabsTrigger>
         </TabsList>
-        
-        <TabsContent value="all">
-          <VideoList
-            videos={filteredVideos}
-            onDelete={handleDelete}
-            onApprove={handleApprove}
-            onList={listVideo ? handleList : undefined}
-            onReject={handleReject}
-            refetchData={refetchVideos}
-          />
-        </TabsContent>
         
         <TabsContent value="curated">
           <VideoList
