@@ -149,14 +149,11 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} canRecover={false} />}
       
       {title && (
-        <div className={`absolute top-2 left-2 z-20 px-3 py-1.5 bg-white bg-opacity-70 rounded transition-opacity duration-300 ${isHovering ? 'opacity-30' : 'opacity-90'}`}>
-          <p className="text-sm font-medium text-gray-900 truncate max-w-[200px]">{title}</p>
-        </div>
-      )}
-      
-      {creator && (
-        <div className={`absolute bottom-2 right-2 z-20 px-3 py-1.5 bg-white bg-opacity-70 rounded transition-opacity duration-300 ${isHovering ? 'opacity-30' : 'opacity-90'}`}>
-          <p className="text-xs text-gray-800">{creator}</p>
+        <div className={`absolute bottom-0 left-0 right-0 z-20 px-4 py-3 bg-gradient-to-t from-black/80 to-transparent transition-opacity duration-300 ${isHovering ? 'opacity-0' : 'opacity-100'}`}>
+          <p className="text-sm font-medium text-white truncate">{title}</p>
+          {creator && (
+            <p className="text-xs text-white/80 mt-1">{creator}</p>
+          )}
         </div>
       )}
     </div>

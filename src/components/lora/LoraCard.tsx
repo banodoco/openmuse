@@ -1,7 +1,7 @@
 
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Play, Star, Trash, Check, X, ExternalLink } from 'lucide-react';
@@ -33,6 +33,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const { user } = useAuth();
   
   const videoUrl = lora.primaryVideo?.video_location;
@@ -124,36 +125,47 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
   
   return (
     <Card className="overflow-hidden transition-all h-full flex flex-col">
-      <div className="aspect-video w-full overflow-hidden bg-muted">
+      <div 
+        className="aspect-video w-full overflow-hidden bg-muted relative"
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
         {videoUrl ? (
-          <VideoPreview url={videoUrl} className="w-full h-full object-cover" />
+          <VideoPreview 
+            url={videoUrl} 
+            className="w-full h-full object-cover" 
+            title={lora.name}
+            creator={lora.creator}
+            isHovering={isHovering}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <p className="text-muted-foreground text-sm">No preview available</p>
           </div>
         )}
+        
+        <div className={cn(
+          "absolute top-0 left-0 w-full p-3 z-10 bg-gradient-to-b from-black/60 to-transparent text-white",
+          isHovering ? "opacity-0" : "opacity-100",
+          "transition-opacity duration-200"
+        )}>
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-medium truncate mr-2">{lora.name}</h3>
+            {getApprovalStatus()}
+          </div>
+          
+          {lora.creator && (
+            <p className="text-xs text-white/80 mt-1">{lora.creator}</p>
+          )}
+        </div>
       </div>
       
-      <CardHeader className="pb-2 pt-3 px-4">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-base truncate">{lora.name}</CardTitle>
-          {getApprovalStatus()}
-        </div>
-      </CardHeader>
-      
-      <CardContent className="px-4 py-2 text-xs flex-grow">
+      <CardContent className="px-4 py-3 text-xs flex-grow">
         {lora.description && (
           <p className="text-muted-foreground mb-2 line-clamp-2">{lora.description}</p>
         )}
         
-        <div className="space-y-1">
-          {lora.creator && (
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Creator:</span>
-              <span className="font-medium truncate max-w-[60%] text-right">{lora.creator}</span>
-            </div>
-          )}
-          
+        <div className="space-y-1">          
           {lora.lora_type && (
             <div className="flex justify-between">
               <span className="text-muted-foreground">Type:</span>
