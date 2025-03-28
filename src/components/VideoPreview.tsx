@@ -10,21 +10,19 @@ interface VideoPreviewProps {
   file?: File;
   url?: string;
   className?: string;
-  title?: string; // Added title prop for overlay
 }
 
 /**
  * VideoPreview component for displaying video previews with thumbnail generation
  * and play on hover functionality.
  */
-const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title }) => {
+const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
-  const [isHovering, setIsHovering] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -57,14 +55,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
     setPosterUrl(thumbnailUrl);
   };
 
-  const handleMouseEnter = () => {
-    setIsHovering(true);
-  };
-
-  const handleMouseLeave = () => {
-    setIsHovering(false);
-  };
-
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
@@ -73,30 +63,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
     >
-      {/* Persistent dark overlay to improve title contrast */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/40 z-20 pointer-events-none"></div>
-      
-      {/* Enhanced title overlay that's always visible */}
-      {title && (
-        <div className="absolute bottom-0 left-0 right-0 z-50 p-4 pointer-events-none">
-          <div className="bg-black/75 backdrop-blur-md rounded-md px-4 py-3 max-w-full inline-block">
-            <h3 className="text-white font-semibold text-base md:text-lg truncate shadow-text">
-              {title}
-            </h3>
-          </div>
-        </div>
-      )}
-      
       <VideoThumbnailGenerator 
         file={file}
         url={url}
         onThumbnailGenerated={handleThumbnailGenerated}
       />
       
-      {/* Video players - different types based on source */}
       {isExternalLink ? (
         <EmbeddedVideoPlayer 
           url={url || ''}
@@ -105,12 +78,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
           onTogglePlay={() => setIsPlaying(!isPlaying)}
         />
       ) : file ? (
+        // For local file uploads, use standard preview with blob URLs
         <StandardVideoPreview 
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
         />
       ) : isBlobUrl ? (
+        // For blob URLs, use the StorageVideoPlayer with preview mode enabled
         <StorageVideoPlayer
           videoLocation={url}
           controls={false}
@@ -121,6 +96,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
           showPlayButtonOnHover={false}
         />
       ) : url ? (
+        // For storage URLs, use the StorageVideoPlayer
         <StorageVideoPlayer
           videoLocation={url}
           controls={true}
