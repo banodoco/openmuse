@@ -165,7 +165,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         )}
       </div>
       
-      <CardContent className="px-4 py-2 flex-grow flex flex-col justify-center">
+      <CardContent className="px-4 py-2 flex-1 flex items-center justify-center">
         {lora.lora_link && (
           <Button 
             variant="ghost" 
