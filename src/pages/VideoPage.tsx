@@ -5,7 +5,7 @@ import { VideoEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import Navigation from '@/components/Navigation';
 import VideoPlayer from '@/components/video/VideoPlayer';
-import { ArrowLeft, Check, X, Filter, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Check, X, Filter, AlertTriangle, FileVideo } from 'lucide-react';
 import { toast } from 'sonner';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';

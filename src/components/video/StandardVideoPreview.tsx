@@ -38,11 +38,14 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   
   // Check URL validity on mount and when URL changes
   useEffect(() => {
-    if (!url) {
+    // If there's no URL or it's clearly invalid, don't even try to show anything
+    if (!url || !isValidVideoUrl(url)) {
       setIsValidUrl(false);
       return;
     }
-    setIsValidUrl(isValidVideoUrl(url));
+    
+    // For valid URLs, set flag to true
+    setIsValidUrl(true);
   }, [url]);
   
   // Update currentUrl whenever the url prop changes

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -34,7 +35,15 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
     if (lora.primaryVideo) {
       try {
         console.log(`Loading video for LoRA ${lora.name} with location:`, 
-          lora.primaryVideo.video_location.substring(0, 30) + '...');
+          lora.primaryVideo.video_location ? lora.primaryVideo.video_location.substring(0, 30) + '...' : 'undefined');
+        
+        // Skip entirely if there's no video location
+        if (!lora.primaryVideo.video_location) {
+          console.warn(`No video location available for LoRA ${lora.name}`);
+          setLoadError('No video available');
+          setIsLoading(false);
+          return;
+        }
         
         const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
         
@@ -60,13 +69,18 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
       }
     } else if (lora.videos && lora.videos.length > 0) {
       // Try each video until we find a valid one
+      let foundValidVideo = false;
+      
       for (const video of lora.videos) {
+        if (!video.video_location) continue;
+        
         try {
           const url = await videoUrlService.getVideoUrl(video.video_location);
           
           if (url && isValidVideoUrl(url)) {
             setVideoUrl(url);
             setHasValidVideo(true);
+            foundValidVideo = true;
             break;
           }
         } catch (error) {
@@ -74,7 +88,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
         }
       }
       
-      if (!hasValidVideo) {
+      if (!foundValidVideo) {
         setLoadError('No valid video available');
       }
     } else {
