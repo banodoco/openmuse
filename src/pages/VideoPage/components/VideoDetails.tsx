@@ -10,16 +10,10 @@ interface VideoDetailsProps {
 }
 
 const VideoDetails: React.FC<VideoDetailsProps> = ({ video }) => {
-  const formatDate = (dateString?: string) => {
-    if (!dateString) return 'Unknown';
-    const date = new Date(dateString);
-    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
-  };
-
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Video Information</CardTitle>
+        <CardTitle>{video.metadata?.title || 'Video Details'}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div>
@@ -44,48 +38,8 @@ const VideoDetails: React.FC<VideoDetailsProps> = ({ video }) => {
         </div>
         
         <div>
-          <h3 className="text-sm font-medium text-muted-foreground">Creator</h3>
+          <h3 className="text-sm font-medium text-muted-foreground">Created by</h3>
           <p>{video.metadata?.creatorName || video.reviewer_name}</p>
-        </div>
-        
-        {video.metadata?.description && (
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
-            <p>{video.metadata.description}</p>
-          </div>
-        )}
-        
-        {video.metadata?.classification && (
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Classification</h3>
-            <p className="capitalize">{video.metadata.classification}</p>
-          </div>
-        )}
-        
-        {video.metadata?.model && (
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Model</h3>
-            <p className="uppercase">{video.metadata.model}</p>
-          </div>
-        )}
-        
-        {video.metadata?.loraName && (
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">LoRA Name</h3>
-            <p>{video.metadata.loraName}</p>
-          </div>
-        )}
-        
-        {video.metadata?.loraDescription && (
-          <div>
-            <h3 className="text-sm font-medium text-muted-foreground">LoRA Description</h3>
-            <p>{video.metadata.loraDescription}</p>
-          </div>
-        )}
-        
-        <div>
-          <h3 className="text-sm font-medium text-muted-foreground">Created At</h3>
-          <p>{formatDate(video.created_at)}</p>
         </div>
       </CardContent>
     </Card>
