@@ -23,9 +23,16 @@ const Index = () => {
     refetchLoras
   } = useLoraManagement();
   
-  // Filter to show only curated LoRAs (those with admin_approved=true)
+  // Filter to show only curated LoRAs (those with admin_approved=true) on the homepage
   const curatedLoras = React.useMemo(() => {
-    return loras.filter(lora => lora.admin_approved === true);
+    // Only include LoRAs with explicit admin_approved=true
+    return loras.filter(lora => {
+      const loraApproved = lora.admin_approved === true;
+      const primaryVideoApproved = lora.primaryVideo?.admin_approved === true;
+      
+      // Display if either the LoRA itself or its primary video is approved
+      return loraApproved || primaryVideoApproved;
+    });
   }, [loras]);
   
   // Add a timeout to prevent infinite loading

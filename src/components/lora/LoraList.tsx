@@ -43,9 +43,8 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       ((lora.creator || '').toLowerCase().includes(searchTerm))
     );
     
-    // Apply approval filters based on selected option
+    // When 'all' is selected, only apply text filter
     if (approvalFilter === 'all') {
-      // When 'all' is selected, only apply text filter
       return matchesText;
     }
     
@@ -60,7 +59,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     if (approvalFilter === 'curated') {
       return matchesText && effectiveStatus === true;
     } else if (approvalFilter === 'pending') {
-      return matchesText && effectiveStatus === null;
+      return matchesText && (effectiveStatus === null || effectiveStatus === undefined);
     } else if (approvalFilter === 'rejected') {
       return matchesText && effectiveStatus === false;
     }
@@ -73,6 +72,9 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   console.log('Filtered LoRAs:', filteredLoras.length);
   console.log('Current approval filter:', approvalFilter);
   console.log('LoRAs with direct admin_approved field:', loras.filter(l => l.admin_approved !== undefined).length);
+  console.log('LoRAs with undefined approval status:', loras.filter(l => 
+    l.admin_approved === undefined && (!l.primaryVideo || l.primaryVideo.admin_approved === undefined)
+  ).length);
 
   return (
     <div className="w-full">
