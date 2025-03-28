@@ -45,6 +45,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
+  const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
 
   // Setup hover behavior
   useVideoHover(containerRef, videoRef, {
@@ -54,6 +55,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Validate video source
   useEffect(() => {
+    setIsBlobUrl(src?.startsWith('blob:') || false);
+    
     if (!src) {
       logger.error('No source provided to VideoPlayer');
       setError('No video source provided');
@@ -62,7 +65,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    if (!isValidVideoUrl(src)) {
+    // Allow blob URLs to pass validation
+    if (!isBlobUrl && !isValidVideoUrl(src)) {
       const format = getVideoFormat(src);
       const errorMsg = `Invalid video source: ${src.substring(0, 50)}...`;
       logger.error(errorMsg);
@@ -71,7 +75,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsLoading(false);
       if (onError) onError(errorMsg);
     }
-  }, [src, onError]);
+  }, [src, onError, isBlobUrl]);
 
   // Handle video element setup when src changes
   useEffect(() => {
@@ -109,6 +113,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleError = () => {
       const { message, details } = getVideoErrorMessage(video.error, src);
       const format = getVideoFormat(src);
+      
+      // Special message for blob URLs
+      if (isBlobUrl) {
+        setError('The temporary preview cannot be played');
+        setErrorDetails('This may be due to the blob URL being created in a different browser context or session');
+        setIsLoading(false);
+        if (onError) onError('Blob URL cannot be played: ' + message);
+        return;
+      }
       
       logger.error(`Video error for ${src.substring(0, 30)}...: ${message}`);
       logger.error(`Video error details: ${details}`);
@@ -149,7 +162,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover]);
+  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl]);
 
   const handleRetry = () => {
     const video = videoRef.current;

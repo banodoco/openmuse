@@ -33,6 +33,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  
+  // Detect if we're dealing with a blob URL
+  const isBlobUrl = videoLocation.startsWith('blob:');
 
   useEffect(() => {
     let isMounted = true;
@@ -46,8 +49,21 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           throw new Error('No video location provided');
         }
         
-        // Pass previewMode flag to allow blob URLs in preview mode
-        const url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
+        // For preview mode, we want to allow blob URLs
+        let url;
+        if (previewMode) {
+          if (isBlobUrl) {
+            // In preview mode, just use the blob URL directly
+            url = videoLocation;
+            logger.log('Using blob URL directly in preview mode:', url.substring(0, 30) + '...');
+          } else {
+            // For non-blob URLs in preview mode, still go through the service
+            url = await videoUrlService.getVideoUrl(videoLocation, true);
+          }
+        } else {
+          // Standard mode - resolve through service which will deny blob URLs
+          url = await videoUrlService.getVideoUrl(videoLocation, false);
+        }
         
         if (!url) {
           throw new Error('Could not resolve video URL');
@@ -74,7 +90,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [videoLocation, retryCount, previewMode]);
+  }, [videoLocation, retryCount, previewMode, isBlobUrl]);
 
   const handleError = (message: string) => {
     setError(message);
@@ -99,7 +115,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
           details={errorDetails || undefined}
           onRetry={handleRetry} 
           videoSource={videoUrl}
-          // Show recovery options only if not in preview mode
           canRecover={!previewMode}
         />
       </div>

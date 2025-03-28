@@ -18,6 +18,7 @@ interface VideoPreviewProps {
  */
 const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
+  const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -83,8 +84,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           posterUrl={posterUrl}
           onError={handleVideoError}
         />
-      ) : url?.startsWith('blob:') ? (
-        // For blob URLs, use special preview mode
+      ) : isBlobUrl ? (
+        // For blob URLs, use the StorageVideoPlayer with preview mode enabled
         <StorageVideoPlayer
           videoLocation={url}
           controls={false}
@@ -94,18 +95,18 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           previewMode={true}
         />
       ) : url ? (
-        // For storage URLs, use the StorageVideoPlayer in preview mode
+        // For storage URLs, use the StorageVideoPlayer
         <StorageVideoPlayer
           videoLocation={url}
           controls={true}
           muted={true}
           className="w-full h-full object-cover"
           playOnHover={true}
-          previewMode={true}
+          previewMode={false}
         />
       ) : null}
 
-      {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} />}
+      {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} canRecover={false} />}
     </div>
   );
 };
