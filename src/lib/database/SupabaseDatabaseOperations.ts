@@ -1,4 +1,3 @@
-
 import { VideoEntry } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseDatabase } from './SupabaseDatabase';
@@ -164,21 +163,48 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           assetId = assetData.id;
           
           // Link asset and media
-          await supabase
+          const { error: linkError } = await supabase
             .from('asset_media')
             .insert({
               asset_id: assetId,
               media_id: mediaData.id
             });
+            
+          if (linkError) {
+            this.logger.error('Error linking asset and media:', linkError);
+          } else {
+            this.logger.log(`Created asset_media relationship between asset ${assetId} and media ${mediaData.id}`);
+          }
         }
       } else if (assetId) {
         // Link to existing asset
-        await supabase
+        this.logger.log(`Adding media ${mediaData.id} to existing asset ${assetId}`);
+        
+        const { error: linkError } = await supabase
           .from('asset_media')
           .insert({
             asset_id: assetId,
             media_id: mediaData.id
           });
+          
+        if (linkError) {
+          this.logger.error('Error linking to existing asset:', linkError);
+        } else {
+          this.logger.log(`Successfully created asset_media relationship between asset ${assetId} and media ${mediaData.id}`);
+          
+          // Verify the relationship was created
+          const { data: verifyData, error: verifyError } = await supabase
+            .from('asset_media')
+            .select('*')
+            .eq('asset_id', assetId)
+            .eq('media_id', mediaData.id);
+            
+          if (verifyError) {
+            this.logger.error('Error verifying asset_media relationship:', verifyError);
+          } else {
+            this.logger.log(`Verification found ${verifyData?.length || 0} asset_media relationships`);
+          }
+        }
         
         // Update primary media if this is primary
         if (entry.metadata?.isPrimary) {

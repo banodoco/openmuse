@@ -28,7 +28,6 @@ const AssetDetailPage: React.FC = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
 
-  // Check admin status whenever user changes
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
@@ -52,7 +51,6 @@ const AssetDetailPage: React.FC = () => {
     checkAdminStatus();
   }, [user]);
 
-  // Fetch asset details using useCallback to avoid recreating the function on rerenders
   const fetchAssetDetails = useCallback(async () => {
     if (!id) {
       toast.error('No asset ID provided');
@@ -83,24 +81,46 @@ const AssetDetailPage: React.FC = () => {
 
       console.log('AssetDetailPage - Asset data retrieved:', assetData);
 
-      const { data: videoData, error: videoError } = await supabase
-        .from('media')
-        .select('*')
-        .eq('type', 'video');
+      const assetMediaRelationships = await supabase.debugAssetMedia(id);
+      console.log('AssetDetailPage - Asset media relationships:', assetMediaRelationships);
 
-      if (videoError) {
-        console.error('AssetDetailPage - Error fetching videos:', videoError);
-        throw videoError;
+      let assetVideos: any[] = [];
+      
+      if (assetMediaRelationships && assetMediaRelationships.length > 0) {
+        const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
+        console.log('AssetDetailPage - Fetching media with IDs:', mediaIds);
+        
+        const { data: mediaData, error: mediaError } = await supabase
+          .from('media')
+          .select('*')
+          .in('id', mediaIds);
+          
+        if (mediaError) {
+          console.error('AssetDetailPage - Error fetching related media:', mediaError);
+        } else {
+          assetVideos = mediaData || [];
+          console.log('AssetDetailPage - Related media fetched:', assetVideos.length);
+        }
+      } else {
+        const { data: videoData, error: videoError } = await supabase
+          .from('media')
+          .select('*')
+          .eq('type', 'video');
+
+        if (videoError) {
+          console.error('AssetDetailPage - Error fetching videos:', videoError);
+          throw videoError;
+        }
+
+        console.log('AssetDetailPage - All videos retrieved:', videoData?.length || 0);
+
+        assetVideos = videoData?.filter(video => 
+          video.title?.includes(assetData.name) || 
+          video.id === assetData.primary_media_id
+        ) || [];
+        
+        console.log('AssetDetailPage - Videos for this asset (filtered by name):', assetVideos?.length || 0);
       }
-
-      console.log('AssetDetailPage - All videos retrieved:', videoData?.length || 0);
-
-      const assetVideos = videoData?.filter(video => 
-        video.title?.includes(assetData.name) || 
-        video.id === assetData.primary_media_id
-      ) || [];
-
-      console.log('AssetDetailPage - Videos for this asset:', assetVideos?.length || 0);
 
       const convertedVideos: VideoEntry[] = await Promise.all(
         assetVideos.map(async (media: any) => {
@@ -144,14 +164,12 @@ const AssetDetailPage: React.FC = () => {
     }
   }, [id]);
 
-  // Fetch asset details when the component mounts or ID changes
   useEffect(() => {
     if (!dataFetchAttempted) {
       fetchAssetDetails();
     }
   }, [fetchAssetDetails, dataFetchAttempted]);
 
-  // Handle retry
   const handleRetry = () => {
     setIsLoading(true);
     setDataFetchAttempted(false);
@@ -161,7 +179,6 @@ const AssetDetailPage: React.FC = () => {
     navigate('/');
   };
 
-  // Helper functions for asset management
   const getApprovalStatusBadge = () => {
     if (!asset) return null;
     
@@ -176,7 +193,6 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
-  // Asset action handlers
   const handleCurateAsset = async () => {
     if (!id || !isAdmin) return;
     
@@ -243,7 +259,6 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
-  // Video action handlers
   const handleDeleteVideo = async (videoId: string) => {
     try {
       const { error } = await supabase
@@ -312,7 +327,6 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
-  // Determine if the upload button should be shown - simplified condition for better reliability
   const showUploadButton = Boolean(user) && Boolean(asset);
 
   if (isLoading) {
@@ -376,7 +390,6 @@ const AssetDetailPage: React.FC = () => {
           <h1 className="text-2xl font-bold">Asset Details</h1>
         </div>
         
-        {/* Debug information for troubleshooting */}
         {process.env.NODE_ENV !== 'production' && (
           <div className="mb-4 p-2 bg-gray-100 text-xs rounded">
             <details>

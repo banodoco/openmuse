@@ -82,7 +82,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             isPrimary: false
           };
 
-          console.log(`Uploading video: title=${video.metadata.title}`);
+          console.log(`Uploading video: title=${video.metadata.title}, assetId=${assetId}`);
 
           const videoFile: VideoFile = {
             id: video.id,
@@ -90,7 +90,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             metadata: videoMetadata
           };
 
-          // Use the addVideoToExistingAsset method for existing assets
+          // Use the uploadVideoToExistingAsset method for existing assets
           return videoUploadService.uploadVideoToExistingAsset(
             videoFile, 
             assetId, 
@@ -101,7 +101,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
           );
         } else if (video.url) {
           // URL entry - use the addEntryToExistingAsset method
-          console.log(`Adding video URL: title=${video.metadata.title}`);
+          console.log(`Adding video URL: title=${video.metadata.title}, assetId=${assetId}`);
           
           return videoUploadService.addEntryToExistingAsset({
             video_location: video.url,

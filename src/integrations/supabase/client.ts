@@ -15,8 +15,9 @@ export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Log initialization
+// Log initialization with a bit more detail for easier debugging
 console.log(`[SupabaseClient] Initialized with URL: ${supabaseUrl.substring(0, 20)}...`);
+console.log(`[SupabaseClient] Environment: ${import.meta.env.MODE}`);
 
 // Check if videos bucket exists
 const checkBuckets = async () => {
@@ -73,20 +74,63 @@ export const testRLSPermissions = async () => {
       assetsAccess = false;
     }
     
+    // Test asset_media table access
+    let assetMediaAccess = false;
+    try {
+      const { count, error: assetMediaError } = await supabase
+        .from('asset_media')
+        .select('*', { count: 'exact', head: true });
+      
+      assetMediaAccess = !assetMediaError;
+      console.info(`[SupabaseClient] Asset_media access: ${assetMediaAccess}`);
+    } catch (err) {
+      console.error("[SupabaseClient] Error testing asset_media access:", err);
+      assetMediaAccess = false;
+    }
+    
     console.info(`[SupabaseClient] RLS permission test complete (${testId})`);
     
     return {
       mediaAccess,
-      assetsAccess
+      assetsAccess,
+      assetMediaAccess
     };
   } catch (error) {
     console.error("[SupabaseClient] Error testing RLS permissions:", error);
     return {
       mediaAccess: false,
-      assetsAccess: false
+      assetsAccess: false,
+      assetMediaAccess: false
     };
   } finally {
     console.info('[SupabaseClient] RLS permissions test complete');
+  }
+};
+
+// Helper function to debug asset media relationships
+export const debugAssetMedia = async (assetId: string) => {
+  try {
+    console.log(`[SupabaseClient] Debugging asset_media for asset ${assetId}`);
+    
+    const { data, error } = await supabase
+      .from('asset_media')
+      .select('*')
+      .eq('asset_id', assetId);
+    
+    if (error) {
+      console.error(`[SupabaseClient] Error fetching asset_media relationships:`, error);
+      return null;
+    }
+    
+    console.log(`[SupabaseClient] Found ${data?.length || 0} asset_media relationships for asset ${assetId}`);
+    if (data?.length) {
+      console.log(`[SupabaseClient] First relationship:`, data[0]);
+    }
+    
+    return data;
+  } catch (error) {
+    console.error(`[SupabaseClient] Error in debugAssetMedia:`, error);
+    return null;
   }
 };
 
