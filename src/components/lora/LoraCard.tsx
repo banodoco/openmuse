@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useCallback } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -10,6 +9,7 @@ import StandardVideoPreview from '../video/StandardVideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import { isValidVideoUrl } from '@/lib/utils/videoUtils';
 
 interface LoraCardProps {
   lora: LoraAsset;
@@ -23,11 +23,13 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [hasValidVideo, setHasValidVideo] = useState(false);
   const navigate = useNavigate();
 
   const loadVideoUrl = useCallback(async () => {
     setIsLoading(true);
     setLoadError(null);
+    setHasValidVideo(false);
     
     if (lora.primaryVideo) {
       try {
@@ -36,37 +38,44 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
         
         const url = await videoUrlService.getVideoUrl(lora.primaryVideo.video_location);
         
-        if (!url) {
-          console.warn(`Empty URL returned for LoRA ${lora.name}`);
+        if (!url || !isValidVideoUrl(url)) {
+          console.warn(`Empty or invalid URL returned for LoRA ${lora.name}`);
           setLoadError('Video preview unavailable');
         } else {
           setVideoUrl(url);
+          setHasValidVideo(true);
           console.log(`Successfully loaded video URL for LoRA ${lora.name}`);
         }
         
         // If there's an acting video, use it as poster
         if (lora.primaryVideo.acting_video_location) {
           const actingUrl = await videoUrlService.getVideoUrl(lora.primaryVideo.acting_video_location);
-          setPosterUrl(actingUrl);
+          if (actingUrl && isValidVideoUrl(actingUrl)) {
+            setPosterUrl(actingUrl);
+          }
         }
       } catch (error) {
         console.error(`Error loading URL for video ${lora.id}:`, error);
         setLoadError('Error loading video preview');
       }
     } else if (lora.videos && lora.videos.length > 0) {
-      // Fallback to first video if primary is not available
-      try {
-        const firstVideo = lora.videos[0];
-        const url = await videoUrlService.getVideoUrl(firstVideo.video_location);
-        
-        if (!url) {
-          setLoadError('Video preview unavailable');
-        } else {
-          setVideoUrl(url);
+      // Try each video until we find a valid one
+      for (const video of lora.videos) {
+        try {
+          const url = await videoUrlService.getVideoUrl(video.video_location);
+          
+          if (url && isValidVideoUrl(url)) {
+            setVideoUrl(url);
+            setHasValidVideo(true);
+            break;
+          }
+        } catch (error) {
+          console.error(`Error loading video for LoRA ${lora.id}:`, error);
         }
-      } catch (error) {
-        console.error(`Error loading fallback video for LoRA ${lora.id}:`, error);
-        setLoadError('Error loading video preview');
+      }
+      
+      if (!hasValidVideo) {
+        setLoadError('No valid video available');
       }
     } else {
       setLoadError('No video available');
@@ -145,6 +154,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const handleError = (msg: string) => {
     console.error(`Error with video preview for LoRA ${lora.name}: ${msg}`);
     setLoadError(msg);
+    setHasValidVideo(false);
   };
 
   const handleCardClick = () => {
@@ -176,10 +186,10 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <span className="text-xs text-muted-foreground">Loading preview...</span>
           </div>
-        ) : loadError ? (
+        ) : loadError || !hasValidVideo ? (
           <div className="w-full h-full flex flex-col items-center justify-center bg-muted">
             <FileVideo className="h-8 w-8 text-muted-foreground mb-2" />
-            <span className="text-xs text-muted-foreground">{loadError}</span>
+            <span className="text-xs text-muted-foreground">{loadError || 'No valid video'}</span>
             
             {/* Show refresh button for blob errors or database IDs */}
             {(isBlobError || hasDatabaseId) && (
@@ -204,7 +214,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
               </p>
             )}
           </div>
-        ) : videoUrl && videoToUse ? (
+        ) : videoUrl && videoToUse && hasValidVideo ? (
           <StandardVideoPreview 
             url={videoUrl} 
             posterUrl={posterUrl}

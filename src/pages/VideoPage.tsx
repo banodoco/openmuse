@@ -5,11 +5,12 @@ import { VideoEntry } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import Navigation from '@/components/Navigation';
 import VideoPlayer from '@/components/video/VideoPlayer';
-import { ArrowLeft, Check, X, Filter } from 'lucide-react';
+import { ArrowLeft, Check, X, Filter, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
+import { isValidVideoUrl } from '@/lib/utils/videoUtils';
 import { 
   Table, 
   TableBody, 
@@ -20,6 +21,7 @@ import {
   TableRow 
 } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { 
   Popover,
   PopoverContent,
@@ -36,11 +38,13 @@ const VideoPage: React.FC = () => {
   const [video, setVideo] = useState<VideoEntry | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [videoError, setVideoError] = useState<string | null>(null);
   const [assetFilter, setAssetFilter] = useState<{approved: boolean, notApproved: boolean}>({
     approved: true,
     notApproved: true
   });
   const [relatedVideos, setRelatedVideos] = useState<VideoEntry[]>([]);
+  const [validRelatedVideos, setValidRelatedVideos] = useState<VideoEntry[]>([]);
 
   useEffect(() => {
     const loadVideo = async () => {
@@ -61,6 +65,11 @@ const VideoPage: React.FC = () => {
           console.log('Found video:', foundVideo);
           setVideo(foundVideo);
           
+          // Check if video URL is valid
+          if (!foundVideo.video_location || !isValidVideoUrl(foundVideo.video_location)) {
+            setVideoError("This video has an invalid or expired URL");
+          }
+          
           // Find related assets
           if (foundVideo.metadata?.assetId) {
             const assetId = foundVideo.metadata.assetId;
@@ -69,7 +78,14 @@ const VideoPage: React.FC = () => {
               entry.id !== id && 
               entry.metadata?.assetId === assetId
             );
+            
+            // Filter out invalid video URLs
+            const validVideos = related.filter(
+              video => video.video_location && isValidVideoUrl(video.video_location)
+            );
+            
             setRelatedVideos(related);
+            setValidRelatedVideos(validVideos);
           }
         } else {
           console.error('Video not found with ID:', id);
@@ -89,6 +105,11 @@ const VideoPage: React.FC = () => {
 
   const handleVideoLoaded = () => {
     console.log("Video loaded successfully");
+    setVideoError(null);
+  };
+  
+  const handleVideoError = () => {
+    setVideoError("Could not load video. The source may be invalid or expired.");
   };
 
   const handleGoBack = () => {
@@ -101,7 +122,7 @@ const VideoPage: React.FC = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  const filteredRelatedVideos = relatedVideos.filter(video => {
+  const filteredRelatedVideos = validRelatedVideos.filter(video => {
     if (assetFilter.approved && video.admin_approved === true) return true;
     if (assetFilter.notApproved && (video.admin_approved === false || video.admin_approved === null)) return true;
     return false;
@@ -138,6 +159,8 @@ const VideoPage: React.FC = () => {
     );
   }
 
+  const hasValidVideo = video.video_location && isValidVideoUrl(video.video_location);
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -161,13 +184,32 @@ const VideoPage: React.FC = () => {
                 <CardTitle>{video.metadata?.title || video.reviewer_name}</CardTitle>
               </CardHeader>
               <CardContent>
+                {videoError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>
+                      {videoError}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="aspect-video w-full bg-muted rounded-md overflow-hidden">
-                  <VideoPlayer 
-                    src={video.video_location} 
-                    controls
-                    onLoadedData={handleVideoLoaded}
-                    muted={false}
-                  />
+                  {hasValidVideo ? (
+                    <VideoPlayer 
+                      src={video.video_location} 
+                      controls
+                      onLoadedData={handleVideoLoaded}
+                      onError={handleVideoError}
+                      muted={false}
+                    />
+                  ) : (
+                    <div className="w-full h-full flex flex-col items-center justify-center">
+                      <FileVideo className="h-12 w-12 text-muted-foreground mb-4" />
+                      <p className="text-sm text-muted-foreground">Video unavailable</p>
+                      <p className="text-xs text-muted-foreground mt-2">The video source is invalid or has expired</p>
+                    </div>
+                  )}
                 </div>
               </CardContent>
             </Card>
@@ -245,7 +287,7 @@ const VideoPage: React.FC = () => {
           </div>
         </div>
         
-        {video.metadata?.assetId && (
+        {video.metadata?.assetId && filteredRelatedVideos.length > 0 && (
           <div className="mt-8">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Related Assets</h2>
@@ -320,7 +362,7 @@ const VideoPage: React.FC = () => {
                         <Button 
                           size="sm" 
                           variant="outline"
-                          onClick={() => navigate(`/assets/loras/${relatedVideo.id}`)}
+                          onClick={() => navigate(`/videos/${relatedVideo.id}`)}
                         >
                           View
                         </Button>
