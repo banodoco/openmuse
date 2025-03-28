@@ -16,7 +16,7 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [filterText, setFilterText] = useState('');
-  const [approvalFilter, setApprovalFilter] = useState('all'); // Change default to 'all' to show everything
+  const [approvalFilter, setApprovalFilter] = useState('all'); // Default to 'all' to show everything
   const [refreshing, setRefreshing] = useState(false);
   
   const handleRefresh = async () => {
@@ -43,8 +43,22 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       ((lora.creator || '').toLowerCase().includes(searchTerm))
     );
     
-    // Return all LoRAs initially for debugging
-    return matchesText;
+    // Approval filter
+    let matchesApproval = true;
+    if (approvalFilter !== 'all') {
+      const loraApproved = lora.admin_approved === true;
+      const videoApproved = lora.primaryVideo?.admin_approved === true;
+      
+      if (approvalFilter === 'curated') {
+        matchesApproval = loraApproved || videoApproved;
+      } else if (approvalFilter === 'pending') {
+        matchesApproval = lora.admin_approved === null || lora.primaryVideo?.admin_approved === null;
+      } else if (approvalFilter === 'rejected') {
+        matchesApproval = lora.admin_approved === false || lora.primaryVideo?.admin_approved === false;
+      }
+    }
+    
+    return matchesText && matchesApproval;
   });
 
   // Debug logging
@@ -53,9 +67,9 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   console.log('Current approval filter:', approvalFilter);
   
   // More detailed logging to understand what's happening
-  if (loras.length > 0) {
-    console.log('Sample LoRA data:', JSON.stringify(loras[0], null, 2));
-  }
+  loras.forEach(lora => {
+    console.log(`LoRA ${lora.id} (${lora.name}): LoRA approval=${lora.admin_approved}, Video approval=${lora.primaryVideo?.admin_approved}`);
+  });
 
   return (
     <div className="w-full">

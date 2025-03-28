@@ -23,18 +23,17 @@ const Index = () => {
     refetchLoras
   } = useLoraManagement();
   
-  // Filter to show all LoRAs initially (both approved and unapproved) to debug the issue
+  // Show all LoRAs by default
   const displayLoras = React.useMemo(() => {
-    // Show all LoRAs for now to debug
-    console.log('Total LoRAs available:', loras.length);
+    logger.log('Total LoRAs available:', loras.length);
     
     if (loras.length === 0) {
       return [];
     }
     
-    // Log some debugging info
+    // Log for debugging
     loras.forEach(lora => {
-      console.log(`LoRA ${lora.id} (${lora.name}): LoRA approval=${lora.admin_approved}, Video approval=${lora.primaryVideo?.admin_approved}`);
+      logger.log(`LoRA ${lora.id} (${lora.name}): approval status=${lora.admin_approved}, primaryVideo approval=${lora.primaryVideo?.admin_approved}`);
     });
     
     return loras;
@@ -78,7 +77,7 @@ const Index = () => {
           />
           
           <LoraManager 
-            loras={displayLoras} // Show all LoRAs for debugging
+            loras={displayLoras} // Show all LoRAs
             isLoading={isLoading}
             refetchLoras={refetchLoras}
           />
