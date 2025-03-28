@@ -1,12 +1,9 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { VideoMetadataForm, LoRADetailsForm, MultipleVideoUploader } from './components';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,7 +18,6 @@ const UploadPage: React.FC = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [loraDetails, setLoraDetails] = useState({
@@ -85,11 +81,6 @@ const UploadPage: React.FC = () => {
     const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
     if (!hasPrimary) {
       toast.error('Please set one video as the primary media for this LoRA');
-      return;
-    }
-
-    if (!termsAccepted) {
-      toast.error('Please accept the terms and conditions');
       return;
     }
     
@@ -167,16 +158,6 @@ const UploadPage: React.FC = () => {
               setVideos={setVideos} 
               disabled={!user} // Disable video uploads if not signed in
             />
-            
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="terms"
-                checked={termsAccepted}
-                onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
-                disabled={!user} // Disable checkbox if not signed in
-              />
-              <Label htmlFor="terms">I accept the terms and conditions</Label>
-            </div>
             
             <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
               {isSubmitting ? 'Submitting...' : 'Submit Videos'}
