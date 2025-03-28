@@ -1,7 +1,6 @@
 
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import Navigation from '@/components/Navigation';
-import AuthProvider from '@/components/AuthProvider';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -9,13 +8,15 @@ import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
 import LoraManager from '@/components/LoraManager';
 import { toast } from 'sonner';
+import { useAuth } from '@/hooks/useAuth';
 
 const logger = new Logger('Index');
 
 const Index = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
+  const { user, isLoading: authLoading } = useAuth();
   
   const { 
     loras, 
@@ -39,50 +40,45 @@ const Index = () => {
     return loras;
   }, [loras]);
   
-  // Add a timeout to prevent infinite loading
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      if (isAuthLoading && lorasLoading) {
-        logger.log('Loading timeout reached, forcing completion');
-        setIsAuthLoading(false);
-      }
-    }, 5000); // 5 second timeout
-    
-    return () => clearTimeout(timer);
-  }, [isAuthLoading, lorasLoading]);
-  
   const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');
   }, [navigate]);
   
-  const handleAuthStateChange = useCallback((isLoading: boolean) => {
-    setIsAuthLoading(isLoading);
-  }, []);
+  // Determine if we're in a loading state
+  const pageIsLoading = authLoading || lorasLoading || isLoading;
   
-  const isLoading = isAuthLoading || lorasLoading;
+  // If loading takes too long, force completion
+  React.useEffect(() => {
+    const timer = setTimeout(() => {
+      if (pageIsLoading) {
+        logger.log('Loading timeout reached, forcing completion');
+        setIsLoading(false);
+      }
+    }, 5000);
+    
+    return () => clearTimeout(timer);
+  }, [pageIsLoading]);
   
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navigation />
       
-      <AuthProvider onAuthStateChange={handleAuthStateChange}>
-        <main className="flex-1 container mx-auto p-4">
-          <PageHeader 
-            title="LoRAs for open video models"
-            description="Discover and contribute to a collection of fine-tuned LoRAs for generating high-quality videos with open source models"
-            buttonText="Propose New LoRA"
-            onButtonClick={handleNavigateToUpload}
-            buttonSize={isMobile ? "sm" : "default"}
-            buttonDisabled={isLoading}
-          />
-          
-          <LoraManager 
-            loras={displayLoras} // Show all LoRAs
-            isLoading={isLoading}
-            refetchLoras={refetchLoras}
-          />
-        </main>
-      </AuthProvider>
+      <main className="flex-1 container mx-auto p-4">
+        <PageHeader 
+          title="LoRAs for open video models"
+          description="Discover and contribute to a collection of fine-tuned LoRAs for generating high-quality videos with open source models"
+          buttonText="Propose New LoRA"
+          onButtonClick={handleNavigateToUpload}
+          buttonSize={isMobile ? "sm" : "default"}
+          buttonDisabled={pageIsLoading}
+        />
+        
+        <LoraManager 
+          loras={displayLoras} // Show all LoRAs
+          isLoading={pageIsLoading}
+          refetchLoras={refetchLoras}
+        />
+      </main>
     </div>
   );
 };

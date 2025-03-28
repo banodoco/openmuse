@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Index from '@/pages/Index';
@@ -9,16 +10,14 @@ import Auth from '@/pages/Auth';
 import AuthCallback from '@/pages/AuthCallback';
 import { Toaster } from 'sonner';
 import UploadPage from '@/pages/upload';
-import AuthProvider from '@/components/AuthProvider';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { videoDB } from '@/lib/database';
 import { getCurrentUser } from '@/lib/auth';
 import AssetDetailPage from '@/pages/AssetDetailPage';
+import { AuthProvider } from '@/hooks/useAuth'; // Use the unified AuthProvider
 
 function App() {
-  const [isAuthLoading, setIsAuthLoading] = useState(true);
-  
   useEffect(() => {
     const setupDatabase = async () => {
       try {
@@ -37,7 +36,7 @@ function App() {
   
   return (
     <Router>
-      <AuthProvider onAuthStateChange={setIsAuthLoading}>
+      <AuthProvider>
         <Routes>
           <Route path="/" element={
             <RequireAuth allowUnauthenticated={true}>
