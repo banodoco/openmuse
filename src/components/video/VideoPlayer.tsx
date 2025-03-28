@@ -1,191 +1,237 @@
-
-import React, { useRef, useEffect, useState } from 'react';
-import { Play, Pause, Volume2, VolumeX } from 'lucide-react';
-import { useVideoHover } from '@/hooks/useVideoHover';
+import React, { useRef, useState, useEffect } from 'react';
+import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
-import { attemptVideoPlay } from '@/lib/utils/videoUtils';
+import { useVideoHover } from '@/hooks/useVideoHover';
+import { attemptVideoPlay, getVideoErrorMessage, isValidVideoUrl, getVideoFormat } from '@/lib/utils/videoUtils';
+import VideoError from './VideoError';
+import VideoLoader from './VideoLoader';
 
 const logger = new Logger('VideoPlayer');
 
 interface VideoPlayerProps {
   src: string;
+  autoPlay?: boolean;
+  muted?: boolean;
+  loop?: boolean;
   className?: string;
   controls?: boolean;
-  autoPlay?: boolean;
-  loop?: boolean;
-  muted?: boolean;
+  onLoadedData?: () => void;
+  videoRef?: React.RefObject<HTMLVideoElement>;
+  onError?: (message: string) => void;
   poster?: string;
-  onError?: (errorMessage: string) => void;
   playOnHover?: boolean;
-  containerRef?: React.RefObject<HTMLElement>;
+  containerRef?: React.RefObject<HTMLDivElement>;
   showPlayButtonOnHover?: boolean;
+  externallyControlled?: boolean;
   isHovering?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
+  autoPlay = false,
+  muted = true,
+  loop = false,
   className = '',
   controls = true,
-  autoPlay = false,
-  loop = true,
-  muted = false,
-  poster,
+  onLoadedData,
+  videoRef: externalVideoRef,
   onError,
+  poster,
   playOnHover = false,
-  containerRef,
+  containerRef: externalContainerRef,
   showPlayButtonOnHover = true,
-  isHovering = false
+  externallyControlled = false,
+  isHovering = false,
 }) => {
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const playerRef = useRef<HTMLDivElement>(null);
-  const [isPlaying, setIsPlaying] = useState(autoPlay);
-  const [isMuted, setIsMuted] = useState(muted);
-  const [showControls, setShowControls] = useState(false);
+  const internalVideoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = externalVideoRef || internalVideoRef;
+  const internalContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = externalContainerRef || internalContainerRef;
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorDetails, setErrorDetails] = useState<string>('');
+  const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
+
+  // Setup hover behavior - only if not externally controlled
+  useVideoHover(containerRef, videoRef, {
+    enabled: playOnHover && !externallyControlled,
+    resetOnLeave: true
+  });
   
-  // Use external hover state if provided
-  const [internalHovering, setInternalHovering] = useState(isHovering);
-  
-  // Update internal state when external state changes
-  useEffect(() => {
-    setInternalHovering(isHovering);
-    
-    // If external hover state is true and play on hover is enabled, play the video
-    if (isHovering && playOnHover && videoRef.current) {
-      logger.log('VideoPlayer: External hover detected - playing video');
-      attemptVideoPlay(videoRef.current, isMuted);
-      setIsPlaying(true);
-    } else if (!isHovering && playOnHover && videoRef.current && isPlaying) {
-      logger.log('VideoPlayer: External hover ended - pausing video');
-      videoRef.current.pause();
-      setIsPlaying(false);
-    }
-  }, [isHovering, playOnHover, isMuted]);
-  
-  // Initialize video on mount
+  // Handle external hover control
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
-    
-    const handleVideoLoad = () => {
-      logger.log('Video loaded successfully:', src.substring(0, 30) + '...');
+    if (externallyControlled && video) {
+      logger.log(`External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
       
-      // If should play on load, attempt to play
-      if (autoPlay && !playOnHover) {
-        logger.log('Auto-playing video');
+      if (isHovering && (video.paused || video.ended)) {
+        logger.log('VideoPlayer: External hover detected - playing video');
         attemptVideoPlay(video, muted);
+      } else if (!isHovering && !video.paused) {
+        logger.log('VideoPlayer: External hover ended - pausing video');
+        video.pause();
       }
-      
-      // If should initially be hovering, play the video
-      if (isHovering && playOnHover) {
-        logger.log('VideoPlayer: Initially hovering - playing video immediately');
-        attemptVideoPlay(video, muted);
-        setIsPlaying(true);
-      }
-    };
+    }
+  }, [isHovering, externallyControlled, muted]);
+
+  // Validate video source
+  useEffect(() => {
+    setIsBlobUrl(src?.startsWith('blob:') || false);
     
-    const handleVideoError = (e: ErrorEvent) => {
-      const videoElement = e.target as HTMLVideoElement;
-      const errorCode = videoElement.error ? videoElement.error.code : 'unknown';
-      const errorMessage = videoElement.error ? videoElement.error.message : 'Unknown video error';
-      
-      logger.error(`Video error (code ${errorCode}): ${errorMessage}`);
-      if (onError) {
-        onError(`Video error: ${errorMessage}`);
-      }
-    };
+    if (!src) {
+      logger.error('No source provided to VideoPlayer');
+      setError('No video source provided');
+      setIsLoading(false);
+      if (onError) onError('No video source provided');
+      return;
+    }
     
-    video.addEventListener('loadeddata', handleVideoLoad);
-    video.addEventListener('error', handleVideoError as EventListener);
+    // Allow blob URLs to pass validation
+    if (!isBlobUrl && !isValidVideoUrl(src)) {
+      const format = getVideoFormat(src);
+      const errorMsg = `Invalid video source: ${src.substring(0, 50)}...`;
+      logger.error(errorMsg);
+      setError(`The video URL appears to be invalid or inaccessible`);
+      setErrorDetails(`Source doesn't appear to be a playable video URL. Format detected: ${format}`);
+      setIsLoading(false);
+      if (onError) onError(errorMsg);
+    }
+  }, [src, onError, isBlobUrl]);
+
+  // Handle video element setup when src changes
+  useEffect(() => {
+    setError(null);
+    setErrorDetails('');
+    setIsLoading(true);
+    
+    if (!src) {
+      logger.log('No source provided to VideoPlayer');
+      setError('No video source provided');
+      setIsLoading(false);
+      if (onError) onError('No video source provided');
+      return;
+    }
     
     logger.log(`Loading video with source: ${src.substring(0, 50)}...`);
     
-    if (autoPlay && !playOnHover) {
-      setIsPlaying(true);
+    const video = videoRef.current;
+    if (!video) {
+      logger.error('Video element reference not available');
+      return;
+    }
+    
+    const handleLoadedData = () => {
+      logger.log(`Video loaded successfully: ${src.substring(0, 30)}...`);
+      setIsLoading(false);
+      if (onLoadedData) onLoadedData();
+      
+      // Don't autoplay if we're using hover to play
+      if (autoPlay && !playOnHover && !externallyControlled) {
+        attemptVideoPlay(video, muted);
+      }
+      
+      // For externally controlled video, check if we should play immediately
+      if (externallyControlled && isHovering) {
+        logger.log('VideoPlayer: Initially hovering - playing video immediately');
+        attemptVideoPlay(video, muted);
+      }
+    };
+    
+    const handleError = () => {
+      const { message, details } = getVideoErrorMessage(video.error, src);
+      const format = getVideoFormat(src);
+      
+      // Special message for blob URLs
+      if (isBlobUrl) {
+        setError('The temporary preview cannot be played');
+        setErrorDetails('This may be due to the blob URL being created in a different browser context or session');
+        setIsLoading(false);
+        if (onError) onError('Blob URL cannot be played: ' + message);
+        return;
+      }
+      
+      logger.error(`Video error for ${src.substring(0, 30)}...: ${message}`);
+      logger.error(`Video error details: ${details}`);
+      logger.error(`Detected format: ${format}`);
+      
+      setError(message);
+      setErrorDetails(details + ` Detected format: ${format}`);
+      setIsLoading(false);
+      if (onError) onError(message);
+    };
+    
+    video.addEventListener('loadeddata', handleLoadedData);
+    video.addEventListener('error', handleError);
+    
+    // Always pause first to ensure consistent state
+    video.pause();
+    
+    try {
+      video.preload = "auto"; // Ensure video preloads
+      video.src = src;
+      if (poster) {
+        video.poster = poster;
+      }
+      video.load();
+    } catch (err) {
+      logger.error('Error setting up video:', err);
+      const errorMessage = `Setup error: ${err}`;
+      setError(errorMessage);
+      setIsLoading(false);
+      if (onError) onError(errorMessage);
     }
     
     return () => {
-      video.removeEventListener('loadeddata', handleVideoLoad);
-      video.removeEventListener('error', handleVideoError as EventListener);
-    };
-  }, [src, autoPlay, muted, onError, playOnHover, isHovering]);
-  
-  // Setup hover play effect
-  useVideoHover(
-    containerRef || playerRef,
-    videoRef,
-    {
-      enabled: playOnHover && !isHovering, // Disable if external hover state is provided
-      resetOnLeave: true
-    }
-  );
-  
-  const togglePlay = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    
-    if (video.paused) {
-      attemptVideoPlay(video, isMuted);
-      setIsPlaying(true);
-    } else {
+      video.removeEventListener('loadeddata', handleLoadedData);
+      video.removeEventListener('error', handleError);
+      
       video.pause();
-      setIsPlaying(false);
-    }
-  };
-  
-  const toggleMute = () => {
+      video.src = '';
+      video.load();
+    };
+  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering]);
+
+  const handleRetry = () => {
     const video = videoRef.current;
     if (!video) return;
     
-    const newMutedState = !isMuted;
-    video.muted = newMutedState;
-    setIsMuted(newMutedState);
+    logger.log(`Retrying video load for: ${src.substring(0, 30)}...`);
+    setError(null);
+    setErrorDetails('');
+    setIsLoading(true);
+    
+    // Simply reload the video
+    video.load();
   };
-  
+
   return (
-    <div 
-      ref={playerRef}
-      className={`relative overflow-hidden transition-all duration-300 ${className} ${internalHovering ? 'transform scale-105' : ''}`}
-      onMouseEnter={() => setShowControls(true)}
-      onMouseLeave={() => setShowControls(false)}
-    >
+    <div ref={containerRef} className="relative w-full h-full overflow-hidden rounded-lg">
+      {isLoading && <VideoLoader posterImage={poster} />}
+      
+      {error && !onError && (
+        <VideoError 
+          error={error} 
+          errorDetails={errorDetails} 
+          onRetry={handleRetry}
+          videoSource={src}
+        />
+      )}
+      
       <video
         ref={videoRef}
-        src={src}
-        poster={poster}
-        muted={isMuted}
-        playsInline
+        className={cn("w-full h-full object-cover", className)}
+        autoPlay={autoPlay && !playOnHover && !externallyControlled}
+        muted={muted}
         loop={loop}
-        className="w-full h-full object-cover"
-      />
-      
-      {(controls && showControls) && (
-        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/70 to-transparent p-3 flex justify-between items-center">
-          <button 
-            onClick={togglePlay}
-            className="text-white hover:text-primary transition-colors"
-          >
-            {isPlaying ? <Pause size={20} /> : <Play size={20} />}
-          </button>
-          
-          <button
-            onClick={toggleMute}
-            className="text-white hover:text-primary transition-colors"
-          >
-            {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-          </button>
-        </div>
-      )}
-      
-      {(showPlayButtonOnHover && showControls && !isPlaying) && (
-        <div className="absolute inset-0 flex items-center justify-center">
-          <button 
-            onClick={togglePlay}
-            className="bg-black/50 text-white rounded-full p-3 transform transition-transform hover:scale-110"
-          >
-            <Play size={24} />
-          </button>
-        </div>
-      )}
+        controls={showPlayButtonOnHover ? controls : false}
+        playsInline
+        poster={poster || undefined}
+        preload="auto"
+        src={src}
+        crossOrigin="anonymous"
+      >
+        Your browser does not support the video tag.
+      </video>
     </div>
   );
 };

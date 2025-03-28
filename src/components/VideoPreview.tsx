@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -98,7 +97,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   return (
     <div 
       ref={previewRef}
-      className={`relative rounded-md overflow-hidden aspect-video ${className} transition-all duration-300 ${isHovering ? 'transform scale-105' : ''}`}
+      className={`relative rounded-md overflow-hidden aspect-video ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
