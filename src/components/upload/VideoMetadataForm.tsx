@@ -1,8 +1,6 @@
-
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
@@ -98,7 +96,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
         
         {metadata.creator === 'someone_else' && (
           <div>
-            <Label htmlFor={`creator-name-${videoId}`}>What's their username?</Label>
+            <Label htmlFor={`creator-name-${videoId}`}>Their username:</Label>
             <Input
               type="text"
               id={`creator-name-${videoId}`}
