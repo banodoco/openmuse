@@ -24,7 +24,7 @@ export const convertToCSV = (videos: VideoEntry[]): string => {
     const formattedDate = format(date, 'yyyy-MM-dd HH:mm:ss');
     
     const status = video.admin_approved 
-      ? 'Approved' 
+      ? 'Curated' 
       : video.skipped 
         ? 'Skipped' 
         : 'Pending';

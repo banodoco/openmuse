@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoList from './VideoList';
@@ -27,26 +26,22 @@ const VideoManager: React.FC<VideoManagerProps> = ({
 }) => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const [videoFilter, setVideoFilter] = useState('all');
+  const [videoFilter, setVideoFilter] = useState('approved');
   
-  // Sort videos to prioritize primary ones
   const sortedVideos = React.useMemo(() => {
     return [...videos].sort((a, b) => {
-      // Primary videos first
       const aPrimary = a.metadata?.isPrimary === true;
       const bPrimary = b.metadata?.isPrimary === true;
       
       if (aPrimary && !bPrimary) return -1;
       if (!aPrimary && bPrimary) return 1;
       
-      // Then by creation date (newest first)
       const aDate = new Date(a.created_at).getTime();
       const bDate = new Date(b.created_at).getTime();
       return bDate - aDate;
     });
   }, [videos]);
   
-  // Filter videos based on the selected filter
   const filteredVideos = React.useMemo(() => {
     if (videoFilter === 'all') {
       return sortedVideos;
@@ -60,12 +55,10 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     return sortedVideos;
   }, [sortedVideos, videoFilter]);
   
-  // For tabs display
   const approvedVideos = sortedVideos.filter(video => video.admin_approved === true);
   const pendingVideos = sortedVideos.filter(video => video.admin_approved === null);
   const rejectedVideos = sortedVideos.filter(video => video.admin_approved === false);
   
-  // Check if user is admin
   React.useEffect(() => {
     const checkAdminStatus = async () => {
       if (user?.id) {
@@ -120,7 +113,6 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     );
   }
   
-  // Render filtered videos directly if not admin
   if (!isAdmin) {
     return (
       <div className="mt-8">
@@ -141,7 +133,6 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     );
   }
   
-  // Render tabs if admin
   return (
     <div className="mt-8">
       <VideoFilter
@@ -151,13 +142,13 @@ const VideoManager: React.FC<VideoManagerProps> = ({
         isDisabled={isLoading}
       />
       
-      <Tabs defaultValue="all" className="mt-4">
+      <Tabs defaultValue="approved" className="mt-4">
         <TabsList className="mb-4">
           <TabsTrigger value="all">
             All ({videos.length})
           </TabsTrigger>
           <TabsTrigger value="approved">
-            Approved ({approvedVideos.length})
+            Curated ({approvedVideos.length})
           </TabsTrigger>
           <TabsTrigger value="pending">
             Pending ({pendingVideos.length})

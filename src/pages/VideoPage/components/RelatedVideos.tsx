@@ -64,7 +64,7 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-60 p-4">
-            <h3 className="font-medium mb-2">Filter by approval</h3>
+            <h3 className="font-medium mb-2">Filter by curation</h3>
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <Checkbox 
@@ -74,7 +74,7 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
                     setAssetFilter(prev => ({...prev, approved: checked === true}))
                   }
                 />
-                <Label htmlFor="approved">Approved</Label>
+                <Label htmlFor="approved">Curated</Label>
               </div>
               <div className="flex items-center space-x-2">
                 <Checkbox 
@@ -84,7 +84,7 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
                     setAssetFilter(prev => ({...prev, notApproved: checked === true}))
                   }
                 />
-                <Label htmlFor="not-approved">Not Approved</Label>
+                <Label htmlFor="not-approved">Not Curated</Label>
               </div>
             </div>
           </PopoverContent>
@@ -113,12 +113,12 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
                   {relatedVideo.admin_approved === true ? (
                     <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                       <Check className="h-3 w-3" />
-                      Approved
+                      Curated
                     </Badge>
                   ) : (
                     <Badge variant="destructive" className="gap-1">
                       <X className="h-3 w-3" />
-                      Not Approved
+                      Not Curated
                     </Badge>
                   )}
                 </TableCell>

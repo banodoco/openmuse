@@ -24,7 +24,7 @@ const VideoFilter: React.FC<VideoFilterProps> = memo(({
         disabled={isDisabled}
       >
         <option value="all">All Videos</option>
-        <option value="approved">Approved Videos</option>
+        <option value="approved">Curated Videos</option>
         <option value="pending">Pending Videos</option>
       </select>
       

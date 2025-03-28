@@ -23,6 +23,13 @@ const Index = () => {
     refetchLoras
   } = useLoraManagement();
   
+  // Filter to show only curated LoRAs
+  const curatedLoras = React.useMemo(() => {
+    return loras.filter(lora => 
+      lora.primaryVideo && lora.primaryVideo.admin_approved === true
+    );
+  }, [loras]);
+  
   // Add a timeout to prevent infinite loading
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -61,7 +68,7 @@ const Index = () => {
           />
           
           <LoraManager 
-            loras={loras}
+            loras={curatedLoras} // Use only curated LoRAs on homepage by default
             isLoading={isLoading}
             refetchLoras={refetchLoras}
           />

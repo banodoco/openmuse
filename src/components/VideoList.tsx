@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -176,7 +175,7 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
     if (status === null) {
       return <Badge variant="secondary">Pending</Badge>
     } else if (status) {
-      return <Badge className="bg-green-500">Approved</Badge>
+      return <Badge className="bg-green-500">Curated</Badge>
     } else {
       return <Badge variant="destructive">Rejected</Badge>
     }
