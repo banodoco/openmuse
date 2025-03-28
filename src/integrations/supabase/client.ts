@@ -1,3 +1,4 @@
+
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './types';
 import { Logger } from '@/lib/logger';
@@ -132,17 +133,20 @@ export const testRLSPermissions = async (): Promise<{
 // Modify the window-specific initialization to use async/await
 if (typeof window !== 'undefined') {
   // Delay the initial checks to ensure auth is initialized first
-  setTimeout(async () => {
-    try {
-      await checkVideoBucket();
-    } catch (err) {
-      logger.error('Error checking video bucket:', err);
-    }
-    
-    try {
-      await testRLSPermissions();
-    } catch (err) {
-      logger.error('Error testing RLS permissions:', err);
-    }
+  setTimeout(() => {
+    // Using an immediately-invoked async function to handle promises properly
+    (async () => {
+      try {
+        await checkVideoBucket();
+      } catch (err) {
+        logger.error('Error checking video bucket:', err);
+      }
+      
+      try {
+        await testRLSPermissions();
+      } catch (err) {
+        logger.error('Error testing RLS permissions:', err);
+      }
+    })();
   }, 1000);
 }
