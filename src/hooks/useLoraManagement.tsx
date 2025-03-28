@@ -38,12 +38,21 @@ export const useLoraManagement = () => {
         }
       }, 10000); // 10 second timeout
       
-      // Flexible LoRA asset query with multiple type variations
-      const { data: loraAssets, error } = await supabase
+      // Flexible LoRA asset query with multiple type variations and no filters
+      let query = supabase
         .from('assets')
         .select('*')
-        .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`) 
-        .order('created_at', { ascending: false });
+        .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
+        
+      // Don't limit results for admin users
+      if (user) {
+        const isAdmin = await checkUserIsAdmin(user.id);
+        logger.log(`User ${user.id} is admin: ${isAdmin}`);
+        // If not admin, we could add filters here if needed
+      }
+      
+      // Get all assets matching the type
+      const { data: loraAssets, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
         logger.error("Error querying LoRA assets:", error);
@@ -51,6 +60,9 @@ export const useLoraManagement = () => {
       }
       
       logger.log("LoRA assets from database:", loraAssets?.length || 0);
+      if (loraAssets?.length) {
+        logger.log("Sample asset data:", loraAssets[0]);
+      }
       
       if (!isMounted.current) return;
       
@@ -69,7 +81,7 @@ export const useLoraManagement = () => {
         logger.log(`Asset ${asset.id} (${asset.name}) associated videos:`, 
           assetVideos.map(v => v.id));
         
-        // LoRA approval status from database
+        // LoRA approval status from database - default to 'Listed' if not set
         const admin_approved = asset.admin_approved || 'Listed';
         
         return {
@@ -105,7 +117,25 @@ export const useLoraManagement = () => {
         }
       }
     }
-  }, [videos]);
+  }, [videos, user]);
+
+  // Helper function to check if user is admin
+  const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .rpc('has_role', { user_id: userId, role: 'admin' });
+      
+      if (error) {
+        logger.error("Error checking admin role:", error);
+        return false;
+      }
+      
+      return !!data;
+    } catch (e) {
+      logger.error("Error in admin check:", e);
+      return false;
+    }
+  };
 
   // Load LoRAs when videos are loaded
   useEffect(() => {
@@ -121,7 +151,13 @@ export const useLoraManagement = () => {
     
     // If auth state changes, reset fetch attempt to ensure we reload data
     fetchAttempted.current = false;
-  }, [user]);
+    
+    // Reload when user logs in
+    if (user && !isLoading && !fetchAttempted.current) {
+      logger.log("Auth state changed with user, reloading LoRAs");
+      loadAllLoras();
+    }
+  }, [user, loadAllLoras, isLoading]);
 
   // Cleanup function
   useEffect(() => {

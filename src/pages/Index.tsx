@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import Navigation from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate } from 'react-router-dom';
@@ -8,6 +8,8 @@ import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
 import LoraManager from '@/components/LoraManager';
 import { useAuth } from '@/hooks/useAuth';
+import { testRLSPermissions } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 const logger = new Logger('Index');
 
@@ -15,6 +17,7 @@ const Index = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user } = useAuth();
+  const [permissionsChecked, setPermissionsChecked] = useState(false);
   
   const { 
     loras, 
@@ -43,14 +46,52 @@ const Index = () => {
   useEffect(() => {
     logger.log('Index page loaded, auth state:', user ? 'logged in' : 'not logged in');
     
+    // Test RLS permissions on auth change
+    const checkPermissions = async () => {
+      if (user && !permissionsChecked) {
+        const permissions = await testRLSPermissions();
+        setPermissionsChecked(true);
+        
+        if (!permissions.assetsAccess || !permissions.mediaAccess) {
+          toast.error("Permission issues detected. Some data may not be visible.", {
+            description: "Try refreshing the data or contact an administrator.",
+            duration: 5000
+          });
+        }
+      }
+    };
+    
+    checkPermissions();
+    
     return () => {
       logger.log('Index page unloading');
     };
-  }, [user]);
+  }, [user, permissionsChecked]);
+  
+  // Force refresh when mounting if user is logged in
+  useEffect(() => {
+    if (user && !lorasLoading) {
+      logger.log('User is logged in, refreshing LoRAs on mount');
+      refetchLoras();
+    }
+  }, [user, refetchLoras, lorasLoading]);
   
   const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');
   }, [navigate]);
+  
+  const handleRefreshData = useCallback(async () => {
+    try {
+      await refetchLoras();
+      logger.log('Data refreshed successfully');
+      
+      // Re-test permissions
+      await testRLSPermissions();
+      setPermissionsChecked(true);
+    } catch (error) {
+      logger.error('Error refreshing data:', error);
+    }
+  }, [refetchLoras]);
   
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -69,7 +110,7 @@ const Index = () => {
         <LoraManager 
           loras={displayLoras} 
           isLoading={lorasLoading}
-          refetchLoras={refetchLoras}
+          refetchLoras={handleRefreshData}
         />
       </main>
     </div>
