@@ -165,12 +165,12 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         )}
       </div>
       
-      <CardContent className="px-4 py-3 text-xs flex-grow flex flex-col gap-2">
+      <CardContent className="px-4 py-2 flex-grow flex flex-col justify-center">
         {lora.lora_link && (
           <Button 
             variant="ghost" 
             size="sm" 
-            className="mt-1 w-full h-7 text-xs gap-1"
+            className="w-full h-7 text-xs gap-1"
             onClick={(e) => {
               e.stopPropagation();
               window.open(lora.lora_link, '_blank');
