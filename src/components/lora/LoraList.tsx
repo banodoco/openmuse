@@ -43,12 +43,12 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       ((lora.creator || '').toLowerCase().includes(searchTerm))
     );
     
-    // Approval filter - skip approval check if 'all' is selected
+    // Apply approval filters based on selected option
     if (approvalFilter === 'all') {
-      return matchesText; // Only apply text filter when 'all' is selected
+      // When 'all' is selected, only apply text filter
+      return matchesText;
     }
     
-    // Apply appropriate approval filters for other options
     const primaryVideo = lora.primaryVideo;
     
     if (approvalFilter === 'curated') {
@@ -61,6 +61,11 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     
     return matchesText; // Fallback (shouldn't reach here)
   });
+
+  // Debug logs to help troubleshoot the issue
+  console.log('Total LoRAs:', loras.length);
+  console.log('Filtered LoRAs:', filteredLoras.length);
+  console.log('Current approval filter:', approvalFilter);
 
   return (
     <div className="w-full">
