@@ -44,36 +44,74 @@ export const checkVideoBucket = async () => {
 
 // Function to check if RLS (Row Level Security) permissions are working
 export const testRLSPermissions = async () => {
+  const testId = "test-" + Math.random().toString(36).substring(2, 9);
+  logger.log(`Testing RLS permissions... (ID: ${testId})`);
+  
   try {
-    logger.log('Testing RLS permissions...');
     const { data: session } = await supabase.auth.getSession();
     const isAuthenticated = !!session?.session?.user;
     
-    logger.log(`Auth status: ${isAuthenticated ? 'Authenticated' : 'Not authenticated'}`);
+    logger.log(`Auth status (${testId}): ${isAuthenticated ? 'Authenticated' : 'Not authenticated'}`);
     
-    // Try to fetch assets
-    const { data: assets, error: assetsError } = await supabase
-      .from('assets')
-      .select('*')
-      .limit(1);
+    // Try to fetch assets with a short timeout to avoid hanging
+    const assetsPromise = new Promise<{data: any, error: any}>((resolve) => {
+      const timeoutId = setTimeout(() => {
+        logger.warn(`Assets query timed out (${testId})`);
+        resolve({ data: null, error: { message: "Query timed out" } });
+      }, 5000);
+      
+      supabase
+        .from('assets')
+        .select('*')
+        .limit(1)
+        .then((result) => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch((error) => {
+          clearTimeout(timeoutId);
+          resolve({ data: null, error });
+        });
+    });
+    
+    const { data: assets, error: assetsError } = await assetsPromise;
       
     if (assetsError) {
-      logger.error('Error testing assets access:', assetsError);
+      logger.error(`Error testing assets access (${testId}):`, assetsError);
     } else {
-      logger.log(`Assets access test result: ${assets ? 'Success' : 'No data'}`);
+      logger.log(`Assets access test result (${testId}): ${assets && assets.length > 0 ? 'Success with data' : 'Success but no data'}`);
     }
     
-    // Try to fetch media
-    const { data: media, error: mediaError } = await supabase
-      .from('media')
-      .select('*')
-      .limit(1);
+    // Try to fetch media with a short timeout
+    const mediaPromise = new Promise<{data: any, error: any}>((resolve) => {
+      const timeoutId = setTimeout(() => {
+        logger.warn(`Media query timed out (${testId})`);
+        resolve({ data: null, error: { message: "Query timed out" } });
+      }, 5000);
+      
+      supabase
+        .from('media')
+        .select('*')
+        .limit(1)
+        .then((result) => {
+          clearTimeout(timeoutId);
+          resolve(result);
+        })
+        .catch((error) => {
+          clearTimeout(timeoutId);
+          resolve({ data: null, error });
+        });
+    });
+    
+    const { data: media, error: mediaError } = await mediaPromise;
       
     if (mediaError) {
-      logger.error('Error testing media access:', mediaError);
+      logger.error(`Error testing media access (${testId}):`, mediaError);
     } else {
-      logger.log(`Media access test result: ${media ? 'Success' : 'No data'}`);
+      logger.log(`Media access test result (${testId}): ${media && media.length > 0 ? 'Success with data' : 'Success but no data'}`);
     }
+    
+    logger.log(`RLS permission test complete (${testId})`);
     
     return {
       isAuthenticated,
@@ -81,7 +119,7 @@ export const testRLSPermissions = async () => {
       mediaAccess: !mediaError
     };
   } catch (error) {
-    logger.error('Error testing RLS permissions:', error);
+    logger.error(`Error testing RLS permissions (${testId}):`, error);
     return {
       isAuthenticated: false,
       assetsAccess: false,
@@ -90,8 +128,11 @@ export const testRLSPermissions = async () => {
   }
 };
 
-// Call bucket check and RLS test on startup
+// Call bucket check and RLS test on startup but only in browser context
 if (typeof window !== 'undefined') {
-  checkVideoBucket().catch(logger.error);
-  testRLSPermissions().catch(logger.error);
+  // Delay the initial checks to ensure auth is initialized first
+  setTimeout(() => {
+    checkVideoBucket().catch(err => logger.error('Error checking video bucket:', err));
+    testRLSPermissions().catch(err => logger.error('Error testing RLS permissions:', err));
+  }, 1000);
 }

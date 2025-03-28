@@ -1,5 +1,5 @@
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate } from 'react-router-dom';
@@ -18,6 +18,8 @@ const Index = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const [permissionsChecked, setPermissionsChecked] = useState(false);
+  const permissionCheckInProgress = useRef(false);
+  const dataRefreshInProgress = useRef(false);
   
   const { 
     loras, 
@@ -34,11 +36,6 @@ const Index = () => {
     
     logger.log('Total LoRAs available:', loras.length);
     
-    // Log for debugging
-    loras.forEach(lora => {
-      logger.log(`LoRA ${lora.id} (${lora.name}): approval status=${lora.admin_approved}, primaryVideo approval=${lora.primaryVideo?.admin_approved}`);
-    });
-    
     return loras;
   }, [loras]);
   
@@ -46,17 +43,25 @@ const Index = () => {
   useEffect(() => {
     logger.log('Index page loaded, auth state:', user ? 'logged in' : 'not logged in');
     
-    // Test RLS permissions on auth change
+    // Test RLS permissions on auth change - but only if not already in progress
     const checkPermissions = async () => {
-      if (user && !permissionsChecked) {
-        const permissions = await testRLSPermissions();
-        setPermissionsChecked(true);
+      if (user && !permissionsChecked && !permissionCheckInProgress.current) {
+        permissionCheckInProgress.current = true;
         
-        if (!permissions.assetsAccess || !permissions.mediaAccess) {
-          toast.error("Permission issues detected. Some data may not be visible.", {
-            description: "Try refreshing the data or contact an administrator.",
-            duration: 5000
-          });
+        try {
+          const permissions = await testRLSPermissions();
+          setPermissionsChecked(true);
+          
+          if (!permissions.assetsAccess || !permissions.mediaAccess) {
+            toast.error("Permission issues detected. Some data may not be visible.", {
+              description: "Try refreshing the data or contact an administrator.",
+              duration: 5000
+            });
+          }
+        } catch (err) {
+          logger.error("Error checking permissions:", err);
+        } finally {
+          permissionCheckInProgress.current = false;
         }
       }
     };
@@ -68,11 +73,20 @@ const Index = () => {
     };
   }, [user, permissionsChecked]);
   
-  // Force refresh when mounting if user is logged in
+  // Force refresh when mounting if user is logged in - but prevent duplicate refreshes
   useEffect(() => {
-    if (user && !lorasLoading) {
+    if (user && !lorasLoading && !dataRefreshInProgress.current) {
       logger.log('User is logged in, refreshing LoRAs on mount');
-      refetchLoras();
+      dataRefreshInProgress.current = true;
+      
+      // Small timeout to avoid potential race conditions
+      const timeoutId = setTimeout(() => {
+        refetchLoras().finally(() => {
+          dataRefreshInProgress.current = false;
+        });
+      }, 100);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [user, refetchLoras, lorasLoading]);
   
@@ -81,15 +95,28 @@ const Index = () => {
   }, [navigate]);
   
   const handleRefreshData = useCallback(async () => {
+    if (dataRefreshInProgress.current) {
+      logger.log('Data refresh already in progress, skipping');
+      return;
+    }
+    
+    dataRefreshInProgress.current = true;
+    
     try {
       await refetchLoras();
       logger.log('Data refreshed successfully');
       
       // Re-test permissions
-      await testRLSPermissions();
-      setPermissionsChecked(true);
+      if (!permissionCheckInProgress.current) {
+        permissionCheckInProgress.current = true;
+        await testRLSPermissions();
+        setPermissionsChecked(true);
+        permissionCheckInProgress.current = false;
+      }
     } catch (error) {
       logger.error('Error refreshing data:', error);
+    } finally {
+      dataRefreshInProgress.current = false;
     }
   }, [refetchLoras]);
   

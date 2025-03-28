@@ -16,11 +16,17 @@ export const useLoraManagement = () => {
   const { videos, isLoading: videosLoading } = useVideoManagement();
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
+  const fetchInProgress = useRef(false);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadAllLoras = useCallback(async () => {
-    if (!isMounted.current) return;
+    // Prevent concurrent fetches and unmounted component updates
+    if (!isMounted.current || fetchInProgress.current) {
+      logger.log("Fetch already in progress or component unmounted, skipping");
+      return;
+    }
     
+    fetchInProgress.current = true;
     setIsLoading(true);
     fetchAttempted.current = true;
     logger.log("Loading all LoRAs");
@@ -35,6 +41,7 @@ export const useLoraManagement = () => {
         if (isMounted.current && isLoading) {
           logger.warn("LoRA loading timeout reached, forcing completion");
           setIsLoading(false);
+          fetchInProgress.current = false;
         }
       }, 10000); // 10 second timeout
       
@@ -78,9 +85,6 @@ export const useLoraManagement = () => {
            v.metadata.loraName.toLowerCase() === (asset.name || '').toLowerCase())
         );
         
-        logger.log(`Asset ${asset.id} (${asset.name}) associated videos:`, 
-          assetVideos.map(v => v.id));
-        
         // LoRA approval status from database - default to 'Listed' if not set
         const admin_approved = asset.admin_approved || 'Listed';
         
@@ -116,6 +120,8 @@ export const useLoraManagement = () => {
           loadingTimeoutRef.current = null;
         }
       }
+    } finally {
+      fetchInProgress.current = false;
     }
   }, [videos, user]);
 
@@ -137,9 +143,9 @@ export const useLoraManagement = () => {
     }
   };
 
-  // Load LoRAs when videos are loaded
+  // Load LoRAs when videos are loaded - but only if not already loading and not already attempted
   useEffect(() => {
-    if (!videosLoading && !fetchAttempted.current) {
+    if (!videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
       logger.log("Videos loaded, loading LoRAs");
       loadAllLoras();
     }
@@ -149,11 +155,8 @@ export const useLoraManagement = () => {
   useEffect(() => {
     logger.log(`Auth state in useLoraManagement: ${user ? 'signed in' : 'not signed in'}`);
     
-    // If auth state changes, reset fetch attempt to ensure we reload data
-    fetchAttempted.current = false;
-    
-    // Reload when user logs in
-    if (user && !isLoading && !fetchAttempted.current) {
+    // If auth state changes, reset fetch attempt to ensure we reload data - but only if not already fetching
+    if (user && !isLoading && !fetchAttempted.current && !fetchInProgress.current) {
       logger.log("Auth state changed with user, reloading LoRAs");
       loadAllLoras();
     }
@@ -175,10 +178,14 @@ export const useLoraManagement = () => {
   }, []);
 
   const refetchLoras = useCallback(async () => {
-    if (isMounted.current) {
+    if (isMounted.current && !fetchInProgress.current) {
       logger.log("Manually refreshing LoRAs");
+      // Reset fetch attempt so we can trigger a fresh load
+      fetchAttempted.current = false;
       await loadAllLoras();
       toast.success("LoRAs refreshed");
+    } else {
+      logger.log("Skipping manual refresh - fetch already in progress or component unmounted");
     }
   }, [loadAllLoras]);
 
