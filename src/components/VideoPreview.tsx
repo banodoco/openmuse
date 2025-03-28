@@ -26,7 +26,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [isHovering, setIsHovering] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
   
   useEffect(() => {
     // Set up object URL for file preview
@@ -60,12 +59,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
 
   const handleMouseEnter = () => {
     setIsHovering(true);
-    setIsPlaying(true);
   };
 
   const handleMouseLeave = () => {
     setIsHovering(false);
-    setIsPlaying(false);
   };
 
   if (!file && !url) {
@@ -116,7 +113,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={isHovering} // Pass the hover state to control playback
+          playOnHover={true}
           previewMode={true}
           showPlayButtonOnHover={false}
         />
@@ -124,13 +121,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title
         // For storage URLs, use the StorageVideoPlayer
         <StorageVideoPlayer
           videoLocation={url}
-          controls={false} // Changed to false to hide controls
+          controls={true}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={isHovering} // Pass the hover state to control playback
+          playOnHover={true}
           previewMode={false}
           showPlayButtonOnHover={false}
-          videoRef={videoRef}
         />
       ) : null}
 

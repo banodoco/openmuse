@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -17,7 +17,6 @@ interface StorageVideoPlayerProps {
   playOnHover?: boolean;
   previewMode?: boolean;
   showPlayButtonOnHover?: boolean;
-  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
@@ -29,8 +28,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   loop = false,
   playOnHover = false,
   previewMode = false,
-  showPlayButtonOnHover = true,
-  videoRef
+  showPlayButtonOnHover = true
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -136,7 +134,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       playOnHover={playOnHover}
       onError={handleError}
       showPlayButtonOnHover={showPlayButtonOnHover}
-      videoRef={videoRef}
     />
   );
 };
