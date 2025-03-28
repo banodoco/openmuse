@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Navigation from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -151,7 +152,7 @@ const UploadPage: React.FC = () => {
             />
             
             <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
-              {isSubmitting ? 'Submitting...' : 'Submit Videos'}
+              {isSubmitting ? 'Submitting...' : 'Submit LoRA'}
             </Button>
             
             {!user && (
