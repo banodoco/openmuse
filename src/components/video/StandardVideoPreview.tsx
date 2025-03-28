@@ -123,7 +123,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   return (
     <div 
       ref={containerRef} 
-      className={`w-full h-full relative transition-transform duration-300 ${hover ? 'transform scale-105 z-10' : ''}`}
+      className={`w-full h-full relative transition-transform duration-300 ${hover ? 'transform scale-110 z-20' : ''}`}
+      style={{ transformOrigin: 'center' }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >

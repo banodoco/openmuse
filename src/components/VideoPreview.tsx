@@ -98,7 +98,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   return (
     <div 
       ref={previewRef}
-      className={`relative rounded-md overflow-hidden aspect-video ${className} transition-all duration-300 ${isHovering ? 'transform scale-105' : ''}`}
+      className={`relative rounded-md overflow-hidden aspect-video ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -120,6 +120,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
+          isHovering={isHovering}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer

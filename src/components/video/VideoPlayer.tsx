@@ -214,7 +214,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   return (
     <div 
       ref={containerRef} 
-      className={`relative w-full h-full overflow-hidden rounded-lg transition-transform duration-300 ${hover ? 'transform scale-105 z-10' : ''}`}
+      className={`relative w-full h-full overflow-hidden rounded-lg transition-transform duration-300 ${hover ? 'transform scale-110 z-20' : ''}`}
+      style={{ transformOrigin: 'center' }}
     >
       {isLoading && <VideoLoader posterImage={poster} />}
       

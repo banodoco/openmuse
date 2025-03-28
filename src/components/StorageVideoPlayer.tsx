@@ -49,7 +49,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       
       const video = videoRef.current;
       if (video) {
-        if (isHoveringExternally && !video.paused) {
+        if (isHoveringExternally && video.paused) {
           logger.log('External hover detected - attempting to play video');
           video.play().catch(e => logger.error('Error playing video on hover:', e));
         } else if (!isHoveringExternally && !video.paused) {
@@ -122,6 +122,18 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
     setRetryCount(prev => prev + 1);
   };
 
+  const handleMouseEnter = () => {
+    if (isHoveringExternally === undefined) {
+      setIsHovering(true);
+    }
+  };
+
+  const handleMouseLeave = () => {
+    if (isHoveringExternally === undefined) {
+      setIsHovering(false);
+    }
+  };
+
   if (loading) {
     return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
   }
@@ -141,20 +153,28 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   }
 
   return (
-    <VideoPlayer
-      src={videoUrl}
-      className={className}
-      controls={controls}
-      autoPlay={autoPlay || isHovering}
-      muted={muted}
-      loop={loop}
-      playOnHover={playOnHover && isHoveringExternally === undefined}
-      onError={handleError}
-      showPlayButtonOnHover={showPlayButtonOnHover}
-      containerRef={containerRef}
-      externallyControlled={isHoveringExternally !== undefined}
-      isHovering={isHovering}
-    />
+    <div 
+      className={`transition-transform duration-300 ${isHovering ? 'transform scale-110 z-20' : ''}`}
+      style={{ transformOrigin: 'center' }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
+      <VideoPlayer
+        src={videoUrl}
+        className={className}
+        controls={controls}
+        autoPlay={autoPlay || isHovering}
+        muted={muted}
+        loop={loop}
+        playOnHover={playOnHover && isHoveringExternally === undefined}
+        onError={handleError}
+        showPlayButtonOnHover={showPlayButtonOnHover}
+        containerRef={containerRef}
+        videoRef={videoRef}
+        externallyControlled={isHoveringExternally !== undefined}
+        isHovering={isHovering}
+      />
+    </div>
   );
 };
 
