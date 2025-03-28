@@ -34,7 +34,7 @@ export class VideoDatabase {
   /**
    * Set approval status for a video
    */
-  async setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null> {
+  async setApprovalStatus(id: string, approved: string): Promise<VideoEntry | null> {
     const db = await databaseProvider.getDatabase();
     return db.setApprovalStatus(id, approved);
   }

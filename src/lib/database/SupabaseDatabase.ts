@@ -1,4 +1,3 @@
-
 import { VideoEntry } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { BaseDatabase } from './BaseDatabase';
@@ -149,10 +148,9 @@ export class SupabaseDatabase extends BaseDatabase {
     return this.updateEntry(id, { skipped: true });
   }
   
-  async setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null> {
+  async setApprovalStatus(id: string, approved: string): Promise<VideoEntry | null> {
     this.logger.log(`Setting approval status for media ${id} to ${approved}`);
-    const status = approved ? 'Curated' : 'Rejected';
-    return this.updateEntry(id, { admin_approved: status });
+    return this.updateEntry(id, { admin_approved: approved });
   }
   
   async getVideoUrl(videoLocation: string): Promise<string> {

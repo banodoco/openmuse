@@ -22,7 +22,7 @@ export abstract class BaseDatabase {
   abstract getAllEntries(): Promise<VideoEntry[]>;
   abstract updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null>;
   abstract markAsSkipped(id: string): Promise<VideoEntry | null>;
-  abstract setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null>;
+  abstract setApprovalStatus(id: string, approved: string): Promise<VideoEntry | null>;
   abstract getVideoUrl(videoLocation: string): Promise<string>;
   abstract deleteEntry(id: string): Promise<boolean>;
   abstract clearAllEntries(): Promise<void>;
