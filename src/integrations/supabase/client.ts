@@ -63,15 +63,15 @@ export const testRLSPermissions = async () => {
     
     // Wait for both checks to complete
     const [mediaResult, assetsResult] = await Promise.all([
-      mediaPromise,
-      assetsPromise
+      mediaPromise.catch(err => ({ error: err, data: null })),
+      assetsPromise.catch(err => ({ error: err, data: null }))
     ]);
     
     console.info(`[SupabaseClient] RLS permission test complete (${testId})`);
     
     return {
-      mediaAccess: !mediaResult.error,
-      assetsAccess: !assetsResult.error
+      mediaAccess: !mediaResult.error || mediaResult.error.code === 'PGRST116',  // No error or empty result
+      assetsAccess: !assetsResult.error || assetsResult.error.code === 'PGRST116'  // No error or empty result
     };
   } catch (error) {
     console.error("[SupabaseClient] Error testing RLS permissions:", error);

@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -22,10 +23,11 @@ export const useLoraManagement = () => {
 
   const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
     try {
+      // Fix the query to avoid ambiguous column reference
       const { data, error } = await supabase
         .from('user_roles')
         .select('*')
-        .eq('user_roles.user_id', userId)
+        .eq('user_id', userId)
         .eq('role', 'admin')
         .maybeSingle();
       

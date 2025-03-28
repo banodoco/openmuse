@@ -115,8 +115,16 @@ const Index = () => {
       // Re-test permissions
       if (!permissionCheckInProgress.current) {
         permissionCheckInProgress.current = true;
-        await testRLSPermissions();
+        const permissions = await testRLSPermissions();
         setPermissionsChecked(true);
+        
+        if (!permissions.assetsAccess || !permissions.mediaAccess) {
+          toast.error("Permission issues detected. Some data may not be visible.", {
+            description: "Try refreshing the data or contact an administrator.",
+            duration: 5000
+          });
+        }
+        
         permissionCheckInProgress.current = false;
       }
     } catch (error) {
