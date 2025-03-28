@@ -124,6 +124,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           poster={posterUrl || undefined}
           playOnHover={true}
           containerRef={containerRef}
+          showPlayButtonOnHover={false}
         />
       )}
       

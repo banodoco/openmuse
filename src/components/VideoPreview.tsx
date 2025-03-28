@@ -93,6 +93,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           className="w-full h-full object-cover"
           playOnHover={true}
           previewMode={true}
+          showPlayButtonOnHover={false}
         />
       ) : url ? (
         // For storage URLs, use the StorageVideoPlayer
@@ -103,6 +104,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           className="w-full h-full object-cover"
           playOnHover={true}
           previewMode={false}
+          showPlayButtonOnHover={false}
         />
       ) : null}
 

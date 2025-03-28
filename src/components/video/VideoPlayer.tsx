@@ -22,6 +22,7 @@ interface VideoPlayerProps {
   poster?: string;
   playOnHover?: boolean;
   containerRef?: React.RefObject<HTMLDivElement>;
+  showPlayButtonOnHover?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -37,6 +38,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   poster,
   playOnHover = false,
   containerRef: externalContainerRef,
+  showPlayButtonOnHover = true,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
@@ -196,7 +198,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         autoPlay={autoPlay && !playOnHover}
         muted={muted}
         loop={loop}
-        controls={controls}
+        controls={showPlayButtonOnHover ? controls : false}
         playsInline
         poster={poster || undefined}
         preload="auto"
