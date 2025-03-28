@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate } from 'react-router-dom';
@@ -74,7 +74,7 @@ const Index = () => {
         />
         
         <LoraManager 
-          loras={displayLoras} // Show all LoRAs
+          loras={displayLoras || []} // Ensure we always pass an array, even if displayLoras is undefined
           isLoading={pageIsLoading}
           refetchLoras={refetchLoras}
         />
