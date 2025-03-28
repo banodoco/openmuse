@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -13,6 +12,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseStorage } from '@/lib/supabaseStorage';
+import RequireAuth from '@/components/RequireAuth';
 
 const logger = new Logger('Upload');
 
@@ -20,7 +20,6 @@ const UploadPage: React.FC = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const [nameInput, setNameInput] = useState('');
   const [termsAccepted, setTermsAccepted] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
@@ -45,6 +44,12 @@ const UploadPage: React.FC = () => {
   
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    
+    if (!user) {
+      toast.error('You must be signed in to submit videos');
+      navigate('/auth');
+      return;
+    }
     
     const hasVideos = videos.some(video => video.file !== null || video.url !== null);
     if (!hasVideos) {
@@ -87,7 +92,7 @@ const UploadPage: React.FC = () => {
       return;
     }
     
-    const reviewerName = user?.email || nameInput || 'Anonymous';
+    const reviewerName = user?.email || 'Anonymous';
     
     setIsSubmitting(true);
     
@@ -131,60 +136,48 @@ const UploadPage: React.FC = () => {
   };
   
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Navigation />
-      
-      <main className="flex-1 container mx-auto p-4">
-        <h1 className="text-3xl font-bold tracking-tight mb-4">Upload Videos</h1>
-        <p className="text-muted-foreground mb-8">
-          Submit your videos to be reviewed and added to the curated list.
-        </p>
+    <RequireAuth>
+      <div className="flex flex-col min-h-screen bg-background">
+        <Navigation />
         
-        <form onSubmit={handleSubmit} className="space-y-8">
-          {!user && (
-            <div>
-              <Label htmlFor="name">Your Name</Label>
-              <Input
-                type="text"
-                id="name"
-                placeholder="Enter your name"
-                value={nameInput}
-                onChange={(e) => setNameInput(e.target.value)}
-                required
-              />
+        <main className="flex-1 container mx-auto p-4">
+          <h1 className="text-3xl font-bold tracking-tight mb-4">Upload Videos</h1>
+          <p className="text-muted-foreground mb-8">
+            Submit your videos to be reviewed and added to the curated list.
+          </p>
+          
+          <form onSubmit={handleSubmit} className="space-y-8">
+            <div className="p-6 border rounded-lg bg-card space-y-4">
+              <h2 className="text-xl font-semibold">LoRA Details</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                These details will be applied to all videos in this upload.
+              </p>
+              <LoRADetailsForm loraDetails={loraDetails} updateLoRADetails={updateLoRADetails} />
             </div>
-          )}
-          
-          <div className="p-6 border rounded-lg bg-card space-y-4">
-            <h2 className="text-xl font-semibold">LoRA Details</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              These details will be applied to all videos in this upload.
-            </p>
-            <LoRADetailsForm loraDetails={loraDetails} updateLoRADetails={updateLoRADetails} />
-          </div>
-          
-          <h2 className="text-xl font-semibold">Videos</h2>
-          
-          <MultipleVideoUploader 
-            videos={videos} 
-            setVideos={setVideos} 
-          />
-          
-          <div className="flex items-center space-x-2">
-            <Checkbox
-              id="terms"
-              checked={termsAccepted}
-              onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+            
+            <h2 className="text-xl font-semibold">Videos</h2>
+            
+            <MultipleVideoUploader 
+              videos={videos} 
+              setVideos={setVideos} 
             />
-            <Label htmlFor="terms">I accept the terms and conditions</Label>
-          </div>
-          
-          <Button type="submit" disabled={isSubmitting} size={isMobile ? "sm" : "default"}>
-            {isSubmitting ? 'Submitting...' : 'Submit Videos'}
-          </Button>
-        </form>
-      </main>
-    </div>
+            
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="terms"
+                checked={termsAccepted}
+                onCheckedChange={(checked) => setTermsAccepted(checked as boolean)}
+              />
+              <Label htmlFor="terms">I accept the terms and conditions</Label>
+            </div>
+            
+            <Button type="submit" disabled={isSubmitting} size={isMobile ? "sm" : "default"}>
+              {isSubmitting ? 'Submitting...' : 'Submit Videos'}
+            </Button>
+          </form>
+        </main>
+      </div>
+    </RequireAuth>
   );
 };
 
