@@ -73,14 +73,13 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
     return matchesText && matchesApproval;
   });
 
+  // Updated filter button styling to match VideoFilter component
   const getFilterButtonClass = (filter: string) => {
     return cn(
-      "px-4 py-2 rounded-md text-sm font-medium",
-      approvalFilter === filter ? 
-        filter === 'curated' ? "bg-green-500 text-white" :
-        filter === 'listed' ? "bg-blue-500 text-white" :
-        "bg-red-500 text-white" 
-      : "bg-muted hover:bg-muted/80"
+      "px-4 py-2 rounded-md text-sm font-medium transition-colors",
+      approvalFilter === filter 
+        ? "!bg-[#FEF7CD] !text-forest-dark hover:!bg-[#FEF7CD]" 
+        : "bg-muted hover:bg-muted/80"
     );
   };
 
@@ -101,7 +100,11 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
               type="button"
               onClick={() => setApprovalFilter('curated')}
               className={getFilterButtonClass('curated')}
-              variant="ghost"
+              style={{
+                backgroundColor: approvalFilter === 'curated' ? '#FEF7CD' : '',
+                color: approvalFilter === 'curated' ? '#1A2D10' : ''
+              }}
+              variant="outline"
             >
               Curated
             </Button>
@@ -109,7 +112,11 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
               type="button"
               onClick={() => setApprovalFilter('listed')}
               className={getFilterButtonClass('listed')}
-              variant="ghost"
+              style={{
+                backgroundColor: approvalFilter === 'listed' ? '#FEF7CD' : '',
+                color: approvalFilter === 'listed' ? '#1A2D10' : ''
+              }}
+              variant="outline"
             >
               Listed
             </Button>
@@ -118,7 +125,11 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
                 type="button"
                 onClick={() => setApprovalFilter('rejected')}
                 className={getFilterButtonClass('rejected')}
-                variant="ghost"
+                style={{
+                  backgroundColor: approvalFilter === 'rejected' ? '#FEF7CD' : '',
+                  color: approvalFilter === 'rejected' ? '#1A2D10' : ''
+                }}
+                variant="outline"
               >
                 Rejected
               </Button>
