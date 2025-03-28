@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils';
 import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
-import openMuseLogo from '/lovable-uploads/50b1d979-6d68-4f4a-a6cc-fcf4579bdfec.png';
+import openMuseLogo from '/lovable-uploads/930b1b86-2014-499d-8db6-c9d13b3dde86.png';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
