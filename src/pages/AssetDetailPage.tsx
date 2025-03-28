@@ -448,7 +448,7 @@ const AssetDetailPage: React.FC = () => {
                 <Button 
                   variant="outline" 
                   size="sm" 
-                  className="w-full gap-2"
+                  className="w-full gap-2 mt-2"
                   onClick={handleDownloadLora}
                 >
                   <Download className="h-4 w-4" />

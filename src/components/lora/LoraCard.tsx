@@ -1,8 +1,7 @@
-
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink, Download } from 'lucide-react';
+import { Trash, Check, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -181,24 +180,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             View Original
           </Button>
         )}
-        
-        <Button 
-          variant="outline" 
-          size="sm" 
-          className="w-full h-7 text-xs gap-1"
-          onClick={(e) => {
-            e.stopPropagation();
-            if (lora.lora_link) {
-              window.open(lora.lora_link, '_blank');
-              toast.success('Opening LoRA download link');
-            } else {
-              toast.error('No download link available');
-            }
-          }}
-        >
-          <Download className="h-3 w-3" />
-          Download LoRA
-        </Button>
       </CardContent>
       
       {isAdmin && (
