@@ -109,26 +109,23 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
     );
   }
   
-  // If a file or URL is already selected, add a remove button
-  if (file || url) {
-    return (
-      <div className="w-full">
-        <Button 
-          type="button" 
-          variant="destructive" 
-          size="sm" 
-          onClick={handleRemoveVideo}
-          className="mb-2"
-        >
-          <X className="h-4 w-4 mr-2" />
-          Remove Video
-        </Button>
-      </div>
-    );
-  }
-  
   return (
     <div className="w-full">
+      {file || url ? (
+        <div className="mb-4">
+          <Button 
+            type="button" 
+            variant="destructive" 
+            size="sm" 
+            onClick={handleRemoveVideo}
+            className="mb-2"
+          >
+            <X className="h-4 w-4 mr-2" />
+            Remove Video
+          </Button>
+        </div>
+      ) : null}
+      
       <div 
         {...getRootProps()} 
         className="dropzone mt-1 border-2 border-dashed rounded-md p-8 text-center cursor-pointer bg-muted/50 w-full md:w-1/2 mx-auto"

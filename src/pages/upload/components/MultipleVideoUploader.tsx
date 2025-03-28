@@ -1,6 +1,7 @@
+
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { PlusCircle, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import VideoDropzoneComponent from '@/components/upload/VideoDropzone';
 import VideoPreview from '@/components/VideoPreview';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
@@ -41,6 +42,18 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     isPrimary: false,
   };
 
+  // Initialize with one empty video if none exists
+  React.useEffect(() => {
+    if (videos.length === 0) {
+      setVideos([{
+        id: crypto.randomUUID(),
+        file: null,
+        url: null,
+        metadata: {...initialMetadata, isPrimary: true}
+      }]);
+    }
+  }, []);
+
   React.useEffect(() => {
     const primaryCount = videos.filter(v => v.metadata.isPrimary).length;
     
@@ -59,15 +72,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       }
     }
   }, [videos, setVideos]);
-
-  const handleAddVideo = () => {
-    setVideos([...videos, {
-      id: crypto.randomUUID(),
-      file: null,
-      url: null,
-      metadata: {...initialMetadata, isPrimary: false}
-    }]);
-  };
   
   const handleRemoveVideo = (id: string) => {
     if (videos.length <= 1) {
@@ -221,48 +225,19 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                 url={video.url} 
                 onDrop={handleVideoFileDrop(video.id)}
                 onLinkAdded={handleVideoLinkAdded(video.id)}
+                onRemove={() => handleRemoveVideoFile(video.id)}
               />
             </div>
             
             {video.file || video.url ? (
               <div className="space-y-6">
-                {video.file ? (
-                  <div className="relative">
-                    <VideoPreview 
-                      file={video.file} 
-                      className="w-full mx-auto"
-                    />
-                    <div className="absolute top-2 right-2">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleRemoveVideoFile(video.id)}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ) : video.url ? (
-                  <div className="relative">
-                    <VideoPreview 
-                      url={video.url} 
-                      className="w-full mx-auto"
-                    />
-                    <div className="absolute top-2 right-2">
-                      <Button
-                        type="button"
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleRemoveVideoFile(video.id)}
-                      >
-                        <X className="h-4 w-4 mr-1" />
-                        Remove
-                      </Button>
-                    </div>
-                  </div>
-                ) : null}
+                <div className="relative">
+                  <VideoPreview 
+                    file={video.file} 
+                    url={video.url} 
+                    className="w-full mx-auto"
+                  />
+                </div>
                 
                 <div className="mt-4">
                   <VideoMetadataForm
