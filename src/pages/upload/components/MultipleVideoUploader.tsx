@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
@@ -42,7 +41,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     isPrimary: false,
   };
 
-  // Initialize with one empty video if none exists
   React.useEffect(() => {
     if (videos.length === 0) {
       setVideos([{
@@ -54,7 +52,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     }
   }, []);
 
-  // Always ensure we have at least one empty dropzone at the end
   React.useEffect(() => {
     const hasEmptySlot = videos.some(v => !v.file && !v.url);
     
@@ -88,7 +85,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   }, [videos, setVideos]);
   
   const handleRemoveVideo = (id: string) => {
-    // Only allow removing videos that have content
     const videoToRemove = videos.find(v => v.id === id);
     if (!videoToRemove?.file && !videoToRemove?.url) {
       return;
@@ -221,18 +217,15 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     );
   };
 
-  // Filter videos to separate those with content from empty ones
   const videosWithContent = videos.filter(v => v.file || v.url);
   const emptyVideoSlots = videos.filter(v => !v.file && !v.url);
 
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* First render videos that have content */}
         {videosWithContent.map((video, index) => (
           <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Video {index + 1}</h3>
               <Button 
                 type="button"
                 variant="ghost" 
@@ -265,13 +258,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           </div>
         ))}
         
-        {/* Then render empty video slots */}
         {emptyVideoSlots.map((video, index) => (
           <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold">Video {videosWithContent.length + index + 1}</h3>
-            </div>
-            
             <div className="w-full flex justify-center">
               <VideoDropzoneComponent 
                 id={video.id} 
