@@ -8,3 +8,4 @@ console.log("supabase.ts: Re-exporting the main Supabase client");
 // For backward compatibility
 export { supabase as supabaseClient };
 export { supabase };
+export { debugAssetMedia } from '@/integrations/supabase/client';
