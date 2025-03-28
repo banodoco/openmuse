@@ -83,8 +83,7 @@ class VideoUploadService {
           videoFile.metadata.loraDescription || '',
           videoFile.metadata.creatorName || reviewerName,
           userId || this.currentUserId,
-          videoFile.metadata.loraType,
-          videoFile.metadata.loraLink
+          videoFile.metadata.loraType
         );
       }
 
@@ -255,8 +254,7 @@ class VideoUploadService {
     loraDescription: string = '',
     creatorName: string,
     userId: string | null,
-    loraType?: string,
-    loraLink?: string
+    loraType?: string
   ): Promise<string> {
     logger.log(`Creating new asset for LoRA: ${loraName}`);
     
@@ -271,8 +269,7 @@ class VideoUploadService {
           user_id: userId,
           primary_media_id: mediaId,
           admin_approved: 'Listed',
-          lora_type: loraType,
-          lora_link: loraLink
+          lora_type: loraType
         })
         .select()
         .single();
