@@ -34,7 +34,7 @@ const Navigation: React.FC = () => {
   const isAuthPage = location.pathname === '/auth';
   
   return (
-    <nav className="w-full max-w-screen-xl mx-auto px-4 py-4 flex justify-between items-center">
+    <nav className="w-full max-w-screen-xl mx-auto px-4 py-4 flex justify-between items-center border-b border-olive/20">
       <div className="flex items-center">
         <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
           <img 
@@ -78,8 +78,8 @@ const NavLink: React.FC<NavLinkProps> = ({ to, active, children }) => {
       className={cn(
         "inline-flex items-center px-4 py-2 rounded-full text-sm font-medium transition-all duration-200",
         active 
-          ? "bg-primary text-primary-foreground shadow-subtle" 
-          : "bg-transparent hover:bg-secondary text-foreground"
+          ? "bg-olive text-cream-light shadow-subtle" 
+          : "bg-transparent hover:bg-cream text-foreground hover:text-olive"
       )}
     >
       {children}

@@ -47,7 +47,7 @@ const AuthButton: React.FC = () => {
       <Button 
         variant="outline" 
         onClick={handleSignIn}
-        className="flex items-center gap-2"
+        className="flex items-center gap-2 border-olive/30 text-olive"
       >
         <LogIn className="h-4 w-4" />
         Sign In
@@ -60,15 +60,15 @@ const AuthButton: React.FC = () => {
       <DropdownMenuTrigger asChild>
         <Button 
           variant="outline" 
-          className="flex items-center gap-2 border-2 shadow-sm hover:bg-secondary"
+          className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream"
         >
           <User className="h-4 w-4" />
           {user.user_metadata.preferred_username || user.email || 'User'}
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48">
-        <DropdownMenuLabel>My Account</DropdownMenuLabel>
-        <DropdownMenuSeparator />
+      <DropdownMenuContent align="end" className="w-48 border border-olive/20">
+        <DropdownMenuLabel className="font-heading">My Account</DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-olive/10" />
         <DropdownMenuItem 
           onClick={handleSignOut} 
           className="text-destructive flex items-center cursor-pointer font-medium hover:bg-destructive/10"

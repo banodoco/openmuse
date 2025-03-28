@@ -24,7 +24,10 @@ export default {
     },
     extend: {
       fontFamily: {
-        sans: ['Inter', 'sans-serif'],
+        sans: ['Raleway', 'Inter', 'sans-serif'],
+        serif: ['Garamond', 'serif'],
+        heading: ['Baskerville', 'Garamond', 'serif'],
+        body: ['Raleway', 'sans-serif'],
       },
       colors: {
         border: 'hsl(var(--border))',
@@ -59,6 +62,26 @@ export default {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'
+        },
+        // Custom colors
+        olive: {
+          light: '#A4A86F',
+          DEFAULT: '#697035',
+          dark: '#454A23',
+        },
+        forest: {
+          DEFAULT: '#2C491B',
+          dark: '#1A2D10',
+        },
+        cream: {
+          light: '#FEF9E7',
+          DEFAULT: '#F8F3D6',
+          dark: '#EAE0B9',
+        },
+        gold: {
+          light: '#E1CB8C',
+          DEFAULT: '#C4A96A',
+          dark: '#A08848',
         },
       },
       borderRadius: {
