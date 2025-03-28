@@ -29,7 +29,9 @@ const UploadPage: React.FC = () => {
     loraDescription: '',
     creator: 'self' as 'self' | 'someone_else',
     creatorName: '',
-    model: 'wan' as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'
+    model: 'wan' as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff',
+    loraType: 'Concept' as 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Other',
+    loraLink: ''
   });
   
   const updateLoRADetails = (field: keyof typeof loraDetails, value: string) => {
@@ -205,7 +207,9 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
         name: loraDetails.loraName,
         description: loraDetails.loraDescription,
         creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
-        user_id: user?.id || null
+        user_id: user?.id || null,
+        lora_type: loraDetails.loraType,
+        lora_link: loraDetails.loraLink
       })
       .select()
       .single();

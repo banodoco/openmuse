@@ -84,7 +84,10 @@ class VideoUploadService {
             creator: videoFile.metadata.creatorName || reviewerName,
             user_id: userId || this.currentUserId,
             primary_media_id: mediaData.id,
-            admin_approved: 'Listed'
+            admin_approved: 'Listed',
+            // Add the new fields
+            lora_type: videoFile.metadata.loraType,
+            lora_link: videoFile.metadata.loraLink
           })
           .select()
           .single();

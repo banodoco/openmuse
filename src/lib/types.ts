@@ -10,6 +10,8 @@ export interface VideoMetadata {
   // LoRA details
   loraName?: string;
   loraDescription?: string;
+  loraType?: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Other';
+  loraLink?: string;
   // Asset reference
   assetId?: string;
   // Primary media flag
@@ -57,6 +59,8 @@ export interface LoraAsset {
   user_id?: string;
   primary_media_id?: string;
   admin_approved?: string | null; // Changed from boolean to string to support "Curated", "Listed", "Rejected"
+  lora_type?: string;
+  lora_link?: string;
   // Populated from related data
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];

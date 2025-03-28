@@ -12,6 +12,8 @@ interface LoRADetailsForm {
   creator: 'self' | 'someone_else';
   creatorName: string;
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Other';
+  loraLink: string;
 }
 
 interface GlobalLoRADetailsFormProps {
@@ -45,6 +47,36 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             placeholder="Enter LoRA description"
             value={loraDetails.loraDescription}
             onChange={(e) => updateLoRADetails('loraDescription', e.target.value)}
+          />
+        </div>
+
+        <div>
+          <Label htmlFor="lora-type">What type of LoRA is this?</Label>
+          <Select 
+            value={loraDetails.loraType} 
+            onValueChange={(value) => updateLoRADetails('loraType', value)}
+          >
+            <SelectTrigger className="w-full">
+              <SelectValue placeholder="Select LoRA type" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Concept">Concept</SelectItem>
+              <SelectItem value="Motion Style">Motion Style</SelectItem>
+              <SelectItem value="Specific Movement">Specific Movement</SelectItem>
+              <SelectItem value="Aesthetic Style">Aesthetic Style</SelectItem>
+              <SelectItem value="Other">Other</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div>
+          <Label htmlFor="lora-link">Please share a link (Huggingface, Civit, etc.)</Label>
+          <Input
+            type="url"
+            id="lora-link"
+            placeholder="Enter LoRA link"
+            value={loraDetails.loraLink}
+            onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
           />
         </div>
         
