@@ -13,14 +13,36 @@ export class VideoUrlService {
       return '';
     }
     
-    // Detect and handle expired blob URLs
-    if (videoLocation.startsWith('blob:') && !this.isBlobUrlValid(videoLocation)) {
-      this.logger.warn(`Blob URL appears invalid: ${videoLocation.substring(0, 50)}...`);
+    // UUID Pattern for direct database lookups
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // If it's a direct UUID, always get from database first
+    if (uuidPattern.test(videoLocation)) {
+      this.logger.log(`Direct UUID detected, looking up from database: ${videoLocation}`);
+      const dbUrl = await this.lookupUrlFromDatabase(videoLocation);
+      if (dbUrl) {
+        this.logger.log(`Found permanent URL in database for UUID: ${videoLocation}`);
+        return dbUrl;
+      }
+    }
+    
+    // For blob URLs, ALWAYS try to get permanent URL from database instead
+    if (videoLocation.startsWith('blob:')) {
+      this.logger.warn(`Blob URL detected, ignoring and attempting database lookup`);
+      
       // Try to extract UUID if it's from our database
       const uuidMatch = videoLocation.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
       if (uuidMatch && uuidMatch[1]) {
-        return this.lookupUrlFromDatabase(uuidMatch[1]);
+        this.logger.log(`Extracted UUID from blob URL: ${uuidMatch[1]}, looking up from database`);
+        const dbUrl = await this.lookupUrlFromDatabase(uuidMatch[1]);
+        if (dbUrl) {
+          this.logger.log(`Found permanent URL in database for blob URL`);
+          return dbUrl;
+        }
       }
+      
+      // If no permanent URL found, DON'T return the blob URL - it's likely expired
+      this.logger.warn(`No permanent URL found for blob, returning empty string`);
       return '';
     }
     
@@ -33,6 +55,14 @@ export class VideoUrlService {
     if (videoLocation.startsWith('idb://')) {
       const videoId = videoLocation.substring(6);
       try {
+        // Try database lookup first for this ID
+        const dbUrl = await this.lookupUrlFromDatabase(videoId);
+        if (dbUrl) {
+          this.logger.log(`Found permanent URL in database for idb:// ID: ${videoId}`);
+          return dbUrl;
+        }
+        
+        // Fall back to blob URL from IndexedDB only if database lookup fails
         const blob = await videoStorage.getVideo(videoId);
         if (blob) {
           const url = URL.createObjectURL(blob);
@@ -48,106 +78,132 @@ export class VideoUrlService {
       }
     } 
     
-    // For regular HTTP URLs
-    if (videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) {
+    // For regular HTTP URLs that aren't Supabase Storage URLs
+    if ((videoLocation.startsWith('http://') || videoLocation.startsWith('https://')) && !videoLocation.includes('supabase.co')) {
+      // Check if this ID might be embedded in the URL
+      const uuidMatch = videoLocation.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
+      if (uuidMatch && uuidMatch[1]) {
+        const possibleId = uuidMatch[1];
+        const dbUrl = await this.lookupUrlFromDatabase(possibleId);
+        if (dbUrl) {
+          this.logger.log(`Found permanent URL in database for ID in URL: ${possibleId}`);
+          return dbUrl;
+        }
+      }
+      
+      // No database match, return as is since it's a normal HTTP URL
       return videoLocation;
     }
     
-    // If it appears to be a UUID, look up in database
-    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (uuidPattern.test(videoLocation)) {
-      return this.lookupUrlFromDatabase(videoLocation);
+    // If it appears to be a UUID in a path, extract and look up in database
+    if (videoLocation.includes('/')) {
+      const parts = videoLocation.split('/');
+      for (const part of parts) {
+        if (uuidPattern.test(part)) {
+          this.logger.log(`Found UUID in path: ${part}, looking up from database`);
+          const dbUrl = await this.lookupUrlFromDatabase(part);
+          if (dbUrl) {
+            return dbUrl;
+          }
+        }
+      }
     }
     
-    // Default case - return as is
-    return videoLocation;
-  }
-  
-  // Check if a blob URL is likely still valid
-  private isBlobUrlValid(blobUrl: string): boolean {
-    // If it's not from the current origin, it's definitely invalid
-    try {
-      const url = new URL(blobUrl);
-      if (url.origin !== window.location.origin) {
-        return false;
-      }
-      
-      // Additional check: try to fetch the blob to test validity
-      try {
-        fetch(blobUrl, { method: 'HEAD' })
-          .catch(() => {
-            // Fetch will fail for invalid blob URLs
-            return false;
-          });
-      } catch (e) {
-        return false;
-      }
-      
-      return true;
-    } catch (e) {
-      return false;
+    // Default case - if no permanent URL found, return empty string instead of temporary URLs
+    if (videoLocation.startsWith('blob:')) {
+      return '';
     }
+    
+    return videoLocation;
   }
   
   // Helper to look up URL from database - Exposed publicly now
   async lookupUrlFromDatabase(videoId: string): Promise<string> {
     try {
       this.logger.log('Looking up media URL from database for ID:', videoId);
-      // First try the media table
+      
+      // First check if this ID is directly in the media table
       const { data: mediaData } = await supabase
         .from('media')
-        .select('url')
+        .select('id, url, type')
         .eq('id', videoId)
         .maybeSingle();
         
       if (mediaData && mediaData.url) {
-        // If the URL is also a blob URL, we have a problem
+        // If the URL is also a blob URL, we have a problem - don't use it
         if (mediaData.url.startsWith('blob:')) {
-          this.logger.warn(`Found blob URL in database: ${mediaData.url.substring(0, 50)}... This needs to be updated.`);
+          this.logger.warn(`Found blob URL in database: ${mediaData.url.substring(0, 50)}... Ignoring.`);
           return '';
         }
         this.logger.log(`Found permanent URL in database: ${mediaData.url.substring(0, 30)}...`);
         return mediaData.url;
       }
       
-      // If not found, try checking if there's an asset with this primary_media_id
+      // If not found directly, check if this ID is an asset with a primary_media_id
       const { data: assetData } = await supabase
         .from('assets')
-        .select('id')
-        .eq('primary_media_id', videoId)
+        .select('primary_media_id')
+        .eq('id', videoId)
         .maybeSingle();
         
-      if (assetData) {
-        this.logger.log(`Found asset with primary media ID ${videoId}`);
-        // Now try to get the actual media record again
-        const { data: mediaLookup } = await supabase
+      if (assetData && assetData.primary_media_id) {
+        this.logger.log(`Found asset with primary media ID: ${assetData.primary_media_id}`);
+        
+        // Look up the primary media record
+        const { data: primaryMedia } = await supabase
           .from('media')
           .select('url')
-          .eq('id', videoId)
+          .eq('id', assetData.primary_media_id)
           .maybeSingle();
           
-        if (mediaLookup && mediaLookup.url) {
-          return mediaLookup.url;
+        if (primaryMedia && primaryMedia.url) {
+          if (primaryMedia.url.startsWith('blob:')) {
+            this.logger.warn(`Found blob URL in primary media: ${primaryMedia.url.substring(0, 50)}... Ignoring.`);
+            return '';
+          }
+          return primaryMedia.url;
         }
       }
       
-      // Last resort: check asset_media join table
-      const { data: assetMediaData } = await supabase
+      // Look for asset_media relationships
+      const { data: assetMediaList } = await supabase
+        .from('asset_media')
+        .select('media_id')
+        .or(`asset_id.eq.${videoId},id.eq.${videoId}`);
+        
+      if (assetMediaList && assetMediaList.length > 0) {
+        this.logger.log(`Found ${assetMediaList.length} asset-media relations`);
+        
+        // Try each related media
+        for (const relation of assetMediaList) {
+          const { data: relatedMedia } = await supabase
+            .from('media')
+            .select('url')
+            .eq('id', relation.media_id)
+            .maybeSingle();
+            
+          if (relatedMedia && relatedMedia.url && !relatedMedia.url.startsWith('blob:')) {
+            return relatedMedia.url;
+          }
+        }
+      }
+      
+      // Last check: try direct asset_media relationship
+      const { data: directAssetMedia } = await supabase
         .from('asset_media')
         .select('media_id')
         .eq('id', videoId)
         .maybeSingle();
         
-      if (assetMediaData) {
-        const mediaId = assetMediaData.media_id;
-        const { data: relatedMedia } = await supabase
+      if (directAssetMedia) {
+        const { data: finalMedia } = await supabase
           .from('media')
           .select('url')
-          .eq('id', mediaId)
+          .eq('id', directAssetMedia.media_id)
           .maybeSingle();
           
-        if (relatedMedia && relatedMedia.url) {
-          return relatedMedia.url;
+        if (finalMedia && finalMedia.url && !finalMedia.url.startsWith('blob:')) {
+          return finalMedia.url;
         }
       }
     } catch (error) {
@@ -160,36 +216,56 @@ export class VideoUrlService {
   
   // Force reload a video URL
   async forceRefreshUrl(videoLocation: string): Promise<string> {
-    // Check if it's a UUID and get from database
+    this.logger.log(`Force refreshing URL for video: ${videoLocation ? videoLocation.substring(0, 30) + '...' : 'undefined'}`);
+    
+    // UUID pattern for direct lookups
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    // If it's a direct UUID, always go to the database
     if (uuidPattern.test(videoLocation)) {
-      this.logger.log(`Force refreshing URL for video ID: ${videoLocation}`);
-      return this.lookupUrlFromDatabase(videoLocation);
+      this.logger.log(`Force refreshing URL for UUID: ${videoLocation}`);
+      const dbUrl = await this.lookupUrlFromDatabase(videoLocation);
+      if (dbUrl) {
+        return dbUrl;
+      }
     }
     
-    // For blob URLs that might be expired
+    // For blob URLs, completely ignore them and look up in the database
     if (videoLocation.startsWith('blob:')) {
-      this.logger.log(`Force refreshing blob URL: ${videoLocation.substring(0, 30)}...`);
+      this.logger.log(`Force refreshing blob URL (ignoring blob): ${videoLocation.substring(0, 30)}...`);
+      
       // Try to extract UUID from the blob URL
       const uuidMatch = videoLocation.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/);
       if (uuidMatch && uuidMatch[1]) {
         this.logger.log(`Extracted UUID from blob URL: ${uuidMatch[1]}`);
-        return this.lookupUrlFromDatabase(uuidMatch[1]);
+        const dbUrl = await this.lookupUrlFromDatabase(uuidMatch[1]);
+        if (dbUrl) {
+          return dbUrl;
+        }
       }
       
-      // Check if we can extract the UUID from the pathname
-      try {
-        const url = new URL(videoLocation);
-        const pathParts = url.pathname.split('/');
-        // Look for a part that looks like a UUID
-        for (const part of pathParts) {
-          if (uuidPattern.test(part)) {
-            this.logger.log(`Found UUID in path: ${part}`);
-            return this.lookupUrlFromDatabase(part);
-          }
+      // No permanent URL found, return empty
+      return '';
+    }
+    
+    // Check asset ID - this is specifically for LoRA cards
+    const assetIdMatch = videoLocation.match(/\/assets\/loras\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
+    if (assetIdMatch && assetIdMatch[1]) {
+      const assetId = assetIdMatch[1];
+      this.logger.log(`Found asset ID in URL: ${assetId}, looking up primary media`);
+      
+      // Try to get the primary media for this asset
+      const { data: assetData } = await supabase
+        .from('assets')
+        .select('primary_media_id')
+        .eq('id', assetId)
+        .maybeSingle();
+        
+      if (assetData && assetData.primary_media_id) {
+        const dbUrl = await this.lookupUrlFromDatabase(assetData.primary_media_id);
+        if (dbUrl) {
+          return dbUrl;
         }
-      } catch (e) {
-        this.logger.error('Error parsing blob URL:', e);
       }
     }
     
@@ -199,13 +275,22 @@ export class VideoUrlService {
       for (const part of parts) {
         if (uuidPattern.test(part)) {
           this.logger.log(`Found UUID in URL path: ${part}`);
-          return this.lookupUrlFromDatabase(part);
+          const dbUrl = await this.lookupUrlFromDatabase(part);
+          if (dbUrl) {
+            return dbUrl;
+          }
         }
       }
     }
     
-    // Fall back to normal URL resolution
-    return this.getVideoUrl(videoLocation);
+    // For all other URLs, try database first, then fall back to normal resolution
+    // but never return blob: URLs
+    const finalUrl = await this.getVideoUrl(videoLocation);
+    if (finalUrl.startsWith('blob:')) {
+      return '';
+    }
+    
+    return finalUrl;
   }
 }
 
