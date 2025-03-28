@@ -239,6 +239,61 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
       throw error;
     }
   }
+
+  async createNewAssetWithMedia(
+    mediaId: string,
+    loraName: string,
+    loraDescription: string = '',
+    creatorName: string,
+    userId: string | null,
+    loraType: string,
+    loraLink: string
+  ): Promise<string> {
+    this.logger.log(`Creating new asset for LoRA: ${loraName}`);
+    
+    try {
+      const { data: assetData, error: assetError } = await supabase
+        .from('assets')
+        .insert({
+          type: 'LoRA',
+          name: loraName,
+          description: loraDescription,
+          creator: creatorName,
+          user_id: userId,
+          primary_media_id: mediaId,
+          admin_approved: 'Listed',
+          lora_type: loraType,
+          lora_link: loraLink
+        })
+        .select()
+        .single();
+      
+      if (assetError) {
+        this.logger.error('Error creating asset:', assetError);
+        throw assetError;
+      }
+      
+      const assetId = assetData.id;
+      
+      const { error: linkError } = await supabase
+        .from('asset_media')
+        .insert({
+          asset_id: assetId,
+          media_id: mediaId
+        });
+        
+      if (linkError) {
+        this.logger.error('Error linking asset and media:', linkError);
+        throw linkError;
+      }
+      
+      this.logger.log(`Created new asset ${assetId} with primary media ${mediaId}`);
+      return assetId;
+    } catch (error) {
+      this.logger.error('Error creating new asset with media:', error);
+      throw error;
+    }
+  }
 }
 
 // Create and export a singleton instance

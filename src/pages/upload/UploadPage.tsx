@@ -170,7 +170,7 @@ const UploadPage: React.FC = () => {
   );
 };
 
-async function submitVideos(videos: any[], loraDetails: any, reviewerName: string, user: any) {
+const submitVideos = async (videos: any[], loraDetails: any, reviewerName: string, user: any) => {
   let assetId: string | null = null;
   let primaryMediaId: string | null = null;
   
@@ -181,7 +181,6 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
   logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
   
   try {
-    // Create asset without lora_type and lora_link fields as they're not in the database schema
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
@@ -189,7 +188,9 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
         name: loraDetails.loraName,
         description: loraDetails.loraDescription,
         creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
-        user_id: user?.id || null
+        user_id: user?.id || null,
+        lora_type: loraDetails.loraType,
+        lora_link: loraDetails.loraLink
       })
       .select()
       .single();
@@ -326,13 +327,13 @@ async function submitVideos(videos: any[], loraDetails: any, reviewerName: strin
     } else {
       logger.log(`Verified final asset state: ${JSON.stringify(checkAsset)}`);
     }
-  } catch (assetCreationError) {
-    logger.log(`Exception during asset creation process: ${JSON.stringify(assetCreationError)}`);
-    console.error('Exception during asset creation process:', assetCreationError);
-    throw assetCreationError;
+  } catch (error) {
+    logger.log(`Exception during asset creation process: ${JSON.stringify(error)}`);
+    console.error('Exception during asset creation process:', error);
+    throw error;
   }
   
   logger.log("Video submission completed successfully");
-}
+};
 
 export default UploadPage;
