@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
@@ -380,10 +379,6 @@ const AssetDetailPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Associated Videos</h2>
             </div>
-            
-            {/* Debug logging for upload button visibility */}
-            {console.log('User for upload button:', user)}
-            {console.log('Asset exists:', !!asset)}
             
             {user && asset && (
               <div className="mb-4">
