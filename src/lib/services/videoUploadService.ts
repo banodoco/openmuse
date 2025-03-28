@@ -71,10 +71,27 @@ class VideoUploadService {
       }
       
       let assetId = videoFile.metadata?.assetId;
+      let shouldUpdatePrimary = videoFile.metadata?.isPrimary || false;
       
       // If we have an assetId, this means we're adding to an existing asset
       if (assetId) {
         logger.log(`Adding media ${mediaData.id} to existing asset ${assetId}`);
+        
+        // Check if the asset already has a primary media before we decide to update
+        if (shouldUpdatePrimary) {
+          const { data: assetData } = await supabase
+            .from('assets')
+            .select('primary_media_id')
+            .eq('id', assetId)
+            .single();
+            
+          // If asset already has a primary media and we're not explicitly setting this as primary,
+          // then don't update the primary media
+          if (assetData?.primary_media_id && !videoFile.metadata?.isPrimary) {
+            logger.log(`Asset ${assetId} already has primary media ${assetData.primary_media_id}, keeping it`);
+            shouldUpdatePrimary = false;
+          }
+        }
         
         // Link to existing asset
         const { error: linkError } = await supabase
@@ -89,8 +106,9 @@ class VideoUploadService {
           throw linkError;
         }
         
-        // Update primary media if this is primary
-        if (videoFile.metadata?.isPrimary) {
+        // Update primary media if this is explicitly set as primary
+        if (shouldUpdatePrimary && videoFile.metadata?.isPrimary) {
+          logger.log(`Setting media ${mediaData.id} as primary for asset ${assetId}`);
           const { error: updateError } = await supabase
             .from('assets')
             .update({ primary_media_id: mediaData.id })
@@ -192,10 +210,27 @@ class VideoUploadService {
       }
       
       let assetId = entryData.metadata?.assetId;
+      let shouldUpdatePrimary = entryData.metadata?.isPrimary || false;
       
       // If we have an assetId, this means we're adding to an existing asset
       if (assetId) {
         logger.log(`Adding media ${mediaData.id} to existing asset ${assetId}`);
+        
+        // Check if the asset already has a primary media before we decide to update
+        if (shouldUpdatePrimary) {
+          const { data: assetData } = await supabase
+            .from('assets')
+            .select('primary_media_id')
+            .eq('id', assetId)
+            .single();
+            
+          // If asset already has a primary media and we're not explicitly setting this as primary,
+          // then don't update the primary media
+          if (assetData?.primary_media_id && !entryData.metadata?.isPrimary) {
+            logger.log(`Asset ${assetId} already has primary media ${assetData.primary_media_id}, keeping it`);
+            shouldUpdatePrimary = false;
+          }
+        }
         
         // Link to existing asset
         const { error: linkError } = await supabase
@@ -210,8 +245,9 @@ class VideoUploadService {
           throw linkError;
         }
         
-        // Update primary media if this is primary
-        if (entryData.metadata?.isPrimary) {
+        // Update primary media if this is explicitly set as primary
+        if (shouldUpdatePrimary && entryData.metadata?.isPrimary) {
+          logger.log(`Setting media ${mediaData.id} as primary for asset ${assetId}`);
           const { error: updateError } = await supabase
             .from('assets')
             .update({ primary_media_id: mediaData.id })

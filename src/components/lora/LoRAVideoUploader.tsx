@@ -69,6 +69,12 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
         videoUploadService.setCurrentUserId(user.id);
       }
 
+      console.log(`Uploading ${videosWithContent.length} videos for LoRA ${assetName} (${assetId})`);
+      
+      // Check if any video is marked as primary
+      // If none is explicitly marked, we should not force any to be primary
+      const hasPrimaryVideo = videosWithContent.some(v => v.metadata.isPrimary === true);
+      
       // Process and upload all videos
       const uploadPromises = videosWithContent.map(async (video) => {
         if (video.file) {
@@ -79,6 +85,8 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             assetId: assetId
           };
 
+          console.log(`Uploading video: isPrimary=${video.metadata.isPrimary}, title=${video.metadata.title}`);
+
           const videoFile: VideoFile = {
             id: video.id,
             blob: video.file,
@@ -88,6 +96,8 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
           return videoUploadService.uploadVideo(videoFile, username, user?.id);
         } else if (video.url) {
           // URL entry
+          console.log(`Adding video URL: isPrimary=${video.metadata.isPrimary}, title=${video.metadata.title}`);
+          
           return videoUploadService.addEntry({
             video_location: video.url,
             reviewer_name: username,
