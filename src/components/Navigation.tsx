@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -6,8 +5,7 @@ import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
 
-// Use the working logo path directly instead of importing it
-const logoPath = '/lovable-uploads/50b1d979-6d68-4f4a-a6cc-fcf4579bdfec.png';
+const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
