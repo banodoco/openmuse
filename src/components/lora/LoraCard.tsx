@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card } from "@/components/ui/card";
@@ -6,6 +7,7 @@ import { useNavigate } from 'react-router-dom';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
 import VideoPreview from '../VideoPreview';
+import { AspectRatio } from '@/components/ui/aspect-ratio';
 
 interface LoraCardProps {
   lora: LoraAsset;
@@ -69,32 +71,33 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
   
   return (
     <Card 
-      className={`overflow-visible h-full flex flex-col transition-all duration-300 ${isHovering ? 'z-50' : 'z-10'}`}
+      className={`overflow-hidden h-full flex flex-col transition-all duration-300 ${isHovering ? 'transform scale-110 shadow-lg z-20' : ''}`}
     >
       <div 
-        className="aspect-video relative cursor-pointer group" 
+        className="relative cursor-pointer group" 
         onClick={handleNavigate}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
       >
-        {isLoadingVideo ? (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
-            <FileVideo className="h-8 w-8 text-muted-foreground animate-pulse" />
-          </div>
-        ) : primaryVideoUrl ? (
-          <VideoPreview 
-            url={primaryVideoUrl} 
-            className="w-full h-full" 
-            title={lora.name}
-            creator={`By: ${lora.creator || 'Unknown'}`}
-            isHovering={isHovering}
-            expandOnHover={true}
-          />
-        ) : (
-          <div className="w-full h-full flex items-center justify-center bg-muted">
-            <FileVideo className="h-8 w-8 text-muted-foreground" />
-          </div>
-        )}
+        <AspectRatio ratio={16/9}>
+          {isLoadingVideo ? (
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <FileVideo className="h-8 w-8 text-muted-foreground animate-pulse" />
+            </div>
+          ) : primaryVideoUrl ? (
+            <VideoPreview 
+              url={primaryVideoUrl} 
+              className="w-full h-full" 
+              title={lora.name}
+              creator={`By: ${lora.creator || 'Unknown'}`}
+              isHovering={isHovering}
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-muted">
+              <FileVideo className="h-8 w-8 text-muted-foreground" />
+            </div>
+          )}
+        </AspectRatio>
       </div>
     </Card>
   );

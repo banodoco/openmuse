@@ -1,51 +1,30 @@
 
-import React, { useState } from 'react';
+import React from 'react';
 import { LoraAsset } from '@/lib/types';
 import LoraList from './lora/LoraList';
-import { Button } from './ui/button';
-import { RefreshCw } from 'lucide-react';
-import { cn } from '@/lib/utils';
+import LoadingState from './LoadingState';
 
 interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading: boolean;
-  refetchLoras: () => void;
+  refetchLoras: () => Promise<void>;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
-  loras, 
+  loras,
   isLoading,
   refetchLoras
 }) => {
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  
-  const handleRefresh = async () => {
-    setIsRefreshing(true);
-    await refetchLoras();
-    setIsRefreshing(false);
-  };
+  // Ensure loras is always an array
+  const safeLoraList = Array.isArray(loras) ? loras : [];
   
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-semibold tracking-tight">Available LoRAs</h2>
-        <Button 
-          onClick={handleRefresh} 
-          variant="outline" 
-          size="sm" 
-          disabled={isRefreshing || isLoading}
-          className="gap-2"
-        >
-          <RefreshCw className={cn("h-4 w-4", isRefreshing && "animate-spin")} />
-          Refresh
-        </Button>
-      </div>
-      
-      <div className="mb-12">
-        <LoraList 
-          loras={loras} 
-        />
-      </div>
+    <div className="mt-6">
+      {isLoading ? (
+        <LoadingState text="Loading LoRAs..." />
+      ) : (
+        <LoraList loras={safeLoraList} onRefresh={refetchLoras} />
+      )}
     </div>
   );
 };

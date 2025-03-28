@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -17,7 +18,6 @@ interface StorageVideoPlayerProps {
   previewMode?: boolean;
   showPlayButtonOnHover?: boolean;
   isHoveringExternally?: boolean;
-  expandOnHover?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
@@ -30,8 +30,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   playOnHover = false,
   previewMode = false,
   showPlayButtonOnHover = true,
-  isHoveringExternally,
-  expandOnHover = false
+  isHoveringExternally
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -46,27 +45,20 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
-      const prevHovering = isHovering;
       setIsHovering(isHoveringExternally);
-      
-      if (!prevHovering && isHoveringExternally) {
-        logger.log('StorageVideoPlayer: External hover state changed to true');
-      } else if (prevHovering && !isHoveringExternally) {
-        logger.log('StorageVideoPlayer: External hover state changed to false');
-      }
       
       const video = videoRef.current;
       if (video) {
-        if (isHoveringExternally && video.paused) {
-          logger.log('StorageVideoPlayer: External hover detected - attempting to play video');
+        if (isHoveringExternally && !video.paused) {
+          logger.log('External hover detected - attempting to play video');
           video.play().catch(e => logger.error('Error playing video on hover:', e));
         } else if (!isHoveringExternally && !video.paused) {
-          logger.log('StorageVideoPlayer: External hover ended - pausing video');
+          logger.log('External hover ended - pausing video');
           video.pause();
         }
       }
     }
-  }, [isHoveringExternally, isHovering]);
+  }, [isHoveringExternally]);
 
   useEffect(() => {
     let isMounted = true;
@@ -130,20 +122,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
     setRetryCount(prev => prev + 1);
   };
 
-  const handleMouseEnter = () => {
-    if (isHoveringExternally === undefined) {
-      logger.log('StorageVideoPlayer: Mouse entered - setting isHovering to true');
-      setIsHovering(true);
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (isHoveringExternally === undefined) {
-      logger.log('StorageVideoPlayer: Mouse left - setting isHovering to false');
-      setIsHovering(false);
-    }
-  };
-
   if (loading) {
     return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
   }
@@ -163,29 +141,21 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   }
 
   return (
-    <div 
-      ref={containerRef}
-      className="w-full h-full"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      <VideoPlayer
-        src={videoUrl}
-        className={className}
-        controls={controls}
-        autoPlay={autoPlay || isHovering}
-        muted={muted}
-        loop={loop}
-        playOnHover={playOnHover && isHoveringExternally === undefined}
-        onError={handleError}
-        showPlayButtonOnHover={showPlayButtonOnHover}
-        containerRef={containerRef}
-        videoRef={videoRef}
-        externallyControlled={isHoveringExternally !== undefined}
-        isHovering={isHovering}
-        expandOnHover={expandOnHover}
-      />
-    </div>
+    <VideoPlayer
+      src={videoUrl}
+      className={className}
+      controls={controls}
+      autoPlay={autoPlay || isHovering}
+      muted={muted}
+      loop={loop}
+      playOnHover={playOnHover && isHoveringExternally === undefined}
+      onError={handleError}
+      showPlayButtonOnHover={showPlayButtonOnHover}
+      containerRef={containerRef}
+      videoRef={videoRef}
+      externallyControlled={isHoveringExternally !== undefined}
+      isHovering={isHovering}
+    />
   );
 };
 

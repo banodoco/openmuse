@@ -5,9 +5,6 @@ import VideoPreviewError from './video/VideoPreviewError';
 import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
 import StandardVideoPreview from './video/StandardVideoPreview';
 import StorageVideoPlayer from './StorageVideoPlayer';
-import { Logger } from '@/lib/logger';
-
-const logger = new Logger('VideoPreview');
 
 interface VideoPreviewProps {
   file?: File;
@@ -16,17 +13,19 @@ interface VideoPreviewProps {
   title?: string;
   creator?: string;
   isHovering?: boolean;
-  expandOnHover?: boolean;
 }
 
+/**
+ * VideoPreview component for displaying video previews with thumbnail generation
+ * and play on hover functionality.
+ */
 const VideoPreview: React.FC<VideoPreviewProps> = ({ 
   file, 
   url, 
   className,
   title,
   creator,
-  isHovering: externalHoverState,
-  expandOnHover = false 
+  isHovering: externalHoverState 
 }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
@@ -37,21 +36,17 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const previewRef = useRef<HTMLDivElement>(null);
   
-  // Synchronize hover state with external hover state
   useEffect(() => {
     if (externalHoverState !== undefined) {
-      const prevHover = isHovering;
       setIsHovering(externalHoverState);
       
-      if (!prevHover && externalHoverState) {
-        logger.log('VideoPreview: External hover state changed to true');
+      if (externalHoverState) {
         setIsPlaying(true);
-      } else if (prevHover && !externalHoverState) {
-        logger.log('VideoPreview: External hover state changed to false');
+      } else {
         setIsPlaying(false);
       }
     }
-  }, [externalHoverState, isHovering]);
+  }, [externalHoverState]);
   
   useEffect(() => {
     if (file) {
@@ -84,7 +79,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const handleMouseEnter = () => {
     if (externalHoverState === undefined) {
-      logger.log('VideoPreview: Mouse entered - setting isHovering to true');
       setIsHovering(true);
       setIsPlaying(true);
     }
@@ -92,7 +86,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
 
   const handleMouseLeave = () => {
     if (externalHoverState === undefined) {
-      logger.log('VideoPreview: Mouse left - setting isHovering to false');
       setIsHovering(false);
       setIsPlaying(false);
     }
@@ -105,7 +98,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   return (
     <div 
       ref={previewRef}
-      className={`relative rounded-md overflow-visible aspect-video ${className}`}
+      className={`relative rounded-md overflow-hidden aspect-video ${className} transition-all duration-300 ${isHovering ? 'transform scale-105' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
@@ -127,8 +120,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
-          isHovering={isHovering}
-          expandOnHover={expandOnHover}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -141,7 +132,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           showPlayButtonOnHover={false}
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
-          expandOnHover={expandOnHover}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -154,7 +144,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
           showPlayButtonOnHover={false}
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
-          expandOnHover={expandOnHover}
         />
       ) : null}
 

@@ -29,24 +29,22 @@ export const useVideoHover = (
     }
     
     const handleMouseEnter = () => {
-      logger.log('useVideoHover: Mouse entered video container');
+      logger.log('Mouse entered video container');
       if (video.paused) {
-        logger.log('useVideoHover: Attempting to play video on hover');
+        logger.log('Attempting to play video on hover');
         video.play().catch(e => {
-          logger.warn('useVideoHover: Play on hover prevented:', e);
+          logger.warn('Play on hover prevented:', e);
         });
       }
     };
     
     const handleMouseLeave = () => {
-      logger.log('useVideoHover: Mouse left video container');
+      logger.log('Mouse left video container');
       if (!video.paused) {
-        logger.log('useVideoHover: Pausing video');
         video.pause();
         
         if (resetOnLeave) {
           // Reset to the beginning for a consistent preview
-          logger.log('useVideoHover: Resetting video to beginning');
           video.currentTime = 0;
         }
       }

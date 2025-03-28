@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -19,7 +20,6 @@ interface StandardVideoPreviewProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   isHovering?: boolean;
-  expandOnHover?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -29,8 +29,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   videoId,
   onRefresh,
   isRefreshing = false,
-  isHovering = false,
-  expandOnHover = false
+  isHovering = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -39,32 +38,25 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(url);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
-  const [hover, setHover] = useState(isHovering);
   
-  useEffect(() => {
-    const prevHover = hover;
-    setHover(isHovering);
-    
-    if (!prevHover && isHovering) {
-      logger.log('StandardVideoPreview: External hover state changed to true');
-    } else if (prevHover && !isHovering) {
-      logger.log('StandardVideoPreview: External hover state changed to false');
-    }
-  }, [isHovering, hover]);
-  
+  // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
   
+  // Check URL validity on mount and when URL changes
   useEffect(() => {
+    // If there's no URL, don't even try to show anything
     if (!url) {
       setIsValidUrl(false);
       return;
     }
     
+    // For blob URLs, always consider them valid for preview purposes
     if (isBlobUrl) {
       setIsValidUrl(true);
       return;
     }
     
+    // For other URLs, check if they're valid video URLs
     if (isValidVideoUrl(url)) {
       setIsValidUrl(true);
     } else {
@@ -72,6 +64,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     }
   }, [url, isBlobUrl]);
   
+  // Update currentUrl whenever the url prop changes
   useEffect(() => {
     setCurrentUrl(url);
   }, [url]);
@@ -87,6 +80,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     logger.error(`Error count: ${errorCount + 1}`);
     logger.error(`Time since last error: ${lastErrorTime ? now - lastErrorTime : 'first error'} ms`);
     
+    // Extract any potential details from the error message
     if (msg.includes(':')) {
       const parts = msg.split(':');
       setErrorDetails(parts.slice(1).join(':').trim());
@@ -101,32 +95,19 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setCurrentError(null);
     setErrorDetails(null);
     
+    // If onRefresh is provided, call it
     if (onRefresh) {
       onRefresh();
     }
   };
 
-  const handleMouseEnter = () => {
-    logger.log('StandardVideoPreview: Mouse entered - setting hover state to true');
-    setHover(true);
-  };
-
-  const handleMouseLeave = () => {
-    logger.log('StandardVideoPreview: Mouse left - setting hover state to false');
-    setHover(false);
-  };
-
+  // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
     return null;
   }
 
   return (
-    <div 
-      ref={containerRef} 
-      className="w-full h-full relative"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
+    <div ref={containerRef} className={`w-full h-full relative transition-all duration-300 ${isHovering ? 'transform scale-105' : ''}`}>
       {currentError ? (
         <VideoPreviewError
           error={currentError}
@@ -140,14 +121,13 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           controls={false}
           autoPlay={false}
           muted={true}
-          className="w-full h-full object-cover transition-all duration-300"
+          className="w-full h-full object-cover"
           onError={handleError}
           poster={posterUrl || undefined}
           playOnHover={true}
           containerRef={containerRef}
           showPlayButtonOnHover={false}
-          isHovering={hover}
-          expandOnHover={expandOnHover}
+          isHovering={isHovering}
         />
       )}
       
