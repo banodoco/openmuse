@@ -40,7 +40,7 @@ const Navigation: React.FC = () => {
           <img 
             src={openMuseLogo} 
             alt="OpenMuse Logo" 
-            className="h-24 w-auto" // Increased from h-16 to h-24
+            className="h-20 w-auto" // Updated from h-24 to h-20
           />
         </Link>
         
