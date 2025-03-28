@@ -16,7 +16,7 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [filterText, setFilterText] = useState('');
-  const [approvalFilter, setApprovalFilter] = useState('approved');
+  const [approvalFilter, setApprovalFilter] = useState('curated');
   const [refreshing, setRefreshing] = useState(false);
   
   const handleRefresh = async () => {
@@ -48,7 +48,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     if (approvalFilter !== 'all') {
       const primaryVideo = lora.primaryVideo;
       
-      if (approvalFilter === 'approved' || approvalFilter === 'curated') {
+      if (approvalFilter === 'curated') {
         matchesApproval = !!primaryVideo && primaryVideo.admin_approved === true;
       } else if (approvalFilter === 'pending') {
         matchesApproval = !!primaryVideo && primaryVideo.admin_approved === null;
@@ -81,7 +81,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
-              <SelectItem value="approved">Curated</SelectItem>
+              <SelectItem value="curated">Curated</SelectItem>
               <SelectItem value="pending">Pending</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
@@ -113,7 +113,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
               <FileVideo className="h-12 w-12 mx-auto text-muted-foreground" />
               <h3 className="mt-2 text-lg font-medium">No LoRAs found</h3>
               <p className="text-muted-foreground">
-                {filterText || approvalFilter !== 'approved' 
+                {filterText || approvalFilter !== 'curated' 
                   ? "Try different filter settings" 
                   : "Upload some LoRAs to get started"}
               </p>
