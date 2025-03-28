@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -54,6 +55,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
   const [hover, setHover] = useState(isHovering);
+  // Add the missing state variable
+  const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => {
     logger.log(`VideoPlayer: Initial hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
