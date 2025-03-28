@@ -1,8 +1,6 @@
-
 import React, { useState, useEffect } from 'react';
-import { LoraAsset, VideoEntry } from '@/lib/types';
+import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from '@/components/ui/button';
 import { ArrowUpRight, FileVideo } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { videoUrlService } from '@/lib/services/videoUrlService';
@@ -19,6 +17,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
   const navigate = useNavigate();
   const [primaryVideoUrl, setPrimaryVideoUrl] = useState<string | null>(null);
   const [isLoadingVideo, setIsLoadingVideo] = useState(true);
+  const [isHovering, setIsHovering] = useState(false);
   
   useEffect(() => {
     const loadPrimaryVideoUrl = async () => {
@@ -33,9 +32,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
             logger.warn(`Empty or invalid URL returned for LoRA ${lora.name}`);
           }
         } else {
-          // Try to get URL from other videos associated with this LoRA
           if (lora.videos && lora.videos.length > 0) {
-            // Find first video that isn't rejected
             const firstVideo = lora.videos.find(v => v.admin_approved !== 'Rejected');
             if (firstVideo) {
               const url = await videoUrlService.getVideoUrl(firstVideo.video_location);
@@ -62,18 +59,30 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
   
   return (
     <Card className="overflow-hidden h-full flex flex-col">
-      <div className="aspect-video relative">
+      <div 
+        className="aspect-video relative cursor-pointer group" 
+        onClick={handleNavigate}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
         {isLoadingVideo ? (
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <FileVideo className="h-8 w-8 text-muted-foreground animate-pulse" />
           </div>
         ) : primaryVideoUrl ? (
-          <VideoPreview 
-            url={primaryVideoUrl} 
-            className="w-full h-full" 
-            title={lora.name}
-            creator={lora.creator || 'Unknown'}
-          />
+          <>
+            <VideoPreview 
+              url={primaryVideoUrl} 
+              className="w-full h-full" 
+              title={lora.name}
+              creator={`By: ${lora.creator || 'Unknown'}`}
+            />
+            <div className={`absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-all duration-300 flex items-center justify-center`}>
+              <div className="bg-white bg-opacity-0 group-hover:bg-opacity-70 rounded-full p-2 transform scale-0 group-hover:scale-100 transition-all duration-300">
+                <ArrowUpRight className="h-5 w-5 text-primary" />
+              </div>
+            </div>
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <FileVideo className="h-8 w-8 text-muted-foreground" />
@@ -88,24 +97,6 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
           </CardTitle>
         </div>
       </CardHeader>
-      
-      <CardContent className="px-4 py-2 text-sm flex-grow">
-        <div className="flex justify-between">
-          <span className="text-muted-foreground">Created by:</span>
-          <span className="font-medium">{lora.creator || 'Unknown'}</span>
-        </div>
-      </CardContent>
-      
-      <CardFooter className="px-4 py-3 border-t">
-        <Button
-          onClick={handleNavigate}
-          className="w-full"
-          variant="default"
-        >
-          <ArrowUpRight className="mr-2 h-4 w-4" />
-          View Details
-        </Button>
-      </CardFooter>
     </Card>
   );
 };

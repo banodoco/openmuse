@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -141,7 +140,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
       {/* Creator overlay in bottom right corner */}
       {creator && (
         <div className={`absolute bottom-2 right-2 z-20 px-3 py-1.5 bg-white bg-opacity-70 rounded transition-opacity duration-300 ${isHovering ? 'opacity-30' : 'opacity-90'}`}>
-          <p className="text-xs text-gray-800">Created by: {creator}</p>
+          <p className="text-xs text-gray-800">{creator}</p>
         </div>
       )}
     </div>
