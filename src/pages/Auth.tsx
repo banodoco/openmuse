@@ -4,7 +4,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { signInWithDiscord } from '@/lib/auth';
 import { toast } from 'sonner';
-import Navigation from '@/components/Navigation';
+import Navigation, { Footer } from '@/components/Navigation';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 
@@ -174,7 +174,7 @@ const Auth: React.FC = () => {
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">Sign In</h1>
             <p className="text-muted-foreground">
-              Sign in to VideoResponse to upload and react to videos
+              Sign in to OpenMuse to upload and react to videos
             </p>
           </div>
           
@@ -199,6 +199,8 @@ const Auth: React.FC = () => {
           </Button>
         </div>
       </main>
+      
+      <Footer />
     </div>
   );
 };
