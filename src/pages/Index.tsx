@@ -23,6 +23,11 @@ const Index = () => {
     refetchLoras
   } = useLoraManagement();
   
+  // Filter to show only curated LoRAs (those with admin_approved=true)
+  const curatedLoras = React.useMemo(() => {
+    return loras.filter(lora => lora.admin_approved === true);
+  }, [loras]);
+  
   // Add a timeout to prevent infinite loading
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -61,7 +66,7 @@ const Index = () => {
           />
           
           <LoraManager 
-            loras={loras} // Pass all LoRAs, let the LoraList handle filtering
+            loras={curatedLoras} // Use LoRAs filtered by admin_approved=true on homepage
             isLoading={isLoading}
             refetchLoras={refetchLoras}
           />

@@ -49,14 +49,20 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       return matchesText;
     }
     
+    // Check LoRA approval status first (if available), otherwise fall back to primary video status
+    const loraStatus = lora.admin_approved;
     const primaryVideo = lora.primaryVideo;
+    const primaryVideoStatus = primaryVideo?.admin_approved;
+    
+    // Use LoRA status if it exists, otherwise use primary video status
+    const effectiveStatus = loraStatus !== undefined ? loraStatus : primaryVideoStatus;
     
     if (approvalFilter === 'curated') {
-      return matchesText && !!primaryVideo && primaryVideo.admin_approved === true;
+      return matchesText && effectiveStatus === true;
     } else if (approvalFilter === 'pending') {
-      return matchesText && !!primaryVideo && primaryVideo.admin_approved === null;
+      return matchesText && effectiveStatus === null;
     } else if (approvalFilter === 'rejected') {
-      return matchesText && !!primaryVideo && primaryVideo.admin_approved === false;
+      return matchesText && effectiveStatus === false;
     }
     
     return matchesText; // Fallback (shouldn't reach here)
@@ -66,6 +72,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   console.log('Total LoRAs:', loras.length);
   console.log('Filtered LoRAs:', filteredLoras.length);
   console.log('Current approval filter:', approvalFilter);
+  console.log('LoRAs with direct admin_approved field:', loras.filter(l => l.admin_approved !== undefined).length);
 
   return (
     <div className="w-full">
