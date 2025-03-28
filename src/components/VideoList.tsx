@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -309,26 +308,6 @@ const VideoList: React.FC<VideoListProps> = ({
                     className="ml-2"
                   />
                 </div>
-                
-                <div className="flex flex-wrap items-center gap-1 mt-1">
-                  {video.metadata?.model && (
-                    <Badge variant="outline" className="rounded-sm text-xs">
-                      {formatModelName(video.metadata.model)}
-                    </Badge>
-                  )}
-                  {getStatusBadge(video.admin_approved)}
-                  {video.metadata?.isPrimary && (
-                    <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-300 text-xs">
-                      Primary
-                    </Badge>
-                  )}
-                </div>
-                
-                {video.metadata?.description && (
-                  <CardDescription className="line-clamp-2 mt-1 text-xs">
-                    {video.metadata.description}
-                  </CardDescription>
-                )}
               </CardHeader>
               
               <CardContent className="px-4 py-2 text-xs">
@@ -341,25 +320,6 @@ const VideoList: React.FC<VideoListProps> = ({
                         : video.metadata?.creatorName || 'Unknown'}
                     </span>
                   </div>
-                  
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Uploaded by:</span>
-                    <span className="font-medium">{video.reviewer_name}</span>
-                  </div>
-                  
-                  {video.metadata?.url && (
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">URL:</span>
-                      <a 
-                        href={video.metadata.url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-primary hover:underline truncate max-w-[180px]"
-                      >
-                        {video.metadata.url}
-                      </a>
-                    </div>
-                  )}
                 </div>
               </CardContent>
               
