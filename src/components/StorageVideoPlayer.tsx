@@ -16,6 +16,7 @@ interface StorageVideoPlayerProps {
   loop?: boolean;
   playOnHover?: boolean;
   previewMode?: boolean;
+  showPlayButtonOnHover?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
@@ -26,7 +27,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
   muted = true,
   loop = false,
   playOnHover = false,
-  previewMode = false
+  previewMode = false,
+  showPlayButtonOnHover = true
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -131,6 +133,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = ({
       loop={loop}
       playOnHover={playOnHover}
       onError={handleError}
+      showPlayButtonOnHover={showPlayButtonOnHover}
     />
   );
 };
