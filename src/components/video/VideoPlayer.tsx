@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -222,7 +221,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     <div 
       ref={containerRef} 
       className={cn(
-        "relative w-full h-full overflow-hidden rounded-lg",
+        "relative w-full h-full rounded-lg overflow-hidden",
         expandOnHover && hover ? "z-50" : "z-10"
       )}
     >
@@ -240,8 +239,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <video
         ref={videoRef}
         className={cn(
-          "w-full h-full transition-all duration-300",
-          hover && expandOnHover ? "scale-150 origin-center" : "scale-100",
+          "w-full h-full object-cover transition-all duration-300",
+          hover && expandOnHover ? "scale-125 origin-center" : "scale-100",
           className
         )}
         autoPlay={autoPlay && !playOnHover && !externallyControlled}
@@ -253,9 +252,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         preload="auto"
         src={src}
         crossOrigin="anonymous"
-        style={{
-          objectFit: hover && expandOnHover ? 'contain' : 'cover'
-        }}
       >
         Your browser does not support the video tag.
       </video>
