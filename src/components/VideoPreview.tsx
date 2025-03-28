@@ -10,19 +10,21 @@ interface VideoPreviewProps {
   file?: File;
   url?: string;
   className?: string;
+  title?: string; // Added title prop for overlay
 }
 
 /**
  * VideoPreview component for displaying video previews with thumbnail generation
  * and play on hover functionality.
  */
-const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
+const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className, title }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -55,6 +57,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     setPosterUrl(thumbnailUrl);
   };
 
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+  };
+
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
@@ -63,7 +73,19 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
+      <div className={`absolute inset-0 bg-black transition-opacity duration-300 z-10 pointer-events-none ${isHovering ? 'opacity-0' : 'opacity-40'}`}></div>
+      
+      {title && (
+        <div className={`absolute bottom-0 left-0 right-0 z-20 p-3 transition-opacity duration-300 pointer-events-none ${isHovering ? 'opacity-0' : 'opacity-100'}`}>
+          <h3 className="text-white/90 font-semibold text-sm md:text-base truncate shadow-text bg-black/30 px-2 py-1 rounded-sm backdrop-blur-sm">
+            {title}
+          </h3>
+        </div>
+      )}
+      
       <VideoThumbnailGenerator 
         file={file}
         url={url}

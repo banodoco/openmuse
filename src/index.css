@@ -93,6 +93,11 @@
     backdrop-filter: blur(10px);
     -webkit-backdrop-filter: blur(10px);
   }
+
+  /* Text shadow utility for better readability on image/video backgrounds */
+  .shadow-text {
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.7);
+  }
 }
 
 /* Video recording specific styles */
