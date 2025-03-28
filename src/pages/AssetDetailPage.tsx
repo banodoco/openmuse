@@ -307,6 +307,16 @@ const AssetDetailPage: React.FC = () => {
             Back
           </Button>
           <h1 className="text-2xl font-bold">Asset Details</h1>
+          
+          {user && (
+            <div className="ml-auto">
+              <LoRAVideoUploader 
+                assetId={asset.id} 
+                assetName={asset.name || ''} 
+                onUploadsComplete={fetchAssetDetails} 
+              />
+            </div>
+          )}
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -378,13 +388,6 @@ const AssetDetailPage: React.FC = () => {
           <div className="md:col-span-2">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Associated Videos</h2>
-              {user && (
-                <LoRAVideoUploader 
-                  assetId={asset.id} 
-                  assetName={asset.name || ''} 
-                  onUploadsComplete={fetchAssetDetails} 
-                />
-              )}
             </div>
             
             {videos.length > 0 ? (
