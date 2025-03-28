@@ -10,19 +10,28 @@ interface VideoPreviewProps {
   file?: File;
   url?: string;
   className?: string;
+  title?: string;
+  creator?: string;
 }
 
 /**
  * VideoPreview component for displaying video previews with thumbnail generation
  * and play on hover functionality.
  */
-const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => {
+const VideoPreview: React.FC<VideoPreviewProps> = ({ 
+  file, 
+  url, 
+  className,
+  title,
+  creator 
+}) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [isHovering, setIsHovering] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -55,6 +64,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     setPosterUrl(thumbnailUrl);
   };
 
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+    setIsPlaying(true);
+  };
+
+  const handleMouseLeave = () => {
+    setIsHovering(false);
+    setIsPlaying(false);
+  };
+
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
@@ -63,6 +82,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
     >
       <VideoThumbnailGenerator 
         file={file}
@@ -102,13 +123,27 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({ file, url, className }) => 
           controls={true}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}
+          playOnHover={isHovering}
           previewMode={false}
           showPlayButtonOnHover={false}
         />
       ) : null}
 
       {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} canRecover={false} />}
+      
+      {/* Title overlay in top left corner */}
+      {title && (
+        <div className={`absolute top-2 left-2 z-20 px-3 py-1.5 bg-white bg-opacity-70 rounded transition-opacity duration-300 ${isHovering ? 'opacity-30' : 'opacity-90'}`}>
+          <p className="text-sm font-medium text-gray-900 truncate max-w-[200px]">{title}</p>
+        </div>
+      )}
+      
+      {/* Creator overlay in bottom right corner */}
+      {creator && (
+        <div className={`absolute bottom-2 right-2 z-20 px-3 py-1.5 bg-white bg-opacity-70 rounded transition-opacity duration-300 ${isHovering ? 'opacity-30' : 'opacity-90'}`}>
+          <p className="text-xs text-gray-800">Created by: {creator}</p>
+        </div>
+      )}
     </div>
   );
 };
