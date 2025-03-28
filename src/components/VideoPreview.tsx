@@ -98,7 +98,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   return (
     <div 
       ref={previewRef}
-      className={`relative rounded-md overflow-hidden aspect-video ${className} transition-all duration-300`}
+      className={`relative rounded-md overflow-hidden aspect-video ${className} transition-all duration-300 ${isHovering ? 'transform scale-105' : ''}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
