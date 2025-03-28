@@ -72,8 +72,37 @@ class VideoUploadService {
       
       let assetId = videoFile.metadata?.assetId;
       
-      // Create or link asset if needed
-      if (videoFile.metadata?.loraName && !assetId) {
+      // If we have an assetId, this means we're adding to an existing asset
+      if (assetId) {
+        logger.log(`Adding media ${mediaData.id} to existing asset ${assetId}`);
+        
+        // Link to existing asset
+        const { error: linkError } = await supabase
+          .from('asset_media')
+          .insert({
+            asset_id: assetId,
+            media_id: mediaData.id
+          });
+          
+        if (linkError) {
+          logger.error('Error linking media to asset:', linkError);
+          throw linkError;
+        }
+        
+        // Update primary media if this is primary
+        if (videoFile.metadata?.isPrimary) {
+          const { error: updateError } = await supabase
+            .from('assets')
+            .update({ primary_media_id: mediaData.id })
+            .eq('id', assetId);
+            
+          if (updateError) {
+            logger.error('Error updating primary media:', updateError);
+          }
+        }
+      } 
+      // Create a new asset if we don't have an assetId but have a loraName
+      else if (videoFile.metadata?.loraName) {
         // Create new asset
         const { data: assetData, error: assetError } = await supabase
           .from('assets')
@@ -104,22 +133,6 @@ class VideoUploadService {
               asset_id: assetId,
               media_id: mediaData.id
             });
-        }
-      } else if (assetId) {
-        // Link to existing asset
-        await supabase
-          .from('asset_media')
-          .insert({
-            asset_id: assetId,
-            media_id: mediaData.id
-          });
-        
-        // Update primary media if this is primary
-        if (videoFile.metadata?.isPrimary) {
-          await supabase
-            .from('assets')
-            .update({ primary_media_id: mediaData.id })
-            .eq('id', assetId);
         }
       }
 
@@ -180,8 +193,37 @@ class VideoUploadService {
       
       let assetId = entryData.metadata?.assetId;
       
-      // Create or update asset if needed
-      if (entryData.metadata?.loraName && !assetId) {
+      // If we have an assetId, this means we're adding to an existing asset
+      if (assetId) {
+        logger.log(`Adding media ${mediaData.id} to existing asset ${assetId}`);
+        
+        // Link to existing asset
+        const { error: linkError } = await supabase
+          .from('asset_media')
+          .insert({
+            asset_id: assetId,
+            media_id: mediaData.id
+          });
+          
+        if (linkError) {
+          logger.error('Error linking media to asset:', linkError);
+          throw linkError;
+        }
+        
+        // Update primary media if this is primary
+        if (entryData.metadata?.isPrimary) {
+          const { error: updateError } = await supabase
+            .from('assets')
+            .update({ primary_media_id: mediaData.id })
+            .eq('id', assetId);
+            
+          if (updateError) {
+            logger.error('Error updating primary media:', updateError);
+          }
+        }
+      } 
+      // Create a new asset if we don't have an assetId but have a loraName
+      else if (entryData.metadata?.loraName) {
         // Create new asset
         const { data: assetData, error: assetError } = await supabase
           .from('assets')
@@ -209,22 +251,6 @@ class VideoUploadService {
               asset_id: assetId,
               media_id: mediaData.id
             });
-        }
-      } else if (assetId) {
-        // Link to existing asset
-        await supabase
-          .from('asset_media')
-          .insert({
-            asset_id: assetId,
-            media_id: mediaData.id
-          });
-        
-        // Update primary media if this is primary
-        if (entryData.metadata?.isPrimary) {
-          await supabase
-            .from('assets')
-            .update({ primary_media_id: mediaData.id })
-            .eq('id', assetId);
         }
       }
       
