@@ -152,7 +152,9 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
             creator: entry.metadata.creatorName || entry.reviewer_name,
             user_id: entry.user_id || this.currentUserId,
             primary_media_id: mediaData.id,
-            admin_approved: 'Listed' // Default to Listed
+            admin_approved: 'Listed', // Default to Listed
+            lora_type: entry.metadata.loraType,
+            lora_link: entry.metadata.loraLink
           })
           .select()
           .single();

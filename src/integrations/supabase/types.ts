@@ -52,6 +52,8 @@ export type Database = {
           creator: string | null
           description: string | null
           id: string
+          lora_link: string | null
+          lora_type: string | null
           name: string
           primary_media_id: string | null
           type: string
@@ -63,6 +65,8 @@ export type Database = {
           creator?: string | null
           description?: string | null
           id?: string
+          lora_link?: string | null
+          lora_type?: string | null
           name: string
           primary_media_id?: string | null
           type: string
@@ -74,6 +78,8 @@ export type Database = {
           creator?: string | null
           description?: string | null
           id?: string
+          lora_link?: string | null
+          lora_type?: string | null
           name?: string
           primary_media_id?: string | null
           type?: string

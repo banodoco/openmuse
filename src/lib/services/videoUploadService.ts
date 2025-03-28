@@ -252,7 +252,9 @@ class VideoUploadService {
     loraName: string,
     loraDescription: string = '',
     creatorName: string,
-    userId: string | null
+    userId: string | null,
+    loraType?: string,
+    loraLink?: string
   ): Promise<string> {
     logger.log(`Creating new asset for LoRA: ${loraName}`);
     
@@ -266,7 +268,9 @@ class VideoUploadService {
           creator: creatorName,
           user_id: userId,
           primary_media_id: mediaId,
-          admin_approved: 'Listed'
+          admin_approved: 'Listed',
+          lora_type: loraType,
+          lora_link: loraLink
         })
         .select()
         .single();
