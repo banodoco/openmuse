@@ -53,6 +53,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
   const [hover, setHover] = useState(isHovering);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+
+  // Add debug logs for hover state changes
+  useEffect(() => {
+    logger.log(`VideoPlayer: Initial hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
+  }, []);
 
   // Sync external hover state
   useEffect(() => {
@@ -61,8 +67,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     
     if (!prevHover && isHovering) {
       logger.log('VideoPlayer: External hover state changed to true');
+      logger.log('VideoPlayer: Video should now expand to show full content');
     } else if (prevHover && !isHovering) {
       logger.log('VideoPlayer: External hover state changed to false');
+      logger.log('VideoPlayer: Video should revert to normal display');
     }
   }, [isHovering, hover]);
 
@@ -117,6 +125,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
+    setVideoLoaded(false);
     
     if (!src) {
       logger.log('No source provided to VideoPlayer');
@@ -137,6 +146,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleLoadedData = () => {
       logger.log(`Video loaded successfully: ${src.substring(0, 30)}...`);
       setIsLoading(false);
+      setVideoLoaded(true);
       if (onLoadedData) onLoadedData();
       
       // Don't autoplay if we're using hover to play
@@ -237,8 +247,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <video
         ref={videoRef}
         className={cn(
-          "w-full h-full object-cover transition-all duration-300",
-          isHovering ? "object-contain" : "object-cover",
+          "w-full h-full transition-all duration-300",
+          hover ? "object-contain transform-gpu scale-100" : "object-cover",
+          videoLoaded && hover ? "scale-100" : "",
           className
         )}
         autoPlay={autoPlay && !playOnHover && !externallyControlled}
@@ -250,6 +261,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         preload="auto"
         src={src}
         crossOrigin="anonymous"
+        style={{
+          objectFit: hover ? 'contain' : 'cover'
+        }}
       >
         Your browser does not support the video tag.
       </video>

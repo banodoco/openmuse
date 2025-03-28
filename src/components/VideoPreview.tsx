@@ -39,6 +39,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const previewRef = useRef<HTMLDivElement>(null);
   
+  // Synchronize hover state with external hover state
   useEffect(() => {
     if (externalHoverState !== undefined) {
       const prevHover = isHovering;
