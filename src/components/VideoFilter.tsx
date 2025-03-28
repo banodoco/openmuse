@@ -44,9 +44,13 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
         <Button
           type="button"
           onClick={() => setVideoFilter('curated')}
+          style={{
+            backgroundColor: videoFilter === 'curated' ? '#FEF7CD' : '',
+            color: videoFilter === 'curated' ? '#1A2D10' : '',
+          }}
           className={`
             ${videoFilter === 'curated' 
-              ? 'bg-[#FEF7CD] text-forest-dark hover:bg-[#FEF7CD]' 
+              ? '!bg-[#FEF7CD] !text-forest-dark hover:!bg-[#FEF7CD]' 
               : 'bg-muted hover:bg-muted/80'
             }
           `}
@@ -57,9 +61,13 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
         <Button
           type="button"
           onClick={() => setVideoFilter('listed')}
+          style={{
+            backgroundColor: videoFilter === 'listed' ? '#FEF7CD' : '',
+            color: videoFilter === 'listed' ? '#1A2D10' : '',
+          }}
           className={`
             ${videoFilter === 'listed' 
-              ? 'bg-[#FEF7CD] text-forest-dark hover:bg-[#FEF7CD]' 
+              ? '!bg-[#FEF7CD] !text-forest-dark hover:!bg-[#FEF7CD]' 
               : 'bg-muted hover:bg-muted/80'
             }
           `}
@@ -71,9 +79,13 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
           <Button
             type="button"
             onClick={() => setVideoFilter('rejected')}
+            style={{
+              backgroundColor: videoFilter === 'rejected' ? '#FEF7CD' : '',
+              color: videoFilter === 'rejected' ? '#1A2D10' : '',
+            }}
             className={`
               ${videoFilter === 'rejected' 
-                ? 'bg-[#FEF7CD] text-forest-dark hover:bg-[#FEF7CD]' 
+                ? '!bg-[#FEF7CD] !text-forest-dark hover:!bg-[#FEF7CD]' 
                 : 'bg-muted hover:bg-muted/80'
               }
             `}
