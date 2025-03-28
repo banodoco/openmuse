@@ -1,6 +1,6 @@
 
 import React, { useRef, useState, useEffect } from 'react';
-import { Play, FileVideo, Eye } from 'lucide-react';
+import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
 import { Link } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -17,13 +17,17 @@ interface StandardVideoPreviewProps {
   posterUrl: string | null;
   onError: (msg: string) => void;
   videoId?: string;
+  onRefresh?: () => void;
+  isRefreshing?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   url,
   posterUrl,
   onError,
-  videoId
+  videoId,
+  onRefresh,
+  isRefreshing = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -88,6 +92,11 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setErrorCount(0);
     setCurrentError(null);
     setErrorDetails(null);
+    
+    // If onRefresh is provided, call it
+    if (onRefresh) {
+      onRefresh();
+    }
   };
 
   // If URL is not valid, return null instead of showing empty player
@@ -126,6 +135,21 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
               View
             </Button>
           </Link>
+        </div>
+      )}
+      
+      {onRefresh && currentError && (
+        <div className="absolute top-2 right-2 z-10">
+          <Button 
+            size="sm" 
+            variant="secondary" 
+            className="gap-1 opacity-90 hover:opacity-100"
+            onClick={onRefresh}
+            disabled={isRefreshing}
+          >
+            <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
+            {isRefreshing ? "Refreshing..." : "Refresh URL"}
+          </Button>
         </div>
       )}
     </div>

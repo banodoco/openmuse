@@ -168,6 +168,39 @@ export class VideoUrlService {
     this.logger.error(`No URL found for ID: ${videoId}`);
     return '';
   }
+  
+  // Add a method to force refresh a URL (needed for LoraCard)
+  async forceRefreshUrl(videoLocation: string): Promise<string> {
+    if (!videoLocation) return '';
+    
+    this.logger.log(`Force refreshing URL for: ${videoLocation.substring(0, 30)}...`);
+    
+    // For blob URLs, we can't refresh them - they're temporary by nature
+    if (videoLocation.startsWith('blob:')) {
+      this.logger.warn(`Cannot refresh blob URL: ${videoLocation.substring(0, 30)}...`);
+      return '';
+    }
+    
+    // For database IDs, try to get a fresh URL
+    try {
+      // Extract UUID if present in the path
+      const uuidMatch = videoLocation.match(/\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/);
+      const possibleId = uuidMatch ? uuidMatch[1] : null;
+      
+      if (possibleId) {
+        const freshUrl = await this.lookupUrlFromDatabase(possibleId);
+        if (freshUrl) {
+          this.logger.log(`Refreshed URL found: ${freshUrl.substring(0, 30)}...`);
+          return freshUrl;
+        }
+      }
+    } catch (error) {
+      this.logger.error('Error force refreshing URL:', error);
+    }
+    
+    // If all else fails, return the original location
+    return videoLocation;
+  }
 }
 
 export const videoUrlService = new VideoUrlService();
