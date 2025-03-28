@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Button } from '@/components/ui/button';
 import { X } from 'lucide-react';
@@ -54,9 +53,20 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   }, []);
 
   React.useEffect(() => {
-    const hasEmptySlot = videos.some(v => !v.file && !v.url);
+    // Ensure only one empty slot exists
+    const emptySlots = videos.filter(v => !v.file && !v.url);
     
-    if (!hasEmptySlot) {
+    if (emptySlots.length > 1) {
+      // Remove extra empty slots, keeping only the last one
+      setVideos(prev => {
+        const withContent = prev.filter(v => v.file || v.url);
+        const lastEmptySlot = [...prev].reverse().find(v => !v.file && !v.url);
+        return [...withContent, lastEmptySlot!];
+      });
+    }
+    
+    // If no empty slots exist, add one
+    if (emptySlots.length === 0) {
       setVideos(prev => [...prev, {
         id: crypto.randomUUID(),
         file: null,
@@ -276,13 +286,11 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     );
   };
 
-  const videosWithContent = videos.filter(v => v.file || v.url);
-  const emptyVideoSlots = videos.filter(v => !v.file && !v.url);
-
   return (
     <>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {videosWithContent.map((video, index) => (
+        {/* First render videos with content */}
+        {videos.filter(v => v.file || v.url).map((video) => (
           <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
             <div className="flex justify-between items-center mb-4">
               <Button 
@@ -317,7 +325,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           </div>
         ))}
         
-        {emptyVideoSlots.map((video, index) => (
+        {/* Then render only ONE empty dropzone */}
+        {videos.filter(v => !v.file && !v.url).slice(0, 1).map((video) => (
           <div key={video.id} className="p-6 border rounded-lg bg-card space-y-4">
             <div className="w-full flex justify-center">
               <VideoDropzoneComponent 
