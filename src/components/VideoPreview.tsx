@@ -120,7 +120,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = ({
         // For storage URLs, use the StorageVideoPlayer
         <StorageVideoPlayer
           videoLocation={url}
-          controls={true}
+          controls={false}
           muted={true}
           className="w-full h-full object-cover"
           playOnHover={isHovering}

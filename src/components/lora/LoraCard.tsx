@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset, VideoEntry } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -67,7 +68,12 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora }) => {
             <FileVideo className="h-8 w-8 text-muted-foreground animate-pulse" />
           </div>
         ) : primaryVideoUrl ? (
-          <VideoPreview url={primaryVideoUrl} className="w-full h-full" />
+          <VideoPreview 
+            url={primaryVideoUrl} 
+            className="w-full h-full" 
+            title={lora.name}
+            creator={lora.creator || 'Unknown'}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-muted">
             <FileVideo className="h-8 w-8 text-muted-foreground" />
