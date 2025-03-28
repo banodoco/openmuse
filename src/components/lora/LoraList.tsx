@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -45,10 +46,9 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     // Approval filter
     let matchesApproval = true;
     if (approvalFilter !== 'all') {
-      // Check if the primary video exists and matches the approval filter
       const primaryVideo = lora.primaryVideo;
       
-      if (approvalFilter === 'approved') {
+      if (approvalFilter === 'approved' || approvalFilter === 'curated') {
         matchesApproval = !!primaryVideo && primaryVideo.admin_approved === true;
       } else if (approvalFilter === 'pending') {
         matchesApproval = !!primaryVideo && primaryVideo.admin_approved === null;
