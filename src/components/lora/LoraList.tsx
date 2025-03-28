@@ -43,21 +43,23 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       ((lora.creator || '').toLowerCase().includes(searchTerm))
     );
     
-    // Approval filter
-    let matchesApproval = true;
-    if (approvalFilter !== 'all') {
-      const primaryVideo = lora.primaryVideo;
-      
-      if (approvalFilter === 'curated') {
-        matchesApproval = !!primaryVideo && primaryVideo.admin_approved === true;
-      } else if (approvalFilter === 'pending') {
-        matchesApproval = !!primaryVideo && primaryVideo.admin_approved === null;
-      } else if (approvalFilter === 'rejected') {
-        matchesApproval = !!primaryVideo && primaryVideo.admin_approved === false;
-      }
+    // Approval filter - skip approval check if 'all' is selected
+    if (approvalFilter === 'all') {
+      return matchesText; // Only apply text filter when 'all' is selected
     }
     
-    return matchesText && matchesApproval;
+    // Apply appropriate approval filters for other options
+    const primaryVideo = lora.primaryVideo;
+    
+    if (approvalFilter === 'curated') {
+      return matchesText && !!primaryVideo && primaryVideo.admin_approved === true;
+    } else if (approvalFilter === 'pending') {
+      return matchesText && !!primaryVideo && primaryVideo.admin_approved === null;
+    } else if (approvalFilter === 'rejected') {
+      return matchesText && !!primaryVideo && primaryVideo.admin_approved === false;
+    }
+    
+    return matchesText; // Fallback (shouldn't reach here)
   });
 
   return (
