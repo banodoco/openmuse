@@ -1,13 +1,11 @@
-
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase, debugAssetMedia } from '@/integrations/supabase/client';
-import Navigation from '@/components/Navigation';
+import Navigation, { Footer } from '@/components/Navigation';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Check, X, Upload } from 'lucide-react';
+import { ArrowLeft, Check, X, Play } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import VideoList from '@/components/VideoList';
 import { LoraAsset, VideoEntry } from '@/lib/types';
 import { toast } from 'sonner';
 import LoadingState from '@/components/LoadingState';
@@ -16,6 +14,8 @@ import { videoUrlService } from '@/lib/services/videoUrlService';
 import { checkIsAdmin } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
+import VideoLightbox from '@/components/VideoLightbox';
+import { useVideoHover } from '@/hooks/useVideoHover';
 
 const AssetDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -28,6 +28,9 @@ const AssetDetailPage: React.FC = () => {
   const { user } = useAuth();
   const [authChecked, setAuthChecked] = useState(false);
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -178,6 +181,15 @@ const AssetDetailPage: React.FC = () => {
 
   const handleGoBack = () => {
     navigate('/');
+  };
+
+  const handleOpenLightbox = (video: VideoEntry) => {
+    setSelectedVideo(video);
+    setIsLightboxOpen(true);
+  };
+
+  const handleCloseLightbox = () => {
+    setIsLightboxOpen(false);
   };
 
   const getApprovalStatusBadge = () => {
@@ -344,10 +356,11 @@ const AssetDetailPage: React.FC = () => {
               <ArrowLeft className="h-4 w-4" />
               Back
             </Button>
-            <h1 className="text-2xl font-bold">Loading Asset Details...</h1>
+            <h1 className="text-2xl font-bold">Loading LoRA Details...</h1>
           </div>
           <LoadingState />
         </main>
+        <Footer />
       </div>
     );
   }
@@ -358,8 +371,8 @@ const AssetDetailPage: React.FC = () => {
         <Navigation />
         <main className="flex-1 container max-w-6xl py-8 px-4">
           <EmptyState 
-            title="Asset not found"
-            description="The requested asset could not be found."
+            title="LoRA not found"
+            description="The requested LoRA could not be found."
           />
           <div className="flex justify-center gap-4 mt-6">
             <Button onClick={handleGoBack} className="gap-2">
@@ -371,6 +384,7 @@ const AssetDetailPage: React.FC = () => {
             </Button>
           </div>
         </main>
+        <Footer />
       </div>
     );
   }
@@ -379,7 +393,7 @@ const AssetDetailPage: React.FC = () => {
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
       <main className="flex-1 container max-w-6xl py-8 px-4">
-        <div className="mb-4 flex items-center">
+        <div className="mb-6 flex items-center">
           <Button 
             variant="outline" 
             onClick={handleGoBack}
@@ -388,7 +402,8 @@ const AssetDetailPage: React.FC = () => {
             <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">Asset Details</h1>
+          <h1 className="text-3xl font-bold">{asset?.name}</h1>
+          <div className="ml-3">{getApprovalStatusBadge()}</div>
         </div>
         
         {process.env.NODE_ENV !== 'production' && (
@@ -412,7 +427,6 @@ const AssetDetailPage: React.FC = () => {
           <Card className="md:col-span-1">
             <CardHeader>
               <CardTitle>{asset?.name}</CardTitle>
-              <div className="mt-2">{getApprovalStatusBadge()}</div>
             </CardHeader>
             <CardContent className="space-y-4">
               {asset?.description && (
@@ -478,7 +492,7 @@ const AssetDetailPage: React.FC = () => {
           
           <div className="md:col-span-2">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-bold">Associated Videos</h2>
+              <h2 className="text-xl font-bold">Videos made with this:</h2>
             </div>
             
             {showUploadButton && (
@@ -492,23 +506,102 @@ const AssetDetailPage: React.FC = () => {
             )}
             
             {videos.length > 0 ? (
-              <VideoList 
-                videos={videos} 
-                onDelete={handleDeleteVideo} 
-                onApprove={handleApproveVideo}
-                onList={handleListVideo}
-                onReject={handleRejectVideo} 
-                refetchData={fetchAssetDetails}
-              />
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {videos.map(video => (
+                  <div 
+                    key={video.id} 
+                    className="relative rounded-lg overflow-hidden shadow-md"
+                    onMouseEnter={() => setHoveredVideoId(video.id)}
+                    onMouseLeave={() => setHoveredVideoId(null)}
+                    onClick={() => handleOpenLightbox(video)}
+                  >
+                    <div className="aspect-video">
+                      <div className="w-full h-full">
+                        <div className="w-full h-full relative">
+                          <StorageVideoPlayer
+                            videoLocation={video.video_location}
+                            controls={false}
+                            muted={true}
+                            className="w-full h-full object-cover"
+                            playOnHover={true}
+                            previewMode={true}
+                            showPlayButtonOnHover={false}
+                            autoPlay={hoveredVideoId === video.id}
+                            isHoveringExternally={hoveredVideoId === video.id}
+                          />
+                          
+                          <div 
+                            className={`absolute inset-0 bg-black/30 flex items-center justify-center transition-opacity duration-200 ${
+                              hoveredVideoId === video.id ? 'opacity-100' : 'opacity-0'
+                            }`}
+                          >
+                            <div className="bg-white/80 rounded-full p-3">
+                              <Play className="h-8 w-8 text-gray-800" />
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                    
+                    <div className="p-2 bg-card">
+                      <h3 className="font-medium text-sm truncate">
+                        {video.metadata?.title || `Video by ${video.reviewer_name}`}
+                      </h3>
+                      {video.reviewer_name && (
+                        <p className="text-xs text-muted-foreground">By {video.reviewer_name}</p>
+                      )}
+                    </div>
+                    
+                    {isAdmin && (
+                      <div className="absolute top-2 right-2 flex space-x-1 z-10">
+                        <Button 
+                          variant="secondary" 
+                          size="icon" 
+                          className="h-6 w-6 bg-black/40 hover:bg-black/60 text-white"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleApproveVideo(video.id);
+                          }}
+                        >
+                          <Check className="h-3 w-3" />
+                        </Button>
+                        <Button 
+                          variant="destructive" 
+                          size="icon" 
+                          className="h-6 w-6 text-white"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteVideo(video.id);
+                          }}
+                        >
+                          <X className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             ) : (
               <EmptyState 
                 title="No Videos"
-                description="No videos are currently associated with this asset."
+                description="No videos are currently associated with this LoRA."
               />
             )}
           </div>
         </div>
       </main>
+      
+      <Footer />
+      
+      {selectedVideo && (
+        <VideoLightbox
+          isOpen={isLightboxOpen}
+          onClose={handleCloseLightbox}
+          videoUrl={selectedVideo.video_location}
+          title={selectedVideo.metadata?.title || `Video by ${selectedVideo.reviewer_name}`}
+          creator={selectedVideo.reviewer_name}
+        />
+      )}
     </div>
   );
 };

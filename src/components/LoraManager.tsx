@@ -7,7 +7,6 @@ import LoadingState from './LoadingState';
 interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading: boolean;
-  refetchLoras: () => Promise<void>;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
