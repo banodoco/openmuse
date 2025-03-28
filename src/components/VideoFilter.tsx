@@ -40,16 +40,59 @@ const VideoFilter: React.FC<VideoFilterProps> = ({
         </Select>
       </div>
       
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={onRefresh}
-        disabled={isDisabled}
-        className="gap-2"
-      >
-        <RefreshCw className="h-4 w-4" />
-        Refresh
-      </Button>
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          onClick={() => setVideoFilter('curated')}
+          className={`
+            ${videoFilter === 'curated' 
+              ? 'bg-[#F2FCE2] text-forest-dark hover:bg-[#E6F5D5]' 
+              : 'bg-muted hover:bg-muted/80'
+            }
+          `}
+          variant="ghost"
+        >
+          Curated
+        </Button>
+        <Button
+          type="button"
+          onClick={() => setVideoFilter('listed')}
+          className={`
+            ${videoFilter === 'listed' 
+              ? 'bg-[#D3E4FD] text-blue-800 hover:bg-[#C0D6F5]' 
+              : 'bg-muted hover:bg-muted/80'
+            }
+          `}
+          variant="ghost"
+        >
+          Listed
+        </Button>
+        {isAdmin && (
+          <Button
+            type="button"
+            onClick={() => setVideoFilter('rejected')}
+            className={`
+              ${videoFilter === 'rejected' 
+                ? 'bg-[#FFDEE2] text-red-800 hover:bg-[#FFC6CC]' 
+                : 'bg-muted hover:bg-muted/80'
+              }
+            `}
+            variant="ghost"
+          >
+            Rejected
+          </Button>
+        )}
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onRefresh}
+          disabled={isDisabled}
+          className="gap-2"
+        >
+          <RefreshCw className="h-4 w-4" />
+          Refresh
+        </Button>
+      </div>
     </div>
   );
 };
