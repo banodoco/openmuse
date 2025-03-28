@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -52,7 +53,7 @@ const Navigation: React.FC = () => {
         </Link>
         
         {!isAuthPage && (
-          <div className="flex space-x-2">
+          <div className="flex space-x-2 relative right-[15px] top-[2px]">
             <NavLink to="/upload" active={isActive('/upload')}>
               <UploadCloud className="w-4 h-4 mr-2" />
               Propose
