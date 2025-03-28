@@ -11,6 +11,7 @@ const Navigation: React.FC = () => {
   const location = useLocation();
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [imageError, setImageError] = useState(false);
   
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -33,14 +34,20 @@ const Navigation: React.FC = () => {
   const isActive = (path: string) => location.pathname === path;
   const isAuthPage = location.pathname === '/auth';
   
+  const handleImageError = () => {
+    console.error('Error loading logo image');
+    setImageError(true);
+  };
+  
   return (
     <nav className="w-full max-w-screen-xl mx-auto px-4 py-4 flex justify-between items-center border-b border-olive/20">
       <div className="flex items-center">
         <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
           <img 
-            src={openMuseLogo} 
+            src={imageError ? '/lovable-uploads/50b1d979-6d68-4f4a-a6cc-fcf4579bdfec.png' : openMuseLogo} 
             alt="OpenMuse Logo" 
             className="h-20 w-auto"
+            onError={handleImageError}
           />
         </Link>
         
