@@ -268,6 +268,17 @@ const AssetDetailPage: React.FC = () => {
     }
   };
 
+  useEffect(() => {
+    console.log('Upload Button Conditions:', {
+      hasUser: !!user, 
+      hasAsset: !!asset, 
+      userDetails: user ? {
+        id: user.id, 
+        email: user.email
+      } : null
+    });
+  }, [user, asset]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -385,15 +396,6 @@ const AssetDetailPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Associated Videos</h2>
             </div>
-            
-            {console.log('Upload Button Conditions:', {
-              hasUser: !!user, 
-              hasAsset: !!asset, 
-              userDetails: user ? {
-                id: user.id, 
-                email: user.email
-              } : null
-            })}
             
             {user && asset && (
               <div className="mb-4">
