@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -33,11 +34,11 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   return (
     <div className="space-y-4">
       <div>
-        <Label htmlFor={`title-${videoId}`}>Title (optional)</Label>
+        <Label htmlFor={`title-${videoId}`}>Title</Label>
         <Input
           type="text"
           id={`title-${videoId}`}
-          placeholder="Enter video title"
+          placeholder="Optional video title"
           value={metadata.title}
           onChange={(e) => updateMetadata(videoId, 'title', e.target.value)}
           disabled={disabled}
@@ -48,7 +49,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
         <Label htmlFor={`description-${videoId}`}>Description</Label>
         <Textarea
           id={`description-${videoId}`}
-          placeholder="Enter video description"
+          placeholder="Optional video description"
           value={metadata.description}
           onChange={(e) => updateMetadata(videoId, 'description', e.target.value)}
           disabled={disabled}
@@ -66,7 +67,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
-              <Label htmlFor={`classification-gen-${videoId}`}>Generated</Label>
+              <Label htmlFor={`classification-gen-${videoId}`}>Generation</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="art" id={`classification-art-${videoId}`} />
@@ -76,7 +77,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
         </div>
         
         <div>
-          <Label className="block mb-2">Who made this?</Label>
+          <Label className="block mb-2">Who made this video?</Label>
           <RadioGroup 
             value={metadata.creator}
             onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
@@ -85,7 +86,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
           >
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="self" id={`creator-self-${videoId}`} />
-              <Label htmlFor={`creator-self-${videoId}`}>You</Label>
+              <Label htmlFor={`creator-self-${videoId}`}>Me</Label>
             </div>
             <div className="flex items-center space-x-2">
               <RadioGroupItem value="someone_else" id={`creator-someone-else-${videoId}`} />
@@ -100,7 +101,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
             <Input
               type="text"
               id={`creator-name-${videoId}`}
-              placeholder="Enter creator's username"
+              placeholder="naughtyhamster69"
               value={metadata.creatorName}
               onChange={(e) => updateMetadata(videoId, 'creatorName', e.target.value)}
               required

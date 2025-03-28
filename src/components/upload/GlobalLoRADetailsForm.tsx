@@ -12,8 +12,9 @@ interface LoRADetailsForm {
   loraDescription: string;
   creator: 'self' | 'someone_else';
   creatorName: string;
+  creatorOrigin?: string;
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
-  loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Other';
+  loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
   loraLink: string;
 }
 
@@ -65,6 +66,40 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
         </div>
 
         <div>
+          <Label>Who made this LoRA?</Label>
+          <RadioGroup 
+            value={loraDetails.creator}
+            onValueChange={(value) => updateLoRADetails('creator', value)}
+            className="flex flex-col space-y-1"
+            disabled={disabled}
+          >
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="self" id="lora-creator-self" />
+              <Label htmlFor="lora-creator-self">Me</Label>
+            </div>
+            <div className="flex items-center space-x-2">
+              <RadioGroupItem value="someone_else" id="lora-creator-someone" />
+              <Label htmlFor="lora-creator-someone">Someone else</Label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {loraDetails.creator === 'someone_else' && (
+          <div>
+            <Label htmlFor="creator-name">Their username:</Label>
+            <Input
+              type="text"
+              id="creator-name"
+              placeholder="naughtyhamster69"
+              value={loraDetails.creatorName}
+              onChange={(e) => updateLoRADetails('creatorName', e.target.value)}
+              required
+              disabled={disabled}
+            />
+          </div>
+        )}
+
+        <div>
           <Label htmlFor="lora-type">What type of LoRA is this?</Label>
           <Select 
             value={loraDetails.loraType} 
@@ -79,6 +114,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
               <SelectItem value="Motion Style">Motion Style</SelectItem>
               <SelectItem value="Specific Movement">Specific Movement</SelectItem>
               <SelectItem value="Aesthetic Style">Aesthetic Style</SelectItem>
+              <SelectItem value="Control">Control</SelectItem>
               <SelectItem value="Other">Other</SelectItem>
             </SelectContent>
           </Select>
@@ -94,22 +130,6 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
             disabled={disabled}
           />
-        </div>
-        
-        {/* Creator field is hidden as we always use the logged-in user */}
-        <div className="hidden">
-          <Label className="block mb-2">Was this made by you or someone else?</Label>
-          <RadioGroup 
-            value="self"
-            onValueChange={(value) => updateLoRADetails('creator', value)}
-            className="flex flex-col space-y-1"
-            disabled={disabled}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="self" id="lora-creator-self" />
-              <Label htmlFor="lora-creator-self">Me</Label>
-            </div>
-          </RadioGroup>
         </div>
       </div>
       

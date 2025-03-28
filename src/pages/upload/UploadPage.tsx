@@ -127,17 +127,14 @@ const UploadPage: React.FC = () => {
         <Navigation />
         
         <main className="flex-1 container mx-auto p-4">
-          <h1 className="text-3xl font-bold tracking-tight mb-4">Upload Videos</h1>
+          <h1 className="text-3xl font-bold tracking-tight mb-4">Add LoRA</h1>
           <p className="text-muted-foreground mb-8">
-            Submit your videos to be reviewed and added to the curated list.
+            Submit a LoRA that you or someone else made to be featured.
           </p>
           
           <form onSubmit={handleSubmit} className="space-y-8">
             <div className="p-6 border rounded-lg bg-card space-y-4">
               <h2 className="text-xl font-semibold">LoRA Details</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                These details will be applied to all videos in this upload.
-              </p>
               <LoRADetailsForm 
                 loraDetails={loraDetails} 
                 updateLoRADetails={updateLoRADetails}
@@ -145,7 +142,7 @@ const UploadPage: React.FC = () => {
               />
             </div>
             
-            <h2 className="text-xl font-semibold">Videos</h2>
+            <h2 className="text-xl font-semibold">Videos made with it</h2>
             
             <MultipleVideoUploader 
               videos={videos} 
