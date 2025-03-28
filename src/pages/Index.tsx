@@ -133,7 +133,7 @@ const Index = () => {
       <main className="flex-1 container mx-auto p-4">
         <PageHeader 
           title="Curated LoRAs for open video models"
-          description="Discover and contribute to a collection of fine-tuned LoRAs for generating high-quality videos with open source models"
+          description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan."
           buttonText="Propose New LoRA"
           onButtonClick={handleNavigateToUpload}
           buttonSize={isMobile ? "sm" : "default"}
