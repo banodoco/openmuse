@@ -79,14 +79,21 @@ const Index = () => {
       logger.log('User is logged in, refreshing LoRAs on mount');
       dataRefreshInProgress.current = true;
       
-      // Small timeout to avoid potential race conditions
-      const timeoutId = setTimeout(() => {
-        refetchLoras().finally(() => {
-          dataRefreshInProgress.current = false;
-        });
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
+      // Only refresh once per session
+      const hasRefreshed = sessionStorage.getItem('initialDataRefreshed');
+      if (!hasRefreshed) {
+        // Small timeout to avoid potential race conditions
+        const timeoutId = setTimeout(() => {
+          refetchLoras().finally(() => {
+            dataRefreshInProgress.current = false;
+            sessionStorage.setItem('initialDataRefreshed', 'true');
+          });
+        }, 100);
+        
+        return () => clearTimeout(timeoutId);
+      } else {
+        dataRefreshInProgress.current = false;
+      }
     }
   }, [user, refetchLoras, lorasLoading]);
   
@@ -145,4 +152,3 @@ const Index = () => {
 };
 
 export default Index;
-

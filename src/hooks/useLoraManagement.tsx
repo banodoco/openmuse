@@ -18,6 +18,7 @@ export const useLoraManagement = () => {
   const fetchAttempted = useRef(false);
   const fetchInProgress = useRef(false);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const adminCheckAttempted = useRef(false);
 
   const loadAllLoras = useCallback(async () => {
     // Prevent concurrent fetches and unmounted component updates
@@ -52,9 +53,19 @@ export const useLoraManagement = () => {
         .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
         
       // Don't limit results for admin users
+      let isAdmin = false; 
       if (user) {
-        const isAdmin = await checkUserIsAdmin(user.id);
-        logger.log(`User ${user.id} is admin: ${isAdmin}`);
+        // Only check admin status if it hasn't been attempted yet - prevents infinite loop
+        if (!adminCheckAttempted.current) {
+          adminCheckAttempted.current = true;
+          try {
+            isAdmin = await checkUserIsAdmin(user.id);
+            logger.log(`User ${user.id} is admin: ${isAdmin}`);
+          } catch (error) {
+            logger.error("Error checking admin role:", error);
+            isAdmin = false;
+          }
+        }
         // If not admin, we could add filters here if needed
       }
       
@@ -125,11 +136,16 @@ export const useLoraManagement = () => {
     }
   }, [videos, user]);
 
-  // Helper function to check if user is admin
+  // Helper function to check if user is admin - modified to handle errors gracefully
   const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
     try {
+      // Use a direct query rather than RPC to avoid the ambiguous column issue
       const { data, error } = await supabase
-        .rpc('has_role', { user_id: userId, role: 'admin' });
+        .from('user_roles')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle();
       
       if (error) {
         logger.error("Error checking admin role:", error);
@@ -156,9 +172,12 @@ export const useLoraManagement = () => {
     logger.log(`Auth state in useLoraManagement: ${user ? 'signed in' : 'not signed in'}`);
     
     // If auth state changes, reset fetch attempt to ensure we reload data - but only if not already fetching
-    if (user && !isLoading && !fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Auth state changed with user, reloading LoRAs");
-      loadAllLoras();
+    if (user && !isLoading && !fetchInProgress.current) {
+      // Only reload if fetching hasn't been attempted yet
+      if (!fetchAttempted.current) {
+        logger.log("Auth state changed with user, reloading LoRAs");
+        loadAllLoras();
+      }
     }
   }, [user, loadAllLoras, isLoading]);
 
@@ -182,6 +201,7 @@ export const useLoraManagement = () => {
       logger.log("Manually refreshing LoRAs");
       // Reset fetch attempt so we can trigger a fresh load
       fetchAttempted.current = false;
+      adminCheckAttempted.current = false; // Also reset admin check
       await loadAllLoras();
       toast.success("LoRAs refreshed");
     } else {

@@ -107,6 +107,7 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
   }
   
   try {
+    // Query directly from user_roles table to avoid ambiguous column error
     const { data, error } = await supabase
       .from('user_roles')
       .select('role')
@@ -131,9 +132,28 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
 
 export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   logger.log(`Checking if user ${userId} is admin`);
-  const roles = await getUserRoles(userId);
-  logger.log(`User roles:`, roles);
-  return roles.includes('admin');
+  
+  try {
+    // Use a direct query to check for admin role
+    const { data, error } = await supabase
+      .from('user_roles')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('role', 'admin')
+      .maybeSingle();
+      
+    if (error) {
+      logger.error('Error checking admin status:', error);
+      return false;
+    }
+    
+    const isAdmin = !!data;
+    logger.log(`User roles check result:`, isAdmin);
+    return isAdmin;
+  } catch (error) {
+    logger.error('Error in admin check:', error);
+    return false;
+  }
 };
 
 export const addUserRole = async (userId: string, role: string): Promise<void> => {
