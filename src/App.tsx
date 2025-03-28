@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Index from '@/pages/Index';
@@ -15,12 +14,11 @@ import { useEffect, useState } from 'react';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { videoDB } from '@/lib/database';
 import { getCurrentUser } from '@/lib/auth';
-import AssetDetailPage from '@/pages/AssetDetailPage'; // New import
+import AssetDetailPage from '@/pages/AssetDetailPage';
 
 function App() {
   const [isAuthLoading, setIsAuthLoading] = useState(true);
   
-  // Set up database user ID
   useEffect(() => {
     const setupDatabase = async () => {
       try {
@@ -28,7 +26,6 @@ function App() {
         const db = await databaseSwitcher.getDatabase();
         db.setCurrentUserId(user?.id || null);
         
-        // Also set it on the facade
         await videoDB.setCurrentUserId(user?.id || null);
       } catch (error) {
         console.error("Error setting up database user ID:", error);
