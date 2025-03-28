@@ -1,11 +1,11 @@
 
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { checkIsAdmin, getCurrentUser, signOut } from '@/lib/auth';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
+import { useAuth } from '@/hooks/useAuth';
+import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('RequireAuth');
 
@@ -20,188 +20,95 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   requireAdmin = false,
   allowUnauthenticated = false
 }) => {
-  const [isAuthorized, setIsAuthorized] = useState<boolean | null>(null);
-  const [isChecking, setIsChecking] = useState(true);
+  const { user, isLoading } = useAuth();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [adminCheckComplete, setAdminCheckComplete] = useState(!requireAdmin);
   const location = useLocation();
-
+  
+  // Skip checking for certain public pages
+  const shouldSkipCheck = 
+    location.pathname === '/auth' || 
+    location.pathname === '/auth/callback' ||
+    location.pathname === '/upload' ||
+    location.pathname.startsWith('/assets/loras/');
+  
   useEffect(() => {
-    let isActive = true;
-    let authCheckTimeout: NodeJS.Timeout | null = null;
-    let subscription: { unsubscribe: () => void; } | null = null;
+    let isMounted = true;
+    let timeoutId: NodeJS.Timeout | null = null;
     
-    // Always skip checking for special paths to prevent loops
-    const shouldSkipCheck = 
-      location.pathname === '/auth' || 
-      location.pathname === '/auth/callback' ||
-      location.pathname === '/upload' ||  // Allow uploads without authentication
-      location.pathname.startsWith('/assets/loras/');
-    
-    if (shouldSkipCheck) {
-      logger.log(`RequireAuth: Skipping check for ${location.pathname}`);
-      setIsAuthorized(true);
-      setIsChecking(false);
-      return () => {}; // Empty cleanup for skipped routes
-    }
-    
-    // Set up auth state listener FIRST
-    subscription = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        logger.log('Auth state changed in RequireAuth:', event, session?.user?.id);
-        
-        if (!isActive) return;
-        
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          try {
-            const user = session?.user;
-            if (user) {
-              // Check if user still exists in database
-              const { data: userExists, error: userCheckError } = await supabase
-                .from('profiles')
-                .select('id')
-                .eq('id', user.id)
-                .single();
-              
-              if (userCheckError || !userExists) {
-                logger.error('User no longer exists in database, signing out');
-                toast.error('Your session is no longer valid. Please sign in again.');
-                await signOut();
-                if (isActive) {
-                  setIsAuthorized(allowUnauthenticated);
-                  setIsChecking(false);
-                }
-                return;
-              }
-              
-              if (requireAdmin) {
-                const isAdmin = await checkIsAdmin(user.id);
-                if (!isAdmin) {
-                  logger.log('User is not an admin');
-                  toast.error('You do not have admin access');
-                }
-                if (isActive) setIsAuthorized(isAdmin);
-              } else {
-                if (isActive) setIsAuthorized(true);
-              }
-            }
-          } catch (error) {
-            logger.error('Error in auth state change handler:', error);
-            if (isActive) setIsAuthorized(allowUnauthenticated);
-          } finally {
-            if (isActive) setIsChecking(false);
-          }
-        } else if (event === 'SIGNED_OUT') {
-          if (isActive) {
-            setIsAuthorized(allowUnauthenticated);
-            setIsChecking(false);
-          }
-        }
-      }
-    ).data.subscription;
-    
-    // THEN check for existing session with a timeout to avoid hanging
-    const checkAuth = async () => {
-      try {
-        if (!isActive) return;
-        
-        logger.log('RequireAuth: Starting auth check');
-        
-        if (allowUnauthenticated) {
-          logger.log('RequireAuth: Allowing unauthenticated access');
-          if (isActive) {
-            setIsAuthorized(true);
-            setIsChecking(false);
-          }
-          return;
-        }
-        
-        // Get current session with a timeout to avoid hanging
-        authCheckTimeout = setTimeout(() => {
-          if (isActive && isChecking) {
-            logger.error('Auth check timed out, allowing access based on unauthenticated setting');
-            setIsAuthorized(allowUnauthenticated);
-            setIsChecking(false);
-          }
-        }, 5000); // 5 second timeout for auth check
-        
+    // Check admin status if required
+    const verifyAdminStatus = async () => {
+      // Only check admin status if user is authenticated and it's required
+      if (user && requireAdmin) {
         try {
-          const user = await getCurrentUser();
+          logger.log('Checking admin status for user:', user.id);
+          const isUserAdmin = await checkIsAdmin(user.id);
           
-          if (!user) {
-            logger.log('RequireAuth: No user found in session');
+          if (isMounted) {
+            setIsAdmin(isUserAdmin);
+            setAdminCheckComplete(true);
             
-            if (allowUnauthenticated) {
-              logger.log('RequireAuth: Allowing unauthenticated access');
-              if (isActive) setIsAuthorized(true);
-            } else {
-              logger.log('RequireAuth: Not authorized, will redirect to auth');
-              if (isActive) setIsAuthorized(false);
-            }
-            
-            if (isActive) setIsChecking(false);
-            return;
-          }
-          
-          logger.log('RequireAuth: User found in session:', user.id);
-          
-          if (requireAdmin) {
-            logger.log('RequireAuth: Admin check required');
-            const isAdmin = await checkIsAdmin(user.id);
-            
-            if (!isAdmin) {
-              logger.log('RequireAuth: User is not an admin');
+            if (!isUserAdmin) {
+              logger.log('User is not an admin');
               toast.error('You do not have admin access');
             }
-            
-            if (isActive) setIsAuthorized(isAdmin);
-          } else {
-            if (isActive) setIsAuthorized(true);
           }
         } catch (error) {
-          logger.error('RequireAuth: Error in auth check:', error);
-          if (isActive) setIsAuthorized(allowUnauthenticated);
-        } finally {
-          // Clear timeout if auth check completes
-          if (authCheckTimeout) {
-            clearTimeout(authCheckTimeout);
-            authCheckTimeout = null;
+          logger.error('Error checking admin status:', error);
+          if (isMounted) {
+            setIsAdmin(false);
+            setAdminCheckComplete(true);
           }
-          
-          if (isActive) setIsChecking(false);
         }
-      } catch (error) {
-        logger.error('RequireAuth: Error checking authorization:', error);
-        if (isActive) {
-          setIsAuthorized(allowUnauthenticated); 
-          setIsChecking(false);
+      } else if (requireAdmin) {
+        // If no user but admin required, set isAdmin to false
+        if (isMounted) {
+          setIsAdmin(false);
+          setAdminCheckComplete(true);
         }
       }
     };
     
-    // Run auth check
-    checkAuth();
+    // Set a timeout to prevent hanging on admin check
+    if (requireAdmin && !adminCheckComplete) {
+      timeoutId = setTimeout(() => {
+        if (isMounted && !adminCheckComplete) {
+          logger.warn('Admin check timed out, assuming not admin');
+          setIsAdmin(false);
+          setAdminCheckComplete(true);
+        }
+      }, 5000);
+    }
+    
+    verifyAdminStatus();
     
     return () => {
-      logger.log('RequireAuth: Cleaning up');
-      isActive = false;
-      if (subscription) subscription.unsubscribe();
-      if (authCheckTimeout) clearTimeout(authCheckTimeout);
+      isMounted = false;
+      if (timeoutId) clearTimeout(timeoutId);
     };
-  }, [requireAdmin, allowUnauthenticated, location.pathname]);
-
-  // Only show loading state during initial check
-  if (isChecking) {
+  }, [user, requireAdmin, adminCheckComplete]);
+  
+  // Skip checks for certain paths
+  if (shouldSkipCheck) {
+    logger.log(`Skipping auth check for path: ${location.pathname}`);
+    return <>{children}</>;
+  }
+  
+  // Show loading while checking auth or admin status
+  if (isLoading || (requireAdmin && !adminCheckComplete)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-        <h1 className="text-xl font-medium mt-4">Checking authorization...</h1>
+        <h1 className="text-xl font-medium mt-4">
+          {requireAdmin ? 'Checking authorization...' : 'Checking authentication...'}
+        </h1>
       </div>
     );
   }
-
-  // If not authorized and not on the auth page, redirect
-  if (isAuthorized === false) {
-    logger.log('Not authorized, redirecting to auth page from:', location.pathname);
-    // Redirect to auth page with return URL
+  
+  // Handle unauthenticated users
+  if (!user && !allowUnauthenticated) {
+    logger.log('User not authenticated, redirecting to auth page from:', location.pathname);
     return (
       <Navigate 
         to={`/auth?returnUrl=${encodeURIComponent(location.pathname)}`} 
@@ -209,7 +116,15 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
       />
     );
   }
-
+  
+  // Handle non-admin users trying to access admin resources
+  if (requireAdmin && !isAdmin) {
+    logger.log('User is not admin, redirecting to home page');
+    toast.error('You do not have access to this resource');
+    return <Navigate to="/" replace />;
+  }
+  
+  // If all checks pass, render children
   return <>{children}</>;
 };
 

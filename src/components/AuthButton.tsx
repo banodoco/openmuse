@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { LogOut, LogIn, User } from 'lucide-react';

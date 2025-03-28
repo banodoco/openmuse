@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { LoraAsset, VideoEntry } from '@/lib/types';
+import { LoraAsset } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useVideoManagement } from './useVideoManagement';
@@ -16,6 +16,7 @@ export const useLoraManagement = () => {
   const { videos, isLoading: videosLoading } = useVideoManagement();
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const loadAllLoras = useCallback(async () => {
     if (!isMounted.current) return;
@@ -25,6 +26,18 @@ export const useLoraManagement = () => {
     logger.log("Loading all LoRAs");
     
     try {
+      // Set a loading timeout to prevent infinite loading
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+      }
+      
+      loadingTimeoutRef.current = setTimeout(() => {
+        if (isMounted.current && isLoading) {
+          logger.warn("LoRA loading timeout reached, forcing completion");
+          setIsLoading(false);
+        }
+      }, 10000); // 10 second timeout
+      
       // Flexible LoRA asset query with multiple type variations
       const { data: loraAssets, error } = await supabase
         .from('assets')
@@ -68,46 +81,46 @@ export const useLoraManagement = () => {
       }) || [];
       
       logger.log("Final LoRAs with videos:", lorasWithVideos.length);
+      
       if (isMounted.current) {
         setLoras(lorasWithVideos);
         setIsLoading(false);
+        
+        // Clear timeout since we successfully loaded
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
       }
     } catch (error) {
       logger.error("Error loading LoRAs:", error);
       if (isMounted.current) {
         toast.error("Error loading LoRAs. Please try again.");
         setIsLoading(false);
+        
+        // Clear timeout since we're no longer loading (even if with error)
+        if (loadingTimeoutRef.current) {
+          clearTimeout(loadingTimeoutRef.current);
+          loadingTimeoutRef.current = null;
+        }
       }
     }
   }, [videos]);
 
   // Load LoRAs when videos are loaded
   useEffect(() => {
-    // Reset fetch attempt flag when videos change
-    fetchAttempted.current = false;
-    
-    // Load LoRAs even if videos array is empty to avoid perpetual loading
     if (!videosLoading && !fetchAttempted.current) {
-      logger.log("Videos loaded or empty, loading LoRAs");
+      logger.log("Videos loaded, loading LoRAs");
       loadAllLoras();
     }
   }, [videos, videosLoading, loadAllLoras]);
 
-  // Force loading state to false after a timeout to prevent infinite loading
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      if (isLoading && isMounted.current) {
-        logger.warn("LoRA loading timeout reached, forcing completion");
-        setIsLoading(false);
-      }
-    }, 10000); // 10 second timeout
-
-    return () => clearTimeout(timeoutId);
-  }, [isLoading]);
-  
   // Log user state for debugging
   useEffect(() => {
     logger.log(`Auth state in useLoraManagement: ${user ? 'signed in' : 'not signed in'}`);
+    
+    // If auth state changes, reset fetch attempt to ensure we reload data
+    fetchAttempted.current = false;
   }, [user]);
 
   // Cleanup function
@@ -117,6 +130,11 @@ export const useLoraManagement = () => {
     return () => {
       isMounted.current = false;
       logger.log("useLoraManagement unmounting, cleaning up");
+      
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
     };
   }, []);
 

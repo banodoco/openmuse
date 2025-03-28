@@ -27,56 +27,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const authCheckComplete = useRef(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  // Clear any existing timer when component unmounts
+  const isMounted = useRef(true);
+  const sessionCheckComplete = useRef(false);
+  const authTimeout = useRef<NodeJS.Timeout | null>(null);
+  
+  // Clear any existing timers when component unmounts
   useEffect(() => {
     return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
+      if (authTimeout.current) {
+        clearTimeout(authTimeout.current);
+        authTimeout.current = null;
       }
     };
   }, []);
 
   useEffect(() => {
-    logger.log('Setting up auth listeners');
-    let isActive = true;
+    logger.log('Setting up auth provider');
     
-    // Set a sensible timeout to prevent hanging
-    timerRef.current = setTimeout(() => {
-      if (isActive && isLoading && !authCheckComplete.current) {
-        logger.warn('Auth check timed out, ensuring we complete loading state');
-        if (isActive) {
-          setIsLoading(false);
-          authCheckComplete.current = true;
-        }
+    // Set a maximum timeout to prevent infinite loading state
+    authTimeout.current = setTimeout(() => {
+      if (isMounted.current && isLoading && !sessionCheckComplete.current) {
+        logger.warn('Auth check timed out after 6 seconds, completing loading state');
+        setIsLoading(false);
+        sessionCheckComplete.current = true;
       }
-    }, 8000); // 8 seconds should be plenty
+    }, 6000);
 
     // Set up auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, newSession) => {
-        logger.log(`Auth state changed: ${event}`, newSession?.user?.id);
+        logger.log(`Auth state changed: ${event}`, newSession?.user?.id || 'no user');
         
-        if (!isActive) return;
+        if (!isMounted.current) return;
         
         if (newSession) {
-          logger.log(`Storing session data for user: ${newSession.user.id}`);
-          logger.log(`User signed in, session is present: ${Boolean(newSession)}`);
+          logger.log(`Session updated: ${newSession.user.id}`);
           setUser(newSession.user);
           setSession(newSession);
         } else if (event === 'SIGNED_OUT') {
-          logger.log('User signed out, clearing session');
+          logger.log('User signed out, clearing session data');
           setUser(null);
           setSession(null);
         }
         
-        // Don't complete loading state on initial events since we're still checking session
+        // Don't mark loading as complete for initial session event
         if (event !== 'INITIAL_SESSION') {
           setIsLoading(false);
-          authCheckComplete.current = true;
+          sessionCheckComplete.current = true;
         }
       }
     );
@@ -84,66 +81,68 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // THEN check for existing session
     const checkSession = async () => {
       try {
-        logger.log('Checking existing session');
+        if (!isMounted.current) return;
+        
+        logger.log('Checking for existing session');
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
+          logger.error('Error getting session:', error);
           throw error;
         }
         
-        if (isActive) {
+        if (isMounted.current) {
           if (data.session) {
-            logger.log(`Session check complete, has session: ${Boolean(data.session)} ${data.session.user.id}`);
+            logger.log(`Found existing session: ${data.session.user.id}`);
             setUser(data.session.user);
             setSession(data.session);
             
-            // After setting session, try to refresh it for longer session life
-            logger.log('Attempting to refresh existing session');
+            // Try to refresh the session in the background
             try {
               const { data: refreshData } = await supabase.auth.refreshSession();
               if (refreshData.session) {
-                logger.log(`Session refreshed successfully: ${refreshData.session.user.id}`);
+                logger.log(`Session refreshed: ${refreshData.session.user.id}`);
               }
             } catch (refreshError) {
               logger.error('Error refreshing session:', refreshError);
             }
           } else {
             logger.log('No existing session found');
-            setUser(null);
-            setSession(null);
           }
           
-          // Complete the loading state
+          // Mark loading as complete
           setIsLoading(false);
-          authCheckComplete.current = true;
+          sessionCheckComplete.current = true;
         }
-      } catch (error: any) {
-        logger.error('Error checking session:', error);
-        if (isActive) {
+      } catch (error) {
+        logger.error('Session check failed:', error);
+        if (isMounted.current) {
           setIsLoading(false);
-          authCheckComplete.current = true;
+          sessionCheckComplete.current = true;
         }
       } finally {
-        // Clear the timeout since we finished checking
-        if (timerRef.current) {
-          clearTimeout(timerRef.current);
-          timerRef.current = null;
+        // Clear the timeout since we've completed
+        if (authTimeout.current) {
+          clearTimeout(authTimeout.current);
+          authTimeout.current = null;
         }
       }
     };
 
+    // Run the session check
     checkSession();
 
+    // Clean up on unmount
     return () => {
-      isActive = false;
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        timerRef.current = null;
+      logger.log('Auth provider unmounting, cleaning up listeners');
+      isMounted.current = false;
+      if (authTimeout.current) {
+        clearTimeout(authTimeout.current);
+        authTimeout.current = null;
       }
       subscription.unsubscribe();
-      logger.log('Auth listeners cleaned up');
     };
-  }, [isLoading]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -158,7 +157,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error(error.message || 'Error signing in');
       logger.error('Sign in error:', error);
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
   };
 
@@ -167,13 +168,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
+      
+      // Clear state immediately
       setUser(null);
       setSession(null);
     } catch (error: any) {
       toast.error(error.message || 'Error signing out');
       logger.error('Sign out error:', error);
     } finally {
-      setIsLoading(false);
+      if (isMounted.current) {
+        setIsLoading(false);
+      }
     }
   };
 

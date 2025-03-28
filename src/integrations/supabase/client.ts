@@ -19,12 +19,7 @@ export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABL
 });
 
 // Log initialization for debugging
-console.log('Supabase client initialized with auth configuration:', {
-  persistSession: true,
-  autoRefreshToken: true,
-  detectSessionInUrl: true,
-  storage: 'localStorage',
-});
+console.log('Supabase client initialized with auth configuration');
 
 // Check if the videos bucket exists but don't try to create it
 // This fixes the "maximum allowed size" error
