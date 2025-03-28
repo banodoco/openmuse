@@ -1,6 +1,5 @@
-
 import React, { useCallback, useEffect, useState, useRef } from 'react';
-import Navigation from '@/components/Navigation';
+import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -28,7 +27,6 @@ const Index = () => {
     refetchLoras
   } = useLoraManagement();
   
-  // Show all LoRAs by default
   const displayLoras = React.useMemo(() => {
     if (!loras || loras.length === 0) {
       logger.log('No LoRAs available');
@@ -40,11 +38,9 @@ const Index = () => {
     return loras;
   }, [loras]);
   
-  // Log page load and auth state for debugging
   useEffect(() => {
     logger.log('Index page loaded, auth state:', user ? 'logged in' : 'not logged in');
     
-    // Test RLS permissions on auth change - but only if not already in progress
     const checkPermissions = async () => {
       if (user && !permissionsChecked && !permissionCheckInProgress.current) {
         permissionCheckInProgress.current = true;
@@ -74,9 +70,7 @@ const Index = () => {
     };
   }, [user, permissionsChecked]);
   
-  // Force refresh when mounting if user is logged in - but prevent duplicate refreshes
   useEffect(() => {
-    // Check if we've already done the initial refresh in this session
     const hasRefreshed = sessionStorage.getItem('initialDataRefreshed') === 'true';
     
     if (user && !lorasLoading && !dataRefreshInProgress.current && !hasRefreshed && !initialRefreshDone.current) {
@@ -84,7 +78,6 @@ const Index = () => {
       dataRefreshInProgress.current = true;
       initialRefreshDone.current = true;
       
-      // Small timeout to avoid potential race conditions
       const timeoutId = setTimeout(() => {
         refetchLoras().finally(() => {
           dataRefreshInProgress.current = false;
@@ -112,7 +105,6 @@ const Index = () => {
       await refetchLoras();
       logger.log('Data refreshed successfully');
       
-      // Re-test permissions
       if (!permissionCheckInProgress.current) {
         permissionCheckInProgress.current = true;
         const permissions = await testRLSPermissions();
@@ -151,9 +143,10 @@ const Index = () => {
         <LoraManager 
           loras={displayLoras} 
           isLoading={lorasLoading}
-          refetchLoras={handleRefreshData}
         />
       </main>
+      
+      <Footer />
     </div>
   );
 };
