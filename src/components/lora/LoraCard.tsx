@@ -1,17 +1,15 @@
-
 import React, { useState, useEffect } from 'react';
-import { LoraEntry, VideoEntry } from '@/lib/types';
+import { LoraAsset, VideoEntry } from '@/lib/types';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { ArrowUpRight, Play, Star, FileVideo } from 'lucide-react';
+import { ArrowUpRight, FileVideo } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
 import VideoPreview from '../VideoPreview';
 
 interface LoraCardProps {
-  lora: LoraEntry;
+  lora: LoraAsset;
 }
 
 const logger = new Logger('LoraCard');
