@@ -39,6 +39,12 @@ const AssetDetailPage: React.FC = () => {
     checkAdminStatus();
   }, [user]);
 
+  useEffect(() => {
+    console.log('AssetDetailPage - User:', user);
+    console.log('AssetDetailPage - Asset:', asset);
+    console.log('AssetDetailPage - Asset ID:', id);
+  }, [user, asset, id]);
+
   const fetchAssetDetails = async () => {
     if (!id) {
       toast.error('No asset ID provided');
@@ -379,6 +385,15 @@ const AssetDetailPage: React.FC = () => {
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-xl font-bold">Associated Videos</h2>
             </div>
+            
+            {console.log('Upload Button Conditions:', {
+              hasUser: !!user, 
+              hasAsset: !!asset, 
+              userDetails: user ? {
+                id: user.id, 
+                email: user.email
+              } : null
+            })}
             
             {user && asset && (
               <div className="mb-4">
