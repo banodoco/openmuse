@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoList from './VideoList';
@@ -13,6 +14,7 @@ interface VideoManagerProps {
   refetchVideos: () => void;
   deleteVideo: (id: string) => Promise<boolean>;
   approveVideo: (id: string) => Promise<VideoEntry | null>;
+  listVideo?: (id: string) => Promise<VideoEntry | null>;
   rejectVideo: (id: string) => Promise<VideoEntry | null>;
 }
 
@@ -22,11 +24,12 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   refetchVideos,
   deleteVideo,
   approveVideo,
+  listVideo,
   rejectVideo
 }) => {
   const { user } = useAuth();
   const [isAdmin, setIsAdmin] = React.useState(false);
-  const [videoFilter, setVideoFilter] = useState('approved');
+  const [videoFilter, setVideoFilter] = useState('curated');
   
   const sortedVideos = React.useMemo(() => {
     return [...videos].sort((a, b) => {
@@ -45,19 +48,19 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   const filteredVideos = React.useMemo(() => {
     if (videoFilter === 'all') {
       return sortedVideos;
-    } else if (videoFilter === 'approved') {
-      return sortedVideos.filter(video => video.admin_approved === true);
-    } else if (videoFilter === 'pending') {
-      return sortedVideos.filter(video => video.admin_approved === null);
+    } else if (videoFilter === 'curated') {
+      return sortedVideos.filter(video => video.admin_approved === 'Curated');
+    } else if (videoFilter === 'listed') {
+      return sortedVideos.filter(video => !video.admin_approved || video.admin_approved === 'Listed');
     } else if (videoFilter === 'rejected') {
-      return sortedVideos.filter(video => video.admin_approved === false);
+      return sortedVideos.filter(video => video.admin_approved === 'Rejected');
     }
     return sortedVideos;
   }, [sortedVideos, videoFilter]);
   
-  const approvedVideos = sortedVideos.filter(video => video.admin_approved === true);
-  const pendingVideos = sortedVideos.filter(video => video.admin_approved === null);
-  const rejectedVideos = sortedVideos.filter(video => video.admin_approved === false);
+  const curatedVideos = sortedVideos.filter(video => video.admin_approved === 'Curated');
+  const listedVideos = sortedVideos.filter(video => !video.admin_approved || video.admin_approved === 'Listed');
+  const rejectedVideos = sortedVideos.filter(video => video.admin_approved === 'Rejected');
   
   React.useEffect(() => {
     const checkAdminStatus = async () => {
@@ -87,6 +90,17 @@ const VideoManager: React.FC<VideoManagerProps> = ({
       refetchVideos();
     } catch (error) {
       console.error('Error approving video:', error);
+    }
+  };
+  
+  const handleList = async (id: string) => {
+    try {
+      if (listVideo) {
+        await listVideo(id);
+        refetchVideos();
+      }
+    } catch (error) {
+      console.error('Error listing video:', error);
     }
   };
   
@@ -126,6 +140,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
           videos={filteredVideos}
           onDelete={handleDelete}
           onApprove={handleApprove}
+          onList={listVideo ? handleList : undefined}
           onReject={handleReject}
           refetchData={refetchVideos}
         />
@@ -142,16 +157,16 @@ const VideoManager: React.FC<VideoManagerProps> = ({
         isDisabled={isLoading}
       />
       
-      <Tabs defaultValue="approved" className="mt-4">
+      <Tabs defaultValue="curated" className="mt-4">
         <TabsList className="mb-4">
           <TabsTrigger value="all">
             All ({videos.length})
           </TabsTrigger>
-          <TabsTrigger value="approved">
-            Curated ({approvedVideos.length})
+          <TabsTrigger value="curated">
+            Curated ({curatedVideos.length})
           </TabsTrigger>
-          <TabsTrigger value="pending">
-            Pending ({pendingVideos.length})
+          <TabsTrigger value="listed">
+            Listed ({listedVideos.length})
           </TabsTrigger>
           <TabsTrigger value="rejected">
             Rejected ({rejectedVideos.length})
@@ -163,26 +178,29 @@ const VideoManager: React.FC<VideoManagerProps> = ({
             videos={filteredVideos}
             onDelete={handleDelete}
             onApprove={handleApprove}
+            onList={listVideo ? handleList : undefined}
             onReject={handleReject}
             refetchData={refetchVideos}
           />
         </TabsContent>
         
-        <TabsContent value="approved">
+        <TabsContent value="curated">
           <VideoList
-            videos={approvedVideos}
+            videos={curatedVideos}
             onDelete={handleDelete}
             onApprove={handleApprove}
+            onList={listVideo ? handleList : undefined}
             onReject={handleReject}
             refetchData={refetchVideos}
           />
         </TabsContent>
         
-        <TabsContent value="pending">
+        <TabsContent value="listed">
           <VideoList
-            videos={pendingVideos}
+            videos={listedVideos}
             onDelete={handleDelete}
             onApprove={handleApprove}
+            onList={listVideo ? handleList : undefined}
             onReject={handleReject}
             refetchData={refetchVideos}
           />
@@ -193,6 +211,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
             videos={rejectedVideos}
             onDelete={handleDelete}
             onApprove={handleApprove}
+            onList={listVideo ? handleList : undefined}
             onReject={handleReject}
             refetchData={refetchVideos}
           />

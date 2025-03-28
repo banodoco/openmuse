@@ -31,7 +31,7 @@ export interface VideoEntry {
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_approved: boolean | null;
+  admin_approved: string | null;
   user_id: string | null;
   metadata?: VideoMetadata;
 }
@@ -56,7 +56,7 @@ export interface LoraAsset {
   created_at: string;
   user_id?: string;
   primary_media_id?: string;
-  admin_approved?: boolean | null; // Added this field for LoRA-level approval status
+  admin_approved?: string | null; // Changed from boolean to string to support "Curated", "Listed", "Rejected"
   // Populated from related data
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];

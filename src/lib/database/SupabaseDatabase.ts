@@ -41,7 +41,7 @@ export class SupabaseDatabase extends BaseDatabase {
           reviewer_name: media.creator || 'Unknown',
           skipped: false,
           created_at: media.created_at,
-          admin_approved: false, // Default value 
+          admin_approved: media.admin_approved || 'Listed', // Default to Listed
           user_id: media.user_id,
           metadata: {
             title: media.title,
@@ -88,7 +88,8 @@ export class SupabaseDatabase extends BaseDatabase {
         .update({
           title: update.metadata?.title,
           classification: update.metadata?.classification,
-          creator: update.metadata?.creatorName || update.reviewer_name
+          creator: update.metadata?.creatorName || update.reviewer_name,
+          admin_approved: update.admin_approved
         })
         .eq('id', id)
         .select()
@@ -106,7 +107,8 @@ export class SupabaseDatabase extends BaseDatabase {
           .update({
             name: update.metadata.loraName,
             description: update.metadata.loraDescription,
-            creator: update.metadata.creatorName || update.reviewer_name
+            creator: update.metadata.creatorName || update.reviewer_name,
+            admin_approved: update.admin_approved
           })
           .eq('id', update.metadata.assetId);
         
@@ -122,7 +124,7 @@ export class SupabaseDatabase extends BaseDatabase {
         reviewer_name: mediaData.creator || 'Unknown',
         skipped: update.skipped || false,
         created_at: mediaData.created_at,
-        admin_approved: update.admin_approved || false,
+        admin_approved: mediaData.admin_approved || 'Listed',
         user_id: mediaData.user_id,
         metadata: {
           title: mediaData.title,
@@ -149,7 +151,8 @@ export class SupabaseDatabase extends BaseDatabase {
   
   async setApprovalStatus(id: string, approved: boolean): Promise<VideoEntry | null> {
     this.logger.log(`Setting approval status for media ${id} to ${approved}`);
-    return this.updateEntry(id, { admin_approved: approved });
+    const status = approved ? 'Curated' : 'Rejected';
+    return this.updateEntry(id, { admin_approved: status });
   }
   
   async getVideoUrl(videoLocation: string): Promise<string> {

@@ -1,3 +1,4 @@
+
 import { VideoEntry } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseDatabase } from './SupabaseDatabase';
@@ -127,7 +128,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           type: 'video',
           classification: entry.metadata?.classification || 'art',
           creator: entry.metadata?.creatorName || entry.reviewer_name,
-          user_id: entry.user_id || this.currentUserId
+          user_id: entry.user_id || this.currentUserId,
+          admin_approved: 'Listed' // Default to Listed
         })
         .select()
         .single();
@@ -150,7 +152,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
             description: entry.metadata.loraDescription || '',
             creator: entry.metadata.creatorName || entry.reviewer_name,
             user_id: entry.user_id || this.currentUserId,
-            primary_media_id: mediaData.id
+            primary_media_id: mediaData.id,
+            admin_approved: 'Listed' // Default to Listed
           })
           .select()
           .single();
@@ -193,7 +196,7 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
         reviewer_name: entry.reviewer_name,
         skipped: entry.skipped || false,
         created_at: mediaData.created_at,
-        admin_approved: false,
+        admin_approved: 'Listed', // Default to Listed
         user_id: mediaData.user_id,
         metadata: {
           title: mediaData.title,

@@ -81,7 +81,7 @@ const AssetDetailPage: React.FC = () => {
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
               created_at: media.created_at,
-              admin_approved: null,
+              admin_approved: media.admin_approved || 'Listed',
               user_id: media.user_id,
               metadata: {
                 title: media.title,
@@ -121,33 +121,58 @@ const AssetDetailPage: React.FC = () => {
   const getApprovalStatusBadge = () => {
     if (!asset) return null;
     
-    if (asset.admin_approved === true) {
-      return <Badge className="bg-green-500">Approved</Badge>;
-    } else if (asset.admin_approved === false) {
-      return <Badge className="bg-red-500">Rejected</Badge>;
-    } else {
-      return <Badge variant="outline">Pending Review</Badge>;
+    switch (asset.admin_approved) {
+      case 'Curated':
+        return <Badge className="bg-green-500">Curated</Badge>;
+      case 'Rejected':
+        return <Badge className="bg-red-500">Rejected</Badge>;
+      case 'Listed':
+      default:
+        return <Badge variant="outline">Listed</Badge>;
     }
   };
 
-  const handleApproveAsset = async () => {
+  const handleCurateAsset = async () => {
     if (!id || !isAdmin) return;
     
     setIsApproving(true);
     try {
       const { error } = await supabase
         .from('assets')
-        .update({ admin_approved: true })
+        .update({ admin_approved: 'Curated' })
         .eq('id', id);
       
       if (error) throw error;
       
-      toast.success('LoRA approved successfully');
+      toast.success('LoRA curated successfully');
       // Update local state
-      setAsset(prev => prev ? { ...prev, admin_approved: true } : null);
+      setAsset(prev => prev ? { ...prev, admin_approved: 'Curated' } : null);
     } catch (error) {
-      console.error('Error approving LoRA:', error);
-      toast.error('Failed to approve LoRA');
+      console.error('Error curating LoRA:', error);
+      toast.error('Failed to curate LoRA');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleListAsset = async () => {
+    if (!id || !isAdmin) return;
+    
+    setIsApproving(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ admin_approved: 'Listed' })
+        .eq('id', id);
+      
+      if (error) throw error;
+      
+      toast.success('LoRA listed successfully');
+      // Update local state
+      setAsset(prev => prev ? { ...prev, admin_approved: 'Listed' } : null);
+    } catch (error) {
+      console.error('Error listing LoRA:', error);
+      toast.error('Failed to list LoRA');
     } finally {
       setIsApproving(false);
     }
@@ -160,14 +185,14 @@ const AssetDetailPage: React.FC = () => {
     try {
       const { error } = await supabase
         .from('assets')
-        .update({ admin_approved: false })
+        .update({ admin_approved: 'Rejected' })
         .eq('id', id);
       
       if (error) throw error;
       
       toast.success('LoRA rejected');
       // Update local state
-      setAsset(prev => prev ? { ...prev, admin_approved: false } : null);
+      setAsset(prev => prev ? { ...prev, admin_approved: 'Rejected' } : null);
     } catch (error) {
       console.error('Error rejecting LoRA:', error);
       toast.error('Failed to reject LoRA');
@@ -199,17 +224,35 @@ const AssetDetailPage: React.FC = () => {
     try {
       const { error } = await supabase
         .from('media')
-        .update({ admin_approved: true })
+        .update({ admin_approved: 'Curated' })
         .eq('id', videoId);
       
       if (error) throw error;
       
-      toast.success('Video approved successfully');
+      toast.success('Video curated successfully');
       // Refresh videos list
       fetchAssetDetails();
     } catch (error) {
-      console.error('Error approving video:', error);
-      toast.error('Failed to approve video');
+      console.error('Error curating video:', error);
+      toast.error('Failed to curate video');
+    }
+  };
+
+  const handleListVideo = async (videoId: string) => {
+    try {
+      const { error } = await supabase
+        .from('media')
+        .update({ admin_approved: 'Listed' })
+        .eq('id', videoId);
+      
+      if (error) throw error;
+      
+      toast.success('Video listed successfully');
+      // Refresh videos list
+      fetchAssetDetails();
+    } catch (error) {
+      console.error('Error listing video:', error);
+      toast.error('Failed to list video');
     }
   };
 
@@ -217,7 +260,7 @@ const AssetDetailPage: React.FC = () => {
     try {
       const { error } = await supabase
         .from('media')
-        .update({ admin_approved: false })
+        .update({ admin_approved: 'Rejected' })
         .eq('id', videoId);
       
       if (error) throw error;
@@ -312,21 +355,29 @@ const AssetDetailPage: React.FC = () => {
             {isAdmin && (
               <CardFooter className="flex-col items-stretch space-y-2">
                 <div className="text-sm font-medium text-muted-foreground mb-2">Admin Actions</div>
-                <div className="flex gap-2">
+                <div className="grid grid-cols-3 gap-2">
                   <Button 
                     variant="default" 
-                    className="flex-1 gap-2"
-                    onClick={handleApproveAsset}
-                    disabled={isApproving || asset.admin_approved === true}
+                    className="flex-1 gap-1"
+                    onClick={handleCurateAsset}
+                    disabled={isApproving || asset.admin_approved === 'Curated'}
                   >
                     <Check className="h-4 w-4" />
-                    Approve
+                    Curate
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    className="flex-1 gap-1"
+                    onClick={handleListAsset}
+                    disabled={isApproving || asset.admin_approved === 'Listed'}
+                  >
+                    List
                   </Button>
                   <Button 
                     variant="destructive" 
-                    className="flex-1 gap-2"
+                    className="flex-1 gap-1"
                     onClick={handleRejectAsset}
-                    disabled={isApproving || asset.admin_approved === false}
+                    disabled={isApproving || asset.admin_approved === 'Rejected'}
                   >
                     <X className="h-4 w-4" />
                     Reject
@@ -342,7 +393,8 @@ const AssetDetailPage: React.FC = () => {
               <VideoList 
                 videos={videos} 
                 onDelete={handleDeleteVideo} 
-                onApprove={handleApproveVideo} 
+                onApprove={handleApproveVideo}
+                onList={handleListVideo}
                 onReject={handleRejectVideo} 
                 refetchData={fetchAssetDetails}
               />

@@ -80,11 +80,8 @@ export const useLoraManagement = () => {
         console.log(`useLoraManagement: Asset ${asset.id} (${asset.name}) associated videos:`, 
           assetVideos.map(v => v.id));
         
-        // Determine LoRA approval status based on primary video
-        let admin_approved = null;
-        if (primaryVideo) {
-          admin_approved = primaryVideo.admin_approved;
-        }
+        // LoRA approval status from database
+        const admin_approved = asset.admin_approved || 'Listed';
         
         return {
           ...asset,

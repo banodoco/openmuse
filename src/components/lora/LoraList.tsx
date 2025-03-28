@@ -46,15 +46,15 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     // Approval filter
     let matchesApproval = true;
     if (approvalFilter !== 'all') {
-      const loraApproved = lora.admin_approved === true;
-      const videoApproved = lora.primaryVideo?.admin_approved === true;
+      const loraApproved = lora.admin_approved;
+      const videoApproved = lora.primaryVideo?.admin_approved;
       
       if (approvalFilter === 'curated') {
-        matchesApproval = loraApproved || videoApproved;
-      } else if (approvalFilter === 'pending') {
-        matchesApproval = lora.admin_approved === null || lora.primaryVideo?.admin_approved === null;
+        matchesApproval = loraApproved === 'Curated' || videoApproved === 'Curated';
+      } else if (approvalFilter === 'listed') {
+        matchesApproval = loraApproved === 'Listed' || !loraApproved || videoApproved === 'Listed' || !videoApproved;
       } else if (approvalFilter === 'rejected') {
-        matchesApproval = lora.admin_approved === false || lora.primaryVideo?.admin_approved === false;
+        matchesApproval = loraApproved === 'Rejected' || videoApproved === 'Rejected';
       }
     }
     
@@ -93,7 +93,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
             <SelectContent>
               <SelectItem value="all">All</SelectItem>
               <SelectItem value="curated">Curated</SelectItem>
-              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="listed">Listed</SelectItem>
               <SelectItem value="rejected">Rejected</SelectItem>
             </SelectContent>
           </Select>

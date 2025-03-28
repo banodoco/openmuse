@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -18,6 +19,7 @@ import { toast } from 'sonner';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 import {
   Dialog,
   DialogContent,
@@ -41,11 +43,19 @@ interface VideoListProps {
   videos: VideoEntry[];
   onDelete: (id: string) => void;
   onApprove: (id: string) => void;
+  onList?: (id: string) => void;
   onReject: (id: string) => void;
   refetchData: () => void;
 }
 
-const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onReject, refetchData }) => {
+const VideoList: React.FC<VideoListProps> = ({ 
+  videos, 
+  onDelete, 
+  onApprove, 
+  onList, 
+  onReject, 
+  refetchData 
+}) => {
   const [selectedVideos, setSelectedVideos] = useState<string[]>([]);
   const [selectAll, setSelectAll] = useState(false);
   const [filterText, setFilterText] = useState('');
@@ -138,15 +148,42 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
     try {
       const db = await databaseSwitcher.getDatabase();
       for (const videoId of selectedVideos) {
-        await db.setApprovalStatus(videoId, true);
+        await supabase
+          .from('media')
+          .update({ admin_approved: 'Curated' })
+          .eq('id', videoId);
       }
-      toast.success('Selected videos approved successfully.');
+      toast.success('Selected videos curated successfully.');
       setSelectedVideos([]);
       setSelectAll(false);
       refetchData();
     } catch (error) {
       console.error('Error approving selected videos:', error);
       toast.error('Failed to approve selected videos.');
+    }
+  };
+
+  const handleListSelected = async () => {
+    if (selectedVideos.length === 0) {
+      toast.error('No videos selected for listing.');
+      return;
+    }
+
+    try {
+      const db = await databaseSwitcher.getDatabase();
+      for (const videoId of selectedVideos) {
+        await supabase
+          .from('media')
+          .update({ admin_approved: 'Listed' })
+          .eq('id', videoId);
+      }
+      toast.success('Selected videos listed successfully.');
+      setSelectedVideos([]);
+      setSelectAll(false);
+      refetchData();
+    } catch (error) {
+      console.error('Error listing selected videos:', error);
+      toast.error('Failed to list selected videos.');
     }
   };
 
@@ -159,7 +196,10 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
     try {
       const db = await databaseSwitcher.getDatabase();
       for (const videoId of selectedVideos) {
-        await db.setApprovalStatus(videoId, false);
+        await supabase
+          .from('media')
+          .update({ admin_approved: 'Rejected' })
+          .eq('id', videoId);
       }
       toast.success('Selected videos rejected successfully.');
       setSelectedVideos([]);
@@ -171,13 +211,15 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
     }
   };
 
-  const getStatusBadge = (status: boolean | null) => {
-    if (status === null) {
-      return <Badge variant="secondary">Pending</Badge>
-    } else if (status) {
+  const getStatusBadge = (status: string | null) => {
+    if (!status || status === 'Listed') {
+      return <Badge variant="secondary">Listed</Badge>
+    } else if (status === 'Curated') {
       return <Badge className="bg-green-500">Curated</Badge>
-    } else {
+    } else if (status === 'Rejected') {
       return <Badge variant="destructive">Rejected</Badge>
+    } else {
+      return <Badge variant="outline">{status}</Badge>
     }
   };
 
@@ -206,9 +248,14 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
           <Button variant="destructive" size="sm" onClick={handleDeleteSelected} disabled={selectedVideos.length === 0}>
             Delete Selected
           </Button>
-          <Button variant="outline" size="sm" onClick={handleApproveSelected} disabled={selectedVideos.length === 0}>
-            Approve Selected
+          <Button variant="default" size="sm" onClick={handleApproveSelected} disabled={selectedVideos.length === 0}>
+            Curate Selected
           </Button>
+          {onList && (
+            <Button variant="outline" size="sm" onClick={handleListSelected} disabled={selectedVideos.length === 0}>
+              List Selected
+            </Button>
+          )}
           <Button variant="secondary" size="sm" onClick={handleRejectSelected} disabled={selectedVideos.length === 0}>
             Reject Selected
           </Button>
@@ -343,16 +390,17 @@ const VideoList: React.FC<VideoListProps> = ({ videos, onDelete, onApprove, onRe
                       Delete
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
-                    {video.admin_approved === null && (
-                      <>
-                        <DropdownMenuItem onClick={() => onApprove(video.id)}>
-                          Approve
-                        </DropdownMenuItem>
-                        <DropdownMenuItem onClick={() => onReject(video.id)}>
-                          Reject
-                        </DropdownMenuItem>
-                      </>
+                    <DropdownMenuItem onClick={() => onApprove(video.id)}>
+                      Curate
+                    </DropdownMenuItem>
+                    {onList && (
+                      <DropdownMenuItem onClick={() => onList(video.id)}>
+                        List
+                      </DropdownMenuItem>
                     )}
+                    <DropdownMenuItem onClick={() => onReject(video.id)}>
+                      Reject
+                    </DropdownMenuItem>
                   </DropdownMenuContent>
                 </DropdownMenu>
               </CardFooter>

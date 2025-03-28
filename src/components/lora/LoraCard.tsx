@@ -222,6 +222,18 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, onClick, selected }) => {
   const isBlobError = videoToUse?.video_location?.startsWith('blob:');
   const hasDatabaseId = videoToUse?.id ? true : false;
 
+  const getApprovalStatusBadge = (status: string | null) => {
+    switch (status) {
+      case 'Curated':
+        return <Badge className="bg-green-500">Curated</Badge>;
+      case 'Rejected':
+        return <Badge className="bg-red-500">Rejected</Badge>;
+      case 'Listed':
+      default:
+        return <Badge variant="outline">Listed</Badge>;
+    }
+  };
+
   return (
     <Card 
       className={cn(

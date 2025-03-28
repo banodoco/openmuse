@@ -1,45 +1,54 @@
 
-import React, { memo } from 'react';
-import { Button } from "@/components/ui/button";
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { RefreshCw } from 'lucide-react';
 
 interface VideoFilterProps {
   videoFilter: string;
   setVideoFilter: (filter: string) => void;
   onRefresh: () => void;
-  isDisabled: boolean;
+  isDisabled?: boolean;
 }
 
-const VideoFilter: React.FC<VideoFilterProps> = memo(({ 
-  videoFilter, 
-  setVideoFilter, 
-  onRefresh, 
-  isDisabled 
+const VideoFilter: React.FC<VideoFilterProps> = ({
+  videoFilter,
+  setVideoFilter,
+  onRefresh,
+  isDisabled = false
 }) => {
   return (
-    <div className="mb-4 flex items-center gap-2">
-      <select 
-        className="p-2 border rounded-md bg-background"
-        value={videoFilter}
-        onChange={(e) => setVideoFilter(e.target.value)}
-        disabled={isDisabled}
-      >
-        <option value="all">All Videos</option>
-        <option value="approved">Curated Videos</option>
-        <option value="pending">Pending Videos</option>
-      </select>
+    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
+      <div className="flex gap-2 items-center">
+        <Select
+          value={videoFilter}
+          onValueChange={setVideoFilter}
+          disabled={isDisabled}
+        >
+          <SelectTrigger className="w-[180px]">
+            <SelectValue placeholder="Filter by status" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Videos</SelectItem>
+            <SelectItem value="curated">Curated Videos</SelectItem>
+            <SelectItem value="listed">Listed Videos</SelectItem>
+            <SelectItem value="rejected">Rejected Videos</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
       
-      <Button 
-        variant="outline" 
-        size="sm" 
+      <Button
+        variant="outline"
+        size="sm"
         onClick={onRefresh}
         disabled={isDisabled}
+        className="gap-2"
       >
+        <RefreshCw className="h-4 w-4" />
         Refresh
       </Button>
     </div>
   );
-});
-
-VideoFilter.displayName = 'VideoFilter';
+};
 
 export default VideoFilter;
