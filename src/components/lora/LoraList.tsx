@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -21,7 +20,7 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   const [filterText, setFilterText] = useState('');
-  const [approvalFilter, setApprovalFilter] = useState('all'); // Default to 'all' to ensure all assets are visible first
+  const [approvalFilter, setApprovalFilter] = useState('curated'); // Change default to 'curated'
   const [refreshing, setRefreshing] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
@@ -48,7 +47,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
     checkAdminStatus();
   }, [user]);
   
-  // Log the actual loras data to help diagnose issues
   useEffect(() => {
     logger.log("LoraList received loras:", loras?.length || 0);
   }, [loras]);
@@ -69,7 +67,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
   };
 
   const filteredLoras = (loras || []).filter(lora => {
-    // Text filter
     const searchTerm = filterText.toLowerCase();
     const matchesText = (
       ((lora.name || '').toLowerCase().includes(searchTerm)) ||
@@ -77,26 +74,16 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
       ((lora.creator || '').toLowerCase().includes(searchTerm))
     );
     
-    // Approval filter - log what's happening with each lora to diagnose issues
-    let matchesApproval = true;
-    if (approvalFilter !== 'all') {
-      const loraApproved = lora.admin_approved;
-      const videoApproved = lora.primaryVideo?.admin_approved;
-      
-      logger.log(`Filtering LoRA ${lora.id} (${lora.name}):`, {
-        approvalFilter,
-        loraApproved,
-        videoApproved
-      });
-      
-      if (approvalFilter === 'curated') {
-        matchesApproval = loraApproved === 'Curated' || videoApproved === 'Curated';
-      } else if (approvalFilter === 'listed') {
-        // Include items without approval or with 'Listed' status
-        matchesApproval = !loraApproved || loraApproved === 'Listed' || !videoApproved || videoApproved === 'Listed';
-      } else if (approvalFilter === 'rejected') {
-        matchesApproval = loraApproved === 'Rejected' || videoApproved === 'Rejected';
-      }
+    let matchesApproval = false;
+    const loraApproved = lora.admin_approved;
+    const videoApproved = lora.primaryVideo?.admin_approved;
+    
+    if (approvalFilter === 'curated') {
+      matchesApproval = loraApproved === 'Curated' || videoApproved === 'Curated';
+    } else if (approvalFilter === 'listed') {
+      matchesApproval = !loraApproved || loraApproved === 'Listed' || !videoApproved || videoApproved === 'Listed';
+    } else if (approvalFilter === 'rejected') {
+      matchesApproval = loraApproved === 'Rejected' || videoApproved === 'Rejected';
     }
     
     return matchesText && matchesApproval;
@@ -122,7 +109,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras, onRefresh }) => {
               <SelectValue placeholder="Filter by status" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All LoRAs</SelectItem>
               <SelectItem value="curated">Curated</SelectItem>
               <SelectItem value="listed">Listed</SelectItem>
               {isAdmin && (
