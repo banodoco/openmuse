@@ -14,6 +14,7 @@ interface VideoPreviewProps {
   creator?: string;
   isHovering?: boolean;
   lazyLoad?: boolean;
+  thumbnailUrl?: string; // Add support for a pre-saved thumbnail
 }
 
 /**
@@ -27,14 +28,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   title,
   creator,
   isHovering: externalHoverState,
-  lazyLoad = true
+  lazyLoad = true,
+  thumbnailUrl
 }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const previewRef = useRef<HTMLDivElement>(null);
   
@@ -76,7 +78,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   };
 
   const handleThumbnailGenerated = (thumbnailUrl: string) => {
-    setPosterUrl(thumbnailUrl);
+    if (!posterUrl) {
+      setPosterUrl(thumbnailUrl);
+    }
   };
 
   const handleMouseEnter = () => {
@@ -97,6 +101,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
+  // Only render the VideoThumbnailGenerator if we don't already have a thumbnail
+  const needsThumbnailGeneration = !thumbnailUrl && (file || (url && !isExternalLink && !posterUrl));
+
   return (
     <div 
       ref={previewRef}
@@ -104,11 +111,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      <VideoThumbnailGenerator 
-        file={file}
-        url={url}
-        onThumbnailGenerated={handleThumbnailGenerated}
-      />
+      {needsThumbnailGeneration && (
+        <VideoThumbnailGenerator 
+          file={file}
+          url={url}
+          onThumbnailGenerated={handleThumbnailGenerated}
+        />
+      )}
       
       {isExternalLink ? (
         <EmbeddedVideoPlayer 
@@ -135,6 +144,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
           lazyLoad={lazyLoad}
+          thumbnailUrl={thumbnailUrl || posterUrl}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -148,6 +158,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
           lazyLoad={lazyLoad}
+          thumbnailUrl={thumbnailUrl || posterUrl}
         />
       ) : null}
 

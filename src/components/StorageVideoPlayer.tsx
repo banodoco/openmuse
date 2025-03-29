@@ -4,6 +4,7 @@ import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
 import { videoUrlService } from '@/lib/services/videoUrlService';
+import { Play } from 'lucide-react'; // Import the Play icon
 
 const logger = new Logger('StorageVideoPlayer');
 
@@ -21,6 +22,7 @@ interface StorageVideoPlayerProps {
   lazyLoad?: boolean;
   videoRef?: React.RefObject<HTMLVideoElement>;
   onLoadedData?: () => void;
+  thumbnailUrl?: string; // Add support for passing in a saved thumbnail
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -36,7 +38,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   isHoveringExternally,
   lazyLoad = true,
   videoRef: externalVideoRef,
-  onLoadedData
+  onLoadedData,
+  thumbnailUrl
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -44,24 +47,35 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
-  const [posterUrl, setPosterUrl] = useState<string | null>(null);
+  const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [videoInitialized, setVideoInitialized] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(autoPlay || !lazyLoad);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
+  const hoverTimerRef = useRef<number | null>(null);
   
   const isBlobUrl = videoLocation.startsWith('blob:');
   
-  // Handle external hover state changes without causing re-renders
+  // Handle external hover state changes
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
       setIsHovering(isHoveringExternally);
       
+      // Start loading video after a short delay when hovering starts
+      if (isHoveringExternally && !videoLoaded) {
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = window.setTimeout(() => {
+          setShouldLoadVideo(true);
+        }, 300); // Short delay before loading video
+      }
+      
       if (videoInitialized) {
         const video = videoRef.current;
         if (video) {
-          if (isHoveringExternally && video.paused) {
+          if (isHoveringExternally && video.paused && videoLoaded) {
             logger.log('External hover detected - attempting to play video');
             // Add a small delay before playing to avoid interruptions
             const playTimer = setTimeout(() => {
@@ -84,11 +98,29 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           }
         }
       }
+      
+      // Clear the timer when hovering stops
+      if (!isHoveringExternally && hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
     }
-  }, [isHoveringExternally, previewMode, videoRef, videoInitialized]);
+    
+    return () => {
+      if (hoverTimerRef.current) {
+        clearTimeout(hoverTimerRef.current);
+        hoverTimerRef.current = null;
+      }
+    };
+  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded]);
   
-  // Generate poster image for lazy loading
+  // Generate poster image for lazy loading if not provided
   useEffect(() => {
+    if (thumbnailUrl) {
+      setPosterUrl(thumbnailUrl);
+      return;
+    }
+    
     const generatePoster = async () => {
       try {
         if (lazyLoad && !posterUrl && videoUrl) {
@@ -133,13 +165,15 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     };
     
     generatePoster();
-  }, [videoUrl, lazyLoad, posterUrl]);
+  }, [videoUrl, lazyLoad, posterUrl, thumbnailUrl]);
   
-  // Load video URL only once when component mounts or videoLocation changes
+  // Load video URL only when needed (on hover or if not lazy loading)
   useEffect(() => {
     let isMounted = true;
     
     const loadVideo = async () => {
+      if (!shouldLoadVideo) return;
+      
       try {
         setLoading(true);
         setError(null);
@@ -167,6 +201,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         if (isMounted) {
           setVideoUrl(url);
           setLoading(false);
+          setVideoLoaded(true);
           // Mark video as initialized after URL is set
           setVideoInitialized(true);
         }
@@ -180,14 +215,16 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       }
     };
     
-    if (videoLocation) {
+    if (videoLocation && shouldLoadVideo) {
       loadVideo();
+    } else if (!shouldLoadVideo && posterUrl) {
+      setLoading(false); // Don't show loading state if we have a poster
     }
     
     return () => {
       isMounted = false;
     };
-  }, [videoLocation, retryCount, previewMode, isBlobUrl]);
+  }, [videoLocation, retryCount, previewMode, isBlobUrl, shouldLoadVideo, posterUrl]);
 
   const handleError = (message: string) => {
     setError(message);
@@ -198,6 +235,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     setError(null);
     setErrorDetails(null);
     setRetryCount(prev => prev + 1);
+    setShouldLoadVideo(true);
   };
   
   const handleVideoLoaded = () => {
@@ -206,6 +244,47 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       onLoadedData();
     }
   };
+
+  const handleLoadVideo = () => {
+    if (!videoLoaded) {
+      setShouldLoadVideo(true);
+    }
+  };
+  
+  // If we have a poster but haven't started loading the video
+  if (!shouldLoadVideo && posterUrl) {
+    return (
+      <div 
+        className={`relative h-full w-full ${className || ''}`}
+        onClick={handleLoadVideo}
+        onMouseEnter={() => {
+          if (playOnHover && isHoveringExternally === undefined) {
+            setIsHovering(true);
+            handleLoadVideo();
+          }
+        }}
+        onMouseLeave={() => {
+          if (playOnHover && isHoveringExternally === undefined) {
+            setIsHovering(false);
+          }
+        }}
+      >
+        <img 
+          src={posterUrl} 
+          alt="Video thumbnail" 
+          className="w-full h-full object-cover"
+        />
+        
+        {showPlayButtonOnHover && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-full bg-black/40 p-3">
+              <Play className="h-6 w-6 text-white" />
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
@@ -255,7 +334,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     prevProps.autoPlay === nextProps.autoPlay &&
     prevProps.muted === nextProps.muted &&
     prevProps.loop === nextProps.loop &&
-    prevProps.lazyLoad === nextProps.lazyLoad
+    prevProps.lazyLoad === nextProps.lazyLoad &&
+    prevProps.thumbnailUrl === nextProps.thumbnailUrl
   );
 });
 

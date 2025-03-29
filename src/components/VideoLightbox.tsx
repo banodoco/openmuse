@@ -11,6 +11,7 @@ interface VideoLightboxProps {
   videoUrl: string;
   title?: string;
   creator?: string;
+  thumbnailUrl?: string;
 }
 
 const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
@@ -18,7 +19,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
   onClose,
   videoUrl,
   title,
-  creator
+  creator,
+  thumbnailUrl
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<HTMLVideoElement>(null);
@@ -126,6 +128,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
               videoRef={playerRef}
               onLoadedData={handleVideoReady}
               lazyLoad={false}
+              thumbnailUrl={thumbnailUrl}
             />
           </div>
           {(title || creator) && (

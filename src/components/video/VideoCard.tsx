@@ -6,6 +6,7 @@ import StorageVideoPlayer from '../StorageVideoPlayer';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
+import VideoPreview from '../VideoPreview';
 
 interface VideoCardProps {
   video: VideoEntry;
@@ -24,6 +25,7 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   
   // Fetch user profile for display name when component mounts
   useEffect(() => {
@@ -47,8 +49,13 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
       }
     };
     
+    // Check if we have a thumbnail URL saved in the video metadata
+    if (video.metadata?.thumbnailUrl) {
+      setThumbnailUrl(video.metadata.thumbnailUrl);
+    }
+    
     fetchCreatorProfile();
-  }, [video.user_id]);
+  }, [video.user_id, video.metadata]);
   
   // Function to get creator display name
   const getCreatorName = () => {
@@ -118,18 +125,15 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
       <div className="aspect-video">
         <div className="w-full h-full">
           <div className="w-full h-full relative">
-            <StorageVideoPlayer
+            <VideoPreview
               key={`video-${video.id}`}
-              videoLocation={video.video_location}
-              controls={false}
-              muted={true}
+              url={video.video_location}
+              title={video.metadata?.title || `Video by ${getCreatorName()}`}
+              creator={getCreatorName()}
               className="w-full h-full object-cover"
-              playOnHover={false}
-              previewMode={true}
-              showPlayButtonOnHover={false}
-              autoPlay={isHovering}
-              isHoveringExternally={isHovering}
+              isHovering={isHovering}
               lazyLoad={true}
+              thumbnailUrl={thumbnailUrl}
             />
             
             <div 

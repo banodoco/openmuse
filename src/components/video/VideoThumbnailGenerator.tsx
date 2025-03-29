@@ -6,12 +6,14 @@ interface VideoThumbnailGeneratorProps {
   file?: File;
   url?: string;
   onThumbnailGenerated: (thumbnailUrl: string) => void;
+  saveThumbnail?: boolean;
 }
 
 const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   file,
   url,
-  onThumbnailGenerated
+  onThumbnailGenerated,
+  saveThumbnail = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -42,6 +44,21 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
               const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
               onThumbnailGenerated(dataUrl);
+
+              if (saveThumbnail) {
+                // Convert dataURL to Blob for storage upload
+                fetch(dataUrl)
+                  .then(res => res.blob())
+                  .then(blob => {
+                    // Return the blob for upload in the parent component
+                    onThumbnailGenerated(dataUrl);
+                  })
+                  .catch(err => {
+                    console.error("Error converting thumbnail to blob:", err);
+                  });
+              } else {
+                onThumbnailGenerated(dataUrl);
+              }
             }
           } catch (e) {
             console.error('Error generating thumbnail:', e);
@@ -100,7 +117,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         tempVideo.load();
       }
     }
-  }, [file, url, onThumbnailGenerated]);
+  }, [file, url, onThumbnailGenerated, saveThumbnail]);
 
   return (
     <video 
