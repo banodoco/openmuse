@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
 import VideoCard from '@/components/video/VideoCard';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
+import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface AssetVideoSectionProps {
   asset: LoraAsset | null;
@@ -21,27 +23,45 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   asset,
   videos,
   isAdmin,
-  showUploadButton,
   handleOpenLightbox,
   handleApproveVideo,
   handleDeleteVideo,
   fetchAssetDetails
 }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  
+  const handleUploadClick = () => {
+    if (!user) {
+      // Redirect to auth page with return URL
+      const returnUrl = window.location.pathname;
+      navigate(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
+    }
+  };
+  
   return (
     <div className="md:col-span-2">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold">Videos made with this:</h2>
       </div>
       
-      {showUploadButton && (
-        <div className="mb-4">
+      <div className="mb-4">
+        {user ? (
           <LoRAVideoUploader 
             assetId={asset?.id || ''} 
             assetName={asset?.name || ''} 
             onUploadsComplete={fetchAssetDetails} 
           />
-        </div>
-      )}
+        ) : (
+          <Button 
+            variant="default" 
+            onClick={handleUploadClick}
+            className="gap-2"
+          >
+            Upload video made with this
+          </Button>
+        )}
+      </div>
       
       {videos.length > 0 ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

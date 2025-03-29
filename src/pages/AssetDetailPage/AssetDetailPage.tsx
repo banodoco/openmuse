@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -97,8 +96,6 @@ const AssetDetailPage: React.FC = () => {
     setIsLightboxOpen(false);
   };
 
-  const showUploadButton = Boolean(user) && Boolean(asset);
-
   // Loading state
   if (isLoading) {
     return (
@@ -172,7 +169,7 @@ const AssetDetailPage: React.FC = () => {
             asset={asset}
             videos={videos}
             isAdmin={isAdmin}
-            showUploadButton={showUploadButton}
+            showUploadButton={true}
             handleOpenLightbox={handleOpenLightbox}
             handleApproveVideo={handleApproveVideo}
             handleDeleteVideo={handleDeleteVideo}

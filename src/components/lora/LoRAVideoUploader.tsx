@@ -148,7 +148,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
         className="gap-2"
       >
         <Upload className="h-4 w-4" />
-        Upload Generation
+        Upload video made with this
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
