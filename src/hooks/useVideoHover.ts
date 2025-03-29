@@ -16,7 +16,7 @@ export const useVideoHover = (
     delayPlay?: number;
   }
 ) => {
-  const { enabled, resetOnLeave = true, delayPlay = 30 } = options; // Reduced delay for responsiveness
+  const { enabled, resetOnLeave = true, delayPlay = 0 } = options; // Removed delay for immediate response
   const playTimeoutRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
   const lastPlayAttemptRef = useRef<number>(0);
@@ -41,8 +41,7 @@ export const useVideoHover = (
         window.clearTimeout(playTimeoutRef.current);
       }
       
-      // Set a small delay to ensure the video is ready to play and to avoid flickering
-      // on quick mouse movements
+      // Remove delay to make hover response immediate
       playTimeoutRef.current = window.setTimeout(() => {
         // Check if we're still hovering (mouse might have left during timeout)
         if (!isHoveringRef.current) return;
@@ -61,17 +60,17 @@ export const useVideoHover = (
           
           // Track when we try to play to avoid too many rapid attempts
           const now = Date.now();
-          if (now - lastPlayAttemptRef.current > 300) {
-            lastPlayAttemptRef.current = now;
-            video.play().catch(e => {
-              // Only log errors that aren't abort errors (which happen when quickly hovering in/out)
-              if (e.name !== 'AbortError') {
-                logger.warn('Play on hover prevented:', e);
-              }
-            });
-          }
+          lastPlayAttemptRef.current = now;
+          
+          // Use a more direct play approach without delay
+          video.play().catch(e => {
+            // Only log errors that aren't abort errors (which happen when quickly hovering in/out)
+            if (e.name !== 'AbortError') {
+              logger.warn('Play on hover prevented:', e);
+            }
+          });
         }
-      }, delayPlay);
+      }, 0); // No delay for immediate response
     };
     
     const handleMouseLeave = () => {
@@ -84,17 +83,15 @@ export const useVideoHover = (
         playTimeoutRef.current = null;
       }
       
-      // Small delay before pausing to handle quick hover in/out
-      setTimeout(() => {
-        if (!isHoveringRef.current && !video.paused) {
-          video.pause();
-          
-          if (resetOnLeave) {
-            // Reset to the beginning for a consistent preview
-            video.currentTime = 0;
-          }
+      // Remove delay and pause immediately
+      if (!video.paused) {
+        video.pause();
+        
+        if (resetOnLeave) {
+          // Reset to the beginning for a consistent preview
+          video.currentTime = 0;
         }
-      }, 50);
+      }
     };
     
     // Remove any existing listeners before adding new ones

@@ -1,8 +1,7 @@
-import React, { useState, memo, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Check, X, Play } from 'lucide-react';
-import StorageVideoPlayer from '../StorageVideoPlayer';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -21,7 +20,7 @@ interface VideoCardProps {
   onHoverChange?: (isHovering: boolean) => void;
 }
 
-const VideoCard: React.FC<VideoCardProps> = memo(({
+const VideoCard: React.FC<VideoCardProps> = ({
   video,
   isAdmin,
   onOpenLightbox,
@@ -31,17 +30,15 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
   onHoverChange
 }) => {
   const { user } = useAuth();
-  const [hovering, setHovering] = useState(isHovering);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
-  const [hoverTimeout, setHoverTimeout] = useState<number | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const isHoveringRef = useRef(isHovering);
   
   useEffect(() => {
-    if (isHovering !== hovering) {
-      logger.log(`VideoCard: External hover state changed for ${video.id}: ${isHovering}`);
-      setHovering(isHovering);
-    }
-  }, [isHovering, video.id, hovering]);
+    isHoveringRef.current = isHovering;
+    logger.log(`VideoCard: isHovering prop changed for ${video.id}: ${isHovering}`);
+  }, [isHovering, video.id]);
   
   useEffect(() => {
     const fetchCreatorProfile = async () => {
@@ -70,44 +67,20 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
   }, [video.user_id, video.metadata]);
   
   const handleMouseEnter = () => {
-    if (hoverTimeout !== null) {
-      window.clearTimeout(hoverTimeout);
+    logger.log(`VideoCard: Mouse entered for ${video.id}`);
+    if (onHoverChange && !isHoveringRef.current) {
+      logger.log(`VideoCard: Notifying parent of hover start for ${video.id}`);
+      onHoverChange(true);
     }
-    
-    const timeout = window.setTimeout(() => {
-      setHovering(true);
-      if (onHoverChange) {
-        logger.log(`VideoCard: Mouse entered ${video.id}, notifying parent`);
-        onHoverChange(true);
-      }
-    }, 50);
-    
-    setHoverTimeout(timeout);
   };
   
   const handleMouseLeave = () => {
-    if (hoverTimeout !== null) {
-      window.clearTimeout(hoverTimeout);
+    logger.log(`VideoCard: Mouse left for ${video.id}`);
+    if (onHoverChange && isHoveringRef.current) {
+      logger.log(`VideoCard: Notifying parent of hover end for ${video.id}`);
+      onHoverChange(false);
     }
-    
-    const timeout = window.setTimeout(() => {
-      setHovering(false);
-      if (onHoverChange) {
-        logger.log(`VideoCard: Mouse left ${video.id}, notifying parent`);
-        onHoverChange(false);
-      }
-    }, 50);
-    
-    setHoverTimeout(timeout);
   };
-  
-  useEffect(() => {
-    return () => {
-      if (hoverTimeout !== null) {
-        window.clearTimeout(hoverTimeout);
-      }
-    };
-  }, [hoverTimeout]);
   
   const getCreatorName = () => {
     if (creatorDisplayName) {
@@ -159,14 +132,17 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
     if (onDeleteVideo) onDeleteVideo(video.id);
   };
   
+  logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
+  
   return (
     <div 
+      ref={cardRef}
       key={video.id} 
       className="relative rounded-lg overflow-hidden shadow-md group cursor-pointer"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
-      data-hovering={hovering ? "true" : "false"}
+      data-hovering={isHovering ? "true" : "false"}
       data-video-id={video.id}
     >
       <div className="aspect-video">
@@ -178,18 +154,18 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
               title={video.metadata?.title || `Video by ${getCreatorName()}`}
               creator={getCreatorName()}
               className="w-full h-full object-cover"
-              isHovering={hovering}
-              lazyLoad={true}
+              isHovering={isHovering}
+              lazyLoad={false}
               thumbnailUrl={thumbnailUrl}
             />
             
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
-                ${hovering ? 'opacity-100' : 'opacity-0'}
+                ${isHovering ? 'opacity-0' : 'opacity-100'}
               `}
             >
-              <div className="bg-white/5 rounded-full p-2 backdrop-blur-sm">
-                <Play className="h-6 w-6 text-white/50 group-hover:text-white/80 transition-colors" />
+              <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+                <Play className="h-6 w-6 text-white" />
               </div>
             </div>
           </div>
@@ -238,7 +214,7 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
       )}
     </div>
   );
-});
+};
 
 VideoCard.displayName = 'VideoCard';
 

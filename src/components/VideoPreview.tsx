@@ -158,9 +158,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={false}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
-          lazyLoad={lazyLoad}
+          lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={effectiveHoverState}
+          forcePreload={true} // Force preload to ensure video is ready for hover
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -173,9 +173,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={false}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
-          lazyLoad={lazyLoad}
+          lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={effectiveHoverState}
+          forcePreload={true} // Force preload to ensure video is ready for hover
         />
       ) : null}
 
