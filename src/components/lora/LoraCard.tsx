@@ -47,12 +47,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const thumbnailUrl = lora.primaryVideo?.metadata?.thumbnailUrl;
   
   useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
+    if (thumbnailUrl) {
+      logger.log(`LoraCard: Thumbnail URL for ${lora.name}: ${thumbnailUrl.substring(0, 30)}...`);
+    } else {
+      logger.log(`LoraCard: No thumbnail URL for ${lora.name}`);
+    }
+  }, [thumbnailUrl, lora.name]);
   
   const getCreatorName = () => {
     if (lora.creatorDisplayName) return lora.creatorDisplayName;
@@ -195,7 +195,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   return (
     <Card 
       className="overflow-hidden h-full flex flex-col cursor-pointer hover:shadow-md" 
-      onClick={handleView}
+      onClick={() => navigate(`/assets/loras/${lora.id}`)}
     >
       <div 
         className="aspect-video w-full overflow-hidden bg-muted relative"

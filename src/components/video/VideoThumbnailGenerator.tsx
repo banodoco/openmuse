@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { getYoutubeVideoId } from '@/lib/utils/videoPreviewUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoThumbnailGenerator');
 
 interface VideoThumbnailGeneratorProps {
   file?: File;
@@ -25,6 +28,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
     if (!userId) return null;
 
     try {
+      logger.log('Saving thumbnail to storage...');
       const blob = await (await fetch(dataUrl)).blob();
       const thumbnailName = `thumbnails/${userId}/${uuidv4()}.jpg`;
       
@@ -36,7 +40,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         });
 
       if (error) {
-        console.error('Thumbnail upload error:', error);
+        logger.error('Thumbnail upload error:', error);
         return null;
       }
 
@@ -44,15 +48,17 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         .from('thumbnails')
         .getPublicUrl(thumbnailName);
 
+      logger.log(`Thumbnail saved with public URL: ${publicUrl.substring(0, 50)}...`);
       return publicUrl;
     } catch (error) {
-      console.error('Error saving thumbnail:', error);
+      logger.error('Error saving thumbnail:', error);
       return null;
     }
   };
 
   useEffect(() => {
     if (file) {
+      logger.log('Generating thumbnail from file...');
       const fileUrl = URL.createObjectURL(file);
       
       if (videoRef.current) {
@@ -83,13 +89,15 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
                 const storedThumbnailUrl = await saveThumbnailToStorage(dataUrl);
                 if (storedThumbnailUrl) {
                   thumbnailUrl = storedThumbnailUrl;
+                  logger.log('Using stored thumbnail URL');
                 }
               }
               
+              logger.log('Thumbnail generated successfully');
               onThumbnailGenerated(thumbnailUrl);
             }
           } catch (e) {
-            console.error('Error generating thumbnail:', e);
+            logger.error('Error generating thumbnail:', e);
           }
         };
       }
@@ -103,10 +111,12 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         const videoId = getYoutubeVideoId(url);
         if (videoId) {
           const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+          logger.log(`Using YouTube thumbnail: ${thumbnailUrl}`);
           onThumbnailGenerated(thumbnailUrl);
         }
       } 
       else if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('vimeo.com') && url.includes('supabase.co')) {
+        logger.log('Generating thumbnail from Supabase video URL...');
         const tempVideo = document.createElement('video');
         tempVideo.crossOrigin = "anonymous";
         tempVideo.src = url;
@@ -114,6 +124,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         tempVideo.preload = 'metadata';
         
         tempVideo.onloadedmetadata = () => {
+          logger.log('Video metadata loaded, seeking to first frame');
           tempVideo.currentTime = 0.1;
         };
         
@@ -127,6 +138,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             if (ctx) {
               ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
               const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+              logger.log('Thumbnail generated from video URL');
               onThumbnailGenerated(dataUrl);
               
               tempVideo.pause();
@@ -134,12 +146,12 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               tempVideo.load();
             }
           } catch (e) {
-            console.error('Error generating thumbnail:', e);
+            logger.error('Error generating thumbnail:', e);
           }
         };
         
         tempVideo.onerror = () => {
-          console.error('Error loading video for thumbnail generation');
+          logger.error('Error loading video for thumbnail generation');
         };
         
         tempVideo.load();

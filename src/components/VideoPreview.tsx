@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -53,6 +52,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const [internalHoverState, setInternalHoverState] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  
+  // Log thumbnail URL for debugging
+  useEffect(() => {
+    if (thumbnailUrl) {
+      logger.log(`VideoPreview: Using provided thumbnail URL: ${thumbnailUrl.substring(0, 50)}...`);
+      setPosterUrl(thumbnailUrl);
+    } else {
+      logger.log('VideoPreview: No thumbnail URL provided, will generate if needed');
+    }
+  }, [thumbnailUrl]);
   
   // Combine external and internal hover states
   const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
@@ -135,11 +144,32 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      onTouchStart={handleTouchEvent}
+      onMouseEnter={() => {
+        if (externalHoverState === undefined && !isMobile) {
+          logger.log('Mouse entered video preview');
+          setInternalHoverState(true);
+          setIsHovering(true);
+          setIsPlaying(true);
+        }
+      }}
+      onMouseLeave={() => {
+        if (externalHoverState === undefined && !isMobile) {
+          logger.log('Mouse left video preview');
+          setInternalHoverState(false);
+          setIsHovering(false);
+          setIsPlaying(false);
+        }
+      }}
+      onTouchStart={(e) => {
+        if (isMobile && onTouch) {
+          logger.log('Touch event on video preview');
+          e.preventDefault(); // Prevent default touch behavior
+          onTouch();
+        }
+      }}
       data-hovering={effectiveHoverState ? "true" : "false"}
       data-mobile={isMobile ? "true" : "false"}
+      data-has-thumbnail={!!posterUrl ? "true" : "false"}
     >
       {needsThumbnailGeneration && (
         <VideoThumbnailGenerator 
@@ -162,7 +192,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
         <StandardVideoPreview 
           url={objectUrl}
           posterUrl={posterUrl}
-          onError={handleVideoError}
+          onError={(errorMessage) => setError(errorMessage)}
           isHovering={effectiveHoverState}
         />
       ) : isBlobUrl ? (
@@ -197,7 +227,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
         />
       ) : null}
 
-      {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} canRecover={false} />}
+      {error && <VideoPreviewError error={error} onRetry={() => {setError(null); setIsPlaying(true);}} videoSource={objectUrl || undefined} canRecover={false} />}
       
       {isMobile && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

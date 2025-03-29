@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -71,22 +70,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
     fetchCreatorProfile();
   }, [video.user_id, video.metadata]);
   
-  const handleMouseEnter = () => {
-    logger.log(`VideoCard: Mouse entered for ${video.id}`);
-    if (onHoverChange && !isHoveringRef.current) {
-      logger.log(`VideoCard: Notifying parent of hover start for ${video.id}`);
-      onHoverChange(true);
-    }
-  };
-  
-  const handleMouseLeave = () => {
-    logger.log(`VideoCard: Mouse left for ${video.id}`);
-    if (onHoverChange && isHoveringRef.current) {
-      logger.log(`VideoCard: Notifying parent of hover end for ${video.id}`);
-      onHoverChange(false);
-    }
-  };
-  
   const getCreatorName = () => {
     if (creatorDisplayName) {
       return creatorDisplayName;
@@ -144,8 +127,20 @@ const VideoCard: React.FC<VideoCardProps> = ({
       ref={cardRef}
       key={video.id} 
       className="relative rounded-lg overflow-hidden shadow-md group cursor-pointer"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={() => {
+        logger.log(`VideoCard: Mouse entered for ${video.id}`);
+        if (onHoverChange && !isHoveringRef.current) {
+          logger.log(`VideoCard: Notifying parent of hover start for ${video.id}`);
+          onHoverChange(true);
+        }
+      }}
+      onMouseLeave={() => {
+        logger.log(`VideoCard: Mouse left for ${video.id}`);
+        if (onHoverChange && isHoveringRef.current) {
+          logger.log(`VideoCard: Notifying parent of hover end for ${video.id}`);
+          onHoverChange(false);
+        }
+      }}
       onClick={() => onOpenLightbox(video)}
       data-hovering={isHovering ? "true" : "false"}
       data-video-id={video.id}
@@ -162,6 +157,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
               isHovering={isHovering}
               lazyLoad={false}
               thumbnailUrl={thumbnailUrl}
+              onTouch={onTouch}
+              isMobile={isMobile}
             />
             
             <div 
