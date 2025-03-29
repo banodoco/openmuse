@@ -158,7 +158,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
   return (
     <>
       <Button 
-        variant="default" 
+        variant="secondary" // Changed from "default" to "secondary"
         onClick={() => setOpen(true)}
         className="gap-2"
       >
