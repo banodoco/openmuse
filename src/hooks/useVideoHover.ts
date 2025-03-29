@@ -18,7 +18,7 @@ export const useVideoHover = (
     isMobile?: boolean; // Flag to handle mobile behavior differently
   }
 ) => {
-  const { enabled, resetOnLeave = true, delayPlay = 0, isMobile: propIsMobile } = options; // Removed delay for immediate response
+  const { enabled, resetOnLeave = true, delayPlay = 0, isMobile: propIsMobile } = options;
   const defaultIsMobile = useIsMobile();
   const isMobile = propIsMobile !== undefined ? propIsMobile : defaultIsMobile;
   
@@ -49,7 +49,6 @@ export const useVideoHover = (
         window.clearTimeout(playTimeoutRef.current);
       }
       
-      // Remove delay to make hover response immediate
       playTimeoutRef.current = window.setTimeout(() => {
         // Check if we're still hovering (mouse might have left during timeout)
         if (!isHoveringRef.current) return;
@@ -70,7 +69,7 @@ export const useVideoHover = (
           const now = Date.now();
           lastPlayAttemptRef.current = now;
           
-          // Use a more direct play approach without delay
+          // Try to play the video
           video.play().catch(e => {
             // Only log errors that aren't abort errors (which happen when quickly hovering in/out)
             if (e.name !== 'AbortError') {
@@ -93,7 +92,7 @@ export const useVideoHover = (
         playTimeoutRef.current = null;
       }
       
-      // Remove delay and pause immediately
+      // Pause immediately
       if (!video.paused) {
         video.pause();
         
@@ -107,9 +106,6 @@ export const useVideoHover = (
     // For mobile: toggle play/pause on touch
     const handleTouch = (e: TouchEvent) => {
       if (!isMobile) return;
-      
-      // Prevent default to avoid triggering other events
-      e.preventDefault();
       
       logger.log('Touch event on video, current playing state:', !video.paused);
       
@@ -148,7 +144,11 @@ export const useVideoHover = (
     // Add listeners
     container.addEventListener('mouseenter', handleMouseEnter);
     container.addEventListener('mouseleave', handleMouseLeave);
-    container.addEventListener('touchstart', handleTouch as EventListener);
+    
+    // Only add touch listener for mobile
+    if (isMobile) {
+      container.addEventListener('touchstart', handleTouch as EventListener, { passive: false });
+    }
     
     return () => {
       // Clear any pending timeout on unmount

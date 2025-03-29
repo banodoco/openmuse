@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -155,20 +156,31 @@ const VideoCard: React.FC<VideoCardProps> = ({
     >
       <div className="aspect-video">
         <div className="w-full h-full">
-          <div className="w-full h-full relative">
-            <VideoPreview
-              key={`video-${video.id}`}
-              url={video.video_location}
-              title={video.metadata?.title || `Video by ${getCreatorName()}`}
-              creator={getCreatorName()}
-              className="w-full h-full object-cover"
-              isHovering={isHovering}
-              lazyLoad={false}
-              thumbnailUrl={thumbnailUrl}
-              onTouch={handleTouch}
-              isMobile={isMobile}
-            />
-            
+          <VideoPreview
+            key={`video-${video.id}`}
+            url={video.video_location}
+            title={video.metadata?.title || `Video by ${getCreatorName()}`}
+            creator={getCreatorName()}
+            className="w-full h-full object-cover"
+            isHovering={isHovering}
+            lazyLoad={false}
+            thumbnailUrl={thumbnailUrl}
+            onTouch={handleTouch}
+            isMobile={isMobile}
+          />
+          
+          {isMobile ? (
+            <div 
+              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
+                ${isHovering ? 'opacity-0' : 'opacity-70'}
+              `}
+              style={{ zIndex: 1 }}
+            >
+              <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+                <Play className="h-6 w-6 text-white" />
+              </div>
+            </div>
+          ) : (
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
                 ${isHovering ? 'opacity-0' : 'opacity-100'}
@@ -178,7 +190,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                 <Play className="h-6 w-6 text-white" />
               </div>
             </div>
-          </div>
+          )}
         </div>
       </div>
       

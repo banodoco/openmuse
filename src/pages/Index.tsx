@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -35,9 +34,10 @@ const Index = () => {
     }
     
     logger.log('Total LoRAs available:', loras.length);
+    logger.log('Is mobile device:', isMobile);
     
     return loras;
-  }, [loras]);
+  }, [loras, isMobile]);
   
   useEffect(() => {
     logger.log('Index page loaded, auth state:', user ? 'logged in' : 'not logged in');

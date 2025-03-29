@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink } from 'lucide-react';
+import { Trash, Check, X, ExternalLink, Play } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -21,6 +22,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Logger } from '@/lib/logger';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('LoraCard');
 
@@ -42,6 +44,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isHovering, setIsHovering] = useState(false);
   const { user } = useAuth();
   const hoverTimeoutRef = useRef<number | null>(null);
+  const isMobile = useIsMobile();
   
   const videoUrl = lora.primaryVideo?.video_location;
   const thumbnailUrl = lora.primaryVideo?.metadata?.thumbnailUrl;
@@ -172,14 +175,16 @@ const LoraCard: React.FC<LoraCardProps> = ({
   };
 
   const handleMouseEnter = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
+    if (hoverTimeoutRef.current || isMobile) {
+      clearTimeout(hoverTimeoutRef.current!);
     }
     
-    hoverTimeoutRef.current = window.setTimeout(() => {
-      logger.log(`LoraCard: Mouse entered, setting hover state for ${lora.name}`);
-      setIsHovering(true);
-    }, 50);
+    if (!isMobile) {
+      hoverTimeoutRef.current = window.setTimeout(() => {
+        logger.log(`LoraCard: Mouse entered, setting hover state for ${lora.name}`);
+        setIsHovering(true);
+      }, 50);
+    }
   };
 
   const handleMouseLeave = () => {
@@ -188,8 +193,17 @@ const LoraCard: React.FC<LoraCardProps> = ({
       hoverTimeoutRef.current = null;
     }
     
-    logger.log(`LoraCard: Mouse left, clearing hover state for ${lora.name}`);
-    setIsHovering(false);
+    if (!isMobile) {
+      logger.log(`LoraCard: Mouse left, clearing hover state for ${lora.name}`);
+      setIsHovering(false);
+    }
+  };
+  
+  const handleTouch = () => {
+    if (isMobile) {
+      logger.log(`LoraCard: Touch event for ${lora.name}`);
+      setIsHovering(!isHovering);
+    }
   };
   
   return (
@@ -201,17 +215,32 @@ const LoraCard: React.FC<LoraCardProps> = ({
         className="aspect-video w-full overflow-hidden bg-muted relative"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
+        onTouchStart={(e) => {
+          e.stopPropagation();
+          handleTouch();
+        }}
       >
         {videoUrl ? (
-          <VideoPreview 
-            url={videoUrl} 
-            className="w-full h-full object-cover" 
-            title={lora.name}
-            creator={getCreatorName()}
-            isHovering={isHovering}
-            lazyLoad={true}
-            thumbnailUrl={thumbnailUrl}
-          />
+          <>
+            <VideoPreview 
+              url={videoUrl} 
+              className="w-full h-full object-cover" 
+              title={lora.name}
+              creator={getCreatorName()}
+              isHovering={isHovering}
+              lazyLoad={false}
+              thumbnailUrl={thumbnailUrl}
+              isMobile={isMobile}
+              onTouch={handleTouch}
+            />
+            {isMobile && !isHovering && (
+              <div className="absolute inset-0 flex items-center justify-center z-1" style={{ pointerEvents: 'none' }}>
+                <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+                  <Play className="h-6 w-6 text-white" />
+                </div>
+              </div>
+            )}
+          </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <p className="text-muted-foreground text-sm">No preview available</p>
