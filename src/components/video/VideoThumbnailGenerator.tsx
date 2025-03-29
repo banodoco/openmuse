@@ -1,22 +1,55 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { getYoutubeVideoId } from '@/lib/utils/videoPreviewUtils';
+import { supabase } from '@/integrations/supabase/client';
+import { v4 as uuidv4 } from 'uuid';
 
 interface VideoThumbnailGeneratorProps {
   file?: File;
   url?: string;
   onThumbnailGenerated: (thumbnailUrl: string) => void;
   saveThumbnail?: boolean;
+  userId?: string;
 }
 
 const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   file,
   url,
   onThumbnailGenerated,
-  saveThumbnail = false
+  saveThumbnail = false,
+  userId
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   
+  const saveThumbnailToStorage = async (dataUrl: string) => {
+    if (!userId) return null;
+
+    try {
+      const blob = await (await fetch(dataUrl)).blob();
+      const thumbnailName = `thumbnails/${userId}/${uuidv4()}.jpg`;
+      
+      const { data, error } = await supabase.storage
+        .from('thumbnails')
+        .upload(thumbnailName, blob, {
+          contentType: 'image/jpeg',
+          upsert: true
+        });
+
+      if (error) {
+        console.error('Thumbnail upload error:', error);
+        return null;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from('thumbnails')
+        .getPublicUrl(thumbnailName);
+
+      return publicUrl;
+    } catch (error) {
+      console.error('Error saving thumbnail:', error);
+      return null;
+    }
+  };
+
   useEffect(() => {
     if (file) {
       const fileUrl = URL.createObjectURL(file);
@@ -33,7 +66,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
           }
         };
         
-        videoRef.current.onseeked = () => {
+        videoRef.current.onseeked = async () => {
           try {
             const canvas = document.createElement('canvas');
             canvas.width = videoRef.current?.videoWidth || 640;
@@ -43,22 +76,16 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             if (ctx && videoRef.current) {
               ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
               const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-              onThumbnailGenerated(dataUrl);
-
-              if (saveThumbnail) {
-                // Convert dataURL to Blob for storage upload
-                fetch(dataUrl)
-                  .then(res => res.blob())
-                  .then(blob => {
-                    // Return the blob for upload in the parent component
-                    onThumbnailGenerated(dataUrl);
-                  })
-                  .catch(err => {
-                    console.error("Error converting thumbnail to blob:", err);
-                  });
-              } else {
-                onThumbnailGenerated(dataUrl);
+              
+              let thumbnailUrl = dataUrl;
+              if (saveThumbnail && userId) {
+                const storedThumbnailUrl = await saveThumbnailToStorage(dataUrl);
+                if (storedThumbnailUrl) {
+                  thumbnailUrl = storedThumbnailUrl;
+                }
               }
+              
+              onThumbnailGenerated(thumbnailUrl);
             }
           } catch (e) {
             console.error('Error generating thumbnail:', e);
@@ -117,7 +144,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         tempVideo.load();
       }
     }
-  }, [file, url, onThumbnailGenerated, saveThumbnail]);
+  }, [file, url, onThumbnailGenerated, saveThumbnail, userId]);
 
   return (
     <video 
