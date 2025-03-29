@@ -123,6 +123,10 @@ export const useLoraManagement = () => {
           logger.error("Error fetching user profiles:", profilesError);
         } else if (profiles) {
           logger.log("Fetched user profiles:", profiles.length);
+          profiles.forEach(profile => {
+            logger.log(`Profile ${profile.id}: display_name=${profile.display_name}, username=${profile.username}`);
+          });
+          
           // Create a map of user_id to display_name or username
           userProfiles = profiles.reduce((acc, profile) => {
             acc[profile.id] = profile.display_name || profile.username || '';
@@ -146,6 +150,14 @@ export const useLoraManagement = () => {
         const creatorDisplayName = asset.user_id && userProfiles[asset.user_id] 
           ? userProfiles[asset.user_id] 
           : asset.creator;
+        
+        // Log creator information for debugging
+        logger.log(`Asset ${asset.id} creator info:`, {
+          user_id: asset.user_id,
+          creator: asset.creator,
+          display_name_from_profile: asset.user_id ? userProfiles[asset.user_id] : 'No user_id',
+          final_display_name: creatorDisplayName
+        });
         
         // We're mapping database columns to our LoraAsset interface, making sure to not reference non-existent columns
         return {

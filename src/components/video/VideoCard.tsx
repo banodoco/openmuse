@@ -23,6 +23,28 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   
+  // Function to get creator display name
+  const getCreatorName = () => {
+    // First try to use metadata creatorName
+    if (video.metadata?.creatorName) {
+      // If it's an email, only show the part before @
+      if (video.metadata.creatorName.includes('@')) {
+        return video.metadata.creatorName.split('@')[0];
+      }
+      return video.metadata.creatorName;
+    }
+    
+    // Then try reviewer_name with the same email handling
+    if (video.reviewer_name) {
+      if (video.reviewer_name.includes('@')) {
+        return video.reviewer_name.split('@')[0];
+      }
+      return video.reviewer_name;
+    }
+    
+    return 'Unknown';
+  };
+  
   // Function to get button styles based on approval status
   const getButtonStyle = (status: string) => {
     const currentStatus = video.admin_approved || 'Listed';
@@ -94,11 +116,9 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
       
       <div className="p-2 bg-card">
         <h3 className="font-medium text-sm truncate">
-          {video.metadata?.title || `Video by ${video.reviewer_name}`}
+          {video.metadata?.title || `Video by ${getCreatorName()}`}
         </h3>
-        {video.reviewer_name && (
-          <p className="text-xs text-muted-foreground">By {video.reviewer_name}</p>
-        )}
+        <p className="text-xs text-muted-foreground">By {getCreatorName()}</p>
       </div>
       
       {isAdmin && (
