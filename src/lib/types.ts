@@ -58,9 +58,16 @@ export interface LoraAsset {
   user_id?: string;
   primary_media_id?: string;
   admin_approved?: string | null;
-  lora_type?: string;  // Restored
-  lora_link?: string;  // Restored
+  lora_type?: string;
+  lora_link?: string;
   // Populated from related data
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];
+}
+
+// Props interfaces
+export interface LoraManagerProps {
+  loras: LoraAsset[];
+  isLoading: boolean;
+  showExtras?: boolean;
 }

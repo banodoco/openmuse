@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -24,9 +25,14 @@ import { Button } from "@/components/ui/button";
 interface LoraCardProps {
   lora: LoraAsset;
   isAdmin?: boolean;
+  showExtras?: boolean;
 }
 
-const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
+const LoraCard: React.FC<LoraCardProps> = ({ 
+  lora, 
+  isAdmin = false, 
+  showExtras = false 
+}) => {
   const navigate = useNavigate();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
@@ -35,6 +41,21 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
   const { user } = useAuth();
   
   const videoUrl = lora.primaryVideo?.video_location;
+  
+  // Format creator name to hide email addresses
+  const formatCreatorName = (creator?: string) => {
+    if (!creator) return "Unknown";
+    
+    // If it looks like an email, extract the part before @ or use first part
+    if (creator.includes('@')) {
+      const namePart = creator.split('@')[0];
+      return namePart.includes('.') 
+        ? namePart.split('.').map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ')
+        : namePart;
+    }
+    
+    return creator;
+  };
   
   const handleView = () => {
     navigate(`/assets/loras/${lora.id}`);
@@ -155,7 +176,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
             url={videoUrl} 
             className="w-full h-full object-cover" 
             title={lora.name}
-            creator={lora.creator}
+            creator={formatCreatorName(lora.creator)}
             isHovering={isHovering}
           />
         ) : (
@@ -165,7 +186,7 @@ const LoraCard: React.FC<LoraCardProps> = ({ lora, isAdmin = false }) => {
         )}
       </div>
       
-      {lora.lora_link && (
+      {lora.lora_link && showExtras && (
         <div className="p-1">
           <Button 
             variant="ghost" 

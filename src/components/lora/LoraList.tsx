@@ -14,9 +14,10 @@ const logger = new Logger('LoraList');
 
 interface LoraListProps {
   loras: LoraAsset[];
+  showExtras?: boolean;
 }
 
-const LoraList: React.FC<LoraListProps> = ({ loras }) => {
+const LoraList: React.FC<LoraListProps> = ({ loras, showExtras = false }) => {
   const [filterText, setFilterText] = useState('');
   const [approvalFilter, setApprovalFilter] = useState('curated'); // Default to 'curated'
   const [isAdmin, setIsAdmin] = useState(false);
@@ -140,7 +141,12 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
           {filteredLoras.length > 0 ? (
             filteredLoras.map((lora) => (
-              <LoraCard key={lora.id} lora={lora} isAdmin={isAdmin} />
+              <LoraCard 
+                key={lora.id} 
+                lora={lora} 
+                isAdmin={isAdmin} 
+                showExtras={showExtras} 
+              />
             ))
           ) : (
             <div className="col-span-full text-center py-8">
