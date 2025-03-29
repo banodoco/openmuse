@@ -12,7 +12,6 @@ interface AssetVideoSectionProps {
   asset: LoraAsset | null;
   videos: VideoEntry[];
   isAdmin: boolean;
-  showUploadButton: boolean;
   handleOpenLightbox: (video: VideoEntry) => void;
   handleApproveVideo: (videoId: string) => Promise<void>;
   handleDeleteVideo: (videoId: string) => Promise<void>;
@@ -29,15 +28,6 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   fetchAssetDetails
 }) => {
   const { user } = useAuth();
-  const navigate = useNavigate();
-  
-  const handleUploadClick = () => {
-    if (!user) {
-      // Redirect to auth page with return URL
-      const returnUrl = window.location.pathname;
-      navigate(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
-    }
-  };
   
   return (
     <div className="md:col-span-2">
@@ -46,21 +36,12 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       </div>
       
       <div className="mb-4">
-        {user ? (
-          <LoRAVideoUploader 
-            assetId={asset?.id || ''} 
-            assetName={asset?.name || ''} 
-            onUploadsComplete={fetchAssetDetails} 
-          />
-        ) : (
-          <Button 
-            variant="default" 
-            onClick={handleUploadClick}
-            className="gap-2"
-          >
-            Upload video made with this
-          </Button>
-        )}
+        <LoRAVideoUploader 
+          assetId={asset?.id || ''} 
+          assetName={asset?.name || ''} 
+          onUploadsComplete={fetchAssetDetails}
+          isLoggedIn={!!user}
+        />
       </div>
       
       {videos.length > 0 ? (

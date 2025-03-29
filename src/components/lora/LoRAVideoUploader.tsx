@@ -3,12 +3,13 @@ import React, { useState, useEffect } from 'react';
 import { MultipleVideoUploader } from '@/pages/upload/components';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Upload } from 'lucide-react';
+import { Upload, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { videoUploadService } from '@/lib/services/videoUploadService';
 import { VideoFile, VideoMetadata } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
+import { useNavigate } from 'react-router-dom';
 
 interface VideoItem {
   id: string;
@@ -30,17 +31,20 @@ interface LoRAVideoUploaderProps {
   assetId: string;
   assetName: string;
   onUploadsComplete: () => void;
+  isLoggedIn: boolean;
 }
 
 const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({ 
   assetId,
   assetName,
-  onUploadsComplete
+  onUploadsComplete,
+  isLoggedIn
 }) => {
   const [open, setOpen] = useState(false);
   const [videos, setVideos] = useState<VideoItem[]>([]);
   const [isUploading, setIsUploading] = useState(false);
   const { user } = useAuth();
+  const navigate = useNavigate();
 
   const handleOpenChange = (open: boolean) => {
     setOpen(open);
@@ -50,7 +54,18 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
     }
   };
 
+  const handleSignIn = () => {
+    // Redirect to auth page with return URL
+    const returnUrl = window.location.pathname;
+    navigate(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
+  };
+
   const uploadVideos = async () => {
+    if (!isLoggedIn) {
+      handleSignIn();
+      return;
+    }
+    
     const videosWithContent = videos.filter(v => v.file || v.url);
     
     if (videosWithContent.length === 0) {
@@ -148,7 +163,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
         className="gap-2"
       >
         <Upload className="h-4 w-4" />
-        Upload video made with this
+        Upload Video
       </Button>
 
       <Dialog open={open} onOpenChange={handleOpenChange}>
@@ -158,33 +173,48 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
           </DialogHeader>
           
           <div className="space-y-6">
-            <p className="text-sm text-muted-foreground">
-              Add videos showcasing generations you've created with this LoRA. The videos will be associated with this asset.
-            </p>
-            
-            <MultipleVideoUploader
-              videos={videos}
-              setVideos={setVideos}
-              hideIsPrimary={true}
-            />
-            
-            <div className="flex justify-end space-x-2 pt-4">
-              <Button 
-                variant="outline" 
-                onClick={() => setOpen(false)}
-                disabled={isUploading}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={uploadVideos}
-                disabled={isUploading || videos.every(v => !v.file && !v.url)}
-                className="gap-2"
-              >
-                <Upload className="h-4 w-4" />
-                {isUploading ? 'Uploading...' : 'Upload Videos'}
-              </Button>
-            </div>
+            {!isLoggedIn ? (
+              <div className="rounded-md bg-muted/50 p-6 text-center">
+                <AlertCircle className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                <h3 className="text-lg font-medium mb-2">Login Required</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  You need to be logged in to upload videos.
+                </p>
+                <Button onClick={handleSignIn}>
+                  Sign In to Continue
+                </Button>
+              </div>
+            ) : (
+              <>
+                <p className="text-sm text-muted-foreground">
+                  Add videos showcasing generations you've created with this LoRA. The videos will be associated with this asset.
+                </p>
+                
+                <MultipleVideoUploader
+                  videos={videos}
+                  setVideos={setVideos}
+                  hideIsPrimary={true}
+                />
+                
+                <div className="flex justify-end space-x-2 pt-4">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setOpen(false)}
+                    disabled={isUploading}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={uploadVideos}
+                    disabled={isUploading || videos.every(v => !v.file && !v.url)}
+                    className="gap-2"
+                  >
+                    <Upload className="h-4 w-4" />
+                    {isUploading ? 'Uploading...' : 'Upload Videos'}
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
         </DialogContent>
       </Dialog>

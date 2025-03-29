@@ -29,10 +29,8 @@ const AssetDetailPage: React.FC = () => {
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Extract the ID correctly regardless of route format
   const id = params.id;
 
-  // Custom hooks
   const {
     asset,
     videos,
@@ -54,7 +52,6 @@ const AssetDetailPage: React.FC = () => {
     handleApproveVideo
   } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
 
-  // Check if user is admin
   React.useEffect(() => {
     const checkAdminStatus = async () => {
       if (user?.id) {
@@ -72,12 +69,10 @@ const AssetDetailPage: React.FC = () => {
     checkAdminStatus();
   }, [user]);
 
-  // Update loading state based on asset loading
   React.useEffect(() => {
     setIsLoading(assetLoading);
   }, [assetLoading]);
 
-  // Handler functions
   const handleRetry = () => {
     setIsLoading(true);
     setDataFetchAttempted(false);
@@ -96,7 +91,6 @@ const AssetDetailPage: React.FC = () => {
     setIsLightboxOpen(false);
   };
 
-  // Loading state
   if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -120,7 +114,6 @@ const AssetDetailPage: React.FC = () => {
     );
   }
 
-  // Empty state
   if (!asset && dataFetchAttempted) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
@@ -145,7 +138,6 @@ const AssetDetailPage: React.FC = () => {
     );
   }
 
-  // Main render
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -169,7 +161,6 @@ const AssetDetailPage: React.FC = () => {
             asset={asset}
             videos={videos}
             isAdmin={isAdmin}
-            showUploadButton={true}
             handleOpenLightbox={handleOpenLightbox}
             handleApproveVideo={handleApproveVideo}
             handleDeleteVideo={handleDeleteVideo}
