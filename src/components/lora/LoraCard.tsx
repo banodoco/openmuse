@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -202,6 +203,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
       )}
       
       <CardContent className="p-3">
+        <h3 className="font-medium text-sm truncate mb-1">{lora.name}</h3>
         {getCreatorName() && (
           <p className="text-xs text-muted-foreground">Creator: {getCreatorName()}</p>
         )}
