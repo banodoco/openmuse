@@ -54,6 +54,29 @@ const AssetDetailPage: React.FC = () => {
     checkAdminStatus();
   }, [user]);
 
+  useEffect(() => {
+    const logAssetDetails = async () => {
+      if (asset?.user_id) {
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('display_name, username')
+          .eq('id', asset.user_id)
+          .maybeSingle();
+        
+        console.log('Asset User Profile:', {
+          user_id: asset.user_id,
+          creator: asset.creator,
+          profile: profile,
+          error: error
+        });
+      }
+    };
+
+    if (asset) {
+      logAssetDetails();
+    }
+  }, [asset]);
+
   const fetchAssetDetails = useCallback(async () => {
     if (!id) {
       toast.error('No asset ID provided');
