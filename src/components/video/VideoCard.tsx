@@ -14,6 +14,8 @@ interface VideoCardProps {
   onOpenLightbox: (video: VideoEntry) => void;
   onApproveVideo?: (videoId: string) => void;
   onDeleteVideo?: (videoId: string) => void;
+  isHovering?: boolean;
+  onHoverChange?: (isHovering: boolean) => void;
 }
 
 const VideoCard: React.FC<VideoCardProps> = memo(({
@@ -21,12 +23,18 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
   isAdmin,
   onOpenLightbox,
   onApproveVideo,
-  onDeleteVideo
+  onDeleteVideo,
+  isHovering = false,
+  onHoverChange
 }) => {
   const { user } = useAuth();
-  const [isHovering, setIsHovering] = useState(false);
+  const [hovering, setHovering] = useState(isHovering);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  
+  useEffect(() => {
+    setHovering(isHovering);
+  }, [isHovering]);
   
   useEffect(() => {
     const fetchCreatorProfile = async () => {
@@ -53,6 +61,20 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
     
     fetchCreatorProfile();
   }, [video.user_id, video.metadata]);
+  
+  const handleMouseEnter = () => {
+    setHovering(true);
+    if (onHoverChange) {
+      onHoverChange(true);
+    }
+  };
+  
+  const handleMouseLeave = () => {
+    setHovering(false);
+    if (onHoverChange) {
+      onHoverChange(false);
+    }
+  };
   
   const getCreatorName = () => {
     if (creatorDisplayName) {
@@ -108,8 +130,8 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
     <div 
       key={video.id} 
       className="relative rounded-lg overflow-hidden shadow-md group"
-      onMouseEnter={() => setIsHovering(true)}
-      onMouseLeave={() => setIsHovering(false)}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
     >
       <div className="aspect-video">
@@ -121,14 +143,14 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
               title={video.metadata?.title || `Video by ${getCreatorName()}`}
               creator={getCreatorName()}
               className="w-full h-full object-cover"
-              isHovering={isHovering}
+              isHovering={hovering}
               lazyLoad={true}
               thumbnailUrl={thumbnailUrl}
             />
             
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 
-                ${isHovering 
+                ${hovering 
                   ? 'opacity-100' 
                   : 'opacity-0'
                 }`}
