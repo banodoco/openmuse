@@ -21,15 +21,17 @@ import AssetInfoCard from './components/AssetInfoCard';
 import AssetVideoSection from './components/AssetVideoSection';
 
 const AssetDetailPage: React.FC = () => {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
   const navigate = useNavigate();
   const [isAdmin, setIsAdmin] = useState(false);
   const { user } = useAuth();
   const [authChecked, setAuthChecked] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  // Adding this missing state for loading control
   const [isLoading, setIsLoading] = useState(true);
+
+  // Extract the ID correctly regardless of route format
+  const id = params.id;
 
   // Custom hooks
   const {

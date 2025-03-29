@@ -23,6 +23,8 @@ function App() {
           <Route path="/auth" element={<AuthPage />} />
           <Route path="/videos/:id" element={<VideoPage />} />
           <Route path="/assets/:id" element={<AssetDetailPage />} />
+          {/* Add the new route format for LoRA assets */}
+          <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
         </Routes>
       </Suspense>
       <Toaster />
