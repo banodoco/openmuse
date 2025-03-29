@@ -133,6 +133,7 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
+      data-hovering={hovering ? "true" : "false"}
     >
       <div className="aspect-video">
         <div className="w-full h-full">

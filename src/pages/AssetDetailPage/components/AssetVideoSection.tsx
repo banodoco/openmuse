@@ -6,7 +6,6 @@ import EmptyState from '@/components/EmptyState';
 import VideoCard from '@/components/video/VideoCard';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
 import { useAuth } from '@/hooks/useAuth';
-import { useNavigate } from 'react-router-dom';
 
 interface AssetVideoSectionProps {
   asset: LoraAsset | null;
@@ -29,6 +28,14 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 }) => {
   const { user } = useAuth();
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+  
+  const handleHoverChange = (videoId: string, isHovering: boolean) => {
+    if (isHovering) {
+      setHoveredVideoId(videoId);
+    } else if (hoveredVideoId === videoId) {
+      setHoveredVideoId(null);
+    }
+  };
   
   return (
     <div className="md:col-span-2">
@@ -56,13 +63,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               onApproveVideo={handleApproveVideo}
               onDeleteVideo={handleDeleteVideo}
               isHovering={hoveredVideoId === video.id}
-              onHoverChange={(isHovering) => {
-                if (isHovering) {
-                  setHoveredVideoId(video.id);
-                } else if (hoveredVideoId === video.id) {
-                  setHoveredVideoId(null);
-                }
-              }}
+              onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
             />
           ))}
         </div>

@@ -49,16 +49,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   // Combine external and internal hover states
   const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
   
-  // Always update internal hover state when external state changes
+  // Force playing state update when hover state changes
   useEffect(() => {
     if (externalHoverState !== undefined) {
+      logger.log(`VideoPreview: External hover state changed to ${externalHoverState}`);
       setIsHovering(externalHoverState);
-      
-      if (externalHoverState) {
-        setIsPlaying(true);
-      } else {
-        setIsPlaying(false);
-      }
+      setIsPlaying(externalHoverState);
     }
   }, [externalHoverState]);
   
