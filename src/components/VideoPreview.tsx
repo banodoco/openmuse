@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
 import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
@@ -14,7 +14,7 @@ interface VideoPreviewProps {
   creator?: string;
   isHovering?: boolean;
   lazyLoad?: boolean;
-  thumbnailUrl?: string; // Add support for a pre-saved thumbnail
+  thumbnailUrl?: string;
 }
 
 /**
@@ -31,6 +31,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   lazyLoad = true,
   thumbnailUrl
 }) => {
+  const { user } = useAuth();
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -101,7 +102,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  // Only render the VideoThumbnailGenerator if we don't already have a thumbnail
   const needsThumbnailGeneration = !thumbnailUrl && (file || (url && !isExternalLink && !posterUrl));
 
   return (
@@ -116,6 +116,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           file={file}
           url={url}
           onThumbnailGenerated={handleThumbnailGenerated}
+          userId={user?.id}
+          saveThumbnail={true}
         />
       )}
       

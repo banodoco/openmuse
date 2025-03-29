@@ -1,5 +1,5 @@
-
 import React, { useState, memo, useEffect } from 'react';
+import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Check, X, Play } from 'lucide-react';
 import StorageVideoPlayer from '../StorageVideoPlayer';
@@ -23,14 +23,13 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
   onApproveVideo,
   onDeleteVideo
 }) => {
+  const { user } = useAuth();
   const [isHovering, setIsHovering] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   
-  // Fetch user profile for display name when component mounts
   useEffect(() => {
     const fetchCreatorProfile = async () => {
-      // Only attempt to fetch profile if we have a user_id
       if (video.user_id) {
         try {
           const { data: profile, error } = await supabase
@@ -40,7 +39,6 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
             .maybeSingle();
             
           if (profile && !error) {
-            // Use display_name or username from profile
             setCreatorDisplayName(profile.display_name || profile.username);
           }
         } catch (error) {
@@ -49,7 +47,6 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
       }
     };
     
-    // Check if we have a thumbnail URL saved in the video metadata
     if (video.metadata?.thumbnailUrl) {
       setThumbnailUrl(video.metadata.thumbnailUrl);
     }
@@ -57,23 +54,18 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
     fetchCreatorProfile();
   }, [video.user_id, video.metadata]);
   
-  // Function to get creator display name
   const getCreatorName = () => {
-    // First priority: Profile display name if we fetched it
     if (creatorDisplayName) {
       return creatorDisplayName;
     }
     
-    // Second priority: metadata creatorName
     if (video.metadata?.creatorName) {
-      // If it's an email, only show the part before @
       if (video.metadata.creatorName.includes('@')) {
         return video.metadata.creatorName.split('@')[0];
       }
       return video.metadata.creatorName;
     }
     
-    // Then try reviewer_name with the same email handling
     if (video.reviewer_name) {
       if (video.reviewer_name.includes('@')) {
         return video.reviewer_name.split('@')[0];
@@ -84,7 +76,6 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
     return 'Unknown';
   };
   
-  // Function to get button styles based on approval status
   const getButtonStyle = (status: string) => {
     const currentStatus = video.admin_approved || 'Listed';
     const isActive = currentStatus === status;
@@ -105,7 +96,6 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
   
   const handleList = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // We'll use the same onApproveVideo callback but set it to 'Listed' status in parent component
     if (onApproveVideo) onApproveVideo(video.id);
   };
   
