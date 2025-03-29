@@ -42,8 +42,13 @@ const LoraCard: React.FC<LoraCardProps> = ({
   
   const videoUrl = lora.primaryVideo?.video_location;
   
-  // Format creator name to hide email addresses
-  const formatCreatorName = (creator?: string) => {
+  // Format creator name to prioritize display name 
+  const getCreatorName = () => {
+    // First try to use the creatorDisplayName from profile
+    if (lora.creatorDisplayName) return lora.creatorDisplayName;
+    
+    // If not available, fall back to the original creator formatting
+    const creator = lora.creator;
     if (!creator) return "Unknown";
     
     // If it looks like an email, extract the part before @ or use first part
@@ -176,7 +181,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
             url={videoUrl} 
             className="w-full h-full object-cover" 
             title={lora.name}
-            creator={formatCreatorName(lora.creator)}
+            creator={getCreatorName()}
             isHovering={isHovering}
           />
         ) : (

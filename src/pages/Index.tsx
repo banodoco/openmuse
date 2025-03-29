@@ -144,7 +144,7 @@ const Index = () => {
         <LoraManager 
           loras={displayLoras} 
           isLoading={lorasLoading}
-          showExtras={false}
+          showExtras={false} // Explicitly set to false to ensure "View Original" is hidden
         />
       </main>
       

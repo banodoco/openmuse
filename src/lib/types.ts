@@ -53,6 +53,7 @@ export interface LoraAsset {
   name: string;
   description?: string;
   creator?: string;
+  creatorDisplayName?: string;
   type: string;
   created_at: string;
   user_id?: string;

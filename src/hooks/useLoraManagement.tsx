@@ -102,6 +102,32 @@ export const useLoraManagement = () => {
       }
       
       if (!isMounted.current) return;
+
+      // Fetch profiles for all user_ids to get display names
+      const userIds = loraAssets
+        ?.filter(asset => asset.user_id)
+        .map(asset => asset.user_id) || [];
+      
+      const uniqueUserIds = [...new Set(userIds)].filter(Boolean) as string[];
+      
+      let userProfiles: Record<string, string> = {};
+      
+      if (uniqueUserIds.length > 0) {
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, display_name, username')
+          .in('id', uniqueUserIds);
+        
+        if (profilesError) {
+          logger.error("Error fetching user profiles:", profilesError);
+        } else if (profiles) {
+          // Create a map of user_id to display_name or username
+          userProfiles = profiles.reduce((acc, profile) => {
+            acc[profile.id] = profile.display_name || profile.username || '';
+            return acc;
+          }, {} as Record<string, string>);
+        }
+      }
       
       const lorasWithVideos = loraAssets?.map((asset) => {
         const primaryVideo = videos.find(v => v.id === asset.primary_media_id);
@@ -114,12 +140,18 @@ export const useLoraManagement = () => {
         
         const admin_approved = asset.admin_approved || 'Listed';
         
+        // Add display_name from profiles if available
+        const creatorDisplayName = asset.user_id && userProfiles[asset.user_id] 
+          ? userProfiles[asset.user_id] 
+          : asset.creator;
+        
         // We're mapping database columns to our LoraAsset interface, making sure to not reference non-existent columns
         return {
           ...asset,
           primaryVideo,
           videos: assetVideos,
-          admin_approved
+          admin_approved,
+          creatorDisplayName
         } as LoraAsset;
       }) || [];
       
