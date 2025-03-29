@@ -1,4 +1,5 @@
-import React, { useRef, useState, useEffect } from 'react';
+
+import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useVideoHover } from '@/hooks/useVideoHover';
@@ -24,6 +25,7 @@ interface VideoPlayerProps {
   showPlayButtonOnHover?: boolean;
   externallyControlled?: boolean;
   isHovering?: boolean;
+  lazyLoad?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -42,6 +44,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   showPlayButtonOnHover = true,
   externallyControlled = false,
   isHovering = false,
+  lazyLoad = true,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
@@ -51,12 +54,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
-
+  const [videoLoaded, setVideoLoaded] = useState(!lazyLoad || autoPlay || false);
+  const [hasInteracted, setHasInteracted] = useState(false);
+  
   // Setup hover behavior - only if not externally controlled
   useVideoHover(containerRef, videoRef, {
     enabled: playOnHover && !externallyControlled,
     resetOnLeave: true
   });
+  
+  // Handle lazy loading of video
+  const loadFullVideo = useCallback(() => {
+    if (!videoLoaded) {
+      logger.log('Loading full video on hover');
+      setVideoLoaded(true);
+      setHasInteracted(true);
+    }
+  }, [videoLoaded]);
   
   // Handle external hover control
   useEffect(() => {
@@ -64,7 +78,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (externallyControlled && video) {
       logger.log(`External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
       
-      if (isHovering && (video.paused || video.ended)) {
+      if (isHovering) {
+        loadFullVideo();
         logger.log('VideoPlayer: External hover detected - playing video');
         attemptVideoPlay(video, muted);
       } else if (!isHovering && !video.paused) {
@@ -72,7 +87,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         video.pause();
       }
     }
-  }, [isHovering, externallyControlled, muted]);
+  }, [isHovering, externallyControlled, muted, loadFullVideo]);
 
   // Validate video source
   useEffect(() => {
@@ -98,19 +113,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [src, onError, isBlobUrl]);
 
-  // Handle video element setup when src changes
+  // Handle video element setup when src changes or when video is loaded on hover
   useEffect(() => {
+    if (!src || !videoLoaded) {
+      return;
+    }
+    
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
-    
-    if (!src) {
-      logger.log('No source provided to VideoPlayer');
-      setError('No video source provided');
-      setIsLoading(false);
-      if (onError) onError('No video source provided');
-      return;
-    }
     
     logger.log(`Loading video with source: ${src.substring(0, 50)}...`);
     
@@ -125,7 +136,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setIsLoading(false);
       if (onLoadedData) onLoadedData();
       
-      // Don't autoplay if we're using hover to play
+      // Don't autoplay if we're using hover to play or lazy loading
       if (autoPlay && !playOnHover && !externallyControlled) {
         attemptVideoPlay(video, muted);
       }
@@ -167,7 +178,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.pause();
     
     try {
-      video.preload = "auto"; // Ensure video preloads
+      // Only set the full video source if we're loading the video
+      video.preload = videoLoaded ? "auto" : "metadata";
       video.src = src;
       if (poster) {
         video.poster = poster;
@@ -189,7 +201,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.src = '';
       video.load();
     };
-  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering]);
+  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering, videoLoaded]);
 
   const handleRetry = () => {
     const video = videoRef.current;
@@ -204,9 +216,17 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.load();
   };
 
+  const handleMouseEnter = () => {
+    loadFullVideo();
+  };
+
   return (
-    <div ref={containerRef} className="relative w-full h-full overflow-hidden rounded-lg">
-      {isLoading && <VideoLoader posterImage={poster} />}
+    <div 
+      ref={containerRef} 
+      className="relative w-full h-full overflow-hidden rounded-lg"
+      onMouseEnter={handleMouseEnter}
+    >
+      {isLoading && videoLoaded && <VideoLoader posterImage={poster} />}
       
       {error && !onError && (
         <VideoError 
@@ -217,17 +237,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         />
       )}
       
+      {/* Show poster if lazy loading and not yet loaded */}
+      {lazyLoad && !hasInteracted && poster && (
+        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${poster})` }} />
+      )}
+      
       <video
         ref={videoRef}
-        className={cn("w-full h-full object-cover", className)}
+        className={cn("w-full h-full object-cover", className, {
+          'opacity-0': lazyLoad && !videoLoaded
+        })}
         autoPlay={autoPlay && !playOnHover && !externallyControlled}
         muted={muted}
         loop={loop}
         controls={showPlayButtonOnHover ? controls : false}
         playsInline
         poster={poster || undefined}
-        preload="auto"
-        src={src}
+        preload={videoLoaded ? "auto" : "metadata"}
+        src={videoLoaded ? src : undefined}
         crossOrigin="anonymous"
       >
         Your browser does not support the video tag.

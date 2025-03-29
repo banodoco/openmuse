@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -12,6 +13,7 @@ interface VideoPreviewProps {
   title?: string;
   creator?: string;
   isHovering?: boolean;
+  lazyLoad?: boolean;
 }
 
 /**
@@ -24,7 +26,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   className,
   title,
   creator,
-  isHovering: externalHoverState 
+  isHovering: externalHoverState,
+  lazyLoad = true
 }) => {
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
@@ -131,6 +134,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={false}
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
+          lazyLoad={lazyLoad}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -143,6 +147,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={false}
           autoPlay={isHovering}
           isHoveringExternally={isHovering}
+          lazyLoad={lazyLoad}
         />
       ) : null}
 

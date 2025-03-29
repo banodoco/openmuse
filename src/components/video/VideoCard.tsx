@@ -129,6 +129,7 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
               showPlayButtonOnHover={false}
               autoPlay={isHovering}
               isHoveringExternally={isHovering}
+              lazyLoad={true}
             />
             
             <div 

@@ -18,6 +18,7 @@ interface StorageVideoPlayerProps {
   previewMode?: boolean;
   showPlayButtonOnHover?: boolean;
   isHoveringExternally?: boolean;
+  lazyLoad?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -30,7 +31,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   playOnHover = false,
   previewMode = false,
   showPlayButtonOnHover = true,
-  isHoveringExternally
+  isHoveringExternally,
+  lazyLoad = true
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -38,6 +40,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
+  const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   
@@ -63,6 +66,54 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       }
     }
   }, [isHoveringExternally, previewMode]);
+  
+  // Generate poster image for lazy loading
+  useEffect(() => {
+    const generatePoster = async () => {
+      try {
+        if (lazyLoad && !posterUrl && videoUrl) {
+          // Create a hidden video element to extract the first frame
+          const tempVideo = document.createElement('video');
+          tempVideo.crossOrigin = "anonymous";
+          tempVideo.src = videoUrl;
+          tempVideo.muted = true;
+          tempVideo.preload = 'metadata';
+          
+          tempVideo.onloadedmetadata = () => {
+            tempVideo.currentTime = 0.1;
+          };
+          
+          tempVideo.onseeked = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = tempVideo.videoWidth || 640;
+              canvas.height = tempVideo.videoHeight || 360;
+              const ctx = canvas.getContext('2d');
+              
+              if (ctx) {
+                ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                setPosterUrl(dataUrl);
+                
+                // Clean up
+                tempVideo.pause();
+                tempVideo.src = '';
+                tempVideo.load();
+              }
+            } catch (e) {
+              logger.error('Error generating poster:', e);
+            }
+          };
+          
+          tempVideo.load();
+        }
+      } catch (e) {
+        logger.error('Error in poster generation:', e);
+      }
+    };
+    
+    generatePoster();
+  }, [videoUrl, lazyLoad, posterUrl]);
   
   // Load video URL only once when component mounts or videoLocation changes
   useEffect(() => {
@@ -160,6 +211,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       videoRef={videoRef}
       externallyControlled={isHoveringExternally !== undefined}
       isHovering={isHovering}
+      poster={posterUrl || undefined}
+      lazyLoad={lazyLoad}
     />
   );
 }, (prevProps, nextProps) => {
@@ -171,7 +224,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     prevProps.controls === nextProps.controls &&
     prevProps.autoPlay === nextProps.autoPlay &&
     prevProps.muted === nextProps.muted &&
-    prevProps.loop === nextProps.loop
+    prevProps.loop === nextProps.loop &&
+    prevProps.lazyLoad === nextProps.lazyLoad
   );
 });
 
