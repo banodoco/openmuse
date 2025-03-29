@@ -21,6 +21,7 @@ interface StorageVideoPlayerProps {
   lazyLoad?: boolean;
   videoRef?: React.RefObject<HTMLVideoElement>;
   onLoadedData?: () => void;
+  thumbnailOnly?: boolean; // New prop to only show the thumbnail
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -36,7 +37,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   isHoveringExternally,
   lazyLoad = true,
   videoRef: externalVideoRef,
-  onLoadedData
+  onLoadedData,
+  thumbnailOnly = false // Default to false for backwards compatibility
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -46,6 +48,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [videoInitialized, setVideoInitialized] = useState(false);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(!thumbnailOnly); // Only load video if not thumbnailOnly
   
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -58,7 +61,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     if (isHoveringExternally !== undefined) {
       setIsHovering(isHoveringExternally);
       
-      if (videoInitialized) {
+      if (videoInitialized && shouldLoadVideo) {
         const video = videoRef.current;
         if (video) {
           if (isHoveringExternally && video.paused) {
@@ -85,55 +88,87 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         }
       }
     }
-  }, [isHoveringExternally, previewMode, videoRef, videoInitialized]);
+  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, shouldLoadVideo]);
   
   // Generate poster image for lazy loading
   useEffect(() => {
     const generatePoster = async () => {
       try {
-        if (lazyLoad && !posterUrl && videoUrl) {
-          // Create a hidden video element to extract the first frame
-          const tempVideo = document.createElement('video');
-          tempVideo.crossOrigin = "anonymous";
-          tempVideo.src = videoUrl;
-          tempVideo.muted = true;
-          tempVideo.preload = 'metadata';
-          
-          tempVideo.onloadedmetadata = () => {
-            tempVideo.currentTime = 0.1;
-          };
-          
-          tempVideo.onseeked = () => {
-            try {
-              const canvas = document.createElement('canvas');
-              canvas.width = tempVideo.videoWidth || 640;
-              canvas.height = tempVideo.videoHeight || 360;
-              const ctx = canvas.getContext('2d');
+        if ((lazyLoad || thumbnailOnly) && !posterUrl && videoUrl) {
+          if (thumbnailOnly) {
+            // For thumbnail-only mode, try to get poster URL directly from the URL pattern
+            // This is more efficient than loading a video
+            const urlObj = new URL(videoUrl);
+            const fileExtension = videoUrl.split('.').pop()?.toLowerCase();
+            
+            if (fileExtension && ['mp4', 'webm', 'mov'].includes(fileExtension)) {
+              // Try to generate a thumbnail URL based on common patterns
+              // For Supabase storage, we can try to get the thumbnail this way
+              const pathParts = urlObj.pathname.split('/');
+              const filename = pathParts[pathParts.length - 1];
+              const filenameParts = filename.split('.');
               
-              if (ctx) {
-                ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-                setPosterUrl(dataUrl);
-                
-                // Clean up
-                tempVideo.pause();
-                tempVideo.src = '';
-                tempVideo.load();
+              // If we're dealing with Supabase storage, we could potentially
+              // request a thumbnail from a separate bucket or path if one exists
+              if (urlObj.hostname.includes('supabase')) {
+                logger.log('Setting generic poster for Supabase video');
+                // Use first-frame extraction only when needed
+                await extractFirstFrame(videoUrl);
+                return;
               }
-            } catch (e) {
-              logger.error('Error generating poster:', e);
             }
-          };
-          
-          tempVideo.load();
+            
+            // If we can't determine a pattern, fall back to frame extraction
+            await extractFirstFrame(videoUrl);
+          } else {
+            // Standard method - extract first frame
+            await extractFirstFrame(videoUrl);
+          }
         }
       } catch (e) {
         logger.error('Error in poster generation:', e);
       }
     };
     
+    const extractFirstFrame = async (videoUrl: string) => {
+      // Create a hidden video element to extract the first frame
+      const tempVideo = document.createElement('video');
+      tempVideo.crossOrigin = "anonymous";
+      tempVideo.muted = true;
+      tempVideo.preload = 'metadata';
+      tempVideo.src = videoUrl;
+      
+      tempVideo.onloadedmetadata = () => {
+        tempVideo.currentTime = 0.1;
+      };
+      
+      tempVideo.onseeked = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = tempVideo.videoWidth || 640;
+          canvas.height = tempVideo.videoHeight || 360;
+          const ctx = canvas.getContext('2d');
+          
+          if (ctx) {
+            ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+            setPosterUrl(dataUrl);
+            
+            // Clean up
+            tempVideo.pause();
+            tempVideo.src = '';
+            tempVideo.load();
+          }
+        } catch (e) {
+          logger.error('Error generating poster:', e);
+        }
+      };
+      
+      tempVideo.load();
+    };
+    
     generatePoster();
-  }, [videoUrl, lazyLoad, posterUrl]);
+  }, [videoUrl, lazyLoad, posterUrl, thumbnailOnly]);
   
   // Load video URL only once when component mounts or videoLocation changes
   useEffect(() => {
@@ -206,8 +241,15 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       onLoadedData();
     }
   };
+  
+  const handleContainerClick = () => {
+    if (thumbnailOnly) {
+      // On click, load and play the actual video
+      setShouldLoadVideo(true);
+    }
+  };
 
-  if (loading) {
+  if (loading && !thumbnailOnly) {
     return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
   }
 
@@ -221,6 +263,25 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           videoSource={videoUrl}
           canRecover={!previewMode}
         />
+      </div>
+    );
+  }
+  
+  // If we're in thumbnailOnly mode and have a poster but don't want to load the video yet
+  if (thumbnailOnly && posterUrl && !shouldLoadVideo) {
+    return (
+      <div 
+        className={`relative w-full h-full ${className || ''}`}
+        onClick={handleContainerClick}
+        onMouseEnter={() => setIsHovering(true)}
+        onMouseLeave={() => setIsHovering(false)}
+      >
+        <div className="absolute inset-0 bg-cover bg-center rounded-lg" style={{ backgroundImage: `url(${posterUrl})` }} />
+        <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isHovering ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="bg-white/10 rounded-full p-2 backdrop-blur-sm">
+            <Play className="h-8 w-8 text-white/70" />
+          </div>
+        </div>
       </div>
     );
   }
@@ -255,7 +316,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     prevProps.autoPlay === nextProps.autoPlay &&
     prevProps.muted === nextProps.muted &&
     prevProps.loop === nextProps.loop &&
-    prevProps.lazyLoad === nextProps.lazyLoad
+    prevProps.lazyLoad === nextProps.lazyLoad &&
+    prevProps.thumbnailOnly === nextProps.thumbnailOnly
   );
 });
 

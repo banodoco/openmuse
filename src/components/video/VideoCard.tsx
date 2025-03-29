@@ -24,6 +24,7 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
 }) => {
   const [isHovering, setIsHovering] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const [loadFullVideo, setLoadFullVideo] = useState(false);
   
   // Fetch user profile for display name when component mounts
   useEffect(() => {
@@ -107,11 +108,22 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
     if (onDeleteVideo) onDeleteVideo(video.id);
   };
   
+  const handleMouseEnter = () => {
+    setIsHovering(true);
+    // Wait a short time before loading the video
+    // This prevents loading videos when users quickly move their mouse across the list
+    const timer = setTimeout(() => {
+      setLoadFullVideo(true);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  };
+  
   return (
     <div 
       key={video.id} 
       className="relative rounded-lg overflow-hidden shadow-md group"
-      onMouseEnter={() => setIsHovering(true)}
+      onMouseEnter={handleMouseEnter}
       onMouseLeave={() => setIsHovering(false)}
       onClick={() => onOpenLightbox(video)}
     >
@@ -127,9 +139,10 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
               playOnHover={false}
               previewMode={true}
               showPlayButtonOnHover={false}
-              autoPlay={isHovering}
-              isHoveringExternally={isHovering}
+              autoPlay={isHovering && loadFullVideo}
+              isHoveringExternally={isHovering && loadFullVideo}
               lazyLoad={true}
+              thumbnailOnly={!loadFullVideo}
             />
             
             <div 
