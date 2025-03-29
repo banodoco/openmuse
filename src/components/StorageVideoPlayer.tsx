@@ -20,6 +20,7 @@ interface StorageVideoPlayerProps {
   isHoveringExternally?: boolean;
   lazyLoad?: boolean;
   videoRef?: React.RefObject<HTMLVideoElement>;
+  onLoadedData?: () => void;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -34,7 +35,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   showPlayButtonOnHover = true,
   isHoveringExternally,
   lazyLoad = true,
-  videoRef: externalVideoRef
+  videoRef: externalVideoRef,
+  onLoadedData
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -197,6 +199,12 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     setErrorDetails(null);
     setRetryCount(prev => prev + 1);
   };
+  
+  const handleVideoLoaded = () => {
+    if (onLoadedData) {
+      onLoadedData();
+    }
+  };
 
   if (loading) {
     return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
@@ -233,6 +241,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       isHovering={isHovering}
       poster={posterUrl || undefined}
       lazyLoad={lazyLoad}
+      onLoadedData={handleVideoLoaded}
     />
   );
 }, (prevProps, nextProps) => {

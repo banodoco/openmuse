@@ -1,5 +1,5 @@
 
-import React, { useRef, useEffect, memo } from 'react';
+import React, { useRef, useEffect, memo, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { X } from 'lucide-react';
 import StorageVideoPlayer from './StorageVideoPlayer';
@@ -22,6 +22,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
 }) => {
   const contentRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<HTMLVideoElement>(null);
+  const [isVideoReady, setIsVideoReady] = useState(false);
   
   // Add keyboard event handler for Escape key
   useEffect(() => {
@@ -44,9 +45,40 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
     }
   }, [isOpen]);
 
+  // Ensure video plays when dialog opens and is ready
+  useEffect(() => {
+    if (isOpen && isVideoReady && playerRef.current) {
+      // Use a short timeout to ensure the video plays after the dialog is fully rendered
+      const playTimeout = setTimeout(() => {
+        if (playerRef.current) {
+          playerRef.current.play()
+            .catch(err => console.error('Failed to play video in lightbox:', err));
+        }
+      }, 100);
+      
+      return () => clearTimeout(playTimeout);
+    }
+  }, [isOpen, isVideoReady]);
+
+  const handleVideoReady = () => {
+    setIsVideoReady(true);
+    
+    // Attempt to play the video when it's ready
+    if (playerRef.current && isOpen) {
+      setTimeout(() => {
+        playerRef.current?.play()
+          .catch(err => console.error('Failed to play video on ready event:', err));
+      }, 100);
+    }
+  };
+
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-screen-lg w-[90vw] p-0 bg-background border-none" ref={contentRef} aria-describedby="video-content-description">
+      <DialogContent 
+        className="max-w-screen-lg w-[90vw] p-0 bg-background border-none" 
+        ref={contentRef} 
+        aria-describedby="video-content-description"
+      >
         {/* Add a dialog title for accessibility */}
         <DialogTitle className="sr-only">
           {title || "Video Preview"}
@@ -75,6 +107,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
               loop={false}
               playOnHover={false}
               videoRef={playerRef}
+              onLoadedData={handleVideoReady}
             />
           </div>
           {(title || creator) && (
