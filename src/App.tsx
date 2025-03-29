@@ -1,72 +1,29 @@
+import React, { Suspense, lazy } from 'react';
+import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
+import { Toaster } from '@/components/ui/toaster';
+import LoadingState from '@/components/LoadingState';
 
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import Index from '@/pages/Index';
-import NotFound from '@/pages/NotFound';
-import RequireAuth from '@/components/RequireAuth';
-import Admin from '@/pages/Admin';
-import VideoPage from '@/pages/VideoPage';
-import Auth from '@/pages/Auth';
-import AuthCallback from '@/pages/AuthCallback';
-import { Toaster } from 'sonner';
-import UploadPage from '@/pages/upload';
-import { useEffect } from 'react';
-import { databaseSwitcher } from '@/lib/databaseSwitcher';
-import { videoDB } from '@/lib/database';
-import { getCurrentUser } from '@/lib/auth';
-import AssetDetailPage from '@/pages/AssetDetailPage';
-import { AuthProvider } from '@/hooks/useAuth';
-import ProfilePage from '@/pages/ProfilePage';
+const HomePage = lazy(() => import('./pages/HomePage'));
+const UploadPage = lazy(() => import('./pages/UploadPage'));
+const AdminPage = lazy(() => import('./pages/AdminPage'));
+const AuthPage = lazy(() => import('./pages/AuthPage'));
+const VideoPage = lazy(() => import('./pages/VideoPage'));
+const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage'));
 
 function App() {
-  useEffect(() => {
-    const setupDatabase = async () => {
-      try {
-        const user = await getCurrentUser();
-        const db = await databaseSwitcher.getDatabase();
-        db.setCurrentUserId(user?.id || null);
-        
-        await videoDB.setCurrentUserId(user?.id || null);
-      } catch (error) {
-        console.error("Error setting up database user ID:", error);
-      }
-    };
-    
-    setupDatabase();
-  }, []);
-  
   return (
     <Router>
-      <AuthProvider>
+      <Suspense fallback={<LoadingState />}>
         <Routes>
-          <Route path="/" element={
-            <RequireAuth allowUnauthenticated={true}>
-              <Index />
-            </RequireAuth>
-          } />
-          <Route path="/admin/*" element={
-            <RequireAuth requireAdmin={true}>
-              <Admin />
-            </RequireAuth>
-          } />
-          <Route path="/assets/loras/:id" element={
-            <RequireAuth allowUnauthenticated={true}>
-              <AssetDetailPage />
-            </RequireAuth>
-          } />
-          <Route path="/videos/:id" element={
-            <RequireAuth allowUnauthenticated={true}>
-              <VideoPage />
-            </RequireAuth>
-          } />
+          <Route path="/" element={<HomePage />} />
           <Route path="/upload" element={<UploadPage />} />
-          <Route path="/auth" element={<Auth />} />
-          <Route path="/auth/callback" element={<AuthCallback />} />
-          <Route path="/profile" element={<ProfilePage />} />
-          <Route path="*" element={<NotFound />} />
+          <Route path="/admin" element={<AdminPage />} />
+          <Route path="/auth" element={<AuthPage />} />
+          <Route path="/videos/:id" element={<VideoPage />} />
+          <Route path="/assets/:id" element={<AssetDetailPage />} />
         </Routes>
-      </AuthProvider>
-      <Toaster richColors position="top-center" />
+      </Suspense>
+      <Toaster />
     </Router>
   );
 }
