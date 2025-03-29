@@ -1,4 +1,3 @@
-
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -12,6 +11,7 @@ export interface VideoMetadata {
   loraType?: string;
   loraLink?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  thumbnailUrl?: string;
 }
 
 export interface VideoEntry {
