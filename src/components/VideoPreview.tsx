@@ -36,7 +36,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
-  const [loadFullVideo, setLoadFullVideo] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
@@ -45,11 +44,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       
       if (externalHoverState) {
         setIsPlaying(true);
-        // Add a small delay before loading the video
-        const timer = setTimeout(() => {
-          setLoadFullVideo(true);
-        }, 200);
-        return () => clearTimeout(timer);
       } else {
         setIsPlaying(false);
       }
@@ -89,13 +83,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     if (externalHoverState === undefined) {
       setIsHovering(true);
       setIsPlaying(true);
-      
-      // Add a small delay before loading the video
-      const timer = setTimeout(() => {
-        setLoadFullVideo(true);
-      }, 300);
-      
-      return () => clearTimeout(timer);
     }
   };
 
@@ -145,10 +132,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           playOnHover={true}
           previewMode={true}
           showPlayButtonOnHover={false}
-          autoPlay={isHovering && loadFullVideo}
-          isHoveringExternally={isHovering && loadFullVideo}
+          autoPlay={isHovering}
+          isHoveringExternally={isHovering}
           lazyLoad={lazyLoad}
-          thumbnailOnly={!loadFullVideo}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -159,10 +145,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           playOnHover={true}
           previewMode={false}
           showPlayButtonOnHover={false}
-          autoPlay={isHovering && loadFullVideo}
-          isHoveringExternally={isHovering && loadFullVideo}
+          autoPlay={isHovering}
+          isHoveringExternally={isHovering}
           lazyLoad={lazyLoad}
-          thumbnailOnly={!loadFullVideo}
         />
       ) : null}
 

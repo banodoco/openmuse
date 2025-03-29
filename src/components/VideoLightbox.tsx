@@ -126,7 +126,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
               videoRef={playerRef}
               onLoadedData={handleVideoReady}
               lazyLoad={false}
-              thumbnailOnly={false} // Always load full video in lightbox
             />
           </div>
           {(title || creator) && (

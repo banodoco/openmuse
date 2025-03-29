@@ -1,5 +1,5 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
-import { Play } from 'lucide-react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -21,7 +21,6 @@ interface StorageVideoPlayerProps {
   lazyLoad?: boolean;
   videoRef?: React.RefObject<HTMLVideoElement>;
   onLoadedData?: () => void;
-  thumbnailOnly?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -37,8 +36,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   isHoveringExternally,
   lazyLoad = true,
   videoRef: externalVideoRef,
-  onLoadedData,
-  thumbnailOnly = false
+  onLoadedData
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -48,25 +46,26 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [videoInitialized, setVideoInitialized] = useState(false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(!thumbnailOnly);
-
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
-
+  
   const isBlobUrl = videoLocation.startsWith('blob:');
-
+  
+  // Handle external hover state changes without causing re-renders
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
       setIsHovering(isHoveringExternally);
       
-      if (videoInitialized && shouldLoadVideo) {
+      if (videoInitialized) {
         const video = videoRef.current;
         if (video) {
           if (isHoveringExternally && video.paused) {
             logger.log('External hover detected - attempting to play video');
+            // Add a small delay before playing to avoid interruptions
             const playTimer = setTimeout(() => {
-              if (video && !video.paused) return;
+              if (video && !video.paused) return; // Don't play if already playing
               
               video.play().catch(e => {
                 if (e.name !== 'AbortError') {
@@ -86,76 +85,57 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         }
       }
     }
-  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, shouldLoadVideo]);
-
+  }, [isHoveringExternally, previewMode, videoRef, videoInitialized]);
+  
+  // Generate poster image for lazy loading
   useEffect(() => {
     const generatePoster = async () => {
       try {
-        if ((lazyLoad || thumbnailOnly) && !posterUrl && videoUrl) {
-          if (thumbnailOnly) {
-            const urlObj = new URL(videoUrl);
-            const fileExtension = videoUrl.split('.').pop()?.toLowerCase();
-            
-            if (fileExtension && ['mp4', 'webm', 'mov'].includes(fileExtension)) {
-              const pathParts = urlObj.pathname.split('/');
-              const filename = pathParts[pathParts.length - 1];
-              const filenameParts = filename.split('.');
+        if (lazyLoad && !posterUrl && videoUrl) {
+          // Create a hidden video element to extract the first frame
+          const tempVideo = document.createElement('video');
+          tempVideo.crossOrigin = "anonymous";
+          tempVideo.src = videoUrl;
+          tempVideo.muted = true;
+          tempVideo.preload = 'metadata';
+          
+          tempVideo.onloadedmetadata = () => {
+            tempVideo.currentTime = 0.1;
+          };
+          
+          tempVideo.onseeked = () => {
+            try {
+              const canvas = document.createElement('canvas');
+              canvas.width = tempVideo.videoWidth || 640;
+              canvas.height = tempVideo.videoHeight || 360;
+              const ctx = canvas.getContext('2d');
               
-              if (urlObj.hostname.includes('supabase')) {
-                logger.log('Setting generic poster for Supabase video');
-                await extractFirstFrame(videoUrl);
-                return;
+              if (ctx) {
+                ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                setPosterUrl(dataUrl);
+                
+                // Clean up
+                tempVideo.pause();
+                tempVideo.src = '';
+                tempVideo.load();
               }
+            } catch (e) {
+              logger.error('Error generating poster:', e);
             }
-            
-            await extractFirstFrame(videoUrl);
-          } else {
-            await extractFirstFrame(videoUrl);
-          }
+          };
+          
+          tempVideo.load();
         }
       } catch (e) {
         logger.error('Error in poster generation:', e);
       }
     };
-
-    const extractFirstFrame = async (videoUrl: string) => {
-      const tempVideo = document.createElement('video');
-      tempVideo.crossOrigin = "anonymous";
-      tempVideo.muted = true;
-      tempVideo.preload = 'metadata';
-      tempVideo.src = videoUrl;
-      
-      tempVideo.onloadedmetadata = () => {
-        tempVideo.currentTime = 0.1;
-      };
-      
-      tempVideo.onseeked = () => {
-        try {
-          const canvas = document.createElement('canvas');
-          canvas.width = tempVideo.videoWidth || 640;
-          canvas.height = tempVideo.videoHeight || 360;
-          const ctx = canvas.getContext('2d');
-          
-          if (ctx) {
-            ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
-            setPosterUrl(dataUrl);
-            
-            tempVideo.pause();
-            tempVideo.src = '';
-            tempVideo.load();
-          }
-        } catch (e) {
-          logger.error('Error generating poster:', e);
-        }
-      };
-      
-      tempVideo.load();
-    };
-
+    
     generatePoster();
-  }, [videoUrl, lazyLoad, posterUrl, thumbnailOnly]);
-
+  }, [videoUrl, lazyLoad, posterUrl]);
+  
+  // Load video URL only once when component mounts or videoLocation changes
   useEffect(() => {
     let isMounted = true;
     
@@ -187,6 +167,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         if (isMounted) {
           setVideoUrl(url);
           setLoading(false);
+          // Mark video as initialized after URL is set
           setVideoInitialized(true);
         }
       } catch (error) {
@@ -218,7 +199,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     setErrorDetails(null);
     setRetryCount(prev => prev + 1);
   };
-
+  
   const handleVideoLoaded = () => {
     if (onLoadedData) {
       logger.log('StorageVideoPlayer: Video loaded, notifying parent');
@@ -226,13 +207,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   };
 
-  const handleContainerClick = () => {
-    if (thumbnailOnly) {
-      setShouldLoadVideo(true);
-    }
-  };
-
-  if (loading && !thumbnailOnly) {
+  if (loading) {
     return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
   }
 
@@ -246,24 +221,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           videoSource={videoUrl}
           canRecover={!previewMode}
         />
-      </div>
-    );
-  }
-
-  if (thumbnailOnly && posterUrl && !shouldLoadVideo) {
-    return (
-      <div 
-        className={`relative w-full h-full ${className || ''}`}
-        onClick={handleContainerClick}
-        onMouseEnter={() => setIsHovering(true)}
-        onMouseLeave={() => setIsHovering(false)}
-      >
-        <div className="absolute inset-0 bg-cover bg-center rounded-lg" style={{ backgroundImage: `url(${posterUrl})` }} />
-        <div className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${isHovering ? 'opacity-100' : 'opacity-0'}`}>
-          <div className="bg-white/10 rounded-full p-2 backdrop-blur-sm">
-            <Play className="h-8 w-8 text-white/70" />
-          </div>
-        </div>
       </div>
     );
   }
@@ -289,6 +246,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     />
   );
 }, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
   return (
     prevProps.videoLocation === nextProps.videoLocation &&
     prevProps.isHoveringExternally === nextProps.isHoveringExternally &&
@@ -297,8 +255,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     prevProps.autoPlay === nextProps.autoPlay &&
     prevProps.muted === nextProps.muted &&
     prevProps.loop === nextProps.loop &&
-    prevProps.lazyLoad === nextProps.lazyLoad &&
-    prevProps.thumbnailOnly === nextProps.thumbnailOnly
+    prevProps.lazyLoad === nextProps.lazyLoad
   );
 });
 
