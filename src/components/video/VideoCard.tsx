@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -18,6 +19,8 @@ interface VideoCardProps {
   onDeleteVideo?: (videoId: string) => void;
   isHovering?: boolean;
   onHoverChange?: (isHovering: boolean) => void;
+  onTouch?: () => void;
+  isMobile?: boolean;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -27,7 +30,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onApproveVideo,
   onDeleteVideo,
   isHovering = false,
-  onHoverChange
+  onHoverChange,
+  onTouch,
+  isMobile = false
 }) => {
   const { user } = useAuth();
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
