@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -23,6 +22,7 @@ interface StorageVideoPlayerProps {
   videoRef?: React.RefObject<HTMLVideoElement>;
   onLoadedData?: () => void;
   thumbnailUrl?: string;
+  forcePreload?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -39,7 +39,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   lazyLoad = true,
   videoRef: externalVideoRef,
   onLoadedData,
-  thumbnailUrl
+  thumbnailUrl,
+  forcePreload = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -50,7 +51,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [videoInitialized, setVideoInitialized] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(autoPlay || !lazyLoad);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(autoPlay || !lazyLoad || forcePreload);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -59,6 +60,14 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const hoverStateChangedRef = useRef(false);
   
   const isBlobUrl = videoLocation.startsWith('blob:');
+
+  // Update shouldLoadVideo when forcePreload changes
+  useEffect(() => {
+    if (forcePreload && !shouldLoadVideo) {
+      logger.log('Force preloading video due to hover');
+      setShouldLoadVideo(true);
+    }
+  }, [forcePreload, shouldLoadVideo]);
 
   // Detect manual hover changes
   const handleManualHoverStart = () => {
@@ -82,12 +91,10 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       setIsHovering(isHoveringExternally);
       hoverStateChangedRef.current = true;
       
-      // Start loading video after a short delay when hovering starts
-      if (isHoveringExternally && !videoLoaded) {
-        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
-        hoverTimerRef.current = window.setTimeout(() => {
-          setShouldLoadVideo(true);
-        }, 100); // Short delay before loading video
+      // Start loading video immediately when hovering starts
+      if (isHoveringExternally && !shouldLoadVideo) {
+        logger.log('External hover detected - loading video');
+        setShouldLoadVideo(true);
       }
       
       if (videoInitialized) {
@@ -95,7 +102,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         if (video) {
           if (isHoveringExternally && video.paused && videoLoaded) {
             logger.log('External hover detected - attempting to play video');
-            // Add a small delay before playing to avoid interruptions
+            // Smaller delay for a more responsive feel
             const playTimer = setTimeout(() => {
               if (video && !video.paused) return; // Don't play if already playing
               
@@ -104,7 +111,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
                   logger.error('Error playing video on hover:', e);
                 }
               });
-            }, 50);
+            }, 30);
             
             return () => clearTimeout(playTimer);
           } else if (!isHoveringExternally && !video.paused) {
@@ -116,12 +123,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           }
         }
       }
-      
-      // Clear the timer when hovering stops
-      if (!isHoveringExternally && hoverTimerRef.current) {
-        clearTimeout(hoverTimerRef.current);
-        hoverTimerRef.current = null;
-      }
     }
     
     return () => {
@@ -130,7 +131,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         hoverTimerRef.current = null;
       }
     };
-  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded]);
+  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded, shouldLoadVideo]);
   
   // Generate poster image for lazy loading if not provided
   useEffect(() => {
@@ -281,11 +282,11 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         <img 
           src={posterUrl} 
           alt="Video thumbnail" 
-          className="w-full h-full object-cover"
+          className="w-full h-full object-cover pointer-events-none"
         />
         
         {showPlayButtonOnHover && (
-          <div className="absolute inset-0 flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="rounded-full bg-black/40 p-3">
               <Play className="h-6 w-6 text-white" />
             </div>
@@ -295,7 +296,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     );
   }
 
-  if (loading) {
+  if (loading && !posterUrl) {
     return <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">Loading video...</div>;
   }
 
@@ -313,12 +314,25 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     );
   }
 
+  // Main video player render
   return (
     <div 
       className="relative w-full h-full"
       onMouseEnter={handleManualHoverStart}
       onMouseLeave={handleManualHoverEnd}
     >
+      {/* Show loading overlay if video is loading but we have a poster */}
+      {loading && posterUrl && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
+          <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+          <img 
+            src={posterUrl} 
+            alt="Video thumbnail" 
+            className="absolute inset-0 w-full h-full object-cover opacity-30 pointer-events-none"
+          />
+        </div>
+      )}
+
       <VideoPlayer
         src={videoUrl}
         className={className}
@@ -339,19 +353,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       />
     </div>
   );
-}, (prevProps, nextProps) => {
-  // Custom comparison to prevent unnecessary re-renders
-  return (
-    prevProps.videoLocation === nextProps.videoLocation &&
-    prevProps.isHoveringExternally === nextProps.isHoveringExternally &&
-    prevProps.className === nextProps.className &&
-    prevProps.controls === nextProps.controls &&
-    prevProps.autoPlay === nextProps.autoPlay &&
-    prevProps.muted === nextProps.muted &&
-    prevProps.loop === nextProps.loop &&
-    prevProps.lazyLoad === nextProps.lazyLoad &&
-    prevProps.thumbnailUrl === nextProps.thumbnailUrl
-  );
 });
+
+StorageVideoPlayer.displayName = 'StorageVideoPlayer';
 
 export default StorageVideoPlayer;

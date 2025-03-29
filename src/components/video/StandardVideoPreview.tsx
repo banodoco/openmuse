@@ -38,6 +38,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(url);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
+  const [videoReady, setVideoReady] = useState(false);
   
   // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
@@ -94,11 +95,17 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setErrorCount(0);
     setCurrentError(null);
     setErrorDetails(null);
+    setVideoReady(false);
     
     // If onRefresh is provided, call it
     if (onRefresh) {
       onRefresh();
     }
+  };
+
+  const handleVideoLoaded = () => {
+    logger.log('Video loaded and ready for playback');
+    setVideoReady(true);
   };
 
   // If URL is not valid, return null instead of showing empty player
@@ -119,7 +126,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         <VideoPlayer 
           src={currentUrl} 
           controls={false}
-          autoPlay={false}
+          autoPlay={isHovering}
           muted={true}
           className="w-full h-full object-cover"
           onError={handleError}
@@ -128,6 +135,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           containerRef={containerRef}
           showPlayButtonOnHover={false}
           isHovering={isHovering}
+          onLoadedData={handleVideoLoaded}
         />
       )}
       

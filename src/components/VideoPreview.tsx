@@ -114,6 +114,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
 
   const needsThumbnailGeneration = !thumbnailUrl && (file || (url && !isExternalLink && !posterUrl));
 
+  // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
     <div 
       ref={previewRef}
@@ -159,6 +160,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isHoveringExternally={effectiveHoverState}
           lazyLoad={lazyLoad}
           thumbnailUrl={thumbnailUrl || posterUrl}
+          forcePreload={effectiveHoverState}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -173,6 +175,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isHoveringExternally={effectiveHoverState}
           lazyLoad={lazyLoad}
           thumbnailUrl={thumbnailUrl || posterUrl}
+          forcePreload={effectiveHoverState}
         />
       ) : null}
 

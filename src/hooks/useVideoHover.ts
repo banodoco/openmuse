@@ -16,9 +16,10 @@ export const useVideoHover = (
     delayPlay?: number;
   }
 ) => {
-  const { enabled, resetOnLeave = true, delayPlay = 50 } = options;
+  const { enabled, resetOnLeave = true, delayPlay = 30 } = options; // Reduced delay for responsiveness
   const playTimeoutRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
+  const lastPlayAttemptRef = useRef<number>(0);
 
   useEffect(() => {
     if (!enabled) return;
@@ -46,7 +47,8 @@ export const useVideoHover = (
         // Check if we're still hovering (mouse might have left during timeout)
         if (!isHoveringRef.current) return;
         
-        if (video.paused && video.readyState >= 2) {
+        // Ensure video is ready and not already playing
+        if (video.paused) {
           logger.log('Attempting to play video on hover');
           
           // Force preload if not already loaded
@@ -54,14 +56,20 @@ export const useVideoHover = (
             video.preload = 'auto';
           }
           
-          // The video was previously paused, try to play it
+          // Always start from the beginning for a consistent preview
           video.currentTime = 0;
-          video.play().catch(e => {
-            // Only log errors that aren't abort errors (which happen when quickly hovering in/out)
-            if (e.name !== 'AbortError') {
-              logger.warn('Play on hover prevented:', e);
-            }
-          });
+          
+          // Track when we try to play to avoid too many rapid attempts
+          const now = Date.now();
+          if (now - lastPlayAttemptRef.current > 300) {
+            lastPlayAttemptRef.current = now;
+            video.play().catch(e => {
+              // Only log errors that aren't abort errors (which happen when quickly hovering in/out)
+              if (e.name !== 'AbortError') {
+                logger.warn('Play on hover prevented:', e);
+              }
+            });
+          }
         }
       }, delayPlay);
     };
@@ -76,15 +84,17 @@ export const useVideoHover = (
         playTimeoutRef.current = null;
       }
       
-      // Pause only if the video is actually playing
-      if (!video.paused) {
-        video.pause();
-        
-        if (resetOnLeave) {
-          // Reset to the beginning for a consistent preview
-          video.currentTime = 0;
+      // Small delay before pausing to handle quick hover in/out
+      setTimeout(() => {
+        if (!isHoveringRef.current && !video.paused) {
+          video.pause();
+          
+          if (resetOnLeave) {
+            // Reset to the beginning for a consistent preview
+            video.currentTime = 0;
+          }
         }
-      }
+      }, 50);
     };
     
     // Remove any existing listeners before adding new ones
