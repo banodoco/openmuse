@@ -41,10 +41,7 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
 
   return (
     <Card className="md:col-span-1">
-      <CardHeader>
-        <CardTitle>{asset?.name}</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 pt-6">
         {asset?.description && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">Description</h3>
@@ -71,7 +68,7 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
         
         {asset?.lora_link && (
           <Button 
-            variant="default" // Changed from "outline" to "default"
+            variant="default"
             size="sm" 
             className="w-full gap-2 mt-2"
             onClick={handleDownloadLora}
