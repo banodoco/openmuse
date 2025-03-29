@@ -23,6 +23,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   userId
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [thumbnailGenerationAttempted, setThumbnailGenerationAttempted] = useState(false);
   
   const saveThumbnailToStorage = async (dataUrl: string) => {
     if (!userId) return null;
@@ -57,8 +58,14 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   };
 
   useEffect(() => {
+    // Avoid duplicate thumbnail generation
+    if (thumbnailGenerationAttempted) {
+      return;
+    }
+    
     if (file) {
       logger.log('Generating thumbnail from file...');
+      setThumbnailGenerationAttempted(true);
       const fileUrl = URL.createObjectURL(file);
       
       if (videoRef.current) {
@@ -107,57 +114,80 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
       };
     } 
     else if (url) {
-      if (url.includes('youtube.com/') || url.includes('youtu.be/')) {
-        const videoId = getYoutubeVideoId(url);
-        if (videoId) {
-          const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
-          logger.log(`Using YouTube thumbnail: ${thumbnailUrl}`);
-          onThumbnailGenerated(thumbnailUrl);
-        }
-      } 
-      else if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('vimeo.com') && url.includes('supabase.co')) {
-        logger.log('Generating thumbnail from Supabase video URL...');
-        const tempVideo = document.createElement('video');
-        tempVideo.crossOrigin = "anonymous";
-        tempVideo.src = url;
-        tempVideo.muted = true;
-        tempVideo.preload = 'metadata';
+      if (!thumbnailGenerationAttempted) {
+        setThumbnailGenerationAttempted(true);
         
-        tempVideo.onloadedmetadata = () => {
-          logger.log('Video metadata loaded, seeking to first frame');
-          tempVideo.currentTime = 0.1;
-        };
-        
-        tempVideo.onseeked = () => {
-          try {
-            const canvas = document.createElement('canvas');
-            canvas.width = tempVideo.videoWidth || 640;
-            canvas.height = tempVideo.videoHeight || 360;
-            const ctx = canvas.getContext('2d');
-            
-            if (ctx) {
-              ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
-              const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
-              logger.log('Thumbnail generated from video URL');
-              onThumbnailGenerated(dataUrl);
-              
-              tempVideo.pause();
-              tempVideo.src = '';
-              tempVideo.load();
-            }
-          } catch (e) {
-            logger.error('Error generating thumbnail:', e);
+        if (url.includes('youtube.com/') || url.includes('youtu.be/')) {
+          const videoId = getYoutubeVideoId(url);
+          if (videoId) {
+            const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
+            logger.log(`Using YouTube thumbnail: ${thumbnailUrl}`);
+            onThumbnailGenerated(thumbnailUrl);
           }
-        };
-        
-        tempVideo.onerror = () => {
-          logger.error('Error loading video for thumbnail generation');
-        };
-        
-        tempVideo.load();
+        } 
+        else if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('vimeo.com')) {
+          logger.log('Generating thumbnail from Supabase video URL...');
+          // Create a new video element for thumbnail generation
+          // This works better cross-platform than using the main video element
+          const tempVideo = document.createElement('video');
+          tempVideo.crossOrigin = "anonymous";
+          tempVideo.src = url;
+          tempVideo.muted = true;
+          tempVideo.preload = 'metadata';
+          
+          // Set a timeout to handle cases where the video loading hangs
+          const timeoutId = setTimeout(() => {
+            logger.warn('Video loading timeout - using fallback thumbnail');
+            // Fall back to a generic thumbnail or placeholder
+            const placeholderThumbnail = "/placeholder.svg";
+            onThumbnailGenerated(placeholderThumbnail);
+          }, 5000); // 5 second timeout
+          
+          tempVideo.onloadedmetadata = () => {
+            logger.log('Video metadata loaded, seeking to first frame');
+            clearTimeout(timeoutId); // Clear the timeout since metadata loaded
+            tempVideo.currentTime = 0.1;
+          };
+          
+          tempVideo.onseeked = () => {
+            try {
+              clearTimeout(timeoutId); // Clear the timeout since we reached this point
+              const canvas = document.createElement('canvas');
+              canvas.width = tempVideo.videoWidth || 640;
+              canvas.height = tempVideo.videoHeight || 360;
+              const ctx = canvas.getContext('2d');
+              
+              if (ctx) {
+                ctx.drawImage(tempVideo, 0, 0, canvas.width, canvas.height);
+                const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+                logger.log('Thumbnail generated from video URL');
+                onThumbnailGenerated(dataUrl);
+                
+                // Clean up
+                tempVideo.pause();
+                tempVideo.src = '';
+                tempVideo.load();
+              }
+            } catch (e) {
+              logger.error('Error generating thumbnail:', e);
+              // Fall back to a generic thumbnail or placeholder
+              onThumbnailGenerated("/placeholder.svg");
+            }
+          };
+          
+          tempVideo.onerror = (e) => {
+            clearTimeout(timeoutId);
+            logger.error('Error loading video for thumbnail generation:', e);
+            // Fall back to a generic thumbnail or placeholder
+            onThumbnailGenerated("/placeholder.svg");
+          };
+          
+          // Explicitly trigger load to start the process
+          tempVideo.load();
+        }
       }
     }
-  }, [file, url, onThumbnailGenerated, saveThumbnail, userId]);
+  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, thumbnailGenerationAttempted]);
 
   return (
     <video 

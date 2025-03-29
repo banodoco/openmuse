@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -33,7 +34,16 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   
+  useEffect(() => {
+    // Log the device type for debugging
+    logger.log(`AssetVideoSection: Device type is ${isMobile ? 'mobile' : 'desktop'}`);
+    logger.log(`AssetVideoSection: Total videos: ${videos.length}`);
+  }, [isMobile, videos.length]);
+  
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
+    // Don't change hover state on mobile
+    if (isMobile) return;
+    
     logger.log(`AssetVideoSection: Hover state changed for ${videoId} to ${isHovering}`);
     
     if (isHovering) {
@@ -44,24 +54,18 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   };
   
   const handleVideoTouch = (videoId: string) => {
-    if (isMobile) {
-      logger.log(`AssetVideoSection: Touch event for video ${videoId}, current hovered: ${hoveredVideoId}`);
-      
-      if (hoveredVideoId === videoId) {
-        setHoveredVideoId(null);
-      } else {
-        setHoveredVideoId(videoId);
-      }
+    // Only handle touch events on mobile
+    if (!isMobile) return;
+    
+    logger.log(`AssetVideoSection: Touch event for video ${videoId}, current hovered: ${hoveredVideoId}`);
+    
+    // Toggle behavior: tap once to preview, tap again to stop
+    if (hoveredVideoId === videoId) {
+      setHoveredVideoId(null);
+    } else {
+      setHoveredVideoId(videoId);
     }
   };
-  
-  useEffect(() => {
-    if (hoveredVideoId) {
-      logger.log(`AssetVideoSection: Currently hovering over video: ${hoveredVideoId}`);
-    } else {
-      logger.log('AssetVideoSection: No video currently hovered');
-    }
-  }, [hoveredVideoId]);
   
   return (
     <div className="md:col-span-2">

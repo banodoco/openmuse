@@ -64,11 +64,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
     };
     
     if (video.metadata?.thumbnailUrl) {
+      logger.log(`VideoCard: Using thumbnail from metadata for ${video.id}: ${video.metadata.thumbnailUrl.substring(0, 30)}...`);
       setThumbnailUrl(video.metadata.thumbnailUrl);
+    } else {
+      logger.log(`VideoCard: No thumbnail in metadata for ${video.id}`);
     }
     
     fetchCreatorProfile();
-  }, [video.user_id, video.metadata]);
+  }, [video.user_id, video.metadata, video.id]);
   
   const getCreatorName = () => {
     if (creatorDisplayName) {
@@ -120,7 +123,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
     if (onDeleteVideo) onDeleteVideo(video.id);
   };
   
-  logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
+  const handleTouch = () => {
+    logger.log(`VideoCard: Touch event for ${video.id}`);
+    if (onTouch) {
+      onTouch();
+    }
+  };
   
   return (
     <div 
@@ -128,14 +136,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
       key={video.id} 
       className="relative rounded-lg overflow-hidden shadow-md group cursor-pointer"
       onMouseEnter={() => {
-        logger.log(`VideoCard: Mouse entered for ${video.id}`);
         if (onHoverChange && !isHoveringRef.current) {
           logger.log(`VideoCard: Notifying parent of hover start for ${video.id}`);
           onHoverChange(true);
         }
       }}
       onMouseLeave={() => {
-        logger.log(`VideoCard: Mouse left for ${video.id}`);
         if (onHoverChange && isHoveringRef.current) {
           logger.log(`VideoCard: Notifying parent of hover end for ${video.id}`);
           onHoverChange(false);
@@ -144,6 +150,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
       onClick={() => onOpenLightbox(video)}
       data-hovering={isHovering ? "true" : "false"}
       data-video-id={video.id}
+      data-has-thumbnail={thumbnailUrl ? "true" : "false"}
+      data-is-mobile={isMobile ? "true" : "false"}
     >
       <div className="aspect-video">
         <div className="w-full h-full">
@@ -157,7 +165,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
               isHovering={isHovering}
               lazyLoad={false}
               thumbnailUrl={thumbnailUrl}
-              onTouch={onTouch}
+              onTouch={handleTouch}
               isMobile={isMobile}
             />
             
