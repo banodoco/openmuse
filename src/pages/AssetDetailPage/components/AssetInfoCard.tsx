@@ -71,7 +71,7 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
         
         {asset?.lora_link && (
           <Button 
-            variant="outline" 
+            variant="default" // Changed from "outline" to "default"
             size="sm" 
             className="w-full gap-2 mt-2"
             onClick={handleDownloadLora}
