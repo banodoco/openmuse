@@ -113,6 +113,7 @@ export const useLoraManagement = () => {
       let userProfiles: Record<string, string> = {};
       
       if (uniqueUserIds.length > 0) {
+        logger.log("Fetching user profiles for display names:", uniqueUserIds.length);
         const { data: profiles, error: profilesError } = await supabase
           .from('profiles')
           .select('id, display_name, username')
@@ -121,6 +122,7 @@ export const useLoraManagement = () => {
         if (profilesError) {
           logger.error("Error fetching user profiles:", profilesError);
         } else if (profiles) {
+          logger.log("Fetched user profiles:", profiles.length);
           // Create a map of user_id to display_name or username
           userProfiles = profiles.reduce((acc, profile) => {
             acc[profile.id] = profile.display_name || profile.username || '';
