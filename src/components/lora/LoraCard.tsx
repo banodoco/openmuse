@@ -202,7 +202,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
       )}
       
       <CardContent className="p-3">
-        <h3 className="font-medium text-sm truncate">{lora.name}</h3>
         {getCreatorName() && (
           <p className="text-xs text-muted-foreground">Creator: {getCreatorName()}</p>
         )}
