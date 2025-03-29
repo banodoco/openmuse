@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
@@ -28,6 +28,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   fetchAssetDetails
 }) => {
   const { user } = useAuth();
+  const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   
   return (
     <div className="md:col-span-2">
@@ -54,6 +55,14 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               onOpenLightbox={handleOpenLightbox}
               onApproveVideo={handleApproveVideo}
               onDeleteVideo={handleDeleteVideo}
+              isHovering={hoveredVideoId === video.id}
+              onHoverChange={(isHovering) => {
+                if (isHovering) {
+                  setHoveredVideoId(video.id);
+                } else if (hoveredVideoId === video.id) {
+                  setHoveredVideoId(null);
+                }
+              }}
             />
           ))}
         </div>

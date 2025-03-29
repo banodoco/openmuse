@@ -6,6 +6,9 @@ import VideoPreviewError from './video/VideoPreviewError';
 import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
 import StandardVideoPreview from './video/StandardVideoPreview';
 import StorageVideoPlayer from './StorageVideoPlayer';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoPreview');
 
 interface VideoPreviewProps {
   file?: File;
@@ -40,7 +43,11 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
+  const [internalHoverState, setInternalHoverState] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  
+  // Combine external and internal hover states
+  const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
   
   // Always update internal hover state when external state changes
   useEffect(() => {
@@ -82,12 +89,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
 
   const handleThumbnailGenerated = (thumbnailUrl: string) => {
     if (!posterUrl) {
+      logger.log('Thumbnail generated:', thumbnailUrl.substring(0, 50) + '...');
       setPosterUrl(thumbnailUrl);
     }
   };
 
   const handleMouseEnter = () => {
     if (externalHoverState === undefined) {
+      logger.log('Mouse entered video preview');
+      setInternalHoverState(true);
       setIsHovering(true);
       setIsPlaying(true);
     }
@@ -95,6 +105,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
 
   const handleMouseLeave = () => {
     if (externalHoverState === undefined) {
+      logger.log('Mouse left video preview');
+      setInternalHoverState(false);
       setIsHovering(false);
       setIsPlaying(false);
     }
@@ -112,7 +124,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      data-hovering={isHovering ? "true" : "false"}
+      data-hovering={effectiveHoverState ? "true" : "false"}
     >
       {needsThumbnailGeneration && (
         <VideoThumbnailGenerator 
@@ -136,6 +148,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           url={objectUrl}
           posterUrl={posterUrl}
           onError={handleVideoError}
+          isHovering={effectiveHoverState}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -146,8 +159,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           playOnHover={true}
           previewMode={true}
           showPlayButtonOnHover={false}
-          autoPlay={isHovering}
-          isHoveringExternally={isHovering}
+          autoPlay={effectiveHoverState}
+          isHoveringExternally={effectiveHoverState}
           lazyLoad={lazyLoad}
           thumbnailUrl={thumbnailUrl || posterUrl}
         />
@@ -160,8 +173,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           playOnHover={true}
           previewMode={false}
           showPlayButtonOnHover={false}
-          autoPlay={isHovering}
-          isHoveringExternally={isHovering}
+          autoPlay={effectiveHoverState}
+          isHoveringExternally={effectiveHoverState}
           lazyLoad={lazyLoad}
           thumbnailUrl={thumbnailUrl || posterUrl}
         />
