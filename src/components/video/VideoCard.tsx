@@ -1,10 +1,11 @@
 
-import React, { useState, memo } from 'react';
+import React, { useState, memo, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Check, X, Play } from 'lucide-react';
 import StorageVideoPlayer from '../StorageVideoPlayer';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VideoCardProps {
   video: VideoEntry;
@@ -22,10 +23,41 @@ const VideoCard: React.FC<VideoCardProps> = memo(({
   onDeleteVideo
 }) => {
   const [isHovering, setIsHovering] = useState(false);
+  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  
+  // Fetch user profile for display name when component mounts
+  useEffect(() => {
+    const fetchCreatorProfile = async () => {
+      // Only attempt to fetch profile if we have a user_id
+      if (video.user_id) {
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('display_name, username')
+            .eq('id', video.user_id)
+            .maybeSingle();
+            
+          if (profile && !error) {
+            // Use display_name or username from profile
+            setCreatorDisplayName(profile.display_name || profile.username);
+          }
+        } catch (error) {
+          console.error('Error fetching creator profile:', error);
+        }
+      }
+    };
+    
+    fetchCreatorProfile();
+  }, [video.user_id]);
   
   // Function to get creator display name
   const getCreatorName = () => {
-    // First try to use metadata creatorName
+    // First priority: Profile display name if we fetched it
+    if (creatorDisplayName) {
+      return creatorDisplayName;
+    }
+    
+    // Second priority: metadata creatorName
     if (video.metadata?.creatorName) {
       // If it's an email, only show the part before @
       if (video.metadata.creatorName.includes('@')) {

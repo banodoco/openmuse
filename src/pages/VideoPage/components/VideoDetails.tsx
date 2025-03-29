@@ -1,16 +1,49 @@
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VideoDetailsProps {
   video: VideoEntry;
 }
 
 const VideoDetails: React.FC<VideoDetailsProps> = ({ video }) => {
+  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  
+  // Fetch user profile information when component mounts
+  useEffect(() => {
+    const fetchCreatorProfile = async () => {
+      // Only attempt to fetch profile if we have a user_id
+      if (video.user_id) {
+        try {
+          const { data: profile, error } = await supabase
+            .from('profiles')
+            .select('display_name, username')
+            .eq('id', video.user_id)
+            .maybeSingle();
+            
+          if (profile && !error) {
+            // Use display_name or username from profile
+            setCreatorDisplayName(profile.display_name || profile.username);
+          }
+        } catch (error) {
+          console.error('Error fetching creator profile:', error);
+        }
+      }
+    };
+    
+    fetchCreatorProfile();
+  }, [video.user_id]);
+  
   // Helper function to get the best display name
   const getCreatorName = () => {
-    // First try to use the metadata.creatorName
+    // First priority: Profile display name if we fetched it
+    if (creatorDisplayName) {
+      return creatorDisplayName;
+    }
+    
+    // Second priority: metadata.creatorName
     if (video.metadata?.creatorName) {
       // If it's an email, only show the part before @
       if (video.metadata.creatorName.includes('@')) {

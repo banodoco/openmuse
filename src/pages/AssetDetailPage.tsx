@@ -30,32 +30,27 @@ const AssetDetailPage: React.FC = () => {
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
-      try {
-        if (user?.id) {
-          console.log('AssetDetailPage - Checking admin status for user:', user.id);
-          const adminStatus = await checkIsAdmin(user.id);
-          console.log('AssetDetailPage - Admin status result:', adminStatus);
-          setIsAdmin(adminStatus);
-        } else {
-          console.log('AssetDetailPage - No user, setting isAdmin to false');
-          setIsAdmin(false);
-        }
-        setAuthChecked(true);
-      } catch (error) {
-        console.error('Error checking admin status:', error);
+      if (user?.id) {
+        console.log('AssetDetailPage - Checking admin status for user:', user.id);
+        const adminStatus = await checkIsAdmin(user.id);
+        console.log('AssetDetailPage - Admin status result:', adminStatus);
+        setIsAdmin(adminStatus);
+      } else {
+        console.log('AssetDetailPage - No user, setting isAdmin to false');
         setIsAdmin(false);
-        setAuthChecked(true);
       }
+      setAuthChecked(true);
     };
     
     checkAdminStatus();
   }, [user]);
 
   useEffect(() => {
-    const logAssetDetails = async () => {
+    const fetchCreatorProfile = async () => {
       if (asset?.user_id) {
         const { data: profile, error } = await supabase
           .from('profiles')
@@ -69,11 +64,15 @@ const AssetDetailPage: React.FC = () => {
           profile: profile,
           error: error
         });
+        
+        if (profile && !error) {
+          setCreatorDisplayName(profile.display_name || profile.username);
+        }
       }
     };
 
     if (asset) {
-      logAssetDetails();
+      fetchCreatorProfile();
     }
   }, [asset]);
 
@@ -420,6 +419,21 @@ const AssetDetailPage: React.FC = () => {
     );
   }
 
+  const getCreatorName = () => {
+    if (creatorDisplayName) {
+      return creatorDisplayName;
+    }
+    
+    if (asset?.creator) {
+      if (asset.creator.includes('@')) {
+        return asset.creator.split('@')[0];
+      }
+      return asset.creator;
+    }
+    
+    return 'Unknown';
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -450,10 +464,10 @@ const AssetDetailPage: React.FC = () => {
                 </div>
               )}
               
-              {asset?.creator && (
+              {(asset?.creator || creatorDisplayName) && (
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Creator</h3>
-                  <p>{asset.creator}</p>
+                  <p>{getCreatorName()}</p>
                 </div>
               )}
               
