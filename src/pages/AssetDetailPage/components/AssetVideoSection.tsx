@@ -32,7 +32,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   return (
     <div className="md:col-span-2">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">Videos made with this:</h2>
+        <h2 className="text-xl font-bold text-muted-foreground">Videos made with this:</h2>
       </div>
       
       <div className="mb-4">
