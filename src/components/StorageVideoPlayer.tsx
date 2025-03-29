@@ -1,5 +1,5 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
+import { Play } from 'lucide-react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -21,7 +21,7 @@ interface StorageVideoPlayerProps {
   lazyLoad?: boolean;
   videoRef?: React.RefObject<HTMLVideoElement>;
   onLoadedData?: () => void;
-  thumbnailOnly?: boolean; // New prop to only show the thumbnail
+  thumbnailOnly?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -38,7 +38,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   lazyLoad = true,
   videoRef: externalVideoRef,
   onLoadedData,
-  thumbnailOnly = false // Default to false for backwards compatibility
+  thumbnailOnly = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -48,15 +48,14 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
   const [posterUrl, setPosterUrl] = useState<string | null>(null);
   const [videoInitialized, setVideoInitialized] = useState(false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(!thumbnailOnly); // Only load video if not thumbnailOnly
-  
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(!thumbnailOnly);
+
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
-  
+
   const isBlobUrl = videoLocation.startsWith('blob:');
-  
-  // Handle external hover state changes without causing re-renders
+
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
       setIsHovering(isHoveringExternally);
@@ -66,9 +65,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         if (video) {
           if (isHoveringExternally && video.paused) {
             logger.log('External hover detected - attempting to play video');
-            // Add a small delay before playing to avoid interruptions
             const playTimer = setTimeout(() => {
-              if (video && !video.paused) return; // Don't play if already playing
+              if (video && !video.paused) return;
               
               video.play().catch(e => {
                 if (e.name !== 'AbortError') {
@@ -89,39 +87,29 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       }
     }
   }, [isHoveringExternally, previewMode, videoRef, videoInitialized, shouldLoadVideo]);
-  
-  // Generate poster image for lazy loading
+
   useEffect(() => {
     const generatePoster = async () => {
       try {
         if ((lazyLoad || thumbnailOnly) && !posterUrl && videoUrl) {
           if (thumbnailOnly) {
-            // For thumbnail-only mode, try to get poster URL directly from the URL pattern
-            // This is more efficient than loading a video
             const urlObj = new URL(videoUrl);
             const fileExtension = videoUrl.split('.').pop()?.toLowerCase();
             
             if (fileExtension && ['mp4', 'webm', 'mov'].includes(fileExtension)) {
-              // Try to generate a thumbnail URL based on common patterns
-              // For Supabase storage, we can try to get the thumbnail this way
               const pathParts = urlObj.pathname.split('/');
               const filename = pathParts[pathParts.length - 1];
               const filenameParts = filename.split('.');
               
-              // If we're dealing with Supabase storage, we could potentially
-              // request a thumbnail from a separate bucket or path if one exists
               if (urlObj.hostname.includes('supabase')) {
                 logger.log('Setting generic poster for Supabase video');
-                // Use first-frame extraction only when needed
                 await extractFirstFrame(videoUrl);
                 return;
               }
             }
             
-            // If we can't determine a pattern, fall back to frame extraction
             await extractFirstFrame(videoUrl);
           } else {
-            // Standard method - extract first frame
             await extractFirstFrame(videoUrl);
           }
         }
@@ -129,9 +117,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         logger.error('Error in poster generation:', e);
       }
     };
-    
+
     const extractFirstFrame = async (videoUrl: string) => {
-      // Create a hidden video element to extract the first frame
       const tempVideo = document.createElement('video');
       tempVideo.crossOrigin = "anonymous";
       tempVideo.muted = true;
@@ -154,7 +141,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
             setPosterUrl(dataUrl);
             
-            // Clean up
             tempVideo.pause();
             tempVideo.src = '';
             tempVideo.load();
@@ -166,11 +152,10 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       
       tempVideo.load();
     };
-    
+
     generatePoster();
   }, [videoUrl, lazyLoad, posterUrl, thumbnailOnly]);
-  
-  // Load video URL only once when component mounts or videoLocation changes
+
   useEffect(() => {
     let isMounted = true;
     
@@ -202,7 +187,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         if (isMounted) {
           setVideoUrl(url);
           setLoading(false);
-          // Mark video as initialized after URL is set
           setVideoInitialized(true);
         }
       } catch (error) {
@@ -234,17 +218,16 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     setErrorDetails(null);
     setRetryCount(prev => prev + 1);
   };
-  
+
   const handleVideoLoaded = () => {
     if (onLoadedData) {
       logger.log('StorageVideoPlayer: Video loaded, notifying parent');
       onLoadedData();
     }
   };
-  
+
   const handleContainerClick = () => {
     if (thumbnailOnly) {
-      // On click, load and play the actual video
       setShouldLoadVideo(true);
     }
   };
@@ -266,8 +249,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       </div>
     );
   }
-  
-  // If we're in thumbnailOnly mode and have a poster but don't want to load the video yet
+
   if (thumbnailOnly && posterUrl && !shouldLoadVideo) {
     return (
       <div 
@@ -307,7 +289,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     />
   );
 }, (prevProps, nextProps) => {
-  // Custom comparison to prevent unnecessary re-renders
   return (
     prevProps.videoLocation === nextProps.videoLocation &&
     prevProps.isHoveringExternally === nextProps.isHoveringExternally &&
