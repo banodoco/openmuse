@@ -57,6 +57,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [videoLoaded, setVideoLoaded] = useState(!lazyLoad || autoPlay || false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [playAttempted, setPlayAttempted] = useState(false);
+  const [loadedDataFired, setLoadedDataFired] = useState(false);
   
   // Setup hover behavior - only if not externally controlled
   useVideoHover(containerRef, videoRef, {
@@ -72,6 +73,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       setHasInteracted(true);
     }
   }, [videoLoaded]);
+  
+  // Reset state when src changes
+  useEffect(() => {
+    setLoadedDataFired(false);
+    setPlayAttempted(false);
+  }, [src]);
   
   // Handle external hover control
   useEffect(() => {
@@ -128,6 +135,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setErrorDetails('');
     setIsLoading(true);
     setPlayAttempted(false);
+    setLoadedDataFired(false);
     
     logger.log(`Loading video with source: ${src.substring(0, 50)}...`);
     
@@ -140,14 +148,19 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     const handleLoadedData = () => {
       logger.log(`Video loaded successfully: ${src.substring(0, 30)}...`);
       setIsLoading(false);
-      if (onLoadedData) onLoadedData();
+      setLoadedDataFired(true);
+      
+      if (onLoadedData) {
+        logger.log('Firing onLoadedData callback');
+        onLoadedData();
+      }
       
       // Don't autoplay if we're using hover to play or lazy loading
       if (autoPlay && !playOnHover && !externallyControlled) {
         // Small delay to ensure the video is ready
         setTimeout(() => {
           attemptVideoPlay(video, muted);
-        }, 100);
+        }, 150);
       }
       
       // For externally controlled video, check if we should play immediately
@@ -155,8 +168,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         logger.log('VideoPlayer: Initially hovering - playing video immediately');
         // Small delay to ensure the video is ready
         setTimeout(() => {
-          attemptVideoPlay(video, muted);
-        }, 100);
+          attemptVideoPlay(video, muted).then(() => {
+            logger.log('Auto-play successful in lightbox');
+          }).catch(err => {
+            logger.error('Auto-play failed in lightbox:', err);
+          });
+        }, 150);
       }
     };
     
@@ -224,6 +241,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setErrorDetails('');
     setIsLoading(true);
     setPlayAttempted(false);
+    setLoadedDataFired(false);
     
     // Simply reload the video
     video.load();

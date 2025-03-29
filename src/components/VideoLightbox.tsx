@@ -23,6 +23,15 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
   const contentRef = useRef<HTMLDivElement>(null);
   const playerRef = useRef<HTMLVideoElement>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
+  const [playTriggered, setPlayTriggered] = useState(false);
+  
+  // Reset state when the lightbox opens or changes videos
+  useEffect(() => {
+    if (isOpen) {
+      setIsVideoReady(false);
+      setPlayTriggered(false);
+    }
+  }, [isOpen, videoUrl]);
   
   // Add keyboard event handler for Escape key
   useEffect(() => {
@@ -47,29 +56,37 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
 
   // Ensure video plays when dialog opens and is ready
   useEffect(() => {
-    if (isOpen && isVideoReady && playerRef.current) {
+    if (isOpen && isVideoReady && playerRef.current && !playTriggered) {
+      console.log('Attempting to play video in lightbox after ready event');
+      
       // Use a short timeout to ensure the video plays after the dialog is fully rendered
       const playTimeout = setTimeout(() => {
         if (playerRef.current) {
           playerRef.current.play()
-            .catch(err => console.error('Failed to play video in lightbox:', err));
+            .then(() => {
+              console.log('Video playback started successfully');
+              setPlayTriggered(true);
+            })
+            .catch(err => {
+              console.error('Failed to play video in lightbox:', err);
+              // Retry once more after a delay
+              setTimeout(() => {
+                if (playerRef.current && isOpen) {
+                  playerRef.current.play()
+                    .catch(e => console.error('Retry failed:', e));
+                }
+              }, 300);
+            });
         }
-      }, 100);
+      }, 200);
       
       return () => clearTimeout(playTimeout);
     }
-  }, [isOpen, isVideoReady]);
+  }, [isOpen, isVideoReady, playTriggered]);
 
   const handleVideoReady = () => {
+    console.log('Video reported as ready in lightbox');
     setIsVideoReady(true);
-    
-    // Attempt to play the video when it's ready
-    if (playerRef.current && isOpen) {
-      setTimeout(() => {
-        playerRef.current?.play()
-          .catch(err => console.error('Failed to play video on ready event:', err));
-      }, 100);
-    }
   };
 
   return (
@@ -108,6 +125,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
               playOnHover={false}
               videoRef={playerRef}
               onLoadedData={handleVideoReady}
+              lazyLoad={false}
             />
           </div>
           {(title || creator) && (

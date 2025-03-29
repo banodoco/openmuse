@@ -202,6 +202,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   
   const handleVideoLoaded = () => {
     if (onLoadedData) {
+      logger.log('StorageVideoPlayer: Video loaded, notifying parent');
       onLoadedData();
     }
   };
