@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -42,16 +41,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
   
   const videoUrl = lora.primaryVideo?.video_location;
   
-  // Improved creator name formatting that prioritizes display name and better formats emails
   const getCreatorName = () => {
-    // First try to use the creatorDisplayName from profile
     if (lora.creatorDisplayName) return lora.creatorDisplayName;
     
-    // If not available, fall back to better formatted creator name
     const creator = lora.creator;
     if (!creator) return "Unknown";
     
-    // If it looks like an email, don't show the email domain
     if (creator.includes('@')) {
       return creator.split('@')[0];
     }
@@ -180,6 +175,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
             title={lora.name}
             creator={getCreatorName()}
             isHovering={isHovering}
+            lazyLoad={true}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
@@ -205,7 +201,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
         </div>
       )}
       
-      {/* Add card content to display name and creator */}
       <CardContent className="p-3">
         <h3 className="font-medium text-sm truncate">{lora.name}</h3>
         {getCreatorName() && (
