@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
@@ -7,6 +6,7 @@ import VideoCard from '@/components/video/VideoCard';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
 import { useAuth } from '@/hooks/useAuth';
 import { Logger } from '@/lib/logger';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -31,6 +31,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 }) => {
   const { user } = useAuth();
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
   
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
     logger.log(`AssetVideoSection: Hover state changed for ${videoId} to ${isHovering}`);
@@ -42,7 +43,18 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     }
   };
   
-  // Debug logging for hover state
+  const handleVideoTouch = (videoId: string) => {
+    if (isMobile) {
+      logger.log(`AssetVideoSection: Touch event for video ${videoId}, current hovered: ${hoveredVideoId}`);
+      
+      if (hoveredVideoId === videoId) {
+        setHoveredVideoId(null);
+      } else {
+        setHoveredVideoId(videoId);
+      }
+    }
+  };
+  
   useEffect(() => {
     if (hoveredVideoId) {
       logger.log(`AssetVideoSection: Currently hovering over video: ${hoveredVideoId}`);
@@ -78,6 +90,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               onDeleteVideo={handleDeleteVideo}
               isHovering={hoveredVideoId === video.id}
               onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
+              onTouch={() => handleVideoTouch(video.id)}
+              isMobile={isMobile}
             />
           ))}
         </div>

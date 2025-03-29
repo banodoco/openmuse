@@ -1,6 +1,7 @@
 
 import { useEffect, useRef, RefObject } from 'react';
 import { Logger } from '@/lib/logger';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('useVideoHover');
 
@@ -14,12 +15,17 @@ export const useVideoHover = (
     enabled: boolean;
     resetOnLeave?: boolean;
     delayPlay?: number;
+    isMobile?: boolean; // Flag to handle mobile behavior differently
   }
 ) => {
-  const { enabled, resetOnLeave = true, delayPlay = 0 } = options; // Removed delay for immediate response
+  const { enabled, resetOnLeave = true, delayPlay = 0, isMobile: propIsMobile } = options; // Removed delay for immediate response
+  const defaultIsMobile = useIsMobile();
+  const isMobile = propIsMobile !== undefined ? propIsMobile : defaultIsMobile;
+  
   const playTimeoutRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
   const lastPlayAttemptRef = useRef<number>(0);
+  const touchPlayToggleRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -33,6 +39,8 @@ export const useVideoHover = (
     }
     
     const handleMouseEnter = () => {
+      if (isMobile) return; // Skip hover handling on mobile
+      
       logger.log('Mouse entered video container');
       isHoveringRef.current = true;
       
@@ -74,6 +82,8 @@ export const useVideoHover = (
     };
     
     const handleMouseLeave = () => {
+      if (isMobile) return; // Skip hover handling on mobile
+      
       logger.log('Mouse left video container');
       isHoveringRef.current = false;
       
@@ -94,13 +104,51 @@ export const useVideoHover = (
       }
     };
     
+    // For mobile: toggle play/pause on touch
+    const handleTouch = (e: TouchEvent) => {
+      if (!isMobile) return;
+      
+      // Prevent default to avoid triggering other events
+      e.preventDefault();
+      
+      logger.log('Touch event on video, current playing state:', !video.paused);
+      
+      // Toggle the play state
+      touchPlayToggleRef.current = !touchPlayToggleRef.current;
+      
+      if (touchPlayToggleRef.current) {
+        // Play the video
+        if (video.paused) {
+          // Force preload if not already loaded
+          if (video.preload !== 'auto') {
+            video.preload = 'auto';
+          }
+          
+          video.play().catch(e => {
+            logger.warn('Play on touch prevented:', e);
+          });
+        }
+      } else {
+        // Pause the video
+        if (!video.paused) {
+          video.pause();
+          
+          if (resetOnLeave) {
+            video.currentTime = 0;
+          }
+        }
+      }
+    };
+    
     // Remove any existing listeners before adding new ones
     container.removeEventListener('mouseenter', handleMouseEnter);
     container.removeEventListener('mouseleave', handleMouseLeave);
+    container.removeEventListener('touchstart', handleTouch as EventListener);
     
     // Add listeners
     container.addEventListener('mouseenter', handleMouseEnter);
     container.addEventListener('mouseleave', handleMouseLeave);
+    container.addEventListener('touchstart', handleTouch as EventListener);
     
     return () => {
       // Clear any pending timeout on unmount
@@ -112,7 +160,8 @@ export const useVideoHover = (
       if (container) {
         container.removeEventListener('mouseenter', handleMouseEnter);
         container.removeEventListener('mouseleave', handleMouseLeave);
+        container.removeEventListener('touchstart', handleTouch as EventListener);
       }
     };
-  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay]);
+  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay, isMobile]);
 };

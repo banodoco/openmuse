@@ -7,6 +7,7 @@ import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
 import StandardVideoPreview from './video/StandardVideoPreview';
 import StorageVideoPlayer from './StorageVideoPlayer';
 import { Logger } from '@/lib/logger';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('VideoPreview');
 
@@ -19,6 +20,8 @@ interface VideoPreviewProps {
   isHovering?: boolean;
   lazyLoad?: boolean;
   thumbnailUrl?: string;
+  onTouch?: () => void;
+  isMobile?: boolean;
 }
 
 /**
@@ -33,9 +36,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   creator,
   isHovering: externalHoverState,
   lazyLoad = true,
-  thumbnailUrl
+  thumbnailUrl,
+  onTouch,
+  isMobile: externalIsMobile
 }) => {
   const { user } = useAuth();
+  const defaultIsMobile = useIsMobile();
+  const isMobile = externalIsMobile !== undefined ? externalIsMobile : defaultIsMobile;
+  
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -91,7 +99,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   };
 
   const handleMouseEnter = () => {
-    if (externalHoverState === undefined) {
+    if (externalHoverState === undefined && !isMobile) {
       logger.log('Mouse entered video preview');
       setInternalHoverState(true);
       setIsHovering(true);
@@ -100,11 +108,19 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   };
 
   const handleMouseLeave = () => {
-    if (externalHoverState === undefined) {
+    if (externalHoverState === undefined && !isMobile) {
       logger.log('Mouse left video preview');
       setInternalHoverState(false);
       setIsHovering(false);
       setIsPlaying(false);
+    }
+  };
+  
+  const handleTouchEvent = (e: React.TouchEvent) => {
+    if (isMobile && onTouch) {
+      logger.log('Touch event on video preview');
+      e.preventDefault(); // Prevent default touch behavior
+      onTouch();
     }
   };
 
@@ -121,7 +137,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onTouchStart={handleTouchEvent}
       data-hovering={effectiveHoverState ? "true" : "false"}
+      data-mobile={isMobile ? "true" : "false"}
     >
       {needsThumbnailGeneration && (
         <VideoThumbnailGenerator 
@@ -150,12 +168,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       ) : isBlobUrl ? (
         <StorageVideoPlayer
           videoLocation={url}
-          controls={false}
+          controls={isMobile}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}
+          playOnHover={!isMobile}
           previewMode={true}
-          showPlayButtonOnHover={false}
+          showPlayButtonOnHover={isMobile}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
@@ -165,12 +183,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       ) : url ? (
         <StorageVideoPlayer
           videoLocation={url}
-          controls={false}
+          controls={isMobile}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}
+          playOnHover={!isMobile}
           previewMode={false}
-          showPlayButtonOnHover={false}
+          showPlayButtonOnHover={isMobile}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
@@ -180,6 +198,16 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       ) : null}
 
       {error && <VideoPreviewError error={error} onRetry={handleRetry} videoSource={objectUrl || undefined} canRecover={false} />}
+      
+      {isMobile && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <div className={`w-12 h-12 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${effectiveHoverState ? 'opacity-0' : 'opacity-80'}`}>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">
+              <polygon points="5 3 19 12 5 21 5 3" />
+            </svg>
+          </div>
+        </div>
+      )}
     </div>
   );
 });
