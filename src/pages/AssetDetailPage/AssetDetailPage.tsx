@@ -28,12 +28,14 @@ const AssetDetailPage: React.FC = () => {
   const [authChecked, setAuthChecked] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
+  // Adding this missing state for loading control
+  const [isLoading, setIsLoading] = useState(true);
 
   // Custom hooks
   const {
     asset,
     videos,
-    isLoading,
+    isLoading: assetLoading,
     dataFetchAttempted,
     creatorDisplayName,
     getCreatorName,
@@ -68,6 +70,11 @@ const AssetDetailPage: React.FC = () => {
     
     checkAdminStatus();
   }, [user]);
+
+  // Update loading state based on asset loading
+  React.useEffect(() => {
+    setIsLoading(assetLoading);
+  }, [assetLoading]);
 
   // Handler functions
   const handleRetry = () => {

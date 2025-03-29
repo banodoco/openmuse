@@ -1,12 +1,14 @@
+
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import LoadingState from '@/components/LoadingState';
 
-const HomePage = lazy(() => import('./pages/HomePage'));
-const UploadPage = lazy(() => import('./pages/UploadPage'));
-const AdminPage = lazy(() => import('./pages/AdminPage'));
-const AuthPage = lazy(() => import('./pages/AuthPage'));
+// Fix imports to use correct paths
+const HomePage = lazy(() => import('./pages/Index'));
+const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
+const AdminPage = lazy(() => import('./pages/Admin'));
+const AuthPage = lazy(() => import('./pages/Auth'));
 const VideoPage = lazy(() => import('./pages/VideoPage'));
 const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage'));
 
