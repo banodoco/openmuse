@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react';
 import { getYoutubeVideoId } from '@/lib/utils/videoPreviewUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -56,13 +57,13 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
       
       if (videoRef.current) {
         videoRef.current.src = fileUrl;
-        videoRef.current.currentTime = 0;
+        videoRef.current.currentTime = 0; // Set to first frame
         videoRef.current.muted = true;
         videoRef.current.preload = 'metadata';
         
         videoRef.current.onloadedmetadata = () => {
           if (videoRef.current) {
-            videoRef.current.currentTime = 0.1;
+            videoRef.current.currentTime = 0; // Ensure we're at the first frame
           }
         };
         
