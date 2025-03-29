@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -41,6 +42,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const previewRef = useRef<HTMLDivElement>(null);
   
+  // Always update internal hover state when external state changes
   useEffect(() => {
     if (externalHoverState !== undefined) {
       setIsHovering(externalHoverState);
@@ -110,6 +112,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      data-hovering={isHovering ? "true" : "false"}
     >
       {needsThumbnailGeneration && (
         <VideoThumbnailGenerator 

@@ -32,9 +32,13 @@ export const useVideoHover = (
       logger.log('Mouse entered video container');
       if (video.paused) {
         logger.log('Attempting to play video on hover');
-        video.play().catch(e => {
-          logger.warn('Play on hover prevented:', e);
-        });
+        
+        // Add a small delay to ensure the video is ready to play
+        setTimeout(() => {
+          video.play().catch(e => {
+            logger.warn('Play on hover prevented:', e);
+          });
+        }, 50);
       }
     };
     
@@ -50,6 +54,11 @@ export const useVideoHover = (
       }
     };
     
+    // Remove any existing listeners before adding new ones
+    container.removeEventListener('mouseenter', handleMouseEnter);
+    container.removeEventListener('mouseleave', handleMouseLeave);
+    
+    // Add listeners
     container.addEventListener('mouseenter', handleMouseEnter);
     container.addEventListener('mouseleave', handleMouseLeave);
     
