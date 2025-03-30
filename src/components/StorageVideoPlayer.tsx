@@ -5,6 +5,7 @@ import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Play } from 'lucide-react';
+import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
 
 const logger = new Logger('StorageVideoPlayer');
 
@@ -24,6 +25,7 @@ interface StorageVideoPlayerProps {
   onLoadedData?: () => void;
   thumbnailUrl?: string;
   forcePreload?: boolean;
+  forceThumbnailGeneration?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -41,7 +43,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   videoRef: externalVideoRef,
   onLoadedData,
   thumbnailUrl,
-  forcePreload = false
+  forcePreload = false,
+  forceThumbnailGeneration = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -53,6 +56,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [videoInitialized, setVideoInitialized] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(!lazyLoad || forcePreload);
+  const [needsThumbnailGeneration, setNeedsThumbnailGeneration] = useState(forceThumbnailGeneration && !thumbnailUrl);
+  const { userId } = useRef({ userId: null }).current;
   
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -74,6 +79,10 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       setShouldLoadVideo(true);
     }
   }, [forcePreload]);
+
+  useEffect(() => {
+    setNeedsThumbnailGeneration(forceThumbnailGeneration && !thumbnailUrl && !posterUrl);
+  }, [forceThumbnailGeneration, thumbnailUrl, posterUrl]);
 
   const handleManualHoverStart = () => {
     if (isHoveringExternally === undefined) {
@@ -207,6 +216,12 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   };
 
+  const handleThumbnailGenerated = (url: string) => {
+    logger.log('StorageVideoPlayer: Thumbnail generated from direct video capture');
+    setPosterUrl(url);
+    setNeedsThumbnailGeneration(false);
+  };
+
   return (
     <div 
       className="relative w-full h-full"
@@ -230,6 +245,17 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             canRecover={!previewMode}
           />
         </div>
+      )}
+
+      {/* Generate thumbnail directly from the video if needed */}
+      {needsThumbnailGeneration && videoLocation && !loading && (
+        <VideoThumbnailGenerator
+          url={videoLocation}
+          onThumbnailGenerated={handleThumbnailGenerated}
+          userId={userId}
+          saveThumbnail={true}
+          forceCapture={true}
+        />
       )}
 
       {/* If we have a thumbnail, always show it */}

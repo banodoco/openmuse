@@ -23,6 +23,7 @@ interface VideoPreviewProps {
   onTouch?: () => void;
   isMobile?: boolean;
   showPlayButton?: boolean;
+  forceFrameCapture?: boolean;
 }
 
 /**
@@ -40,7 +41,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   thumbnailUrl,
   onTouch,
   isMobile: externalIsMobile,
-  showPlayButton = true
+  showPlayButton = true,
+  forceFrameCapture = false
 }) => {
   const { user } = useAuth();
   const defaultIsMobile = useIsMobile();
@@ -54,6 +56,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const [internalHoverState, setInternalHoverState] = useState(false);
+  const [thumbnailGenerationAttempted, setThumbnailGenerationAttempted] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   
   // Log thumbnail URL for debugging
@@ -107,6 +110,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     if (!posterUrl) {
       logger.log('Thumbnail generated:', thumbnailUrl.substring(0, 50) + '...');
       setPosterUrl(thumbnailUrl);
+      setThumbnailGenerationAttempted(true);
     }
   };
 
@@ -140,8 +144,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  // Always attempt to generate a thumbnail if one isn't provided
-  const needsThumbnailGeneration = !thumbnailUrl && (file || (url && !isExternalLink && !posterUrl));
+  // Always attempt to generate a thumbnail if one isn't provided or if forced
+  const needsThumbnailGeneration = (forceFrameCapture || !thumbnailUrl) && 
+                                   (file || (url && !isExternalLink && !posterUrl)) && 
+                                   !thumbnailGenerationAttempted;
 
   // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
@@ -162,6 +168,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           onThumbnailGenerated={handleThumbnailGenerated}
           userId={user?.id}
           saveThumbnail={true}
+          forceCapture={forceFrameCapture}
         />
       )}
       
@@ -192,7 +199,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isHoveringExternally={effectiveHoverState && !isMobile}
           lazyLoad={false} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={false} 
+          forcePreload={isMobile || forceFrameCapture} 
+          forceThumbnailGeneration={forceFrameCapture}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -205,9 +213,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={isMobile ? false : showPlayButton}
           autoPlay={effectiveHoverState && !isMobile}
           isHoveringExternally={effectiveHoverState && !isMobile}
-          lazyLoad={!isMobile}  // Don't lazy load on mobile to ensure content shows
+          lazyLoad={!isMobile} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={isMobile}  // Force preload on mobile
+          forcePreload={isMobile || forceFrameCapture} 
+          forceThumbnailGeneration={forceFrameCapture}
         />
       ) : null}
 

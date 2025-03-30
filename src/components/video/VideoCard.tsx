@@ -33,7 +33,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
   isHovering = false,
   onHoverChange,
   onTouch,
-  isMobile = false
+  isMobile = false,
+  showPlayButton = true
 }) => {
   const { user } = useAuth();
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
@@ -65,11 +66,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
     };
     
+    // Set thumbnail from metadata if available
     if (video.metadata?.thumbnailUrl) {
       logger.log(`VideoCard: Using thumbnail from metadata for ${video.id}: ${video.metadata.thumbnailUrl.substring(0, 30)}...`);
       setThumbnailUrl(video.metadata.thumbnailUrl);
     } else {
-      logger.log(`VideoCard: No thumbnail in metadata for ${video.id}`);
+      logger.log(`VideoCard: No thumbnail in metadata for ${video.id}, will generate from video`);
     }
     
     fetchCreatorProfile();
@@ -170,10 +172,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
             thumbnailUrl={thumbnailUrl}
             onTouch={handleTouch}
             isMobile={isMobile}
-            showPlayButton={false}
+            showPlayButton={showPlayButton}
+            forceFrameCapture={!thumbnailUrl} // Force frame capture if no thumbnail is available
           />
           
-          {!isMobile && (
+          {!isMobile && showPlayButton && (
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
                 ${isHovering ? 'opacity-0' : 'opacity-100'}

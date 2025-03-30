@@ -13,6 +13,7 @@ interface VideoThumbnailGeneratorProps {
   onThumbnailGenerated: (thumbnailUrl: string) => void;
   saveThumbnail?: boolean;
   userId?: string;
+  forceCapture?: boolean;
 }
 
 const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
@@ -20,11 +21,13 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   url,
   onThumbnailGenerated,
   saveThumbnail = false,
-  userId
+  userId,
+  forceCapture = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [thumbnailGenerationAttempted, setThumbnailGenerationAttempted] = useState(false);
   const [generationInProgress, setGenerationInProgress] = useState(false);
+  const attemptCountRef = useRef(0);
   
   const saveThumbnailToStorage = async (dataUrl: string) => {
     if (!userId) return null;
@@ -59,8 +62,8 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   };
 
   useEffect(() => {
-    // Avoid duplicate thumbnail generation
-    if (thumbnailGenerationAttempted || generationInProgress) {
+    // Avoid duplicate thumbnail generation unless forced
+    if ((thumbnailGenerationAttempted && !forceCapture) || generationInProgress) {
       return;
     }
     
@@ -118,7 +121,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
       };
     } 
     else if (url) {
-      if (!thumbnailGenerationAttempted) {
+      if (!thumbnailGenerationAttempted || forceCapture) {
         setThumbnailGenerationAttempted(true);
         setGenerationInProgress(true);
         
@@ -147,11 +150,23 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             // Fall back to a generic thumbnail or placeholder
             onThumbnailGenerated("/placeholder.svg");
             setGenerationInProgress(false);
+            
+            // Try again with a different time if this is the first attempt
+            if (attemptCountRef.current === 0 && forceCapture) {
+              attemptCountRef.current++;
+              try {
+                tempVideo.currentTime = 1.0; // Try a different timestamp
+              } catch (e) {
+                logger.error('Error in retry thumbnail generation:', e);
+              }
+            }
           }, 7000); // Increase timeout to 7 seconds
           
           tempVideo.onloadedmetadata = () => {
             logger.log('Video metadata loaded, seeking to first frame');
             clearTimeout(timeoutId); // Clear the timeout since metadata loaded
+            
+            // Use a small offset to avoid black frames at the very beginning
             tempVideo.currentTime = 0.1;
           };
           
@@ -208,7 +223,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         }
       }
     }
-  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, thumbnailGenerationAttempted, generationInProgress]);
+  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, thumbnailGenerationAttempted, generationInProgress, forceCapture]);
 
   return (
     <video 
