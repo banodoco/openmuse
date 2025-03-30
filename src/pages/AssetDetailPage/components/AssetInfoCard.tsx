@@ -6,6 +6,7 @@ import { Check, X, Download } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { LoraAsset } from '@/lib/types';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 
 interface AssetInfoCardProps {
   asset: LoraAsset | null;
@@ -39,6 +40,35 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
     }
   };
 
+  const getModelColor = (modelType?: string): string => {
+    switch (modelType?.toLowerCase()) {
+      case 'wan':
+        return "bg-blue-500";
+      case 'hunyuan':
+        return "bg-purple-500";
+      case 'ltxv':
+        return "bg-amber-500";
+      case 'cogvideox':
+        return "bg-emerald-500";
+      case 'animatediff':
+        return "bg-pink-500";
+      default:
+        return "bg-gray-500";
+    }
+  };
+
+  // Get model from either the asset's primaryVideo metadata or from the asset itself
+  const getModelName = (): string | undefined => {
+    if (asset?.primaryVideo?.metadata?.model) {
+      return asset.primaryVideo.metadata.model;
+    } else if (asset?.lora_type) {
+      return asset.lora_type.toLowerCase();
+    }
+    return undefined;
+  };
+
+  const modelName = getModelName();
+
   return (
     <Card className="md:col-span-1">
       <CardContent className="space-y-4 pt-6">
@@ -60,11 +90,73 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
           <h3 className="text-sm font-medium text-muted-foreground">Type</h3>
           <Badge variant="outline">{asset?.type}</Badge>
         </div>
+
+        {modelName && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Model</h3>
+            <Badge 
+              variant="model" 
+              className={cn("text-white", getModelColor(modelName))}
+            >
+              {modelName.toUpperCase()}
+            </Badge>
+          </div>
+        )}
+
+        {asset?.lora_type && asset.lora_type !== modelName?.toUpperCase() && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">LoRA Type</h3>
+            <Badge variant="outline">{asset.lora_type}</Badge>
+          </div>
+        )}
         
         <div>
           <h3 className="text-sm font-medium text-muted-foreground">Created At</h3>
           <p>{asset?.created_at ? new Date(asset.created_at).toLocaleDateString() : 'Unknown'}</p>
         </div>
+
+        {asset?.primaryVideo?.metadata?.baseModel && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Base Model</h3>
+            <p>{asset.primaryVideo.metadata.baseModel}</p>
+          </div>
+        )}
+
+        {asset?.primaryVideo?.metadata?.trainingSteps && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Training Steps</h3>
+            <p>{asset.primaryVideo.metadata.trainingSteps}</p>
+          </div>
+        )}
+
+        {asset?.primaryVideo?.metadata?.resolution && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Resolution</h3>
+            <p>{asset.primaryVideo.metadata.resolution}</p>
+          </div>
+        )}
+
+        {asset?.primaryVideo?.metadata?.trainingDataset && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Training Dataset</h3>
+            <p>{asset.primaryVideo.metadata.trainingDataset}</p>
+          </div>
+        )}
+
+        {asset?.admin_approved && (
+          <div>
+            <h3 className="text-sm font-medium text-muted-foreground">Status</h3>
+            <Badge 
+              className={cn(
+                asset.admin_approved === 'Curated' && "bg-green-500 text-white",
+                asset.admin_approved === 'Listed' && "bg-blue-500 text-white",
+                asset.admin_approved === 'Rejected' && "bg-red-500 text-white",
+              )}
+            >
+              {asset.admin_approved}
+            </Badge>
+          </div>
+        )}
         
         {asset?.lora_link && (
           <Button 

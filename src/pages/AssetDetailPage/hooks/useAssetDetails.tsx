@@ -103,7 +103,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 model: media.type,
                 loraName: assetData.name,
                 loraDescription: assetData.description,
-                assetId: assetData.id
+                assetId: assetData.id,
+                loraType: assetData.lora_type,
+                loraLink: assetData.lora_link
               }
             };
           } catch (error) {
