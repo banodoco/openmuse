@@ -32,7 +32,7 @@ const VideoCardMedia: React.FC<VideoCardMediaProps> = ({
 }) => {
   return (
     <div className="aspect-video">
-      <div className="w-full h-full">
+      <div className="w-full h-full relative">
         <VideoPreview
           key={`video-${video.id}`}
           url={video.video_location}
@@ -40,20 +40,20 @@ const VideoCardMedia: React.FC<VideoCardMediaProps> = ({
           creator={creatorName}
           className="w-full h-full object-cover"
           isHovering={isHovering && !isMobile} // Don't consider hovering on mobile
-          lazyLoad={false}
+          lazyLoad={!isMobile} // Don't lazy load on mobile, but don't autoplay either
           thumbnailUrl={thumbnailUrl}
           onTouch={onTouch}
           isMobile={isMobile}
           showPlayButton={showPlayButton}
           forceFrameCapture={forceFrameCapture}
           captureTimeout={captureTimeout}
-          fallbackToVideo={true}
+          fallbackToVideo={!isMobile} // Don't fallback to video on mobile
         />
         
         {/* Always show play button on mobile */}
         <div 
           className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
-            ${(isHovering && !isMobile) ? 'opacity-0' : 'opacity-100'}
+            ${(isHovering && !isMobile) || !showPlayButton ? 'opacity-0' : 'opacity-100'}
           `}
         >
           <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">

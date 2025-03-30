@@ -80,7 +80,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     previewMode,
     isBlobUrl,
     forcePreload,
-    lazyLoad,
+    lazyLoad: isMobile ? false : lazyLoad, // Don't lazy load on mobile, but don't autoplay either
     isMobile
   });
 
@@ -141,17 +141,17 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         onVideoLoaded={handleVideoLoaded}
         userId={userId}
         className={className}
-        controls={controls}
-        autoPlay={autoPlay && !isMobile}  // Don't autoplay on mobile
+        controls={isMobile ? true : controls}
+        autoPlay={autoPlay && !isMobile}  // Never autoplay on mobile
         muted={muted}
         loop={loop}
         playOnHover={playOnHover && !isMobile}  // Don't do play on hover for mobile
         previewMode={previewMode}
         showPlayButtonOnHover={showPlayButtonOnHover}
-        isHoveringExternally={isHoveringExternally}
+        isHoveringExternally={isMobile ? false : isHoveringExternally}
         captureTimeout={captureTimeout}
         isMobile={isMobile}
-        lazyLoad={lazyLoad}
+        lazyLoad={isMobile ? false : lazyLoad}
       />
     </div>
   );

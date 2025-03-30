@@ -107,16 +107,17 @@ const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
           src={posterUrl} 
           alt="Video thumbnail" 
           className="w-full h-full object-cover absolute inset-0 z-0"
+          loading="lazy"
         />
       )}
 
       {!error && videoUrl && shouldLoadVideo && (
-        <div className={posterUrl && !isMobile ? "opacity-0 hover:opacity-100 transition-opacity duration-300" : ""}>
+        <div className={`${posterUrl && !isMobile ? "opacity-0 hover:opacity-100 transition-opacity duration-300" : ""}`}>
           <VideoPlayer
             src={videoUrl}
             className={className}
-            controls={controls}
-            autoPlay={autoPlay || isHovering || isMobile}
+            controls={isMobile ? true : controls}
+            autoPlay={isMobile ? false : (autoPlay || isHovering)}
             muted={muted}
             loop={loop}
             playOnHover={playOnHover && !isMobile}
@@ -125,9 +126,9 @@ const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
             containerRef={containerRef}
             videoRef={videoRef}
             externallyControlled={isHoveringExternally !== undefined || isMobile}
-            isHovering={isHovering || isMobile}
+            isHovering={isMobile ? false : isHovering}
             poster={posterUrl || undefined}
-            lazyLoad={lazyLoad && !isMobile}
+            lazyLoad={isMobile ? false : lazyLoad}
             onLoadedData={onVideoLoaded}
             isMobile={isMobile}
           />

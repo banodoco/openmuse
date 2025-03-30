@@ -52,14 +52,14 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   };
   
   const handleVideoTouch = (videoId: string) => {
-    if (!isMobile) return;
-    
     logger.log(`AssetVideoSection: Touch event for video ${videoId}, current hovered: ${hoveredVideoId}`);
     
-    // Open lightbox directly on mobile instead of toggling hover state
-    const video = videos.find(v => v.id === videoId);
-    if (video) {
-      handleOpenLightbox(video);
+    // Open lightbox directly on mobile
+    if (isMobile) {
+      const video = videos.find(v => v.id === videoId);
+      if (video) {
+        handleOpenLightbox(video);
+      }
     }
   };
   

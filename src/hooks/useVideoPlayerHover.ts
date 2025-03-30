@@ -51,7 +51,8 @@ export function useVideoPlayerHover({
   
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
-      if (isHoveringExternally && !isMobile) {  // Don't auto-load on mobile
+      // Only attempt to load on hover (not mobile)
+      if (isHoveringExternally && !isMobile) {
         logger.log('External hover detected - loading video');
         if (onLoadRequest) onLoadRequest();
       }
@@ -59,12 +60,17 @@ export function useVideoPlayerHover({
       if (videoInitialized && videoRef.current) {
         const video = videoRef.current;
         
-        // On mobile, don't auto-play
+        // Only play on hover for desktop
         if ((isHoveringExternally && !isMobile) && video.paused && videoLoaded) {
           logger.log(`External hover detected - attempting to play video`);
           
           setTimeout(() => {
-            if (video.paused) {
+            if (video && !video.paused) {
+              // Video is already playing, do nothing
+              return;
+            }
+            
+            if (video && video.paused) {
               video.play().catch(e => {
                 if (e.name !== 'AbortError') {
                   logger.error('Error playing video on hover:', e);
@@ -85,7 +91,7 @@ export function useVideoPlayerHover({
   }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded, onLoadRequest, isMobile]);
   
   return {
-    isHovering: isHovering, // Changed from always true on mobile to respect the actual hovering state
+    isHovering: isHovering,
     handleManualHoverStart,
     handleManualHoverEnd
   };

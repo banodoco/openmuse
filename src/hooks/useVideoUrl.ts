@@ -29,7 +29,8 @@ export function useVideoUrl({
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  // On mobile, we load the video immediately regardless of lazyLoad setting
+  
+  // On mobile, we load the video (to get the poster) but don't autoplay
   const [shouldLoadVideo, setShouldLoadVideo] = useState(!lazyLoad || forcePreload || isMobile);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
