@@ -129,9 +129,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setVideoReady(true);
   };
 
-  // Special case for blob URLs - they're always considered valid for preview
-  const isBlobUrl = url?.startsWith('blob:') || false;
-
   // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
     return null;
