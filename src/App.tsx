@@ -9,8 +9,8 @@ const HomePage = lazy(() => import('./pages/Index'));
 const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
 const AdminPage = lazy(() => import('./pages/Admin'));
 const AuthPage = lazy(() => import('./pages/Auth'));
-const VideoPage = lazy(() => import('./pages/VideoPage'));
-const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage'));
+const VideoPage = lazy(() => import('./pages/VideoPage/VideoPage'));
+const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage/AssetDetailPage'));
 
 function App() {
   return (
