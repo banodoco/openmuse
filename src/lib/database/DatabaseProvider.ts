@@ -12,9 +12,9 @@ export class DatabaseProvider {
   private readonly logger = new Logger('DatabaseProvider');
   private isCheckingAuth = false;
   private lastAuthCheck = 0;
-  private authCheckCooldown = 5000; // 5 seconds cooldown between checks
-  private lastInvalidUserCheck = 0;
-  private invalidUserCheckCooldown = 60000; // 60 seconds between checking if user is still valid
+  private authCheckCooldown = 10000; // Increased to 10 seconds cooldown between checks
+  private currentUserId: string | null = null;
+  private sessionPromise: Promise<void> | null = null;
   
   /**
    * Get the appropriate database instance based on current configuration
@@ -30,37 +30,60 @@ export class DatabaseProvider {
         return supabaseDatabaseOperations;
       }
       
+      // If we already have a pending session check, wait for it
+      if (this.sessionPromise) {
+        await this.sessionPromise;
+        return supabaseDatabaseOperations;
+      }
+      
       this.isCheckingAuth = true;
       this.lastAuthCheck = now;
-      this.logger.log("Getting current user");
       
-      // Simplified session check with proper error handling
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          this.logger.error("Session check error:", error);
-          supabaseDatabaseOperations.setCurrentUserId(null);
-          return supabaseDatabaseOperations;
+      // Create a new session check promise
+      this.sessionPromise = new Promise<void>(async (resolve) => {
+        try {
+          this.logger.log("Getting current user");
+          
+          // Simplified session check with proper error handling
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            this.logger.error("Session check error:", error);
+            // Only clear user ID if we previously had one and now we don't
+            if (this.currentUserId !== null) {
+              this.currentUserId = null;
+              supabaseDatabaseOperations.setCurrentUserId(null);
+            }
+          } else if (data.session?.user) {
+            const userId = data.session.user.id;
+            
+            // Only update if the user ID changed
+            if (this.currentUserId !== userId) {
+              this.logger.log(`User authenticated from session, ID: ${userId}`);
+              this.currentUserId = userId;
+              supabaseDatabaseOperations.setCurrentUserId(userId);
+            }
+          } else if (this.currentUserId !== null) {
+            // Only clear if we previously had a user ID
+            this.logger.log('Not authenticated, using anonymous access');
+            this.currentUserId = null;
+            supabaseDatabaseOperations.setCurrentUserId(null);
+          }
+        } catch (sessionError) {
+          this.logger.error("Error checking session:", sessionError);
+        } finally {
+          this.isCheckingAuth = false;
+          this.sessionPromise = null;
+          resolve();
         }
-        
-        if (data.session?.user) {
-          const userId = data.session.user.id;
-          this.logger.log(`User authenticated from session, ID: ${userId}`);
-          supabaseDatabaseOperations.setCurrentUserId(userId);
-        } else {
-          this.logger.log('Not authenticated, using anonymous access');
-          supabaseDatabaseOperations.setCurrentUserId(null);
-        }
-      } catch (sessionError) {
-        this.logger.error("Error checking session:", sessionError);
-        supabaseDatabaseOperations.setCurrentUserId(null);
-      }
+      });
+      
+      // Wait for the session check to complete
+      await this.sessionPromise;
     } catch (error) {
       this.logger.error('Error in getDatabase:', error);
-      supabaseDatabaseOperations.setCurrentUserId(null);
-    } finally {
       this.isCheckingAuth = false;
+      this.sessionPromise = null;
     }
     
     return supabaseDatabaseOperations;

@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { signInWithDiscord } from '@/lib/auth';
@@ -15,12 +15,12 @@ const Auth: React.FC = () => {
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
+  const authStateChangeHandled = useRef(false);
   
   // Check if user is already logged in
   useEffect(() => {
     let isActive = true; // For cleanup
     let timeoutId: NodeJS.Timeout | null = null;
-    let subscription: { unsubscribe: () => void; } | null = null;
     
     // Set a timeout to avoid hanging on session check
     const sessionCheckTimeoutId = setTimeout(() => {
@@ -31,15 +31,14 @@ const Auth: React.FC = () => {
     }, 5000);
     
     // Listen for auth state changes FIRST
-    subscription = supabase.auth.onAuthStateChange((event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       logger.log('Auth state changed in Auth page:', event);
+      authStateChangeHandled.current = true;
       
       if (!isActive) return;
       
       if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        // Clear any potential localStorage issues
-        localStorage.removeItem('actual_auth_origin');
-        
+        // Get return URL if available
         const searchParams = new URLSearchParams(location.search);
         const returnUrl = searchParams.get('returnUrl') || '/';
         
@@ -50,67 +49,66 @@ const Auth: React.FC = () => {
             navigate(returnUrl, { replace: true });
           }
         }, 500);
-      }
-    }).data.subscription;
-    
-    // THEN check for existing session
-    const checkSession = async () => {
-      try {
-        logger.log('Auth page: Checking session');
+      } else if (event === 'INITIAL_SESSION' && session) {
+        // Also handle initial session
+        const searchParams = new URLSearchParams(location.search);
+        const returnUrl = searchParams.get('returnUrl') || '/';
         
-        if (!isActive) return;
-        
-        // Try a session refresh first
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (!refreshError && refreshData.session) {
-          logger.log('Auth page: Session refreshed, user is authenticated');
-          const searchParams = new URLSearchParams(location.search);
-          const returnUrl = searchParams.get('returnUrl') || '/';
-          
-          // Add a slight delay to ensure state is updated before navigation
-          timeoutId = setTimeout(() => {
-            if (isActive) {
-              logger.log(`Auth page: Redirecting to ${returnUrl} after refresh`);
-              navigate(returnUrl, { replace: true });
-            }
-          }, 500);
-          return;
-        }
-        
-        // Get the session
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          logger.error('Auth page: Error checking session:', error);
+        timeoutId = setTimeout(() => {
           if (isActive) {
-            setIsCheckingSession(false);
+            logger.log(`Auth page: Initial session present, redirecting to ${returnUrl}`);
+            navigate(returnUrl, { replace: true });
           }
-          return;
-        }
-        
-        if (session) {
-          logger.log('Auth page: User already has session, redirecting');
-          if (isActive) {
-            const searchParams = new URLSearchParams(location.search);
-            const returnUrl = searchParams.get('returnUrl') || '/';
-            
-            // Add a slight delay to ensure state is updated before navigation
-            timeoutId = setTimeout(() => {
-              if (isActive) {
-                logger.log(`Auth page: Redirecting to ${returnUrl}`);
-                navigate(returnUrl, { replace: true });
-              }
-            }, 500);
+        }, 500);
+      }
+    }).subscription;
+    
+    // THEN check for existing session (after short delay to let auth state listener initialize)
+    setTimeout(async () => {
+      if (!isActive) return;
+      
+      try {
+        if (!authStateChangeHandled.current) {
+          logger.log('Auth page: Checking session explicitly');
+          
+          const { data: { session }, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            logger.error('Auth page: Error checking session:', error);
+            if (isActive) {
+              setIsCheckingSession(false);
+            }
+            return;
+          }
+          
+          if (session) {
+            logger.log('Auth page: User already has session, redirecting');
+            if (isActive) {
+              const searchParams = new URLSearchParams(location.search);
+              const returnUrl = searchParams.get('returnUrl') || '/';
+              
+              // Add a slight delay to ensure state is updated before navigation
+              timeoutId = setTimeout(() => {
+                if (isActive) {
+                  logger.log(`Auth page: Redirecting to ${returnUrl}`);
+                  navigate(returnUrl, { replace: true });
+                }
+              }, 500);
+            }
+          } else {
+            logger.log('Auth page: No session found, showing login form');
+            if (isActive) {
+              setIsCheckingSession(false);
+            }
           }
         } else {
-          logger.log('Auth page: No session found, showing login form');
-          if (isActive) {
+          // Auth state change has been handled by listener
+          if (isActive && isCheckingSession) {
             setIsCheckingSession(false);
           }
         }
       } catch (error) {
-        logger.error('Auth page: Error checking session:', error);
+        logger.error('Auth page: Error in session check:', error);
         if (isActive) {
           setIsCheckingSession(false);
         }
@@ -119,27 +117,23 @@ const Auth: React.FC = () => {
           clearTimeout(sessionCheckTimeoutId);
         }
       }
-    };
-    
-    checkSession();
+    }, 100);
     
     return () => {
       logger.log('Auth page: Cleaning up');
       isActive = false;
       if (timeoutId) clearTimeout(timeoutId);
       if (sessionCheckTimeoutId) clearTimeout(sessionCheckTimeoutId);
-      if (subscription) subscription.unsubscribe();
+      subscription.unsubscribe();
     };
   }, [navigate, location.search]);
   
   const handleDiscordSignIn = async () => {
+    if (isLoading) return;
+    
     try {
       logger.log('Auth page: Starting Discord sign-in');
       setIsLoading(true);
-      
-      // Clear any potential localStorage issues
-      localStorage.removeItem('supabase.auth.token');
-      localStorage.removeItem('supabase_auth_token');
       
       await signInWithDiscord();
       // Note: We don't need to navigate here as the redirect will happen automatically
@@ -206,4 +200,3 @@ const Auth: React.FC = () => {
 };
 
 export default Auth;
-

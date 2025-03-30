@@ -10,7 +10,7 @@ export const signInWithDiscord = async () => {
     // Get the current URL to use as redirect
     let redirectUrl = `${window.location.origin}/auth/callback`;
     
-    // Clear caches before signing in
+    // Clear caches before signing in but maintain sessions
     logger.log('Cleaning up caches before Discord login');
     userProfileCache.clear();
     userRolesCache.clear();
@@ -51,7 +51,7 @@ export const signOut = async () => {
     
     // Sign out from Supabase with local scope to preserve sessions in other tabs/devices
     const { error } = await supabase.auth.signOut({
-      scope: 'local'
+      scope: 'local' // Use local scope to avoid clearing all sessions
     });
     
     if (error) {

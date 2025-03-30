@@ -40,8 +40,15 @@ const AuthCallback = () => {
           returnUrl
         });
 
-        // Let Supabase handle the OAuth callback - this will automatically
-        // process any tokens in the URL hash or code in search params
+        // First let Supabase handle any OAuth redirect
+        if (location.hash || location.search.includes('code=')) {
+          logger.log('Auth callback: Hash or code detected in URL, setting session');
+          
+          // Supabase will automatically handle session establishment - wait briefly
+          await new Promise(resolve => setTimeout(resolve, 500));
+        }
+        
+        // Now get the session to confirm authentication worked
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
@@ -56,15 +63,12 @@ const AuthCallback = () => {
           });
 
           // Force refresh the session to ensure we have the latest tokens
-          const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-          
-          if (refreshError) {
+          try {
+            await supabase.auth.refreshSession();
+            logger.log('Session refreshed successfully');
+          } catch (refreshError) {
+            // Non-fatal, log but continue
             logger.error('Error refreshing session:', refreshError);
-          } else if (refreshData.session) {
-            logger.log('Session refreshed successfully', {
-              userId: refreshData.session.user.id,
-              expiresAt: refreshData.session.expires_at
-            });
           }
           
           if (isActive) {
@@ -79,25 +83,18 @@ const AuthCallback = () => {
             }, 1000);
           }
         } else {
-          // If we don't have a session, try to exchange the auth code if present
-          if (window.location.hash || window.location.search.includes('code=')) {
-            logger.log('Found hash or code in URL, exchanging for session');
+          // If we don't have a session but see auth parameters, try again
+          if (location.hash || location.search.includes('code=')) {
+            logger.log('No session yet but found auth params, waiting and retrying');
             
-            // Wait a bit to allow Supabase to process the token
-            await new Promise(resolve => setTimeout(resolve, 1000));
+            // Wait a bit longer to allow Supabase to process the token
+            await new Promise(resolve => setTimeout(resolve, 2000));
             
-            // Check again for a session
-            const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+            // Try once more
+            const { data: sessionData } = await supabase.auth.getSession();
             
-            if (sessionError) {
-              logger.error('Error in second session check:', sessionError);
-              throw sessionError;
-            }
-            
-            if (sessionData.session) {
-              logger.log('Session established in second check', {
-                userId: sessionData.session.user.id
-              });
+            if (sessionData?.session) {
+              logger.log('Session established on second attempt');
               
               if (isActive) {
                 toast.success('Successfully signed in!');
@@ -110,11 +107,11 @@ const AuthCallback = () => {
                 }, 1000);
               }
             } else {
-              logger.error('No session established after OAuth callback');
+              // Still no session, something's wrong
               throw new Error('Failed to establish authentication session. Please try again.');
             }
           } else {
-            logger.error('No hash or code found in URL, and no session established');
+            logger.error('No auth parameters found in URL');
             throw new Error('Invalid authentication response. Please try again.');
           }
         }

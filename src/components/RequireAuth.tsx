@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -24,6 +24,9 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [adminCheckComplete, setAdminCheckComplete] = useState(!requireAdmin);
   const location = useLocation();
+  const adminCheckInProgress = useRef(false);
+  const lastAdminCheck = useRef<number>(0);
+  const adminCheckCooldown = 30000; // 30 seconds cooldown for admin checks
   
   // Skip checking for certain public pages
   const shouldSkipCheck = 
@@ -38,8 +41,18 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     
     // Check admin status if required
     const verifyAdminStatus = async () => {
-      // Only check admin status if user is authenticated and it's required
-      if (user && requireAdmin) {
+      // Only check admin status if user is authenticated, it's required, and not in progress
+      if (user && requireAdmin && !adminCheckInProgress.current) {
+        const now = Date.now();
+        
+        // Skip if we've checked recently
+        if (now - lastAdminCheck.current < adminCheckCooldown) {
+          return;
+        }
+        
+        adminCheckInProgress.current = true;
+        lastAdminCheck.current = now;
+        
         try {
           logger.log('Checking admin status for user:', user.id);
           const isUserAdmin = await checkIsAdmin(user.id);
@@ -59,8 +72,10 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
             setIsAdmin(false);
             setAdminCheckComplete(true);
           }
+        } finally {
+          adminCheckInProgress.current = false;
         }
-      } else if (requireAdmin) {
+      } else if (requireAdmin && !user) {
         // If no user but admin required, set isAdmin to false
         if (isMounted) {
           setIsAdmin(false);
@@ -76,6 +91,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
           logger.warn('Admin check timed out, assuming not admin');
           setIsAdmin(false);
           setAdminCheckComplete(true);
+          adminCheckInProgress.current = false;
         }
       }, 5000);
     }
