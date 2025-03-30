@@ -2,6 +2,7 @@
 import React from 'react';
 import { Play, FileVideo } from 'lucide-react';
 import { getEmbedUrl } from '@/lib/utils/videoPreviewUtils';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface EmbeddedVideoPlayerProps {
   url: string;
@@ -9,6 +10,7 @@ interface EmbeddedVideoPlayerProps {
   posterUrl: string | null;
   onTogglePlay: () => void;
   className?: string;
+  showPlayButtonOnMobile?: boolean;
 }
 
 const EmbeddedVideoPlayer: React.FC<EmbeddedVideoPlayerProps> = ({
@@ -16,8 +18,10 @@ const EmbeddedVideoPlayer: React.FC<EmbeddedVideoPlayerProps> = ({
   isPlaying,
   posterUrl,
   onTogglePlay,
-  className = ''
+  className = '',
+  showPlayButtonOnMobile = true
 }) => {
+  const isMobile = useIsMobile();
   const embedUrl = getEmbedUrl(url);
   
   if (isPlaying && embedUrl) {
@@ -43,9 +47,11 @@ const EmbeddedVideoPlayer: React.FC<EmbeddedVideoPlayerProps> = ({
         backgroundPosition: 'center'
       } : {}}
     >
-      <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
-        <Play className="h-6 w-6 text-white" />
-      </div>
+      {(!isMobile || showPlayButtonOnMobile) && (
+        <div className="w-12 h-12 rounded-full bg-primary/90 flex items-center justify-center">
+          <Play className="h-6 w-6 text-white" />
+        </div>
+      )}
       <div className="mt-2 text-xs text-muted-foreground flex items-center bg-black/50 px-2 py-1 rounded">
         <FileVideo className="h-3 w-3 mr-1" />
         Preview

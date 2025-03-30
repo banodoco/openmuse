@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -21,6 +20,7 @@ interface StandardVideoPreviewProps {
   isRefreshing?: boolean;
   isHovering?: boolean;
   isMobile?: boolean;
+  showPlayButtonOnMobile?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -31,7 +31,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   onRefresh,
   isRefreshing = false,
   isHovering = false,
-  isMobile = false
+  isMobile = false,
+  showPlayButtonOnMobile = true
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -43,10 +44,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [videoReady, setVideoReady] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
   
-  // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
   
-  // Handle poster image loading
   useEffect(() => {
     if (posterUrl) {
       const img = new Image();
@@ -62,21 +61,17 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     }
   }, [posterUrl]);
   
-  // Check URL validity on mount and when URL changes
   useEffect(() => {
-    // If there's no URL, don't even try to show anything
     if (!url) {
       setIsValidUrl(false);
       return;
     }
     
-    // For blob URLs, always consider them valid for preview purposes
     if (isBlobUrl) {
       setIsValidUrl(true);
       return;
     }
     
-    // For other URLs, check if they're valid video URLs
     if (isValidVideoUrl(url)) {
       setIsValidUrl(true);
     } else {
@@ -84,7 +79,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     }
   }, [url, isBlobUrl]);
   
-  // Update currentUrl whenever the url prop changes
   useEffect(() => {
     setCurrentUrl(url);
   }, [url]);
@@ -100,7 +94,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     logger.error(`Error count: ${errorCount + 1}`);
     logger.error(`Time since last error: ${lastErrorTime ? now - lastErrorTime : 'first error'} ms`);
     
-    // Extract any potential details from the error message
     if (msg.includes(':')) {
       const parts = msg.split(':');
       setErrorDetails(parts.slice(1).join(':').trim());
@@ -116,7 +109,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setErrorDetails(null);
     setVideoReady(false);
     
-    // If onRefresh is provided, call it
     if (onRefresh) {
       onRefresh();
     }
@@ -127,14 +119,12 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setVideoReady(true);
   };
 
-  // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
     return null;
   }
 
   return (
     <div ref={containerRef} className="w-full h-full relative">
-      {/* Always show poster explicitly for mobile */}
       {isMobile && posterUrl && !currentError && (
         <div 
           className="absolute inset-0 bg-cover bg-center z-10"
@@ -195,9 +185,11 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       
       {isMobile && !currentError && (
         <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-          <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-            <Play className="h-6 w-6 text-white" />
-          </div>
+          {showPlayButtonOnMobile && (
+            <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+              <Play className="h-6 w-6 text-white" />
+            </div>
+          )}
         </div>
       )}
     </div>
