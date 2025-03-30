@@ -192,12 +192,20 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   };
 
+  React.useEffect(() => {
+    if (thumbnailUrl && isMobile) {
+      logger.log(`StorageVideoPlayer: Mobile with thumbnail - ${thumbnailUrl.substring(0, 30)}...`);
+      setPosterUrl(thumbnailUrl);
+    }
+  }, [thumbnailUrl, isMobile]);
+
   return (
     <div 
       className="relative w-full h-full"
       onMouseEnter={handleManualHoverStart}
       onMouseLeave={handleManualHoverEnd}
       ref={containerRef}
+      data-is-mobile={isMobile ? "true" : "false"}
     >
       {loading && posterUrl && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
@@ -245,7 +253,14 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         />
       )}
 
-      {!videoUrl && posterUrl && !error && (
+      {!videoUrl && posterUrl && !error && isMobile && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center z-0"
+          style={{ backgroundImage: `url(${posterUrl})` }}
+        />
+      )}
+
+      {!videoUrl && posterUrl && !error && !isMobile && (
         <img 
           src={posterUrl} 
           alt="Video thumbnail" 

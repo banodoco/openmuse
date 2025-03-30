@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -168,9 +167,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={false}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
-          lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
+          lazyLoad={false} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={!isMobile} // Only force preload on desktop
+          forcePreload={!isMobile} 
           isMobile={isMobile}
         />
       ) : url ? (
@@ -184,9 +183,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={false}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
-          lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
+          lazyLoad={false}
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={!isMobile} // Only force preload on desktop
+          forcePreload={!isMobile}
           isMobile={isMobile}
         />
       ) : null}
