@@ -178,9 +178,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
       </div>
       
       <div className="p-2 bg-card">
-        <h3 className="font-medium text-sm truncate">
-          {video.metadata?.title || `Video by ${getCreatorName()}`}
-        </h3>
+        {video.metadata?.title && (
+          <h3 className="font-medium text-sm truncate">
+            {video.metadata.title}
+          </h3>
+        )}
         <p className="text-xs text-muted-foreground">By {getCreatorName()}</p>
       </div>
       
@@ -224,4 +226,3 @@ const VideoCard: React.FC<VideoCardProps> = ({
 VideoCard.displayName = 'VideoCard';
 
 export default VideoCard;
-
