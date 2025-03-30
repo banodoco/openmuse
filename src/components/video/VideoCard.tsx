@@ -22,6 +22,8 @@ interface VideoCardProps {
   onTouch?: () => void;
   isMobile?: boolean;
   showPlayButton?: boolean;
+  forceFrameCapture?: boolean;
+  captureTimeout?: number;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -34,7 +36,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onHoverChange,
   onTouch,
   isMobile = false,
-  showPlayButton = true
+  showPlayButton = true,
+  forceFrameCapture = false,
+  captureTimeout = 5000
 }) => {
   const { user } = useAuth();
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
@@ -173,7 +177,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
             onTouch={handleTouch}
             isMobile={isMobile}
             showPlayButton={showPlayButton}
-            forceFrameCapture={!thumbnailUrl} // Force frame capture if no thumbnail is available
+            forceFrameCapture={forceFrameCapture || !thumbnailUrl} // Force frame capture if no thumbnail is available or explicitly requested
+            captureTimeout={captureTimeout} // Pass the capture timeout
+            fallbackToVideo={true} // Use video as fallback if thumbnail generation fails
           />
           
           {!isMobile && showPlayButton && (
