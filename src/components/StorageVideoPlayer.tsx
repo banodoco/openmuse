@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -26,6 +25,8 @@ interface StorageVideoPlayerProps {
   thumbnailUrl?: string;
   forcePreload?: boolean;
   forceThumbnailGeneration?: boolean;
+  captureTimeout?: number;
+  fallbackToVideo?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -44,7 +45,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   onLoadedData,
   thumbnailUrl,
   forcePreload = false,
-  forceThumbnailGeneration = false
+  forceThumbnailGeneration = false,
+  captureTimeout = 5000,
+  fallbackToVideo = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -255,6 +258,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           userId={userId}
           saveThumbnail={true}
           forceCapture={true}
+          timeout={captureTimeout}
         />
       )}
 

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
@@ -194,11 +193,21 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
           }
         };
         
-        // Handle seek errors
-        video.onseekingerror = () => {
+        // Handle seek errors using event listener instead of direct assignment
+        // Replace onseekingerror with an event listener for 'error'
+        const handleSeekError = () => {
           logger.error(`Error seeking to position ${position}`);
           handleCaptureFailed(attemptIndex + 1);
         };
+        
+        // Add temporary error listener
+        video.addEventListener('error', handleSeekError);
+        
+        // Clean up listener after seeking is complete
+        video.addEventListener('seeked', () => {
+          video.removeEventListener('error', handleSeekError);
+        }, { once: true });
+        
       } catch (err) {
         logger.error('Error in capture frame process:', err);
         handleCaptureFailed(attemptIndex + 1);
