@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -19,6 +20,7 @@ interface VideoPreviewProps {
   isHovering?: boolean;
   lazyLoad?: boolean;
   thumbnailUrl?: string;
+  hidePlayButtonOnMobile?: boolean;
 }
 
 /**
@@ -33,7 +35,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   creator,
   isHovering: externalHoverState,
   lazyLoad = true,
-  thumbnailUrl
+  thumbnailUrl,
+  hidePlayButtonOnMobile = false
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -147,6 +150,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isPlaying={isPlaying}
           posterUrl={posterUrl}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
+          hidePlayButtonOnMobile={hidePlayButtonOnMobile}
         />
       ) : file ? (
         <StandardVideoPreview 
@@ -155,6 +159,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           onError={handleVideoError}
           isHovering={effectiveHoverState}
           isMobile={isMobile}
+          hidePlayButtonOnMobile={hidePlayButtonOnMobile}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -171,6 +176,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={!isMobile} 
           isMobile={isMobile}
+          hidePlayButtonOnMobile={hidePlayButtonOnMobile}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -187,6 +193,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={!isMobile}
           isMobile={isMobile}
+          hidePlayButtonOnMobile={hidePlayButtonOnMobile}
         />
       ) : null}
 

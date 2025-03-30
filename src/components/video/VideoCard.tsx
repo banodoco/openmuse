@@ -160,8 +160,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
               isHovering={isHovering}
               lazyLoad={false}
               thumbnailUrl={thumbnailUrl}
+              hidePlayButtonOnMobile={true}
             />
             
+            {/* Only show the play overlay on non-mobile devices */}
             {!isMobile && (
               <div 
                 className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
@@ -224,4 +226,3 @@ const VideoCard: React.FC<VideoCardProps> = ({
 VideoCard.displayName = 'VideoCard';
 
 export default VideoCard;
-
