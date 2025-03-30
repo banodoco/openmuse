@@ -52,7 +52,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [videoInitialized, setVideoInitialized] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(!lazyLoad || forcePreload);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -70,7 +70,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   }, [isHoveringExternally]);
 
   useEffect(() => {
-    setShouldLoadVideo(true);
+    if (forcePreload) {
+      setShouldLoadVideo(true);
+    }
   }, [forcePreload]);
 
   const handleManualHoverStart = () => {
@@ -140,25 +142,32 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           setLoading(false);
         }
         
-        let url;
-        if (isBlobUrl) {
-          url = videoLocation;
-          logger.log('Using blob URL directly:', url.substring(0, 30) + '...');
+        // Only attempt to get video URL if we need to load the video
+        if (shouldLoadVideo) {
+          let url;
+          if (isBlobUrl) {
+            url = videoLocation;
+            logger.log('Using blob URL directly:', url.substring(0, 30) + '...');
+          } else {
+            url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
+            logger.log('Fetched video URL:', url.substring(0, 30) + '...');
+          }
+          
+          if (!url) {
+            throw new Error('Could not resolve video URL');
+          }
+          
+          if (isMounted) {
+            setVideoUrl(url);
+            setLoading(false);
+            setVideoLoaded(true);
+            setVideoInitialized(true);
+            logger.log('Video URL loaded and ready');
+          }
         } else {
-          url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
-          logger.log('Fetched video URL:', url.substring(0, 30) + '...');
-        }
-        
-        if (!url) {
-          throw new Error('Could not resolve video URL');
-        }
-        
-        if (isMounted) {
-          setVideoUrl(url);
+          // If we're not loading the video yet, just mark loading as done
+          // since we'll just show the thumbnail
           setLoading(false);
-          setVideoLoaded(true);
-          setVideoInitialized(true);
-          logger.log('Video URL loaded and ready');
         }
       } catch (error) {
         logger.error('Error loading video:', error);
@@ -177,7 +186,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     return () => {
       isMounted = false;
     };
-  }, [videoLocation, retryCount, previewMode, isBlobUrl, thumbnailUrl]);
+  }, [videoLocation, retryCount, previewMode, isBlobUrl, thumbnailUrl, shouldLoadVideo]);
 
   const handleError = (message: string) => {
     setError(message);
@@ -205,7 +214,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       onMouseLeave={handleManualHoverEnd}
       ref={containerRef}
     >
-      {loading && !posterUrl && (
+      {loading && shouldLoadVideo && !posterUrl && (
         <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">
           <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
         </div>
@@ -232,8 +241,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         />
       )}
 
-      {!error && videoUrl && (
-        <div className={posterUrl ? "opacity-0" : ""}>
+      {!error && videoUrl && shouldLoadVideo && (
+        <div className={posterUrl ? "opacity-0 hover:opacity-100 transition-opacity duration-300" : ""}>
           <VideoPlayer
             src={videoUrl}
             className={className}

@@ -96,6 +96,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
               onTouch={() => handleVideoTouch(video.id)}
               isMobile={isMobile}
+              showPlayButton={!isMobile} // Hide play button on mobile
             />
           ))}
         </div>

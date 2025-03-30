@@ -140,6 +140,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
+  // Always attempt to generate a thumbnail if one isn't provided
   const needsThumbnailGeneration = !thumbnailUrl && (file || (url && !isExternalLink && !posterUrl));
 
   // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
@@ -200,13 +201,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           muted={true}
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
-          previewMode={isMobile}
+          previewMode={true}
           showPlayButtonOnHover={isMobile ? false : showPlayButton}
           autoPlay={effectiveHoverState && !isMobile}
           isHoveringExternally={effectiveHoverState && !isMobile}
-          lazyLoad={false}
+          lazyLoad={!isMobile}  // Don't lazy load on mobile to ensure content shows
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={false}
+          forcePreload={isMobile}  // Force preload on mobile
         />
       ) : null}
 

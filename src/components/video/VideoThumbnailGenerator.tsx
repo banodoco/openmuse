@@ -24,6 +24,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [thumbnailGenerationAttempted, setThumbnailGenerationAttempted] = useState(false);
+  const [generationInProgress, setGenerationInProgress] = useState(false);
   
   const saveThumbnailToStorage = async (dataUrl: string) => {
     if (!userId) return null;
@@ -59,13 +60,14 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
 
   useEffect(() => {
     // Avoid duplicate thumbnail generation
-    if (thumbnailGenerationAttempted) {
+    if (thumbnailGenerationAttempted || generationInProgress) {
       return;
     }
     
     if (file) {
       logger.log('Generating thumbnail from file...');
       setThumbnailGenerationAttempted(true);
+      setGenerationInProgress(true);
       const fileUrl = URL.createObjectURL(file);
       
       if (videoRef.current) {
@@ -102,9 +104,11 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               
               logger.log('Thumbnail generated successfully');
               onThumbnailGenerated(thumbnailUrl);
+              setGenerationInProgress(false);
             }
           } catch (e) {
             logger.error('Error generating thumbnail:', e);
+            setGenerationInProgress(false);
           }
         };
       }
@@ -116,6 +120,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
     else if (url) {
       if (!thumbnailGenerationAttempted) {
         setThumbnailGenerationAttempted(true);
+        setGenerationInProgress(true);
         
         if (url.includes('youtube.com/') || url.includes('youtu.be/')) {
           const videoId = getYoutubeVideoId(url);
@@ -123,6 +128,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             const thumbnailUrl = `https://img.youtube.com/vi/${videoId}/hqdefault.jpg`;
             logger.log(`Using YouTube thumbnail: ${thumbnailUrl}`);
             onThumbnailGenerated(thumbnailUrl);
+            setGenerationInProgress(false);
           }
         } 
         else if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('vimeo.com')) {
@@ -137,11 +143,11 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
           
           // Set a timeout to handle cases where the video loading hangs
           const timeoutId = setTimeout(() => {
-            logger.warn('Video loading timeout - using fallback thumbnail');
+            logger.warn('Video loading timeout - using fallback placeholder');
             // Fall back to a generic thumbnail or placeholder
-            const placeholderThumbnail = "/placeholder.svg";
-            onThumbnailGenerated(placeholderThumbnail);
-          }, 5000); // 5 second timeout
+            onThumbnailGenerated("/placeholder.svg");
+            setGenerationInProgress(false);
+          }, 7000); // Increase timeout to 7 seconds
           
           tempVideo.onloadedmetadata = () => {
             logger.log('Video metadata loaded, seeking to first frame');
@@ -163,15 +169,27 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
                 logger.log('Thumbnail generated from video URL');
                 onThumbnailGenerated(dataUrl);
                 
+                // Also save this to storage if requested
+                if (saveThumbnail && userId) {
+                  saveThumbnailToStorage(dataUrl).then(storedUrl => {
+                    if (storedUrl) {
+                      // If we successfully saved to storage, use that URL instead
+                      onThumbnailGenerated(storedUrl);
+                    }
+                  });
+                }
+                
                 // Clean up
                 tempVideo.pause();
                 tempVideo.src = '';
                 tempVideo.load();
+                setGenerationInProgress(false);
               }
             } catch (e) {
               logger.error('Error generating thumbnail:', e);
               // Fall back to a generic thumbnail or placeholder
               onThumbnailGenerated("/placeholder.svg");
+              setGenerationInProgress(false);
             }
           };
           
@@ -180,14 +198,17 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             logger.error('Error loading video for thumbnail generation:', e);
             // Fall back to a generic thumbnail or placeholder
             onThumbnailGenerated("/placeholder.svg");
+            setGenerationInProgress(false);
           };
           
           // Explicitly trigger load to start the process
           tempVideo.load();
+        } else {
+          setGenerationInProgress(false);
         }
       }
     }
-  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, thumbnailGenerationAttempted]);
+  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, thumbnailGenerationAttempted, generationInProgress]);
 
   return (
     <video 
@@ -195,6 +216,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
       style={{ display: 'none' }}
       muted
       playsInline
+      crossOrigin="anonymous"
     >
       {file && <source src={URL.createObjectURL(file)} />}
     </video>
