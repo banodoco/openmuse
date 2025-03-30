@@ -1,5 +1,5 @@
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
@@ -7,7 +7,6 @@ import VideoCard from '@/components/video/VideoCard';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
 import { useAuth } from '@/hooks/useAuth';
 import { Logger } from '@/lib/logger';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -32,16 +31,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 }) => {
   const { user } = useAuth();
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
-  const isMobile = useIsMobile();
-  
-  useEffect(() => {
-    logger.log(`AssetVideoSection: Device type is ${isMobile ? 'mobile' : 'desktop'}`);
-    logger.log(`AssetVideoSection: Total videos: ${videos.length}`);
-  }, [isMobile, videos.length]);
   
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
-    if (isMobile) return;
-    
     logger.log(`AssetVideoSection: Hover state changed for ${videoId} to ${isHovering}`);
     
     if (isHovering) {
@@ -51,17 +42,14 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     }
   };
   
-  const handleVideoTouch = (videoId: string) => {
-    logger.log(`AssetVideoSection: Touch event for video ${videoId}, current hovered: ${hoveredVideoId}`);
-    
-    // Open lightbox directly on mobile
-    if (isMobile) {
-      const video = videos.find(v => v.id === videoId);
-      if (video) {
-        handleOpenLightbox(video);
-      }
+  // Debug logging for hover state
+  useEffect(() => {
+    if (hoveredVideoId) {
+      logger.log(`AssetVideoSection: Currently hovering over video: ${hoveredVideoId}`);
+    } else {
+      logger.log('AssetVideoSection: No video currently hovered');
     }
-  };
+  }, [hoveredVideoId]);
   
   return (
     <div className="md:col-span-2">
@@ -90,11 +78,6 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               onDeleteVideo={handleDeleteVideo}
               isHovering={hoveredVideoId === video.id}
               onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
-              onTouch={() => handleVideoTouch(video.id)}
-              isMobile={isMobile}
-              showPlayButton={true}
-              forceFrameCapture={true}
-              captureTimeout={10000}
             />
           ))}
         </div>

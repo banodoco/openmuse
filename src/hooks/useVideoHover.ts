@@ -1,7 +1,6 @@
 
 import { useEffect, useRef, RefObject } from 'react';
 import { Logger } from '@/lib/logger';
-import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('useVideoHover');
 
@@ -15,20 +14,15 @@ export const useVideoHover = (
     enabled: boolean;
     resetOnLeave?: boolean;
     delayPlay?: number;
-    isMobile?: boolean; // Flag to handle mobile behavior differently
   }
 ) => {
-  const { enabled, resetOnLeave = true, delayPlay = 0, isMobile: propIsMobile } = options;
-  const defaultIsMobile = useIsMobile();
-  const isMobile = propIsMobile !== undefined ? propIsMobile : defaultIsMobile;
-  
+  const { enabled, resetOnLeave = true, delayPlay = 0 } = options; // Removed delay for immediate response
   const playTimeoutRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
   const lastPlayAttemptRef = useRef<number>(0);
 
   useEffect(() => {
-    // Completely disable hover behavior on mobile devices
-    if (isMobile || !enabled) return;
+    if (!enabled) return;
     
     const container = containerRef.current;
     const video = videoRef.current;
@@ -47,6 +41,7 @@ export const useVideoHover = (
         window.clearTimeout(playTimeoutRef.current);
       }
       
+      // Remove delay to make hover response immediate
       playTimeoutRef.current = window.setTimeout(() => {
         // Check if we're still hovering (mouse might have left during timeout)
         if (!isHoveringRef.current) return;
@@ -67,7 +62,7 @@ export const useVideoHover = (
           const now = Date.now();
           lastPlayAttemptRef.current = now;
           
-          // Try to play the video
+          // Use a more direct play approach without delay
           video.play().catch(e => {
             // Only log errors that aren't abort errors (which happen when quickly hovering in/out)
             if (e.name !== 'AbortError') {
@@ -75,7 +70,7 @@ export const useVideoHover = (
             }
           });
         }
-      }, delayPlay); 
+      }, 0); // No delay for immediate response
     };
     
     const handleMouseLeave = () => {
@@ -88,7 +83,7 @@ export const useVideoHover = (
         playTimeoutRef.current = null;
       }
       
-      // Pause immediately
+      // Remove delay and pause immediately
       if (!video.paused) {
         video.pause();
         
@@ -103,11 +98,9 @@ export const useVideoHover = (
     container.removeEventListener('mouseenter', handleMouseEnter);
     container.removeEventListener('mouseleave', handleMouseLeave);
     
-    // Add listeners (only for desktop)
-    if (!isMobile) {
-      container.addEventListener('mouseenter', handleMouseEnter);
-      container.addEventListener('mouseleave', handleMouseLeave);
-    }
+    // Add listeners
+    container.addEventListener('mouseenter', handleMouseEnter);
+    container.addEventListener('mouseleave', handleMouseLeave);
     
     return () => {
       // Clear any pending timeout on unmount
@@ -121,5 +114,5 @@ export const useVideoHover = (
         container.removeEventListener('mouseleave', handleMouseLeave);
       }
     };
-  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay, isMobile]);
+  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay]);
 };

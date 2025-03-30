@@ -35,10 +35,9 @@ const Index = () => {
     }
     
     logger.log('Total LoRAs available:', loras.length);
-    logger.log('Is mobile device:', isMobile);
     
     return loras;
-  }, [loras, isMobile]);
+  }, [loras]);
   
   useEffect(() => {
     logger.log('Index page loaded, auth state:', user ? 'logged in' : 'not logged in');
@@ -146,7 +145,6 @@ const Index = () => {
           loras={displayLoras} 
           isLoading={lorasLoading}
           showExtras={false} // Ensure "View Original" is always hidden on the home page
-          isMobile={isMobile} // Pass the isMobile prop down explicitly
         />
       </main>
       

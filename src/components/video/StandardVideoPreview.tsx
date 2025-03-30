@@ -20,7 +20,6 @@ interface StandardVideoPreviewProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   isHovering?: boolean;
-  isMobile?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -30,8 +29,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   videoId,
   onRefresh,
   isRefreshing = false,
-  isHovering = false,
-  isMobile = false
+  isHovering = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -127,7 +125,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       ) : (
         <VideoPlayer 
           src={currentUrl} 
-          controls={isMobile}
+          controls={false}
           autoPlay={isHovering}
           muted={true}
           className="w-full h-full object-cover"
@@ -138,7 +136,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           showPlayButtonOnHover={false}
           isHovering={isHovering}
           onLoadedData={handleVideoLoaded}
-          isMobile={isMobile}
         />
       )}
       

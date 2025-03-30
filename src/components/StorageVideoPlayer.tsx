@@ -1,10 +1,10 @@
 
 import React, { useState, useEffect, useRef, memo } from 'react';
+import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
-import { useVideoUrl } from '@/hooks/useVideoUrl';
-import { useVideoPlayerHover } from '@/hooks/useVideoPlayerHover';
-import StorageVideoContainer from './video/StorageVideoContainer';
-import { useIsMobile } from '@/hooks/use-mobile';
+import VideoPreviewError from './video/VideoPreviewError';
+import { videoUrlService } from '@/lib/services/videoUrlService';
+import { Play } from 'lucide-react';
 
 const logger = new Logger('StorageVideoPlayer');
 
@@ -24,10 +24,6 @@ interface StorageVideoPlayerProps {
   onLoadedData?: () => void;
   thumbnailUrl?: string;
   forcePreload?: boolean;
-  forceThumbnailGeneration?: boolean;
-  captureTimeout?: number;
-  fallbackToVideo?: boolean;
-  isMobile?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -45,114 +41,236 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   videoRef: externalVideoRef,
   onLoadedData,
   thumbnailUrl,
-  forcePreload = false,
-  forceThumbnailGeneration = false,
-  captureTimeout = 5000,
-  fallbackToVideo = false,
-  isMobile: externalIsMobile
+  forcePreload = false
 }) => {
-  const [videoInitialized, setVideoInitialized] = useState(false);
+  const [videoUrl, setVideoUrl] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
-  const [needsThumbnailGeneration, setNeedsThumbnailGeneration] = useState(forceThumbnailGeneration && !thumbnailUrl);
-  const { userId } = useRef({ userId: null }).current;
-  const defaultIsMobile = useIsMobile();
-  const isMobile = externalIsMobile !== undefined ? externalIsMobile : defaultIsMobile;
-
+  const [videoInitialized, setVideoInitialized] = useState(false);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  // Always load the video immediately without lazy loading
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
+  
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
+  const isHoveringRef = useRef(isHoveringExternally || false);
   
   const isBlobUrl = videoLocation.startsWith('blob:');
 
-  // Custom hooks - with mobile awareness
-  const { 
-    videoUrl, 
-    loading, 
-    error, 
-    errorDetails, 
-    shouldLoadVideo,
-    videoLoaded,
-    setVideoLoaded,
-    handleRetry,
-    triggerLoad
-  } = useVideoUrl({
-    videoLocation,
-    previewMode,
-    isBlobUrl,
-    forcePreload: isMobile ? false : forcePreload,
-    lazyLoad: isMobile ? false : lazyLoad,
-    isMobile
-  });
-
-  const {
-    isHovering,
-    handleManualHoverStart,
-    handleManualHoverEnd
-  } = useVideoPlayerHover({
-    isHoveringExternally,
-    videoRef,
-    videoInitialized,
-    videoLoaded,
-    previewMode,
-    onLoadRequest: triggerLoad,
-    isMobile
-  });
-
+  // Update isHoveringRef when props change
   useEffect(() => {
-    setNeedsThumbnailGeneration(forceThumbnailGeneration && !thumbnailUrl && !posterUrl);
-  }, [forceThumbnailGeneration, thumbnailUrl, posterUrl]);
+    isHoveringRef.current = isHoveringExternally || false;
+    if (isHoveringExternally !== undefined) {
+      logger.log(`StorageVideoPlayer: isHoveringExternally changed to ${isHoveringExternally}`);
+      setIsHovering(isHoveringExternally);
+    }
+  }, [isHoveringExternally]);
 
-  const handleThumbnailGenerated = (url: string) => {
-    logger.log('StorageVideoPlayer: Thumbnail generated from direct video capture');
-    setPosterUrl(url);
-    setNeedsThumbnailGeneration(false);
+  // Always load the video immediately 
+  useEffect(() => {
+    setShouldLoadVideo(true);
+  }, [forcePreload]);
+
+  // Detect manual hover changes
+  const handleManualHoverStart = () => {
+    if (isHoveringExternally === undefined) {
+      logger.log('StorageVideoPlayer: Manual hover start');
+      setIsHovering(true);
+      setShouldLoadVideo(true);
+    }
   };
 
+  const handleManualHoverEnd = () => {
+    if (isHoveringExternally === undefined) {
+      logger.log('StorageVideoPlayer: Manual hover end');
+      setIsHovering(false);
+    }
+  };
+  
+  // Handle external hover state changes
+  useEffect(() => {
+    if (isHoveringExternally !== undefined) {
+      // Start loading video immediately when hovering starts
+      if (isHoveringExternally) {
+        logger.log('External hover detected - loading video');
+        setShouldLoadVideo(true);
+      }
+      
+      if (videoInitialized && videoRef.current) {
+        const video = videoRef.current;
+        
+        if (isHoveringExternally && video.paused && videoLoaded) {
+          logger.log('External hover detected - attempting to play video');
+          
+          // Play immediately without delay
+          setTimeout(() => {
+            if (video.paused) {
+              video.play().catch(e => {
+                if (e.name !== 'AbortError') {
+                  logger.error('Error playing video on hover:', e);
+                }
+              });
+            }
+          }, 0);
+        } else if (!isHoveringExternally && !video.paused) {
+          logger.log('External hover ended - pausing video');
+          video.pause();
+          if (previewMode) {
+            video.currentTime = 0;
+          }
+        }
+      }
+    }
+  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded]);
+  
+  // Always load the video - no lazy loading
+  useEffect(() => {
+    let isMounted = true;
+    
+    const loadVideo = async () => {
+      try {
+        setLoading(true);
+        setError(null);
+        
+        if (!videoLocation) {
+          throw new Error('No video location provided');
+        }
+        
+        let url;
+        if (isBlobUrl) {
+          url = videoLocation;
+          logger.log('Using blob URL directly:', url.substring(0, 30) + '...');
+        } else {
+          url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
+          logger.log('Fetched video URL:', url.substring(0, 30) + '...');
+        }
+        
+        if (!url) {
+          throw new Error('Could not resolve video URL');
+        }
+        
+        if (isMounted) {
+          setVideoUrl(url);
+          setLoading(false);
+          setVideoLoaded(true);
+          // Mark video as initialized after URL is set
+          setVideoInitialized(true);
+          logger.log('Video URL loaded and ready');
+        }
+      } catch (error) {
+        logger.error('Error loading video:', error);
+        if (isMounted) {
+          setError(`Failed to load video: ${error instanceof Error ? error.message : String(error)}`);
+          setErrorDetails(String(error));
+          setLoading(false);
+        }
+      }
+    };
+    
+    if (videoLocation) {
+      loadVideo();
+    }
+    
+    return () => {
+      isMounted = false;
+    };
+  }, [videoLocation, retryCount, previewMode, isBlobUrl]);
+
+  const handleError = (message: string) => {
+    setError(message);
+  };
+
+  const handleRetry = () => {
+    setLoading(true);
+    setError(null);
+    setErrorDetails(null);
+    setRetryCount(prev => prev + 1);
+    setShouldLoadVideo(true);
+  };
+  
   const handleVideoLoaded = () => {
-    setVideoInitialized(true);
     if (onLoadedData) {
       logger.log('StorageVideoPlayer: Video loaded, notifying parent');
       onLoadedData();
     }
   };
 
+  // Main video player render
   return (
     <div 
       className="relative w-full h-full"
-      onMouseEnter={isMobile ? undefined : handleManualHoverStart}
-      onMouseLeave={isMobile ? undefined : handleManualHoverEnd}
+      onMouseEnter={handleManualHoverStart}
+      onMouseLeave={handleManualHoverEnd}
       ref={containerRef}
     >
-      <StorageVideoContainer
-        videoUrl={videoUrl}
-        error={error}
-        errorDetails={errorDetails}
-        loading={loading}
-        shouldLoadVideo={shouldLoadVideo}
-        posterUrl={posterUrl}
-        isHovering={isHovering}
-        needsThumbnailGeneration={needsThumbnailGeneration}
-        videoLocation={videoLocation}
-        videoRef={videoRef}
-        containerRef={containerRef}
-        videoInitialized={videoInitialized}
-        onThumbGenerated={handleThumbnailGenerated}
-        onRetry={handleRetry}
-        onVideoLoaded={handleVideoLoaded}
-        userId={userId}
-        className={className}
-        controls={controls}
-        autoPlay={isMobile ? false : autoPlay}  // NEVER autoplay on mobile
-        muted={muted}
-        loop={loop}
-        playOnHover={isMobile ? false : playOnHover}  // Don't do play on hover for mobile
-        previewMode={previewMode}
-        showPlayButtonOnHover={showPlayButtonOnHover}
-        isHoveringExternally={isMobile ? false : isHoveringExternally}
-        captureTimeout={captureTimeout}
-        isMobile={isMobile}
-        lazyLoad={lazyLoad}
-      />
+      {/* Show loading overlay if video is loading but we have a poster */}
+      {loading && posterUrl && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
+          <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+        </div>
+      )}
+
+      {loading && !posterUrl && (
+        <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">
+          Loading video...
+        </div>
+      )}
+
+      {error && (
+        <div className="relative h-full w-full bg-secondary/30 rounded-lg">
+          <VideoPreviewError 
+            error={error} 
+            details={errorDetails || undefined}
+            onRetry={handleRetry} 
+            videoSource={videoUrl}
+            canRecover={!previewMode}
+          />
+        </div>
+      )}
+
+      {!error && videoUrl && (
+        <VideoPlayer
+          src={videoUrl}
+          className={className}
+          controls={controls}
+          autoPlay={autoPlay || isHovering}
+          muted={muted}
+          loop={loop}
+          playOnHover={playOnHover}
+          onError={handleError}
+          showPlayButtonOnHover={showPlayButtonOnHover}
+          containerRef={containerRef}
+          videoRef={videoRef}
+          externallyControlled={isHoveringExternally !== undefined}
+          isHovering={isHovering}
+          poster={posterUrl || undefined}
+          lazyLoad={false} // Disable lazy loading
+          onLoadedData={handleVideoLoaded}
+        />
+      )}
+
+      {/* Show poster if no video URL or during loading */}
+      {!videoUrl && posterUrl && !error && (
+        <img 
+          src={posterUrl} 
+          alt="Video thumbnail" 
+          className="w-full h-full object-cover absolute inset-0 z-0 pointer-events-none"
+        />
+      )}
+
+      {/* Play button overlay only when not hovering */}
+      {posterUrl && !isHovering && showPlayButtonOnHover && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="rounded-full bg-black/40 p-3">
+            <Play className="h-6 w-6 text-white" />
+          </div>
+        </div>
+      )}
     </div>
   );
 });

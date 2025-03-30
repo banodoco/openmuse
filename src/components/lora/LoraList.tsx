@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -14,14 +15,9 @@ const logger = new Logger('LoraList');
 interface LoraListProps {
   loras: LoraAsset[];
   showExtras?: boolean;
-  isMobile?: boolean;
 }
 
-const LoraList: React.FC<LoraListProps> = ({ 
-  loras, 
-  showExtras = false,
-  isMobile = false
-}) => {
+const LoraList: React.FC<LoraListProps> = ({ loras, showExtras = false }) => {
   const [filterText, setFilterText] = useState('');
   const [approvalFilter, setApprovalFilter] = useState('curated'); // Default to 'curated'
   const [isAdmin, setIsAdmin] = useState(false);
@@ -149,8 +145,7 @@ const LoraList: React.FC<LoraListProps> = ({
                 key={lora.id} 
                 lora={lora} 
                 isAdmin={isAdmin} 
-                showExtras={showExtras}
-                isMobile={isMobile}
+                showExtras={showExtras} 
               />
             ))
           ) : (
