@@ -100,11 +100,11 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 title: media.title,
                 description: '',
                 classification: media.classification,
-                model: media.type,
+                model: media.type, // This is the base model (wan, hunyuan, etc)
                 loraName: assetData.name,
                 loraDescription: assetData.description,
                 assetId: assetData.id,
-                loraType: assetData.lora_type,
+                loraType: assetData.lora_type, // LoRA type (Concept, Motion Style, etc)
                 loraLink: assetData.lora_link
               }
             };

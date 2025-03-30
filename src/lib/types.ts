@@ -9,7 +9,7 @@ export interface VideoMetadata {
   loraName?: string;
   loraDescription?: string;
   assetId?: string;
-  loraType?: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
+  loraType?: string;
   loraLink?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
   baseModel?: string;
@@ -65,7 +65,7 @@ export interface LoraAsset {
   primary_media_id?: string;
   admin_approved?: string | null;
   lora_type?: string;
-  lora_base_model?: string;  // Add this to distinguish base model
+  lora_base_model?: string;  // Base model (wan, hunyuan, etc)
   lora_link?: string;
   // Populated from related data
   primaryVideo?: VideoEntry;

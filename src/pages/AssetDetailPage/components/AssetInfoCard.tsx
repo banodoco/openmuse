@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -56,27 +57,31 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
     }
   };
 
+  // Fixed: Separate functions for model and lora type
   const getModelName = (): string | undefined => {
+    // Look for the model in the primaryVideo metadata first
     if (asset?.primaryVideo?.metadata?.model) {
       return asset.primaryVideo.metadata.model;
-    } else if (asset?.lora_type) {
-      return asset.lora_type.toLowerCase();
+    }
+    // Then check if we have a base model directly on the asset
+    else if (asset?.lora_base_model) {
+      return asset.lora_base_model;
+    }
+    return undefined;
+  };
+
+  const getLoraType = (): string | undefined => {
+    if (asset?.lora_type) {
+      return asset.lora_type;
+    } 
+    else if (asset?.primaryVideo?.metadata?.loraType) {
+      return asset.primaryVideo.metadata.loraType;
     }
     return undefined;
   };
 
   const modelName = getModelName();
-
-  const getBaseModel = (): string | undefined => {
-    if (asset?.lora_base_model) {
-      return asset.lora_base_model;
-    } else if (asset?.primaryVideo?.metadata?.baseModel) {
-      return asset.primaryVideo.metadata.baseModel;
-    }
-    return undefined;
-  };
-
-  const baseModel = getBaseModel();
+  const loraType = getLoraType();
 
   return (
     <Card className="md:col-span-1">
@@ -112,10 +117,10 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
           </div>
         )}
 
-        {asset?.lora_type && asset.lora_type !== modelName?.toUpperCase() && (
+        {loraType && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">LoRA Type</h3>
-            <Badge variant="outline">{asset.lora_type}</Badge>
+            <Badge variant="outline">{loraType}</Badge>
           </div>
         )}
         
@@ -124,10 +129,10 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
           <p>{asset?.created_at ? new Date(asset.created_at).toLocaleDateString() : 'Unknown'}</p>
         </div>
 
-        {baseModel && (
+        {asset?.primaryVideo?.metadata?.baseModel && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">Base Model</h3>
-            <p>{baseModel}</p>
+            <p>{asset.primaryVideo.metadata.baseModel}</p>
           </div>
         )}
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -192,6 +191,7 @@ const submitVideos = async (videos: any[], loraDetails: any, reviewerName: strin
         creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
         user_id: user?.id || null,
         lora_type: loraDetails.loraType,
+        lora_base_model: loraDetails.model,
         lora_link: loraDetails.loraLink
       })
       .select()
