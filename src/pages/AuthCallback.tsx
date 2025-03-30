@@ -23,7 +23,6 @@ const AuthCallback = () => {
       if (isActive && isProcessing) {
         logger.error('Auth callback timed out after 15 seconds');
         setError('Authentication timed out. Please try again.');
-        toast.error('Authentication timed out. Please try again.');
         navigate('/auth', { replace: true });
       }
     }, 15000);
@@ -55,19 +54,7 @@ const AuthCallback = () => {
             userId: data.session.user.id,
             expiresAt: data.session.expires_at
           });
-          
-          // Explicitly store session in localStorage to improve cross-domain persistence
-          try {
-            localStorage.setItem('supabase.auth.token', JSON.stringify({
-              access_token: data.session.access_token,
-              refresh_token: data.session.refresh_token,
-              expires_at: data.session.expires_at
-            }));
-          } catch (storageError) {
-            logger.error('Error storing session in localStorage:', storageError);
-            // Continue even if localStorage fails
-          }
-          
+
           // Force refresh the session to ensure we have the latest tokens
           const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
           
@@ -92,14 +79,12 @@ const AuthCallback = () => {
             }, 1000);
           }
         } else {
-          // If we don't have a session, try to detect the hash in URL
-          logger.log('No session found after initial check, checking for hash/code in URL');
-          
+          // If we don't have a session, try to exchange the auth code if present
           if (window.location.hash || window.location.search.includes('code=')) {
-            logger.log('Found hash or code in URL, waiting for Supabase to process it');
+            logger.log('Found hash or code in URL, exchanging for session');
             
             // Wait a bit to allow Supabase to process the token
-            await new Promise(resolve => setTimeout(resolve, 2000));
+            await new Promise(resolve => setTimeout(resolve, 1000));
             
             // Check again for a session
             const { data: sessionData, error: sessionError } = await supabase.auth.getSession();

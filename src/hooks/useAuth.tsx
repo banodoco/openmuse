@@ -99,9 +99,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             
             // Try to refresh the session in the background
             try {
-              const { data: refreshData } = await supabase.auth.refreshSession();
+              const { data: refreshData } = await supabase.auth.refreshSession(data.session);
               if (refreshData.session) {
                 logger.log(`Session refreshed: ${refreshData.session.user.id}`);
+                setSession(refreshData.session);
+                setUser(refreshData.session.user);
               }
             } catch (refreshError) {
               logger.error('Error refreshing session:', refreshError);
@@ -147,12 +149,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({ 
+      const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
       });
       
       if (error) throw error;
+      
+      if (data.session) {
+        setUser(data.session.user);
+        setSession(data.session);
+      }
     } catch (error: any) {
       toast.error(error.message || 'Error signing in');
       logger.error('Sign in error:', error);
@@ -166,7 +173,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signOut();
+      const { error } = await supabase.auth.signOut({
+        scope: 'local'  // Only sign out from this tab, not all sessions
+      });
       if (error) throw error;
       
       // Clear state immediately

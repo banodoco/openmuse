@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Use hardcoded values for the Supabase project when environment variables aren't available
@@ -11,8 +10,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true,
-    flowType: 'implicit',
+    detectSessionInUrl: false,
   },
 });
 
@@ -41,7 +39,6 @@ export const testRLSPermissions = async () => {
   }
 };
 
-// Add this function to debug asset media relationships
 export const debugAssetMedia = async (assetId: string) => {
   const { data, error } = await supabase
     .from('asset_media')

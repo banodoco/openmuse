@@ -106,6 +106,11 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     );
   }
   
+  // For the LoRA detail page, allow unauthenticated users
+  if (location.pathname.startsWith('/assets/loras/')) {
+    return <>{children}</>;
+  }
+  
   // Handle unauthenticated users
   if (!user && !allowUnauthenticated) {
     logger.log('User not authenticated, redirecting to auth page from:', location.pathname);
