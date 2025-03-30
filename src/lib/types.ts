@@ -1,3 +1,4 @@
+
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -8,48 +9,14 @@ export interface VideoMetadata {
   loraName?: string;
   loraDescription?: string;
   assetId?: string;
-  loraType?: string;
+  loraType?: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
   loraLink?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
-  thumbnailUrl?: string;
   baseModel?: string;
+  thumbnailUrl?: string;
   trainingSteps?: string | number;
   resolution?: string;
   trainingDataset?: string;
-}
-
-export interface VideoEntry {
-  id: string;
-  video_location: string;
-  reviewer_name: string;
-  skipped: boolean;
-  created_at: string;
-  admin_approved: string | null;
-  user_id?: string;
-  metadata?: VideoMetadata;
-}
-
-export interface RecordedVideo {
-  id: string;
-  blob: Blob;
-  url: string;
-  thumbnail?: string;
-  metadata?: VideoMetadata;
-}
-
-export interface VideoFile {
-  id?: string;
-  blob?: Blob;
-  url?: string;
-  metadata?: VideoMetadata;
-}
-
-export interface UserProfile {
-  id: string;
-  username: string;
-  display_name?: string;
-  avatar_url?: string;
-  video_upload_consent?: boolean;
 }
 
 export interface LoraAsset {
@@ -64,15 +31,9 @@ export interface LoraAsset {
   primary_media_id?: string;
   admin_approved?: string | null;
   lora_type?: string;
+  lora_base_model?: string;  // Add this to distinguish base model
   lora_link?: string;
   // Populated from related data
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];
-}
-
-// Props interfaces
-export interface LoraManagerProps {
-  loras: LoraAsset[];
-  isLoading: boolean;
-  showExtras?: boolean;
 }

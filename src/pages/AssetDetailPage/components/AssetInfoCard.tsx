@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -57,7 +56,6 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
     }
   };
 
-  // Get model from either the asset's primaryVideo metadata or from the asset itself
   const getModelName = (): string | undefined => {
     if (asset?.primaryVideo?.metadata?.model) {
       return asset.primaryVideo.metadata.model;
@@ -68,6 +66,17 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
   };
 
   const modelName = getModelName();
+
+  const getBaseModel = (): string | undefined => {
+    if (asset?.lora_base_model) {
+      return asset.lora_base_model;
+    } else if (asset?.primaryVideo?.metadata?.baseModel) {
+      return asset.primaryVideo.metadata.baseModel;
+    }
+    return undefined;
+  };
+
+  const baseModel = getBaseModel();
 
   return (
     <Card className="md:col-span-1">
@@ -115,10 +124,10 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
           <p>{asset?.created_at ? new Date(asset.created_at).toLocaleDateString() : 'Unknown'}</p>
         </div>
 
-        {asset?.primaryVideo?.metadata?.baseModel && (
+        {baseModel && (
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">Base Model</h3>
-            <p>{asset.primaryVideo.metadata.baseModel}</p>
+            <p>{baseModel}</p>
           </div>
         )}
 
