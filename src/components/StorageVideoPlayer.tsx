@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -24,6 +25,7 @@ interface StorageVideoPlayerProps {
   thumbnailUrl?: string;
   forcePreload?: boolean;
   isMobile?: boolean;
+  showPlayButtonOnMobile?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
