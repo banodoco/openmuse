@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink, Play } from 'lucide-react';
+import { Trash, Check, X, ExternalLink } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -70,10 +71,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
     }
     
     return creator;
-  };
-  
-  const handleView = () => {
-    navigate(`/assets/loras/${lora.id}`);
   };
   
   const handleDelete = async () => {
@@ -217,25 +214,20 @@ const LoraCard: React.FC<LoraCardProps> = ({
         className="aspect-video w-full overflow-hidden bg-muted relative"
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        onTouchStart={(e) => {
-          e.stopPropagation();
-        }}
       >
         {videoUrl ? (
-          <>
-            <VideoPreview 
-              url={videoUrl} 
-              className="w-full h-full object-cover" 
-              title={lora.name}
-              creator={getCreatorName()}
-              isHovering={isHovering}
-              lazyLoad={false}
-              thumbnailUrl={thumbnailUrl}
-              isMobile={isMobile}
-              onTouch={handleTouch}
-              showPlayButton={false}
-            />
-          </>
+          <VideoPreview 
+            url={videoUrl} 
+            className="w-full h-full object-cover" 
+            title={lora.name}
+            creator={getCreatorName()}
+            isHovering={isHovering}
+            lazyLoad={false}
+            thumbnailUrl={thumbnailUrl}
+            isMobile={isMobile}
+            onTouch={handleTouch}
+            showPlayButton={!isMobile} // Hide play button on mobile
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
             <p className="text-muted-foreground text-sm">No preview available</p>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -73,9 +74,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     if (externalHoverState !== undefined) {
       logger.log(`VideoPreview: External hover state changed to ${externalHoverState}`);
       setIsHovering(externalHoverState);
-      setIsPlaying(externalHoverState);
+      setIsPlaying(externalHoverState && !isMobile);
     }
-  }, [externalHoverState]);
+  }, [externalHoverState, isMobile]);
   
   useEffect(() => {
     if (file) {
@@ -146,22 +147,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={() => {
-        if (externalHoverState === undefined && !isMobile) {
-          logger.log('Mouse entered video preview');
-          setInternalHoverState(true);
-          setIsHovering(true);
-          setIsPlaying(true);
-        }
-      }}
-      onMouseLeave={() => {
-        if (externalHoverState === undefined && !isMobile) {
-          logger.log('Mouse left video preview');
-          setInternalHoverState(false);
-          setIsHovering(false);
-          setIsPlaying(false);
-        }
-      }}
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
       onTouchStart={handleTouchEvent}
       data-hovering={effectiveHoverState ? "true" : "false"}
       data-mobile={isMobile ? "true" : "false"}
@@ -189,7 +176,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           url={objectUrl}
           posterUrl={posterUrl}
           onError={(errorMessage) => setError(errorMessage)}
-          isHovering={effectiveHoverState}
+          isHovering={effectiveHoverState && !isMobile}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -199,12 +186,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={true}
-          showPlayButtonOnHover={isMobile && showPlayButton}
-          autoPlay={effectiveHoverState}
-          isHoveringExternally={effectiveHoverState}
-          lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
+          showPlayButtonOnHover={isMobile ? false : showPlayButton}
+          autoPlay={effectiveHoverState && !isMobile}
+          isHoveringExternally={effectiveHoverState && !isMobile}
+          lazyLoad={false} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={true} // Force preload to ensure video is ready for hover
+          forcePreload={false} 
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -213,19 +200,20 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           muted={true}
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
-          previewMode={false}
-          showPlayButtonOnHover={isMobile && showPlayButton}
-          autoPlay={effectiveHoverState}
-          isHoveringExternally={effectiveHoverState}
-          lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
+          previewMode={isMobile}
+          showPlayButtonOnHover={isMobile ? false : showPlayButton}
+          autoPlay={effectiveHoverState && !isMobile}
+          isHoveringExternally={effectiveHoverState && !isMobile}
+          lazyLoad={false}
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={true} // Force preload to ensure video is ready for hover
+          forcePreload={false}
         />
       ) : null}
 
       {error && <VideoPreviewError error={error} onRetry={() => {setError(null); setIsPlaying(true);}} videoSource={objectUrl || undefined} canRecover={false} />}
       
-      {isMobile && showPlayButton && posterUrl && (
+      {/* Hide play button on mobile */}
+      {!isMobile && showPlayButton && posterUrl && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className={`w-12 h-12 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${effectiveHoverState ? 'opacity-0' : 'opacity-80'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -132,6 +133,13 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           throw new Error('No video location provided');
         }
         
+        // For Mobile: If we have a thumbnail, we'll prioritize showing it
+        // instead of loading the full video immediately
+        if (thumbnailUrl) {
+          setPosterUrl(thumbnailUrl);
+          setLoading(false);
+        }
+        
         let url;
         if (isBlobUrl) {
           url = videoLocation;
@@ -169,7 +177,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     return () => {
       isMounted = false;
     };
-  }, [videoLocation, retryCount, previewMode, isBlobUrl]);
+  }, [videoLocation, retryCount, previewMode, isBlobUrl, thumbnailUrl]);
 
   const handleError = (message: string) => {
     setError(message);
@@ -197,15 +205,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       onMouseLeave={handleManualHoverEnd}
       ref={containerRef}
     >
-      {loading && posterUrl && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
-          <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
-        </div>
-      )}
-
       {loading && !posterUrl && (
         <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">
-          Loading video...
+          <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
         </div>
       )}
 
@@ -221,36 +223,40 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         </div>
       )}
 
-      {!error && videoUrl && (
-        <VideoPlayer
-          src={videoUrl}
-          className={className}
-          controls={controls}
-          autoPlay={autoPlay || isHovering}
-          muted={muted}
-          loop={loop}
-          playOnHover={playOnHover}
-          onError={handleError}
-          showPlayButtonOnHover={showPlayButtonOnHover}
-          containerRef={containerRef}
-          videoRef={videoRef}
-          externallyControlled={isHoveringExternally !== undefined}
-          isHovering={isHovering}
-          poster={posterUrl || undefined}
-          lazyLoad={false}
-          onLoadedData={handleVideoLoaded}
-        />
-      )}
-
-      {!videoUrl && posterUrl && !error && (
+      {/* If we have a thumbnail, always show it */}
+      {posterUrl && (
         <img 
           src={posterUrl} 
           alt="Video thumbnail" 
-          className="w-full h-full object-cover absolute inset-0 z-0 pointer-events-none"
+          className="w-full h-full object-cover absolute inset-0 z-0"
         />
       )}
 
-      {posterUrl && !isHovering && showPlayButtonOnHover && (
+      {!error && videoUrl && (
+        <div className={posterUrl ? "opacity-0" : ""}>
+          <VideoPlayer
+            src={videoUrl}
+            className={className}
+            controls={controls}
+            autoPlay={autoPlay || isHovering}
+            muted={muted}
+            loop={loop}
+            playOnHover={playOnHover}
+            onError={handleError}
+            showPlayButtonOnHover={showPlayButtonOnHover}
+            containerRef={containerRef}
+            videoRef={videoRef}
+            externallyControlled={isHoveringExternally !== undefined}
+            isHovering={isHovering}
+            poster={posterUrl || undefined}
+            lazyLoad={false}
+            onLoadedData={handleVideoLoaded}
+          />
+        </div>
+      )}
+
+      {/* Only show play button if explicitly requested and not on mobile */}
+      {posterUrl && !isHovering && showPlayButtonOnHover && !previewMode && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div className="rounded-full bg-black/40 p-3">
             <Play className="h-6 w-6 text-white" />

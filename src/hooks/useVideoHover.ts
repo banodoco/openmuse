@@ -25,10 +25,10 @@ export const useVideoHover = (
   const playTimeoutRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
   const lastPlayAttemptRef = useRef<number>(0);
-  const touchPlayToggleRef = useRef<boolean>(false);
 
   useEffect(() => {
-    if (!enabled) return;
+    // Completely disable hover behavior on mobile devices
+    if (isMobile || !enabled) return;
     
     const container = containerRef.current;
     const video = videoRef.current;
@@ -39,8 +39,6 @@ export const useVideoHover = (
     }
     
     const handleMouseEnter = () => {
-      if (isMobile) return; // Skip hover handling on mobile
-      
       logger.log('Mouse entered video container');
       isHoveringRef.current = true;
       
@@ -81,8 +79,6 @@ export const useVideoHover = (
     };
     
     const handleMouseLeave = () => {
-      if (isMobile) return; // Skip hover handling on mobile
-      
       logger.log('Mouse left video container');
       isHoveringRef.current = false;
       
@@ -103,28 +99,14 @@ export const useVideoHover = (
       }
     };
     
-    // For mobile: now we just show the thumbnail on index page
-    // and let the card click navigate to details
-    const handleTouch = (e: TouchEvent) => {
-      if (!isMobile) return;
-      
-      // We don't handle the touch event here anymore
-      // Let the parent card handle the navigation
-      logger.log('Touch event on video, passing through to container');
-    };
-    
     // Remove any existing listeners before adding new ones
     container.removeEventListener('mouseenter', handleMouseEnter);
     container.removeEventListener('mouseleave', handleMouseLeave);
-    container.removeEventListener('touchstart', handleTouch as EventListener);
     
-    // Add listeners
-    container.addEventListener('mouseenter', handleMouseEnter);
-    container.addEventListener('mouseleave', handleMouseLeave);
-    
-    // Only add touch listener for mobile if needed for specific cases
-    if (isMobile) {
-      container.addEventListener('touchstart', handleTouch as EventListener, { passive: true });
+    // Add listeners (only for desktop)
+    if (!isMobile) {
+      container.addEventListener('mouseenter', handleMouseEnter);
+      container.addEventListener('mouseleave', handleMouseLeave);
     }
     
     return () => {
@@ -137,7 +119,6 @@ export const useVideoHover = (
       if (container) {
         container.removeEventListener('mouseenter', handleMouseEnter);
         container.removeEventListener('mouseleave', handleMouseLeave);
-        container.removeEventListener('touchstart', handleTouch as EventListener);
       }
     };
   }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay, isMobile]);
