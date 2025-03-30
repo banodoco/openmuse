@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -7,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import VideoPreview from '../VideoPreview';
 import { Logger } from '@/lib/logger';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('VideoCard');
 
@@ -30,6 +32,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onHoverChange
 }) => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
@@ -159,15 +162,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
               thumbnailUrl={thumbnailUrl}
             />
             
-            <div 
-              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
-                ${isHovering ? 'opacity-0' : 'opacity-100'}
-              `}
-            >
-              <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-                <Play className="h-6 w-6 text-white" />
+            {!isMobile && (
+              <div 
+                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
+                  ${isHovering ? 'opacity-0' : 'opacity-100'}
+                `}
+              >
+                <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+                  <Play className="h-6 w-6 text-white" />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
@@ -219,3 +224,4 @@ const VideoCard: React.FC<VideoCardProps> = ({
 VideoCard.displayName = 'VideoCard';
 
 export default VideoCard;
+
