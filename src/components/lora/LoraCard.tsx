@@ -20,6 +20,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { Logger } from '@/lib/logger';
 
 const logger = new Logger('LoraCard');
@@ -65,6 +66,30 @@ const LoraCard: React.FC<LoraCardProps> = ({
     }
     
     return creator;
+  };
+  
+  const getModelColor = (modelType?: string): string => {
+    switch (modelType?.toLowerCase()) {
+      case 'wan':
+        return "bg-blue-500 text-white";
+      case 'hunyuan':
+        return "bg-purple-500 text-white";
+      case 'ltxv':
+        return "bg-amber-500 text-white";
+      case 'cogvideox':
+        return "bg-emerald-500 text-white";
+      case 'animatediff':
+        return "bg-pink-500 text-white";
+      default:
+        return "bg-gray-500 text-white";
+    }
+  };
+  
+  const getModelType = () => {
+    if (lora.lora_type) {
+      return lora.lora_type;
+    }
+    return lora.primaryVideo?.metadata?.model || "Unknown";
   };
   
   const handleView = () => {
@@ -237,7 +262,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
       )}
       
       <CardContent className="p-3">
-        <h3 className="font-medium text-sm truncate mb-1">{lora.name}</h3>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="font-medium text-sm truncate flex-1">{lora.name}</h3>
+          <Badge className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(getModelType()))}>
+            {getModelType()}
+          </Badge>
+        </div>
         {getCreatorName() && (
           <p className="text-xs text-muted-foreground">Creator: {getCreatorName()}</p>
         )}
