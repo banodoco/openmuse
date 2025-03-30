@@ -90,7 +90,11 @@ const LoraCard: React.FC<LoraCardProps> = ({
       return lora.primaryVideo.metadata.model;
     }
     
-    return lora.lora_type || "Unknown";
+    if (lora.lora_type) {
+      return lora.lora_type;
+    }
+    
+    return "Unknown";
   };
   
   const handleView = () => {
@@ -265,8 +269,11 @@ const LoraCard: React.FC<LoraCardProps> = ({
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-sm truncate flex-1">{lora.name}</h3>
-          <Badge className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(getModel()))}>
-            {getModel()}
+          <Badge 
+            variant="model" 
+            className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(getModel()))}
+          >
+            {getModel().toUpperCase()}
           </Badge>
         </div>
         {getCreatorName() && (
