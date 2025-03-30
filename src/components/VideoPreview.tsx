@@ -147,6 +147,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isPlaying={isPlaying}
           posterUrl={posterUrl}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
+          isMobile={isMobile}
         />
       ) : file ? (
         <StandardVideoPreview 
@@ -164,7 +165,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={true}
-          showPlayButtonOnHover={false}
+          showPlayButtonOnHover={!isMobile}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} 
@@ -180,7 +181,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={false}
-          showPlayButtonOnHover={false}
+          showPlayButtonOnHover={!isMobile}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false}
