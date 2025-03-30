@@ -50,6 +50,11 @@ export function useVideoPlayerHover({
   }, [isHoveringExternally]);
   
   useEffect(() => {
+    // No video playback effects on mobile at all
+    if (isMobile) {
+      return;
+    }
+    
     if (isHoveringExternally !== undefined) {
       // Only attempt to load on hover (not mobile)
       if (isHoveringExternally && !isMobile) {
@@ -70,7 +75,7 @@ export function useVideoPlayerHover({
               return;
             }
             
-            if (video && video.paused) {
+            if (video && video.paused && !isMobile) {
               video.play().catch(e => {
                 if (e.name !== 'AbortError') {
                   logger.error('Error playing video on hover:', e);
@@ -78,8 +83,8 @@ export function useVideoPlayerHover({
               });
             }
           }, 0);
-        } else if (!isHoveringExternally && !video.paused && !isMobile) {
-          // Only pause if not on mobile
+        } else if (!isHoveringExternally && !video.paused) {
+          // Pause when not hovering
           logger.log('External hover ended - pausing video');
           video.pause();
           if (previewMode) {
@@ -91,7 +96,7 @@ export function useVideoPlayerHover({
   }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded, onLoadRequest, isMobile]);
   
   return {
-    isHovering: isHovering,
+    isHovering: isMobile ? false : isHovering, // Always return false for mobile
     handleManualHoverStart,
     handleManualHoverEnd
   };

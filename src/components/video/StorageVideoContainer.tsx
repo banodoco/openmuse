@@ -111,13 +111,14 @@ const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
         />
       )}
 
-      {!error && videoUrl && shouldLoadVideo && (
-        <div className={`${posterUrl && !isMobile ? "opacity-0 hover:opacity-100 transition-opacity duration-300" : ""}`}>
+      {/* On mobile, don't show the actual video player unless explicitly needed */}
+      {!error && videoUrl && shouldLoadVideo && !isMobile && (
+        <div className={`${posterUrl ? "opacity-0 hover:opacity-100 transition-opacity duration-300" : ""}`}>
           <VideoPlayer
             src={videoUrl}
             className={className}
-            controls={isMobile ? true : controls}
-            autoPlay={isMobile ? false : (autoPlay || isHovering)}
+            controls={controls}
+            autoPlay={autoPlay && !isMobile}
             muted={muted}
             loop={loop}
             playOnHover={playOnHover && !isMobile}
@@ -125,19 +126,19 @@ const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
             showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}
             containerRef={containerRef}
             videoRef={videoRef}
-            externallyControlled={isHoveringExternally !== undefined || isMobile}
-            isHovering={isMobile ? false : isHovering}
+            externallyControlled={isHoveringExternally !== undefined}
+            isHovering={isHovering && !isMobile}
             poster={posterUrl || undefined}
-            lazyLoad={isMobile ? false : lazyLoad}
+            lazyLoad={lazyLoad}
             onLoadedData={onVideoLoaded}
             isMobile={isMobile}
           />
         </div>
       )}
 
-      {/* Only show play button if explicitly requested and not on mobile */}
+      {/* Show play button on mobile and when not hovering on desktop */}
       <PlayButtonOverlay 
-        visible={!!posterUrl && !isHovering && showPlayButtonOnHover && !previewMode && !isMobile} 
+        visible={!!posterUrl && (!isHovering || isMobile) && showPlayButtonOnHover && !previewMode} 
         previewMode={previewMode}
       />
     </>

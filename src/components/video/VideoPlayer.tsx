@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -55,12 +56,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isLoading, setIsLoading] = useState(true);
   const [errorDetails, setErrorDetails] = useState<string>('');
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
-  const [videoLoaded, setVideoLoaded] = useState(!lazyLoad || autoPlay || isMobile || false);
+  const [videoLoaded, setVideoLoaded] = useState(!lazyLoad || autoPlay || false);
   const [hasInteracted, setHasInteracted] = useState(false);
   const [playAttempted, setPlayAttempted] = useState(false);
   const [loadedDataFired, setLoadedDataFired] = useState(false);
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
   
+  // Disable hover-based video playing for mobile
   useVideoHover(containerRef, videoRef, {
     enabled: playOnHover && !externallyControlled && !isMobile,
     resetOnLeave: true,
@@ -81,11 +83,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [src]);
   
   useEffect(() => {
-    if (isMobile && !videoLoaded) {
-      logger.log('Mobile device detected - loading video but not playing');
-      loadFullVideo();
+    if (isMobile) {
+      logger.log('Mobile device detected - loading video metadata but not playing');
     }
-  }, [isMobile, videoLoaded, loadFullVideo]);
+  }, [isMobile]);
   
   useEffect(() => {
     const video = videoRef.current;
@@ -94,6 +95,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (externallyControlled) {
       logger.log(`External control state: ${isHovering ? 'hovering' : 'not hovering'}, isMobile: ${isMobile}`);
       
+      // Only load and play video on hover if NOT mobile
       if (isHovering && !isMobile) {
         loadFullVideo();
         logger.log(`VideoPlayer: External hover detected - playing video`);
@@ -138,7 +140,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [src, onError, isBlobUrl]);
 
   useEffect(() => {
-    if (!src || !videoLoaded) {
+    // Skip loading on mobile, just use poster
+    if (!src || !videoLoaded || (isMobile && poster)) {
       return;
     }
     
@@ -166,6 +169,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onLoadedData();
       }
       
+      // Only autoplay on non-mobile devices
       if ((autoPlay && !playOnHover && !externallyControlled) && !isMobile) {
         setTimeout(() => {
           attemptVideoPlay(video, muted);
@@ -251,20 +255,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const handleMouseEnter = () => {
-    loadFullVideo();
-    setIsInternallyHovering(true);
+    if (!isMobile) {  // Only respond to hover on desktop
+      loadFullVideo();
+      setIsInternallyHovering(true);
+    }
   };
 
   const handleMouseLeave = () => {
-    setIsInternallyHovering(false);
+    if (!isMobile) {  // Only respond to hover on desktop
+      setIsInternallyHovering(false);
+    }
   };
 
   return (
     <div 
       ref={containerRef} 
       className="relative w-full h-full overflow-hidden rounded-lg"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={isMobile ? undefined : handleMouseEnter}
+      onMouseLeave={isMobile ? undefined : handleMouseLeave}
     >
       {isLoading && videoLoaded && <VideoLoader posterImage={poster} />}
       
@@ -277,23 +285,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         />
       )}
       
-      {lazyLoad && !hasInteracted && !isMobile && poster && (
+      {/* Show poster image when using lazyLoad */}
+      {lazyLoad && !hasInteracted && poster && (
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${poster})` }} />
       )}
       
+      {/* Video element - controlled visibility, never autoplay on mobile */}
       <video
         ref={videoRef}
         className={cn("w-full h-full object-cover", className, {
-          'opacity-0': lazyLoad && !videoLoaded && !isMobile
+          'opacity-0': lazyLoad && !videoLoaded
         })}
-        autoPlay={(autoPlay && !playOnHover && !externallyControlled) || isMobile}
+        autoPlay={(autoPlay && !playOnHover && !externallyControlled && !isMobile)}
         muted={muted}
         loop={loop}
-        controls={isMobile || (showPlayButtonOnHover ? controls : false)}
+        controls={controls}
         playsInline
         poster={poster || undefined}
-        preload={videoLoaded || isMobile ? "auto" : "metadata"}
-        src={videoLoaded || isMobile ? src : undefined}
+        preload={videoLoaded ? "auto" : "metadata"}
+        src={videoLoaded ? src : undefined}
         crossOrigin="anonymous"
       >
         Your browser does not support the video tag.

@@ -222,11 +222,11 @@ const LoraCard: React.FC<LoraCardProps> = ({
             title={lora.name}
             creator={getCreatorName()}
             isHovering={isHovering}
-            lazyLoad={false}
+            lazyLoad={true}
             thumbnailUrl={thumbnailUrl}
             isMobile={isMobile}
             onTouch={handleTouch}
-            showPlayButton={!isMobile} // Hide play button on mobile
+            showPlayButton={true} // Always show play button
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">

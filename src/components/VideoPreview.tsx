@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -75,10 +76,11 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     }
   }, [thumbnailUrl]);
   
-  const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
+  // Calculate effective hover state - always false on mobile
+  const effectiveHoverState = isMobile ? false : (externalHoverState !== undefined ? externalHoverState : internalHoverState);
   
   useEffect(() => {
-    if (externalHoverState !== undefined) {
+    if (externalHoverState !== undefined && !isMobile) {
       logger.log(`VideoPreview: External hover state changed to ${externalHoverState}`);
       setIsHovering(externalHoverState);
       setIsPlaying(externalHoverState && !isMobile);
@@ -107,7 +109,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
 
   const handleRetry = () => {
     setError(null);
-    setIsPlaying(true);
+    setIsPlaying(!isMobile); // Only set playing to true if not on mobile
     
     if (thumbnailGenerationFailed && generationAttempts.current < maxGenerationAttempts) {
       generationAttempts.current += 1;
@@ -127,7 +129,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     } else if (thumbnailUrl === '/placeholder.svg') {
       setThumbnailGenerationFailed(true);
       
-      if (fallbackToVideo && generationAttempts.current < maxGenerationAttempts) {
+      if (fallbackToVideo && generationAttempts.current < maxGenerationAttempts && !isMobile) {
         generationAttempts.current += 1;
         logger.log(`Thumbnail generation returned placeholder, retrying: attempt ${generationAttempts.current}`);
         setThumbnailGenerationAttempted(false);
@@ -138,7 +140,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const handleThumbnailError = () => {
     setThumbnailGenerationFailed(true);
     
-    if (fallbackToVideo) {
+    if (fallbackToVideo && !isMobile) {
       logger.log('Thumbnail generation failed, using video as fallback');
       setIsPlaying(true);
     }
@@ -182,8 +184,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
+      onMouseEnter={isMobile ? undefined : handleMouseEnter}
+      onMouseLeave={isMobile ? undefined : handleMouseLeave}
       onTouchStart={handleTouchEvent}
       data-hovering={effectiveHoverState ? "true" : "false"}
       data-mobile={isMobile ? "true" : "false"}
@@ -222,48 +224,49 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       ) : isBlobUrl ? (
         <StorageVideoPlayer
           videoLocation={url}
-          controls={isMobile}
+          controls={false} // On mobile, controls are shown by the native player when clicked
           muted={true}
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={true}
-          showPlayButtonOnHover={isMobile ? false : showPlayButton}
-          autoPlay={effectiveHoverState && !isMobile}
+          showPlayButtonOnHover={showPlayButton}
+          autoPlay={false} // Never autoplay
           isHoveringExternally={effectiveHoverState && !isMobile}
-          lazyLoad={lazyLoad && !isMobile}
+          lazyLoad={lazyLoad}
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={false}
           forceThumbnailGeneration={forceFrameCapture}
           captureTimeout={captureTimeout}
-          fallbackToVideo={fallbackToVideo}
+          fallbackToVideo={false} // Never fallback to video on mobile
           isMobile={isMobile}
         />
       ) : url ? (
         <StorageVideoPlayer
           videoLocation={url}
-          controls={isMobile}
+          controls={false} // On mobile, controls are shown by the native player when clicked
           muted={true}
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={true}
-          showPlayButtonOnHover={isMobile ? false : showPlayButton}
-          autoPlay={effectiveHoverState && !isMobile}
+          showPlayButtonOnHover={showPlayButton}
+          autoPlay={false} // Never autoplay
           isHoveringExternally={effectiveHoverState && !isMobile}
-          lazyLoad={lazyLoad && !isMobile} 
+          lazyLoad={lazyLoad}
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={false}
           forceThumbnailGeneration={forceFrameCapture}
           captureTimeout={captureTimeout}
-          fallbackToVideo={fallbackToVideo}
+          fallbackToVideo={false} // Never fallback to video on mobile
           isMobile={isMobile}
         />
       ) : null}
 
-      {error && <VideoPreviewError error={error} onRetry={() => {setError(null); setIsPlaying(true);}} videoSource={objectUrl || undefined} canRecover={false} />}
+      {error && <VideoPreviewError error={error} onRetry={() => {setError(null); setIsPlaying(!isMobile);}} videoSource={objectUrl || undefined} canRecover={false} />}
       
-      {!isMobile && showPlayButton && posterUrl && posterUrl !== '/placeholder.svg' && (
+      {/* Always show play button on mobile, or when not hovering on desktop */}
+      {showPlayButton && posterUrl && posterUrl !== '/placeholder.svg' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-          <div className={`w-12 h-12 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${effectiveHoverState ? 'opacity-0' : 'opacity-80'}`}>
+          <div className={`w-12 h-12 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${effectiveHoverState && !isMobile ? 'opacity-0' : 'opacity-80'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">
               <polygon points="5 3 19 12 5 21 5 3" />
             </svg>

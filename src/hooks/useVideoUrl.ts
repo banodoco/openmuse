@@ -30,12 +30,12 @@ export function useVideoUrl({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   
-  // On mobile, we load the video (to get the poster) but don't autoplay
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(!lazyLoad || forcePreload || isMobile);
+  // On mobile, we NEVER auto-load the video - just get the poster frame
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(!lazyLoad || forcePreload || (isMobile ? false : true));
   const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => {
-    if (forcePreload || isMobile) {
+    if (forcePreload && !isMobile) {
       setShouldLoadVideo(true);
     }
   }, [forcePreload, isMobile]);
@@ -107,7 +107,7 @@ export function useVideoUrl({
   };
 
   const triggerLoad = () => {
-    if (!shouldLoadVideo) {
+    if (!shouldLoadVideo && !isMobile) {
       setShouldLoadVideo(true);
     }
   };
@@ -118,7 +118,7 @@ export function useVideoUrl({
     error,
     errorDetails,
     retryCount,
-    shouldLoadVideo,
+    shouldLoadVideo: isMobile ? false : shouldLoadVideo, // Never load video on mobile
     videoLoaded,
     setVideoLoaded,
     handleRetry,

@@ -47,7 +47,7 @@ const VideoCardMedia: React.FC<VideoCardMediaProps> = ({
           showPlayButton={showPlayButton}
           forceFrameCapture={forceFrameCapture}
           captureTimeout={captureTimeout}
-          fallbackToVideo={!isMobile} // Don't fallback to video on mobile
+          fallbackToVideo={false} // NEVER fallback to video on mobile
         />
         
         {/* Always show play button on mobile */}

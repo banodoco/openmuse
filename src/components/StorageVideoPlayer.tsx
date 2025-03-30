@@ -64,7 +64,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   
   const isBlobUrl = videoLocation.startsWith('blob:');
 
-  // Custom hooks
+  // Custom hooks - with mobile awareness
   const { 
     videoUrl, 
     loading, 
@@ -79,8 +79,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     videoLocation,
     previewMode,
     isBlobUrl,
-    forcePreload,
-    lazyLoad: isMobile ? false : lazyLoad, // Don't lazy load on mobile, but don't autoplay either
+    forcePreload: isMobile ? false : forcePreload,
+    lazyLoad: isMobile ? false : lazyLoad,
     isMobile
   });
 
@@ -119,8 +119,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   return (
     <div 
       className="relative w-full h-full"
-      onMouseEnter={handleManualHoverStart}
-      onMouseLeave={handleManualHoverEnd}
+      onMouseEnter={isMobile ? undefined : handleManualHoverStart}
+      onMouseLeave={isMobile ? undefined : handleManualHoverEnd}
       ref={containerRef}
     >
       <StorageVideoContainer
@@ -141,17 +141,17 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         onVideoLoaded={handleVideoLoaded}
         userId={userId}
         className={className}
-        controls={isMobile ? true : controls}
-        autoPlay={autoPlay && !isMobile}  // Never autoplay on mobile
+        controls={controls}
+        autoPlay={isMobile ? false : autoPlay}  // NEVER autoplay on mobile
         muted={muted}
         loop={loop}
-        playOnHover={playOnHover && !isMobile}  // Don't do play on hover for mobile
+        playOnHover={isMobile ? false : playOnHover}  // Don't do play on hover for mobile
         previewMode={previewMode}
         showPlayButtonOnHover={showPlayButtonOnHover}
         isHoveringExternally={isMobile ? false : isHoveringExternally}
         captureTimeout={captureTimeout}
         isMobile={isMobile}
-        lazyLoad={isMobile ? false : lazyLoad}
+        lazyLoad={lazyLoad}
       />
     </div>
   );
