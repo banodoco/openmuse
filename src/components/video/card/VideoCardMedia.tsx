@@ -39,7 +39,7 @@ const VideoCardMedia: React.FC<VideoCardMediaProps> = ({
           title={video.metadata?.title || `Video by ${creatorName}`}
           creator={creatorName}
           className="w-full h-full object-cover"
-          isHovering={isHovering}
+          isHovering={isHovering && !isMobile} // Don't consider hovering on mobile
           lazyLoad={false}
           thumbnailUrl={thumbnailUrl}
           onTouch={onTouch}
@@ -50,17 +50,16 @@ const VideoCardMedia: React.FC<VideoCardMediaProps> = ({
           fallbackToVideo={true}
         />
         
-        {!isMobile && showPlayButton && (
-          <div 
-            className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
-              ${isHovering ? 'opacity-0' : 'opacity-100'}
-            `}
-          >
-            <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-              <Play className="h-6 w-6 text-white" />
-            </div>
+        {/* Always show play button on mobile */}
+        <div 
+          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
+            ${(isHovering && !isMobile) ? 'opacity-0' : 'opacity-100'}
+          `}
+        >
+          <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+            <Play className="h-6 w-6 text-white" />
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

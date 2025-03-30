@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -67,7 +66,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const generationAttempts = useRef(0);
   const maxGenerationAttempts = 3;
   
-  // Log thumbnail URL for debugging
   useEffect(() => {
     if (thumbnailUrl) {
       logger.log(`VideoPreview: Using provided thumbnail URL: ${thumbnailUrl.substring(0, 50)}...`);
@@ -77,10 +75,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     }
   }, [thumbnailUrl]);
   
-  // Combine external and internal hover states
   const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
   
-  // Force playing state update when hover state changes
   useEffect(() => {
     if (externalHoverState !== undefined) {
       logger.log(`VideoPreview: External hover state changed to ${externalHoverState}`);
@@ -113,7 +109,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     setError(null);
     setIsPlaying(true);
     
-    // If thumbnail generation failed and we have not exceeded max attempts, try again
     if (thumbnailGenerationFailed && generationAttempts.current < maxGenerationAttempts) {
       generationAttempts.current += 1;
       setThumbnailGenerationAttempted(false);
@@ -130,10 +125,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       setThumbnailGenerationAttempted(true);
       setThumbnailGenerationFailed(false);
     } else if (thumbnailUrl === '/placeholder.svg') {
-      // Mark as failed if we got a placeholder
       setThumbnailGenerationFailed(true);
       
-      // If we should fallback to video and have attempts left, try again
       if (fallbackToVideo && generationAttempts.current < maxGenerationAttempts) {
         generationAttempts.current += 1;
         logger.log(`Thumbnail generation returned placeholder, retrying: attempt ${generationAttempts.current}`);
@@ -146,7 +139,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     setThumbnailGenerationFailed(true);
     
     if (fallbackToVideo) {
-      // If thumbnail generation failed and fallback is enabled, use the video itself
       logger.log('Thumbnail generation failed, using video as fallback');
       setIsPlaying(true);
     }
@@ -173,7 +165,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const handleTouchEvent = (e: React.TouchEvent) => {
     if (isMobile && onTouch) {
       logger.log('Touch event on video preview');
-      e.preventDefault(); // Prevent default touch behavior for video player
+      e.preventDefault();
       onTouch();
     }
   };
@@ -182,12 +174,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  // Always attempt to generate a thumbnail if one isn't provided or if forced
   const needsThumbnailGeneration = (forceFrameCapture || !thumbnailUrl || thumbnailGenerationFailed) && 
                                   (file || (url && !isExternalLink && (!posterUrl || posterUrl === '/placeholder.svg'))) && 
                                   !thumbnailGenerationAttempted;
 
-  // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
     <div 
       ref={previewRef}
@@ -217,7 +207,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       {isExternalLink ? (
         <EmbeddedVideoPlayer 
           url={url || ''}
-          isPlaying={isPlaying}
+          isPlaying={isPlaying && !isMobile}
           posterUrl={posterUrl}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
         />
@@ -242,7 +232,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isHoveringExternally={effectiveHoverState && !isMobile}
           lazyLoad={lazyLoad && !isMobile}
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={isMobile || forceFrameCapture} 
+          forcePreload={false}
           forceThumbnailGeneration={forceFrameCapture}
           captureTimeout={captureTimeout}
           fallbackToVideo={fallbackToVideo}
@@ -261,7 +251,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isHoveringExternally={effectiveHoverState && !isMobile}
           lazyLoad={lazyLoad && !isMobile} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={isMobile || forceFrameCapture} 
+          forcePreload={false}
           forceThumbnailGeneration={forceFrameCapture}
           captureTimeout={captureTimeout}
           fallbackToVideo={fallbackToVideo}
@@ -271,7 +261,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
 
       {error && <VideoPreviewError error={error} onRetry={() => {setError(null); setIsPlaying(true);}} videoSource={objectUrl || undefined} canRecover={false} />}
       
-      {/* Hide play button on mobile */}
       {!isMobile && showPlayButton && posterUrl && posterUrl !== '/placeholder.svg' && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className={`w-12 h-12 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${effectiveHoverState ? 'opacity-0' : 'opacity-80'}`}>

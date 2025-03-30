@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -62,68 +61,60 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [loadedDataFired, setLoadedDataFired] = useState(false);
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
   
-  // Setup hover behavior - only if not externally controlled and not on mobile
   useVideoHover(containerRef, videoRef, {
     enabled: playOnHover && !externallyControlled && !isMobile,
     resetOnLeave: true,
     isMobile
   });
   
-  // Handle lazy loading of video
   const loadFullVideo = useCallback(() => {
     if (!videoLoaded) {
-      logger.log('Loading full video on hover or mobile');
+      logger.log('Loading full video on hover');
       setVideoLoaded(true);
       setHasInteracted(true);
     }
   }, [videoLoaded]);
   
-  // Reset state when src changes
   useEffect(() => {
     setLoadedDataFired(false);
     setPlayAttempted(false);
   }, [src]);
   
-  // Load video immediately on mobile
   useEffect(() => {
     if (isMobile && !videoLoaded) {
-      logger.log('Mobile device detected - loading video immediately');
+      logger.log('Mobile device detected - loading video but not playing');
       loadFullVideo();
     }
   }, [isMobile, videoLoaded, loadFullVideo]);
   
-  // Handle external hover control
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
     
-    if (externallyControlled || isMobile) {
+    if (externallyControlled) {
       logger.log(`External control state: ${isHovering ? 'hovering' : 'not hovering'}, isMobile: ${isMobile}`);
       
-      if (isHovering || isMobile) {
+      if (isHovering && !isMobile) {
         loadFullVideo();
-        logger.log(`VideoPlayer: ${isMobile ? 'Mobile' : 'External hover'} detected - playing video`);
+        logger.log(`VideoPlayer: External hover detected - playing video`);
         
         if (!playAttempted) {
-          // Small delay to avoid conflicts with other operations
           setTimeout(() => {
             if (video && video.readyState >= 2) {
               attemptVideoPlay(video, muted)
-                .then(() => logger.log('Play succeeded on hover/mobile'))
-                .catch(e => logger.error('Play failed on hover/mobile:', e));
+                .then(() => logger.log('Play succeeded on hover'))
+                .catch(e => logger.error('Play failed on hover:', e));
               setPlayAttempted(true);
             }
           }, 100);
         }
       } else if (!isHovering && !video.paused && !isMobile) {
-        // Only pause if not on mobile
         logger.log('VideoPlayer: External hover ended - pausing video');
         video.pause();
       }
     }
   }, [isHovering, externallyControlled, videoRef, muted, loadFullVideo, playAttempted, isMobile]);
 
-  // Validate video source
   useEffect(() => {
     setIsBlobUrl(src?.startsWith('blob:') || false);
     
@@ -135,7 +126,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    // Allow blob URLs to pass validation
     if (!isBlobUrl && !isValidVideoUrl(src)) {
       const format = getVideoFormat(src);
       const errorMsg = `Invalid video source: ${src.substring(0, 50)}...`;
@@ -147,7 +137,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [src, onError, isBlobUrl]);
 
-  // Handle video element setup when src changes or when video is loaded on hover/mobile
   useEffect(() => {
     if (!src || !videoLoaded) {
       return;
@@ -177,18 +166,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onLoadedData();
       }
       
-      // Don't autoplay if we're using hover to play or lazy loading, unless on mobile
-      if ((autoPlay && !playOnHover && !externallyControlled) || isMobile) {
-        // Small delay to ensure the video is ready
+      if ((autoPlay && !playOnHover && !externallyControlled) && !isMobile) {
         setTimeout(() => {
           attemptVideoPlay(video, muted);
         }, 150);
       }
       
-      // For externally controlled video or mobile, check if we should play immediately
-      if ((externallyControlled && isHovering) || (playOnHover && isInternallyHovering) || isMobile) {
-        logger.log(`VideoPlayer: Initially ${isMobile ? 'on mobile' : 'hovering'} - playing video immediately`);
-        // Small delay to ensure the video is ready
+      if ((externallyControlled && isHovering && !isMobile) || (playOnHover && isInternallyHovering && !isMobile)) {
+        logger.log(`VideoPlayer: Initially hovering - playing video immediately`);
         setTimeout(() => {
           attemptVideoPlay(video, muted).then(() => {
             logger.log('Auto-play successful');
@@ -203,7 +188,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const { message, details } = getVideoErrorMessage(video.error, src);
       const format = getVideoFormat(src);
       
-      // Special message for blob URLs
       if (isBlobUrl) {
         setError('The temporary preview cannot be played');
         setErrorDetails('This may be due to the blob URL being created in a different browser context or session');
@@ -225,11 +209,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('error', handleError);
     
-    // Always pause first to ensure consistent state
     video.pause();
     
     try {
-      // Only set the full video source if we're loading the video
       video.preload = videoLoaded ? "auto" : "metadata";
       video.src = src;
       if (poster) {
@@ -265,7 +247,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setPlayAttempted(false);
     setLoadedDataFired(false);
     
-    // Simply reload the video
     video.load();
   };
 
@@ -296,7 +277,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         />
       )}
       
-      {/* Show poster if lazy loading and not yet loaded */}
       {lazyLoad && !hasInteracted && !isMobile && poster && (
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${poster})` }} />
       )}

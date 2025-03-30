@@ -27,7 +27,7 @@ export function useVideoPlayerHover({
   const isHoveringRef = useRef(isHoveringExternally || false);
   
   const handleManualHoverStart = () => {
-    if (isHoveringExternally === undefined) {
+    if (isHoveringExternally === undefined && !isMobile) {
       logger.log('StorageVideoPlayer: Manual hover start');
       setIsHovering(true);
       if (onLoadRequest) onLoadRequest();
@@ -35,7 +35,7 @@ export function useVideoPlayerHover({
   };
 
   const handleManualHoverEnd = () => {
-    if (isHoveringExternally === undefined) {
+    if (isHoveringExternally === undefined && !isMobile) {
       logger.log('StorageVideoPlayer: Manual hover end');
       setIsHovering(false);
     }
@@ -51,7 +51,7 @@ export function useVideoPlayerHover({
   
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
-      if (isHoveringExternally) {
+      if (isHoveringExternally && !isMobile) {  // Don't auto-load on mobile
         logger.log('External hover detected - loading video');
         if (onLoadRequest) onLoadRequest();
       }
@@ -59,9 +59,9 @@ export function useVideoPlayerHover({
       if (videoInitialized && videoRef.current) {
         const video = videoRef.current;
         
-        // On mobile, we should load the video immediately without requiring hover
-        if ((isHoveringExternally || isMobile) && video.paused && videoLoaded) {
-          logger.log(`${isMobile ? 'Mobile device' : 'External hover'} detected - attempting to play video`);
+        // On mobile, don't auto-play
+        if ((isHoveringExternally && !isMobile) && video.paused && videoLoaded) {
+          logger.log(`External hover detected - attempting to play video`);
           
           setTimeout(() => {
             if (video.paused) {
@@ -85,7 +85,7 @@ export function useVideoPlayerHover({
   }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded, onLoadRequest, isMobile]);
   
   return {
-    isHovering: isMobile ? true : isHovering, // Always consider "hovering" on mobile for preview purposes
+    isHovering: isHovering, // Changed from always true on mobile to respect the actual hovering state
     handleManualHoverStart,
     handleManualHoverEnd
   };

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -55,10 +56,10 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     
     logger.log(`AssetVideoSection: Touch event for video ${videoId}, current hovered: ${hoveredVideoId}`);
     
-    if (hoveredVideoId === videoId) {
-      setHoveredVideoId(null);
-    } else {
-      setHoveredVideoId(videoId);
+    // Open lightbox directly on mobile instead of toggling hover state
+    const video = videos.find(v => v.id === videoId);
+    if (video) {
+      handleOpenLightbox(video);
     }
   };
   
@@ -91,7 +92,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
               onTouch={() => handleVideoTouch(video.id)}
               isMobile={isMobile}
-              showPlayButton={!isMobile}
+              showPlayButton={true}
               forceFrameCapture={true}
               captureTimeout={10000}
             />
