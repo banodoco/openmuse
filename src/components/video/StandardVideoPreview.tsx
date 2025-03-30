@@ -21,6 +21,7 @@ interface StandardVideoPreviewProps {
   isRefreshing?: boolean;
   isHovering?: boolean;
   isMobile?: boolean;
+  showPlayButtonOnMobile?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -31,7 +32,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   onRefresh,
   isRefreshing = false,
   isHovering = false,
-  isMobile = false
+  isMobile = false,
+  showPlayButtonOnMobile = true
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -127,6 +129,9 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     setVideoReady(true);
   };
 
+  // Special case for blob URLs - they're always considered valid for preview
+  const isBlobUrl = url?.startsWith('blob:') || false;
+
   // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
     return null;
@@ -164,6 +169,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           isHovering={isHovering}
           onLoadedData={handleVideoLoaded}
           isMobile={isMobile}
+          showPlayButtonOnMobile={showPlayButtonOnMobile}
         />
       )}
       
@@ -193,7 +199,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         </div>
       )}
       
-      {isMobile && !currentError && (
+      {isMobile && !currentError && showPlayButtonOnMobile && (
         <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
           <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
             <Play className="h-6 w-6 text-white" />

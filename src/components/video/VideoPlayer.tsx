@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -30,6 +29,7 @@ interface VideoPlayerProps {
   isHovering?: boolean;
   lazyLoad?: boolean;
   isMobile?: boolean;
+  showPlayButtonOnMobile?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -50,6 +50,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   isHovering = false,
   lazyLoad = true,
   isMobile = false,
+  showPlayButtonOnMobile = true,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
@@ -59,7 +60,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
   
-  // Use the video loader hook
   const {
     error,
     isLoading,
@@ -81,7 +81,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     isMobile
   });
   
-  // Use the video playback hook
   useVideoPlayback({
     videoRef,
     externallyControlled,
@@ -93,7 +92,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setPlayAttempted
   });
   
-  // Effect to load poster image
   React.useEffect(() => {
     if (poster) {
       const img = new Image();
@@ -109,12 +107,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [poster]);
   
-  // Add additional logging for mobile detection
   React.useEffect(() => {
     logger.log(`VideoPlayer isMobile state: ${isMobile}`);
     logger.log(`VideoPlayer poster: ${poster ? 'exists' : 'missing'}`);
     logger.log(`VideoPlayer posterLoaded: ${posterLoaded}`);
-  }, [isMobile, poster, posterLoaded]);
+    logger.log(`VideoPlayer showPlayButtonOnMobile: ${showPlayButtonOnMobile}`);
+  }, [isMobile, poster, posterLoaded, showPlayButtonOnMobile]);
   
   const loadFullVideo = useCallback(() => {
     if (!hasInteracted) {
@@ -156,7 +154,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <VideoOverlay 
         isMobile={isMobile} 
         poster={poster} 
-        posterLoaded={posterLoaded} 
+        posterLoaded={posterLoaded}
+        showPlayButton={showPlayButtonOnMobile}
       />
       
       <LazyPosterImage 

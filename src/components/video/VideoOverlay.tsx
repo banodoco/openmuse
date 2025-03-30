@@ -9,16 +9,18 @@ interface VideoOverlayProps {
   isMobile: boolean;
   poster?: string;
   posterLoaded: boolean;
+  showPlayButton?: boolean;
 }
 
 const VideoOverlay: React.FC<VideoOverlayProps> = ({
   isMobile,
   poster,
-  posterLoaded
+  posterLoaded,
+  showPlayButton = true
 }) => {
   useEffect(() => {
-    logger.log(`VideoOverlay props: isMobile=${isMobile}, poster=${!!poster}, posterLoaded=${posterLoaded}`);
-  }, [isMobile, poster, posterLoaded]);
+    logger.log(`VideoOverlay props: isMobile=${isMobile}, poster=${!!poster}, posterLoaded=${posterLoaded}, showPlayButton=${showPlayButton}`);
+  }, [isMobile, poster, posterLoaded, showPlayButton]);
 
   if (!isMobile || !poster) {
     return null;
@@ -31,11 +33,13 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
         className="absolute inset-0 bg-cover bg-center z-10" 
         style={{ backgroundImage: `url(${poster})` }} 
       />
-      <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-        <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-          <Play className="h-6 w-6 text-white" />
+      {showPlayButton && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+          <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+            <Play className="h-6 w-6 text-white" />
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 };
