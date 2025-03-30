@@ -151,6 +151,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         isHoveringExternally={isHoveringExternally}
         captureTimeout={captureTimeout}
         isMobile={isMobile}
+        lazyLoad={lazyLoad}
       />
     </div>
   );

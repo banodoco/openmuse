@@ -36,6 +36,7 @@ interface StorageVideoContainerProps {
   isHoveringExternally?: boolean;
   captureTimeout?: number;
   isMobile?: boolean;
+  lazyLoad?: boolean;
 }
 
 const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
@@ -65,7 +66,8 @@ const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
   showPlayButtonOnHover = true,
   isHoveringExternally,
   captureTimeout,
-  isMobile = false
+  isMobile = false,
+  lazyLoad = true
 }) => {
   return (
     <>
