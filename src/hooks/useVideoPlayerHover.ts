@@ -11,6 +11,7 @@ interface UseVideoPlayerHoverProps {
   videoLoaded: boolean;
   previewMode?: boolean;
   onLoadRequest?: () => void;
+  isMobile?: boolean;
 }
 
 export function useVideoPlayerHover({
@@ -19,7 +20,8 @@ export function useVideoPlayerHover({
   videoInitialized,
   videoLoaded,
   previewMode = false,
-  onLoadRequest
+  onLoadRequest,
+  isMobile = false
 }: UseVideoPlayerHoverProps) {
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
   const isHoveringRef = useRef(isHoveringExternally || false);
@@ -57,8 +59,9 @@ export function useVideoPlayerHover({
       if (videoInitialized && videoRef.current) {
         const video = videoRef.current;
         
-        if (isHoveringExternally && video.paused && videoLoaded) {
-          logger.log('External hover detected - attempting to play video');
+        // On mobile, we should load the video immediately without requiring hover
+        if ((isHoveringExternally || isMobile) && video.paused && videoLoaded) {
+          logger.log(`${isMobile ? 'Mobile device' : 'External hover'} detected - attempting to play video`);
           
           setTimeout(() => {
             if (video.paused) {
@@ -69,7 +72,8 @@ export function useVideoPlayerHover({
               });
             }
           }, 0);
-        } else if (!isHoveringExternally && !video.paused) {
+        } else if (!isHoveringExternally && !video.paused && !isMobile) {
+          // Only pause if not on mobile
           logger.log('External hover ended - pausing video');
           video.pause();
           if (previewMode) {
@@ -78,10 +82,10 @@ export function useVideoPlayerHover({
         }
       }
     }
-  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded, onLoadRequest]);
+  }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded, onLoadRequest, isMobile]);
   
   return {
-    isHovering,
+    isHovering: isMobile ? true : isHovering, // Always consider "hovering" on mobile for preview purposes
     handleManualHoverStart,
     handleManualHoverEnd
   };

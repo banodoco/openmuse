@@ -35,6 +35,7 @@ interface StorageVideoContainerProps {
   showPlayButtonOnHover?: boolean;
   isHoveringExternally?: boolean;
   captureTimeout?: number;
+  isMobile?: boolean;
 }
 
 const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
@@ -63,7 +64,8 @@ const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
   previewMode = false,
   showPlayButtonOnHover = true,
   isHoveringExternally,
-  captureTimeout
+  captureTimeout,
+  isMobile = false
 }) => {
   return (
     <>
@@ -107,31 +109,32 @@ const StorageVideoContainer: React.FC<StorageVideoContainerProps> = ({
       )}
 
       {!error && videoUrl && shouldLoadVideo && (
-        <div className={posterUrl ? "opacity-0 hover:opacity-100 transition-opacity duration-300" : ""}>
+        <div className={posterUrl && !isMobile ? "opacity-0 hover:opacity-100 transition-opacity duration-300" : ""}>
           <VideoPlayer
             src={videoUrl}
             className={className}
             controls={controls}
-            autoPlay={autoPlay || isHovering}
+            autoPlay={autoPlay || isHovering || isMobile}
             muted={muted}
             loop={loop}
-            playOnHover={playOnHover}
+            playOnHover={playOnHover && !isMobile}
             onError={(message) => logger.error(message)}
-            showPlayButtonOnHover={showPlayButtonOnHover}
+            showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}
             containerRef={containerRef}
             videoRef={videoRef}
-            externallyControlled={isHoveringExternally !== undefined}
-            isHovering={isHovering}
+            externallyControlled={isHoveringExternally !== undefined || isMobile}
+            isHovering={isHovering || isMobile}
             poster={posterUrl || undefined}
-            lazyLoad={false}
+            lazyLoad={lazyLoad && !isMobile}
             onLoadedData={onVideoLoaded}
+            isMobile={isMobile}
           />
         </div>
       )}
 
       {/* Only show play button if explicitly requested and not on mobile */}
       <PlayButtonOverlay 
-        visible={!!posterUrl && !isHovering && showPlayButtonOnHover && !previewMode} 
+        visible={!!posterUrl && !isHovering && showPlayButtonOnHover && !previewMode && !isMobile} 
         previewMode={previewMode}
       />
     </>

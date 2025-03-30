@@ -184,8 +184,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
 
   // Always attempt to generate a thumbnail if one isn't provided or if forced
   const needsThumbnailGeneration = (forceFrameCapture || !thumbnailUrl || thumbnailGenerationFailed) && 
-                                   (file || (url && !isExternalLink && (!posterUrl || posterUrl === '/placeholder.svg'))) && 
-                                   !thumbnailGenerationAttempted;
+                                  (file || (url && !isExternalLink && (!posterUrl || posterUrl === '/placeholder.svg'))) && 
+                                  !thumbnailGenerationAttempted;
 
   // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
@@ -227,6 +227,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           posterUrl={posterUrl}
           onError={(errorMessage) => setError(errorMessage)}
           isHovering={effectiveHoverState && !isMobile}
+          isMobile={isMobile}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -239,12 +240,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={isMobile ? false : showPlayButton}
           autoPlay={effectiveHoverState && !isMobile}
           isHoveringExternally={effectiveHoverState && !isMobile}
-          lazyLoad={false}
+          lazyLoad={lazyLoad && !isMobile}
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={isMobile || forceFrameCapture} 
           forceThumbnailGeneration={forceFrameCapture}
           captureTimeout={captureTimeout}
           fallbackToVideo={fallbackToVideo}
+          isMobile={isMobile}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -257,12 +259,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={isMobile ? false : showPlayButton}
           autoPlay={effectiveHoverState && !isMobile}
           isHoveringExternally={effectiveHoverState && !isMobile}
-          lazyLoad={false} 
+          lazyLoad={lazyLoad && !isMobile} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={true} 
+          forcePreload={isMobile || forceFrameCapture} 
           forceThumbnailGeneration={forceFrameCapture}
           captureTimeout={captureTimeout}
           fallbackToVideo={fallbackToVideo}
+          isMobile={isMobile}
         />
       ) : null}
 

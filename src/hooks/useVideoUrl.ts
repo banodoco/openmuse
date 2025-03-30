@@ -12,6 +12,7 @@ interface UseVideoUrlProps {
   forcePreload?: boolean;
   lazyLoad?: boolean;
   onError?: (message: string, details?: string) => void;
+  isMobile?: boolean;
 }
 
 export function useVideoUrl({
@@ -20,21 +21,23 @@ export function useVideoUrl({
   isBlobUrl,
   forcePreload = false,
   lazyLoad = true,
-  onError
+  onError,
+  isMobile = false
 }: UseVideoUrlProps) {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(!lazyLoad || forcePreload);
+  // On mobile, we load the video immediately regardless of lazyLoad setting
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(!lazyLoad || forcePreload || isMobile);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
   useEffect(() => {
-    if (forcePreload) {
+    if (forcePreload || isMobile) {
       setShouldLoadVideo(true);
     }
-  }, [forcePreload]);
+  }, [forcePreload, isMobile]);
 
   useEffect(() => {
     let isMounted = true;

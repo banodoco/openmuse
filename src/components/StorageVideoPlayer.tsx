@@ -4,6 +4,7 @@ import { Logger } from '@/lib/logger';
 import { useVideoUrl } from '@/hooks/useVideoUrl';
 import { useVideoPlayerHover } from '@/hooks/useVideoPlayerHover';
 import StorageVideoContainer from './video/StorageVideoContainer';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('StorageVideoPlayer');
 
@@ -26,6 +27,7 @@ interface StorageVideoPlayerProps {
   forceThumbnailGeneration?: boolean;
   captureTimeout?: number;
   fallbackToVideo?: boolean;
+  isMobile?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -46,12 +48,15 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   forcePreload = false,
   forceThumbnailGeneration = false,
   captureTimeout = 5000,
-  fallbackToVideo = false
+  fallbackToVideo = false,
+  isMobile: externalIsMobile
 }) => {
   const [videoInitialized, setVideoInitialized] = useState(false);
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [needsThumbnailGeneration, setNeedsThumbnailGeneration] = useState(forceThumbnailGeneration && !thumbnailUrl);
   const { userId } = useRef({ userId: null }).current;
+  const defaultIsMobile = useIsMobile();
+  const isMobile = externalIsMobile !== undefined ? externalIsMobile : defaultIsMobile;
 
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -75,7 +80,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     previewMode,
     isBlobUrl,
     forcePreload,
-    lazyLoad
+    lazyLoad,
+    isMobile
   });
 
   const {
@@ -88,7 +94,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     videoInitialized,
     videoLoaded,
     previewMode,
-    onLoadRequest: triggerLoad
+    onLoadRequest: triggerLoad,
+    isMobile
   });
 
   useEffect(() => {
@@ -143,6 +150,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         showPlayButtonOnHover={showPlayButtonOnHover}
         isHoveringExternally={isHoveringExternally}
         captureTimeout={captureTimeout}
+        isMobile={isMobile}
       />
     </div>
   );
