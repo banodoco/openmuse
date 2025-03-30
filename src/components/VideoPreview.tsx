@@ -21,6 +21,7 @@ interface VideoPreviewProps {
   thumbnailUrl?: string;
   onTouch?: () => void;
   isMobile?: boolean;
+  showPlayButton?: boolean;
 }
 
 /**
@@ -37,7 +38,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   lazyLoad = true,
   thumbnailUrl,
   onTouch,
-  isMobile: externalIsMobile
+  isMobile: externalIsMobile,
+  showPlayButton = true
 }) => {
   const { user } = useAuth();
   const defaultIsMobile = useIsMobile();
@@ -128,7 +130,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const handleTouchEvent = (e: React.TouchEvent) => {
     if (isMobile && onTouch) {
       logger.log('Touch event on video preview');
-      e.preventDefault(); // Prevent default touch behavior
+      e.preventDefault(); // Prevent default touch behavior for video player
       onTouch();
     }
   };
@@ -160,13 +162,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           setIsPlaying(false);
         }
       }}
-      onTouchStart={(e) => {
-        if (isMobile && onTouch) {
-          logger.log('Touch event on video preview');
-          e.preventDefault(); // Prevent default touch behavior
-          onTouch();
-        }
-      }}
+      onTouchStart={handleTouchEvent}
       data-hovering={effectiveHoverState ? "true" : "false"}
       data-mobile={isMobile ? "true" : "false"}
       data-has-thumbnail={!!posterUrl ? "true" : "false"}
@@ -203,7 +199,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={true}
-          showPlayButtonOnHover={isMobile}
+          showPlayButtonOnHover={isMobile && showPlayButton}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
@@ -218,7 +214,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={false}
-          showPlayButtonOnHover={isMobile}
+          showPlayButtonOnHover={isMobile && showPlayButton}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
@@ -229,7 +225,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
 
       {error && <VideoPreviewError error={error} onRetry={() => {setError(null); setIsPlaying(true);}} videoSource={objectUrl || undefined} canRecover={false} />}
       
-      {isMobile && (
+      {isMobile && showPlayButton && posterUrl && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className={`w-12 h-12 rounded-full bg-black/50 flex items-center justify-center transition-opacity ${effectiveHoverState ? 'opacity-0' : 'opacity-80'}`}>
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-6 h-6 text-white">

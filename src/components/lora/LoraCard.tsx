@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
@@ -30,12 +29,14 @@ interface LoraCardProps {
   lora: LoraAsset;
   isAdmin?: boolean;
   showExtras?: boolean;
+  isMobile?: boolean;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
   lora, 
   isAdmin = false, 
-  showExtras = false 
+  showExtras = false,
+  isMobile: propIsMobile
 }) => {
   const navigate = useNavigate();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -44,7 +45,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isHovering, setIsHovering] = useState(false);
   const { user } = useAuth();
   const hoverTimeoutRef = useRef<number | null>(null);
-  const isMobile = useIsMobile();
+  const defaultIsMobile = useIsMobile();
+  const isMobile = propIsMobile !== undefined ? propIsMobile : defaultIsMobile;
   
   const videoUrl = lora.primaryVideo?.video_location;
   const thumbnailUrl = lora.primaryVideo?.metadata?.thumbnailUrl;
@@ -202,7 +204,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const handleTouch = () => {
     if (isMobile) {
       logger.log(`LoraCard: Touch event for ${lora.name}`);
-      setIsHovering(!isHovering);
+      navigate(`/assets/loras/${lora.id}`);
     }
   };
   
@@ -217,7 +219,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
         onMouseLeave={handleMouseLeave}
         onTouchStart={(e) => {
           e.stopPropagation();
-          handleTouch();
         }}
       >
         {videoUrl ? (
@@ -232,14 +233,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
               thumbnailUrl={thumbnailUrl}
               isMobile={isMobile}
               onTouch={handleTouch}
+              showPlayButton={false}
             />
-            {isMobile && !isHovering && (
-              <div className="absolute inset-0 flex items-center justify-center z-1" style={{ pointerEvents: 'none' }}>
-                <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-                  <Play className="h-6 w-6 text-white" />
-                </div>
-              </div>
-            )}
           </>
         ) : (
           <div className="w-full h-full flex items-center justify-center">

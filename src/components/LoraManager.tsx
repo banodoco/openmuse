@@ -8,12 +8,14 @@ interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading: boolean;
   showExtras?: boolean;
+  isMobile?: boolean;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
   loras,
   isLoading,
   showExtras = false,
+  isMobile = false
 }) => {
   // Ensure loras is always an array
   const safeLoraList = Array.isArray(loras) ? loras : [];
@@ -23,7 +25,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
       {isLoading ? (
         <LoadingState text="Loading LoRAs..." />
       ) : (
-        <LoraList loras={safeLoraList} showExtras={showExtras} />
+        <LoraList loras={safeLoraList} showExtras={showExtras} isMobile={isMobile} />
       )}
     </div>
   );

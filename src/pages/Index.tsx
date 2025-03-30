@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -145,6 +146,7 @@ const Index = () => {
           loras={displayLoras} 
           isLoading={lorasLoading}
           showExtras={false} // Ensure "View Original" is always hidden on the home page
+          isMobile={isMobile} // Pass the isMobile prop down explicitly
         />
       </main>
       

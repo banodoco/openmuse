@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -52,7 +51,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
   const [videoInitialized, setVideoInitialized] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  // Always load the video immediately without lazy loading
   const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
   
   const containerRef = useRef<HTMLDivElement>(null);
@@ -62,7 +60,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   
   const isBlobUrl = videoLocation.startsWith('blob:');
 
-  // Update isHoveringRef when props change
   useEffect(() => {
     isHoveringRef.current = isHoveringExternally || false;
     if (isHoveringExternally !== undefined) {
@@ -71,12 +68,10 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   }, [isHoveringExternally]);
 
-  // Always load the video immediately 
   useEffect(() => {
     setShouldLoadVideo(true);
   }, [forcePreload]);
 
-  // Detect manual hover changes
   const handleManualHoverStart = () => {
     if (isHoveringExternally === undefined) {
       logger.log('StorageVideoPlayer: Manual hover start');
@@ -92,10 +87,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   };
   
-  // Handle external hover state changes
   useEffect(() => {
     if (isHoveringExternally !== undefined) {
-      // Start loading video immediately when hovering starts
       if (isHoveringExternally) {
         logger.log('External hover detected - loading video');
         setShouldLoadVideo(true);
@@ -107,7 +100,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         if (isHoveringExternally && video.paused && videoLoaded) {
           logger.log('External hover detected - attempting to play video');
           
-          // Play immediately without delay
           setTimeout(() => {
             if (video.paused) {
               video.play().catch(e => {
@@ -128,7 +120,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   }, [isHoveringExternally, previewMode, videoRef, videoInitialized, videoLoaded]);
   
-  // Always load the video - no lazy loading
   useEffect(() => {
     let isMounted = true;
     
@@ -158,7 +149,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           setVideoUrl(url);
           setLoading(false);
           setVideoLoaded(true);
-          // Mark video as initialized after URL is set
           setVideoInitialized(true);
           logger.log('Video URL loaded and ready');
         }
@@ -200,7 +190,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   };
 
-  // Main video player render
   return (
     <div 
       className="relative w-full h-full"
@@ -208,7 +197,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       onMouseLeave={handleManualHoverEnd}
       ref={containerRef}
     >
-      {/* Show loading overlay if video is loading but we have a poster */}
       {loading && posterUrl && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
           <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
@@ -249,12 +237,11 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           externallyControlled={isHoveringExternally !== undefined}
           isHovering={isHovering}
           poster={posterUrl || undefined}
-          lazyLoad={false} // Disable lazy loading
+          lazyLoad={false}
           onLoadedData={handleVideoLoaded}
         />
       )}
 
-      {/* Show poster if no video URL or during loading */}
       {!videoUrl && posterUrl && !error && (
         <img 
           src={posterUrl} 
@@ -263,7 +250,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         />
       )}
 
-      {/* Play button overlay only when not hovering */}
       {posterUrl && !isHovering && showPlayButtonOnHover && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div className="rounded-full bg-black/40 p-3">

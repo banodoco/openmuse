@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -128,6 +127,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
     logger.log(`VideoCard: Touch event for ${video.id}`);
     if (onTouch) {
       onTouch();
+    } else {
+      onOpenLightbox(video);
     }
   };
   
@@ -167,20 +168,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
             thumbnailUrl={thumbnailUrl}
             onTouch={handleTouch}
             isMobile={isMobile}
+            showPlayButton={false}
           />
           
-          {isMobile ? (
-            <div 
-              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
-                ${isHovering ? 'opacity-0' : 'opacity-70'}
-              `}
-              style={{ zIndex: 1 }}
-            >
-              <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-                <Play className="h-6 w-6 text-white" />
-              </div>
-            </div>
-          ) : (
+          {!isMobile && (
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
                 ${isHovering ? 'opacity-0' : 'opacity-100'}

@@ -77,7 +77,7 @@ export const useVideoHover = (
             }
           });
         }
-      }, 0); // No delay for immediate response
+      }, delayPlay); 
     };
     
     const handleMouseLeave = () => {
@@ -103,37 +103,14 @@ export const useVideoHover = (
       }
     };
     
-    // For mobile: toggle play/pause on touch
+    // For mobile: now we just show the thumbnail on index page
+    // and let the card click navigate to details
     const handleTouch = (e: TouchEvent) => {
       if (!isMobile) return;
       
-      logger.log('Touch event on video, current playing state:', !video.paused);
-      
-      // Toggle the play state
-      touchPlayToggleRef.current = !touchPlayToggleRef.current;
-      
-      if (touchPlayToggleRef.current) {
-        // Play the video
-        if (video.paused) {
-          // Force preload if not already loaded
-          if (video.preload !== 'auto') {
-            video.preload = 'auto';
-          }
-          
-          video.play().catch(e => {
-            logger.warn('Play on touch prevented:', e);
-          });
-        }
-      } else {
-        // Pause the video
-        if (!video.paused) {
-          video.pause();
-          
-          if (resetOnLeave) {
-            video.currentTime = 0;
-          }
-        }
-      }
+      // We don't handle the touch event here anymore
+      // Let the parent card handle the navigation
+      logger.log('Touch event on video, passing through to container');
     };
     
     // Remove any existing listeners before adding new ones
@@ -145,9 +122,9 @@ export const useVideoHover = (
     container.addEventListener('mouseenter', handleMouseEnter);
     container.addEventListener('mouseleave', handleMouseLeave);
     
-    // Only add touch listener for mobile
+    // Only add touch listener for mobile if needed for specific cases
     if (isMobile) {
-      container.addEventListener('touchstart', handleTouch as EventListener, { passive: false });
+      container.addEventListener('touchstart', handleTouch as EventListener, { passive: true });
     }
     
     return () => {
