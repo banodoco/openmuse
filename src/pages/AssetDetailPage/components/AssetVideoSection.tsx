@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import { Button } from '@/components/ui/button';
@@ -35,13 +34,11 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const isMobile = useIsMobile();
   
   useEffect(() => {
-    // Log the device type for debugging
     logger.log(`AssetVideoSection: Device type is ${isMobile ? 'mobile' : 'desktop'}`);
     logger.log(`AssetVideoSection: Total videos: ${videos.length}`);
   }, [isMobile, videos.length]);
   
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
-    // Don't change hover state on mobile
     if (isMobile) return;
     
     logger.log(`AssetVideoSection: Hover state changed for ${videoId} to ${isHovering}`);
@@ -54,12 +51,10 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   };
   
   const handleVideoTouch = (videoId: string) => {
-    // Only handle touch events on mobile
     if (!isMobile) return;
     
     logger.log(`AssetVideoSection: Touch event for video ${videoId}, current hovered: ${hoveredVideoId}`);
     
-    // Toggle behavior: tap once to preview, tap again to stop
     if (hoveredVideoId === videoId) {
       setHoveredVideoId(null);
     } else {
@@ -97,8 +92,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               onTouch={() => handleVideoTouch(video.id)}
               isMobile={isMobile}
               showPlayButton={!isMobile}
-              forceFrameCapture={true} // Always force frame capture to prevent placeholder fallback
-              captureTimeout={10000} // Increase timeout for frame capture
+              forceFrameCapture={true}
+              captureTimeout={10000}
             />
           ))}
         </div>
