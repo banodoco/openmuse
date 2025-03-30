@@ -81,8 +81,8 @@ const VideoPreviewCore: React.FC<VideoPreviewCoreProps> = ({
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={isMobile ? undefined : handleMouseEnter}
-      onMouseLeave={isMobile ? undefined : handleMouseLeave}
+      onMouseEnter={externalIsMobile ? undefined : handleMouseEnter}
+      onMouseLeave={externalIsMobile ? undefined : handleMouseLeave}
       onTouchStart={handleTouchEvent}
       data-hovering={effectiveHoverState ? "true" : "false"}
       data-mobile={externalIsMobile ? "true" : "false"}
