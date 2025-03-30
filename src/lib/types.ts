@@ -12,6 +12,10 @@ export interface VideoMetadata {
   loraLink?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
   thumbnailUrl?: string;
+  baseModel?: string;
+  trainingSteps?: string | number;
+  resolution?: string;
+  trainingDataset?: string;
 }
 
 export interface VideoEntry {
