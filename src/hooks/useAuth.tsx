@@ -44,14 +44,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     logger.log('Setting up auth provider');
     
-    // Set a maximum timeout to prevent infinite loading state
+    // Set a maximum timeout to prevent infinite loading state - reduced from 6s to 3s
     authTimeout.current = setTimeout(() => {
       if (isMounted.current && isLoading && !sessionCheckComplete.current) {
-        logger.warn('Auth check timed out after 6 seconds, completing loading state');
+        logger.warn('Auth check timed out after 3 seconds, completing loading state');
         setIsLoading(false);
         sessionCheckComplete.current = true;
       }
-    }, 6000);
+    }, 3000);
 
     // Set up auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(

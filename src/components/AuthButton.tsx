@@ -24,6 +24,20 @@ const AuthButton: React.FC = () => {
   const navigate = useNavigate();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
+  
+  // Set a maximum timeout for loading state to prevent indefinite greyed-out button
+  useEffect(() => {
+    if (isLoading) {
+      const timer = setTimeout(() => {
+        setLoadingTimeout(true);
+      }, 3000); // Set timeout to 3 seconds
+      
+      return () => clearTimeout(timer);
+    } else {
+      setLoadingTimeout(false);
+    }
+  }, [isLoading]);
   
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -78,8 +92,8 @@ const AuthButton: React.FC = () => {
       .substring(0, 2);
   };
   
-  // Show loading state while checking auth
-  if (isLoading) {
+  // If loading but timeout occurred, show sign-in button instead of greyed out state
+  if (isLoading && !loadingTimeout) {
     return (
       <Button variant="ghost" disabled className="animate-pulse">
         <div className="h-5 w-20 bg-muted rounded" />
