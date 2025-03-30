@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -20,6 +21,7 @@ interface VideoCardProps {
   onHoverChange?: (isHovering: boolean) => void;
   onTouch?: () => void;
   isMobile?: boolean;
+  showPlayButton?: boolean;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
