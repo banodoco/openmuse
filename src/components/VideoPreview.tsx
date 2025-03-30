@@ -7,6 +7,7 @@ import EmbeddedVideoPlayer from './video/EmbeddedVideoPlayer';
 import StandardVideoPreview from './video/StandardVideoPreview';
 import StorageVideoPlayer from './StorageVideoPlayer';
 import { Logger } from '@/lib/logger';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('VideoPreview');
 
@@ -36,6 +37,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   thumbnailUrl
 }) => {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -54,9 +56,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     if (externalHoverState !== undefined) {
       logger.log(`VideoPreview: External hover state changed to ${externalHoverState}`);
       setIsHovering(externalHoverState);
-      setIsPlaying(externalHoverState);
+      // Only auto-play on hover for desktop - not on mobile
+      if (!isMobile) {
+        setIsPlaying(externalHoverState);
+      }
     }
-  }, [externalHoverState]);
+  }, [externalHoverState, isMobile]);
   
   useEffect(() => {
     if (file) {
@@ -95,7 +100,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       logger.log('Mouse entered video preview');
       setInternalHoverState(true);
       setIsHovering(true);
-      setIsPlaying(true);
+      // Only auto-play on hover for desktop
+      if (!isMobile) {
+        setIsPlaying(true);
+      }
     }
   };
 
@@ -122,6 +130,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-hovering={effectiveHoverState ? "true" : "false"}
+      data-is-mobile={isMobile ? "true" : "false"}
     >
       {needsThumbnailGeneration && (
         <VideoThumbnailGenerator 
@@ -146,6 +155,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           posterUrl={posterUrl}
           onError={handleVideoError}
           isHovering={effectiveHoverState}
+          isMobile={isMobile}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -153,14 +163,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}
+          playOnHover={!isMobile}
           previewMode={true}
           showPlayButtonOnHover={false}
-          autoPlay={effectiveHoverState}
+          autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={true} // Force preload to ensure video is ready for hover
+          forcePreload={!isMobile} // Only force preload on desktop
+          isMobile={isMobile}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -168,14 +179,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           controls={false}
           muted={true}
           className="w-full h-full object-cover"
-          playOnHover={true}
+          playOnHover={!isMobile}
           previewMode={false}
           showPlayButtonOnHover={false}
-          autoPlay={effectiveHoverState}
+          autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} // Disable lazy loading to ensure videos are ready for hover
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={true} // Force preload to ensure video is ready for hover
+          forcePreload={!isMobile} // Only force preload on desktop
+          isMobile={isMobile}
         />
       ) : null}
 

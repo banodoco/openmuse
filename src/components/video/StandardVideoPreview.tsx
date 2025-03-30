@@ -20,6 +20,7 @@ interface StandardVideoPreviewProps {
   onRefresh?: () => void;
   isRefreshing?: boolean;
   isHovering?: boolean;
+  isMobile?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -29,7 +30,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   videoId,
   onRefresh,
   isRefreshing = false,
-  isHovering = false
+  isHovering = false,
+  isMobile = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -39,9 +41,26 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [currentUrl, setCurrentUrl] = useState<string | null>(url);
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
   const [videoReady, setVideoReady] = useState(false);
+  const [posterLoaded, setPosterLoaded] = useState(false);
   
   // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
+  
+  // Handle poster image loading
+  useEffect(() => {
+    if (posterUrl) {
+      const img = new Image();
+      img.onload = () => {
+        setPosterLoaded(true);
+        logger.log('Poster image loaded successfully');
+      };
+      img.onerror = () => {
+        logger.error('Failed to load poster image:', posterUrl);
+        setPosterLoaded(false);
+      };
+      img.src = posterUrl;
+    }
+  }, [posterUrl]);
   
   // Check URL validity on mount and when URL changes
   useEffect(() => {
@@ -115,6 +134,14 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
 
   return (
     <div ref={containerRef} className="w-full h-full relative">
+      {/* Always show poster explicitly for mobile */}
+      {isMobile && posterUrl && !currentError && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center z-10"
+          style={{ backgroundImage: `url(${posterUrl})` }}
+        />
+      )}
+      
       {currentError ? (
         <VideoPreviewError
           error={currentError}
@@ -126,21 +153,22 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         <VideoPlayer 
           src={currentUrl} 
           controls={false}
-          autoPlay={isHovering}
+          autoPlay={isHovering && !isMobile}
           muted={true}
           className="w-full h-full object-cover"
           onError={handleError}
           poster={posterUrl || undefined}
-          playOnHover={true}
+          playOnHover={!isMobile}
           containerRef={containerRef}
           showPlayButtonOnHover={false}
           isHovering={isHovering}
           onLoadedData={handleVideoLoaded}
+          isMobile={isMobile}
         />
       )}
       
       {videoId && (
-        <div className="absolute bottom-2 right-2 z-10">
+        <div className="absolute bottom-2 right-2 z-20">
           <Link to={`/videos/${videoId}`}>
             <Button size="sm" variant="secondary" className="gap-1 opacity-90 hover:opacity-100">
               <Eye className="h-3 w-3" />
@@ -151,7 +179,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       )}
       
       {onRefresh && currentError && (
-        <div className="absolute top-2 right-2 z-10">
+        <div className="absolute top-2 right-2 z-20">
           <Button 
             size="sm" 
             variant="secondary" 
@@ -162,6 +190,14 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
             <RefreshCw className={cn("h-3 w-3", isRefreshing && "animate-spin")} />
             {isRefreshing ? "Refreshing..." : "Refresh URL"}
           </Button>
+        </div>
+      )}
+      
+      {isMobile && !currentError && (
+        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
+          <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+            <Play className="h-6 w-6 text-white" />
+          </div>
         </div>
       )}
     </div>
