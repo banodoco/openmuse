@@ -1,6 +1,9 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Play } from 'lucide-react';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoOverlay');
 
 interface VideoOverlayProps {
   isMobile: boolean;
@@ -13,10 +16,15 @@ const VideoOverlay: React.FC<VideoOverlayProps> = ({
   poster,
   posterLoaded
 }) => {
-  if (!isMobile || !poster || !posterLoaded) {
+  useEffect(() => {
+    logger.log(`VideoOverlay props: isMobile=${isMobile}, poster=${!!poster}, posterLoaded=${posterLoaded}`);
+  }, [isMobile, poster, posterLoaded]);
+
+  if (!isMobile || !poster) {
     return null;
   }
 
+  // Always show overlay on mobile when poster exists, regardless of posterLoaded state
   return (
     <>
       <div 

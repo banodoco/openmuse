@@ -99,15 +99,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const img = new Image();
       img.onload = () => {
         setPosterLoaded(true);
-        logger.log('Poster image loaded successfully');
+        logger.log(`Poster image loaded successfully: ${poster.substring(0, 30)}...`);
       };
-      img.onerror = () => {
-        logger.error('Failed to load poster image:', poster);
+      img.onerror = (e) => {
+        logger.error('Failed to load poster image:', poster, e);
         setPosterLoaded(false);
       };
       img.src = poster;
     }
   }, [poster]);
+  
+  // Add additional logging for mobile detection
+  React.useEffect(() => {
+    logger.log(`VideoPlayer isMobile state: ${isMobile}`);
+    logger.log(`VideoPlayer poster: ${poster ? 'exists' : 'missing'}`);
+    logger.log(`VideoPlayer posterLoaded: ${posterLoaded}`);
+  }, [isMobile, poster, posterLoaded]);
   
   const loadFullVideo = useCallback(() => {
     if (!hasInteracted) {
@@ -133,6 +140,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       className="relative w-full h-full overflow-hidden rounded-lg"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      data-is-mobile={isMobile ? "true" : "false"}
     >
       {isLoading && <VideoLoader posterImage={poster} />}
       
@@ -154,7 +162,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <LazyPosterImage 
         poster={poster} 
         lazyLoad={lazyLoad} 
-        hasInteracted={hasInteracted} 
+        hasInteracted={hasInteracted}
+        isMobile={isMobile}
       />
       
       <video
@@ -174,14 +183,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       >
         Your browser does not support the video tag.
       </video>
-      
-      {isMobile && poster && posterLoaded && (
-        <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
-          <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-            <Play className="h-6 w-6 text-white" />
-          </div>
-        </div>
-      )}
     </div>
   );
 };

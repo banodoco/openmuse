@@ -8,12 +8,14 @@ interface LazyPosterImageProps {
   poster?: string;
   lazyLoad: boolean;
   hasInteracted: boolean;
+  isMobile?: boolean;
 }
 
 const LazyPosterImage: React.FC<LazyPosterImageProps> = ({
   poster,
   lazyLoad,
-  hasInteracted
+  hasInteracted,
+  isMobile = false
 }) => {
   const [posterLoaded, setPosterLoaded] = useState(false);
   
@@ -32,6 +34,12 @@ const LazyPosterImage: React.FC<LazyPosterImageProps> = ({
     }
   }, [poster]);
   
+  // For mobile, skip this component entirely as VideoOverlay will handle it
+  if (isMobile) {
+    return null;
+  }
+  
+  // For desktop, proceed with normal logic
   if (!lazyLoad || hasInteracted || !poster || !posterLoaded) {
     return null;
   }
