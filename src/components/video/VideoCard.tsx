@@ -8,7 +8,6 @@ import { supabase } from '@/integrations/supabase/client';
 import VideoPreview from '../VideoPreview';
 import { Logger } from '@/lib/logger';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { Badge } from '@/components/ui/badge';
 
 const logger = new Logger('VideoCard');
 
@@ -120,27 +119,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
     );
   };
   
-  const getModelColor = (modelType?: string): string => {
-    switch (modelType?.toLowerCase()) {
-      case 'wan':
-        return "bg-blue-500 text-white";
-      case 'hunyuan':
-        return "bg-purple-500 text-white";
-      case 'ltxv':
-        return "bg-amber-500 text-white";
-      case 'cogvideox':
-        return "bg-emerald-500 text-white";
-      case 'animatediff':
-        return "bg-pink-500 text-white";
-      default:
-        return "bg-gray-500 text-white";
-    }
-  };
-  
-  const getModelName = (): string | undefined => {
-    return video.metadata?.model;
-  };
-  
   const handleApprove = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onApproveVideo) onApproveVideo(video.id);
@@ -157,8 +135,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
-  
-  const modelName = getModelName();
   
   return (
     <div 
@@ -201,19 +177,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
       </div>
       
       <div className="p-2 bg-card">
-        <div className="flex items-center justify-between mb-1">
+        <div className="mb-1">
           {video.metadata?.title && (
-            <h3 className="font-medium text-sm truncate flex-1">
+            <h3 className="font-medium text-sm truncate">
               {video.metadata.title}
             </h3>
-          )}
-          {modelName && (
-            <Badge 
-              variant="model" 
-              className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(modelName))}
-            >
-              {modelName.toUpperCase()}
-            </Badge>
           )}
         </div>
         <p className="text-xs text-muted-foreground">By {getCreatorName()}</p>
