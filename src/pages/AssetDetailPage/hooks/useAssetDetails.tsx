@@ -100,7 +100,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 title: media.title,
                 description: '',
                 classification: media.classification,
-                model: media.type, // This is the base model (wan, hunyuan, etc)
+                model: assetData.lora_base_model || media.type, // Use asset's base model first, fall back to media type
                 loraName: assetData.name,
                 loraDescription: assetData.description,
                 assetId: assetData.id,

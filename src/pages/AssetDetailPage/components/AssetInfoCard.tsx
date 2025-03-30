@@ -57,23 +57,26 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
     }
   };
 
-  // Fixed: Separate functions for model and lora type
+  // Get base model name with fallbacks
   const getModelName = (): string | undefined => {
-    // Look for the model in the primaryVideo metadata first
-    if (asset?.primaryVideo?.metadata?.model) {
-      return asset.primaryVideo.metadata.model;
-    }
-    // Then check if we have a base model directly on the asset
-    else if (asset?.lora_base_model) {
+    // First priority: asset's lora_base_model
+    if (asset?.lora_base_model) {
       return asset.lora_base_model;
+    }
+    // Second priority: primaryVideo metadata model
+    else if (asset?.primaryVideo?.metadata?.model) {
+      return asset.primaryVideo.metadata.model;
     }
     return undefined;
   };
 
+  // Get LoRA type with fallbacks
   const getLoraType = (): string | undefined => {
+    // First priority: asset's lora_type
     if (asset?.lora_type) {
       return asset.lora_type;
-    } 
+    }
+    // Second priority: primaryVideo metadata loraType
     else if (asset?.primaryVideo?.metadata?.loraType) {
       return asset.primaryVideo.metadata.loraType;
     }
@@ -107,7 +110,7 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
 
         {modelName && (
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Model</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Base Model</h3>
             <Badge 
               variant="model" 
               className={cn("text-white", getModelColor(modelName))}
@@ -131,7 +134,7 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
 
         {asset?.primaryVideo?.metadata?.baseModel && (
           <div>
-            <h3 className="text-sm font-medium text-muted-foreground">Base Model</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">Additional Model Info</h3>
             <p>{asset.primaryVideo.metadata.baseModel}</p>
           </div>
         )}

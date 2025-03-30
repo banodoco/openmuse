@@ -96,7 +96,10 @@ const UploadPage: React.FC = () => {
           const uploadResult = await supabaseStorage.uploadVideo({
             id: videoId,
             blob: video.file,
-            metadata: video.metadata
+            metadata: {
+              ...video.metadata,
+              model: loraDetails.model // Ensure model is set from loraDetails
+            }
           });
           
           // Replace the local blob URL with the permanent Supabase URL
@@ -191,7 +194,7 @@ const submitVideos = async (videos: any[], loraDetails: any, reviewerName: strin
         creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
         user_id: user?.id || null,
         lora_type: loraDetails.loraType,
-        lora_base_model: loraDetails.model,
+        lora_base_model: loraDetails.model, // Save model as lora_base_model in asset
         lora_link: loraDetails.loraLink
       })
       .select()
@@ -241,13 +244,13 @@ const submitVideos = async (videos: any[], loraDetails: any, reviewerName: strin
       
       logger.log(`Creating media entry for video ${video.metadata.title}`);
       try {
-        // Create media with explicitly set null for user_id if not authenticated
+        // Add model as type field in media
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
           .insert({
             title: video.metadata.title,
             url: videoUrl,
-            type: 'video',
+            type: loraDetails.model, // Store the model as type in media table for backward compatibility
             classification: video.metadata.classification || 'art',
             creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
             user_id: user?.id || null
