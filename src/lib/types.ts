@@ -19,6 +19,40 @@ export interface VideoMetadata {
   trainingDataset?: string;
 }
 
+export interface VideoEntry {
+  id: string;
+  video_location: string;
+  reviewer_name: string;
+  skipped: boolean;
+  created_at: string;
+  admin_approved: string | null;
+  user_id?: string;
+  metadata?: VideoMetadata;
+}
+
+export interface RecordedVideo {
+  id: string;
+  blob: Blob;
+  url: string;
+  thumbnail?: string;
+  metadata?: VideoMetadata;
+}
+
+export interface VideoFile {
+  id?: string;
+  blob?: Blob;
+  url?: string;
+  metadata?: VideoMetadata;
+}
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  display_name?: string;
+  avatar_url?: string;
+  video_upload_consent?: boolean;
+}
+
 export interface LoraAsset {
   id: string;
   name: string;
@@ -36,4 +70,11 @@ export interface LoraAsset {
   // Populated from related data
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];
+}
+
+// Props interfaces
+export interface LoraManagerProps {
+  loras: LoraAsset[];
+  isLoading: boolean;
+  showExtras?: boolean;
 }
