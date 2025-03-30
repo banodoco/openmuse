@@ -1,10 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
 
@@ -13,6 +13,7 @@ const Navigation: React.FC = () => {
   const [isAdmin, setIsAdmin] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -47,7 +48,10 @@ const Navigation: React.FC = () => {
           <img 
             src={logoPath} 
             alt="OpenMuse Logo" 
-            className="h-20 w-auto"
+            className={cn(
+              "w-auto transition-all duration-300", 
+              isMobile ? "h-12" : "h-20"
+            )}
             onError={handleImageError}
           />
         </Link>
