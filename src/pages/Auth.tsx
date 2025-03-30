@@ -174,7 +174,7 @@ const Auth: React.FC = () => {
           <div className="text-center space-y-2">
             <h1 className="text-3xl font-bold">Sign In</h1>
             <p className="text-muted-foreground">
-              Sign in to OpenMuse to upload and react to videos
+              Sign in to OpenMuse to add LoRAs and videos
             </p>
           </div>
           
@@ -206,3 +206,4 @@ const Auth: React.FC = () => {
 };
 
 export default Auth;
+
