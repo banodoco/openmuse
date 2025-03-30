@@ -9,20 +9,18 @@ interface VideoOverlayProps {
   isMobile: boolean;
   poster?: string;
   posterLoaded: boolean;
-  showPlayButton?: boolean;
 }
 
 const VideoOverlay: React.FC<VideoOverlayProps> = ({
   isMobile,
   poster,
-  posterLoaded,
-  showPlayButton = true
+  posterLoaded
 }) => {
   useEffect(() => {
     logger.log(`VideoOverlay props: isMobile=${isMobile}, poster=${!!poster}, posterLoaded=${posterLoaded}`);
   }, [isMobile, poster, posterLoaded]);
 
-  if (!isMobile || !poster || !showPlayButton) {
+  if (!isMobile || !poster) {
     return null;
   }
 

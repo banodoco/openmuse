@@ -26,16 +26,14 @@ const logger = new Logger('LoraCard');
 
 interface LoraCardProps {
   lora: LoraAsset;
-  isAdmin: boolean;
+  isAdmin?: boolean;
   showExtras?: boolean;
-  showPlayButtonOnMobile?: boolean;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
   lora, 
   isAdmin = false, 
-  showExtras = false,
-  showPlayButtonOnMobile = false
+  showExtras = false 
 }) => {
   const navigate = useNavigate();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -213,7 +211,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
             isHovering={isHovering}
             lazyLoad={true}
             thumbnailUrl={thumbnailUrl}
-            showPlayButtonOnMobile={showPlayButtonOnMobile}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
