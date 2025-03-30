@@ -21,7 +21,6 @@ interface StandardVideoPreviewProps {
   isRefreshing?: boolean;
   isHovering?: boolean;
   isMobile?: boolean;
-  showPlayButtonOnMobile?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -32,8 +31,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   onRefresh,
   isRefreshing = false,
   isHovering = false,
-  isMobile = false,
-  showPlayButtonOnMobile = true
+  isMobile = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -166,7 +164,6 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           isHovering={isHovering}
           onLoadedData={handleVideoLoaded}
           isMobile={isMobile}
-          showPlayButtonOnMobile={showPlayButtonOnMobile}
         />
       )}
       
@@ -196,7 +193,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
         </div>
       )}
       
-      {isMobile && !currentError && showPlayButtonOnMobile && (
+      {isMobile && !currentError && (
         <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
           <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
             <Play className="h-6 w-6 text-white" />

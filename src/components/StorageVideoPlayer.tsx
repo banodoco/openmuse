@@ -24,7 +24,6 @@ interface StorageVideoPlayerProps {
   thumbnailUrl?: string;
   forcePreload?: boolean;
   isMobile?: boolean;
-  showPlayButtonOnMobile?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -43,8 +42,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   onLoadedData,
   thumbnailUrl,
   forcePreload = false,
-  isMobile = false,
-  showPlayButtonOnMobile = true
+  isMobile = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -252,7 +250,6 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           lazyLoad={false}
           onLoadedData={handleVideoLoaded}
           isMobile={isMobile}
-          showPlayButtonOnMobile={showPlayButtonOnMobile}
         />
       )}
 
@@ -271,7 +268,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         />
       )}
 
-      {posterUrl && !isHovering && showPlayButtonOnHover && (!isMobile || (isMobile && showPlayButtonOnMobile)) && (
+      {posterUrl && !isHovering && showPlayButtonOnHover && (
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
           <div className="rounded-full bg-black/40 p-3">
             <Play className="h-6 w-6 text-white" />

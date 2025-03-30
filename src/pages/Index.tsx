@@ -144,8 +144,7 @@ const Index = () => {
         <LoraManager 
           loras={displayLoras} 
           isLoading={lorasLoading}
-          showExtras={false} 
-          showPlayButtonOnMobile={false} // Hide play button on mobile in the homepage
+          showExtras={false} // Ensure "View Original" is always hidden on the home page
         />
       </main>
       

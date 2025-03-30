@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -8,7 +7,6 @@ import StandardVideoPreview from './video/StandardVideoPreview';
 import StorageVideoPlayer from './StorageVideoPlayer';
 import { Logger } from '@/lib/logger';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useLocation } from 'react-router-dom';
 
 const logger = new Logger('VideoPreview');
 
@@ -21,7 +19,6 @@ interface VideoPreviewProps {
   isHovering?: boolean;
   lazyLoad?: boolean;
   thumbnailUrl?: string;
-  showPlayButtonOnMobile?: boolean;
 }
 
 /**
@@ -36,13 +33,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   creator,
   isHovering: externalHoverState,
   lazyLoad = true,
-  thumbnailUrl,
-  showPlayButtonOnMobile = true
+  thumbnailUrl
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const location = useLocation();
-  const isHomePage = location.pathname === '/';
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -55,9 +49,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   
   // Combine external and internal hover states
   const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
-  
-  // Determine whether to show play button on mobile based on props and if we're on homepage
-  const shouldShowPlayButton = isHomePage ? showPlayButtonOnMobile : true;
   
   // Force playing state update when hover state changes
   useEffect(() => {
@@ -156,7 +147,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isPlaying={isPlaying}
           posterUrl={posterUrl}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
-          showPlayButtonOnMobile={shouldShowPlayButton}
         />
       ) : file ? (
         <StandardVideoPreview 
@@ -165,7 +155,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           onError={handleVideoError}
           isHovering={effectiveHoverState}
           isMobile={isMobile}
-          showPlayButtonOnMobile={shouldShowPlayButton}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -175,14 +164,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={true}
-          showPlayButtonOnHover={!isMobile && shouldShowPlayButton}
+          showPlayButtonOnHover={false}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} 
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={!isMobile} 
           isMobile={isMobile}
-          showPlayButtonOnMobile={shouldShowPlayButton}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -192,14 +180,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
           previewMode={false}
-          showPlayButtonOnHover={!isMobile && shouldShowPlayButton}
+          showPlayButtonOnHover={false}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false}
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={!isMobile}
           isMobile={isMobile}
-          showPlayButtonOnMobile={shouldShowPlayButton}
         />
       ) : null}
 

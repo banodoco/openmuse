@@ -9,7 +9,6 @@ interface EmbeddedVideoPlayerProps {
   posterUrl: string | null;
   onTogglePlay: () => void;
   className?: string;
-  showPlayButtonOnMobile?: boolean;
 }
 
 const EmbeddedVideoPlayer: React.FC<EmbeddedVideoPlayerProps> = ({
@@ -17,8 +16,7 @@ const EmbeddedVideoPlayer: React.FC<EmbeddedVideoPlayerProps> = ({
   isPlaying,
   posterUrl,
   onTogglePlay,
-  className = '',
-  showPlayButtonOnMobile = true
+  className = ''
 }) => {
   const embedUrl = getEmbedUrl(url);
   
