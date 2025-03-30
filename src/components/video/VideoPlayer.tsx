@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -6,6 +5,7 @@ import { useVideoHover } from '@/hooks/useVideoHover';
 import { attemptVideoPlay, getVideoErrorMessage, isValidVideoUrl, getVideoFormat } from '@/lib/utils/videoUtils';
 import VideoError from './VideoError';
 import VideoLoader from './VideoLoader';
+import { Play } from 'lucide-react'; // Add the Play icon import
 
 const logger = new Logger('VideoPlayer');
 
@@ -63,13 +63,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
   
-  // Setup hover behavior - only if not externally controlled and not on mobile
   useVideoHover(containerRef, videoRef, {
     enabled: playOnHover && !externallyControlled && !isMobile,
     resetOnLeave: true
   });
   
-  // Handle lazy loading of video
   const loadFullVideo = useCallback(() => {
     if (!videoLoaded) {
       logger.log('Loading full video on hover');
@@ -78,7 +76,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [videoLoaded]);
 
-  // Handle poster image loading
   useEffect(() => {
     if (poster) {
       const img = new Image();
@@ -94,13 +91,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [poster]);
   
-  // Reset state when src changes
   useEffect(() => {
     setLoadedDataFired(false);
     setPlayAttempted(false);
   }, [src]);
   
-  // Handle external hover control - but not on mobile
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -113,7 +108,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         logger.log('VideoPlayer: External hover detected - playing video');
         
         if (!playAttempted) {
-          // Small delay to avoid conflicts with other operations
           setTimeout(() => {
             if (video && video.readyState >= 2) {
               attemptVideoPlay(video, muted)
@@ -129,8 +123,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }
     }
   }, [isHovering, externallyControlled, videoRef, muted, loadFullVideo, playAttempted, isMobile]);
-
-  // Validate video source
+  
   useEffect(() => {
     setIsBlobUrl(src?.startsWith('blob:') || false);
     
@@ -142,7 +135,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       return;
     }
     
-    // Allow blob URLs to pass validation
     if (!isBlobUrl && !isValidVideoUrl(src)) {
       const format = getVideoFormat(src);
       const errorMsg = `Invalid video source: ${src.substring(0, 50)}...`;
@@ -153,8 +145,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       if (onError) onError(errorMsg);
     }
   }, [src, onError, isBlobUrl]);
-
-  // Handle video element setup when src changes or when video is loaded on hover
+  
   useEffect(() => {
     if (!src || !videoLoaded) {
       return;
@@ -184,19 +175,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onLoadedData();
       }
       
-      // Don't autoplay on mobile, or if we're using hover to play or lazy loading
       if (autoPlay && !playOnHover && !externallyControlled && !isMobile) {
-        // Small delay to ensure the video is ready
         setTimeout(() => {
           attemptVideoPlay(video, muted);
         }, 150);
       }
       
-      // For externally controlled video, check if we should play immediately
-      // But never on mobile
       if (!isMobile && ((externallyControlled && isHovering) || (playOnHover && isInternallyHovering))) {
         logger.log('VideoPlayer: Initially hovering - playing video immediately');
-        // Small delay to ensure the video is ready
         setTimeout(() => {
           attemptVideoPlay(video, muted).then(() => {
             logger.log('Auto-play successful in lightbox');
@@ -211,7 +197,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       const { message, details } = getVideoErrorMessage(video.error, src);
       const format = getVideoFormat(src);
       
-      // Special message for blob URLs
       if (isBlobUrl) {
         setError('The temporary preview cannot be played');
         setErrorDetails('This may be due to the blob URL being created in a different browser context or session');
@@ -233,11 +218,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     video.addEventListener('loadeddata', handleLoadedData);
     video.addEventListener('error', handleError);
     
-    // Always pause first to ensure consistent state
     video.pause();
     
     try {
-      // Only set the full video source if we're loading the video
       video.preload = videoLoaded ? "auto" : "metadata";
       video.src = src;
       if (poster) {
@@ -261,7 +244,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       video.load();
     };
   }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering, videoLoaded, isInternallyHovering, isMobile]);
-
+  
   const handleRetry = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -273,7 +256,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setPlayAttempted(false);
     setLoadedDataFired(false);
     
-    // Simply reload the video
     video.load();
   };
 
@@ -306,7 +288,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         />
       )}
       
-      {/* Always show poster if on mobile */}
       {isMobile && poster && (
         <div 
           className="absolute inset-0 bg-cover bg-center z-10" 
@@ -314,7 +295,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         />
       )}
       
-      {/* Show poster if lazy loading and not yet loaded */}
       {!isMobile && lazyLoad && !hasInteracted && poster && (
         <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${poster})` }} />
       )}
@@ -337,7 +317,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         Your browser does not support the video tag.
       </video>
       
-      {/* Add play button for mobile */}
       {isMobile && poster && posterLoaded && (
         <div className="absolute inset-0 flex items-center justify-center z-20 pointer-events-none">
           <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
