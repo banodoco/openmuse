@@ -1,11 +1,14 @@
-import React, { useRef, useState, useEffect, useCallback } from 'react';
+
+import React, { useRef, useState, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
-import { useVideoHover } from '@/hooks/useVideoHover';
-import { attemptVideoPlay, getVideoErrorMessage, isValidVideoUrl, getVideoFormat } from '@/lib/utils/videoUtils';
+import { Play } from 'lucide-react';
 import VideoError from './VideoError';
 import VideoLoader from './VideoLoader';
-import { Play } from 'lucide-react'; // Add the Play icon import
+import VideoOverlay from './VideoOverlay';
+import LazyPosterImage from './LazyPosterImage';
+import { useVideoLoader } from '@/hooks/useVideoLoader';
+import { useVideoPlayback } from '@/hooks/useVideoPlayback';
 
 const logger = new Logger('VideoPlayer');
 
@@ -52,31 +55,46 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const videoRef = externalVideoRef || internalVideoRef;
   const internalContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = externalContainerRef || internalContainerRef;
-  const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [errorDetails, setErrorDetails] = useState<string>('');
-  const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
-  const [videoLoaded, setVideoLoaded] = useState(!lazyLoad || autoPlay || false);
   const [hasInteracted, setHasInteracted] = useState(false);
-  const [playAttempted, setPlayAttempted] = useState(false);
-  const [loadedDataFired, setLoadedDataFired] = useState(false);
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
   
-  useVideoHover(containerRef, videoRef, {
-    enabled: playOnHover && !externallyControlled && !isMobile,
-    resetOnLeave: true
+  // Use the video loader hook
+  const {
+    error,
+    isLoading,
+    errorDetails,
+    handleRetry,
+    playAttempted,
+    setPlayAttempted
+  } = useVideoLoader({
+    src,
+    poster,
+    videoRef,
+    onError,
+    onLoadedData,
+    autoPlay,
+    muted,
+    playOnHover,
+    externallyControlled,
+    isHovering: externallyControlled ? isHovering : isInternallyHovering,
+    isMobile
   });
   
-  const loadFullVideo = useCallback(() => {
-    if (!videoLoaded) {
-      logger.log('Loading full video on hover');
-      setVideoLoaded(true);
-      setHasInteracted(true);
-    }
-  }, [videoLoaded]);
-
-  useEffect(() => {
+  // Use the video playback hook
+  useVideoPlayback({
+    videoRef,
+    externallyControlled,
+    isHovering: externallyControlled ? isHovering : isInternallyHovering,
+    muted,
+    isMobile,
+    loadedDataFired: !isLoading,
+    playAttempted,
+    setPlayAttempted
+  });
+  
+  // Effect to load poster image
+  React.useEffect(() => {
     if (poster) {
       const img = new Image();
       img.onload = () => {
@@ -91,173 +109,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [poster]);
   
-  useEffect(() => {
-    setLoadedDataFired(false);
-    setPlayAttempted(false);
-  }, [src]);
-  
-  useEffect(() => {
-    const video = videoRef.current;
-    if (!video) return;
-    
-    if (externallyControlled && !isMobile) {
-      logger.log(`External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
-      
-      if (isHovering) {
-        loadFullVideo();
-        logger.log('VideoPlayer: External hover detected - playing video');
-        
-        if (!playAttempted) {
-          setTimeout(() => {
-            if (video && video.readyState >= 2) {
-              attemptVideoPlay(video, muted)
-                .then(() => logger.log('Play succeeded on hover'))
-                .catch(e => logger.error('Play failed on hover:', e));
-              setPlayAttempted(true);
-            }
-          }, 100);
-        }
-      } else if (!isHovering && !video.paused) {
-        logger.log('VideoPlayer: External hover ended - pausing video');
-        video.pause();
-      }
+  const loadFullVideo = useCallback(() => {
+    if (!hasInteracted) {
+      logger.log('Loading full video on hover');
+      setHasInteracted(true);
     }
-  }, [isHovering, externallyControlled, videoRef, muted, loadFullVideo, playAttempted, isMobile]);
-  
-  useEffect(() => {
-    setIsBlobUrl(src?.startsWith('blob:') || false);
-    
-    if (!src) {
-      logger.error('No source provided to VideoPlayer');
-      setError('No video source provided');
-      setIsLoading(false);
-      if (onError) onError('No video source provided');
-      return;
-    }
-    
-    if (!isBlobUrl && !isValidVideoUrl(src)) {
-      const format = getVideoFormat(src);
-      const errorMsg = `Invalid video source: ${src.substring(0, 50)}...`;
-      logger.error(errorMsg);
-      setError(`The video URL appears to be invalid or inaccessible`);
-      setErrorDetails(`Source doesn't appear to be a playable video URL. Format detected: ${format}`);
-      setIsLoading(false);
-      if (onError) onError(errorMsg);
-    }
-  }, [src, onError, isBlobUrl]);
-  
-  useEffect(() => {
-    if (!src || !videoLoaded) {
-      return;
-    }
-    
-    setError(null);
-    setErrorDetails('');
-    setIsLoading(true);
-    setPlayAttempted(false);
-    setLoadedDataFired(false);
-    
-    logger.log(`Loading video with source: ${src.substring(0, 50)}...`);
-    
-    const video = videoRef.current;
-    if (!video) {
-      logger.error('Video element reference not available');
-      return;
-    }
-    
-    const handleLoadedData = () => {
-      logger.log(`Video loaded successfully: ${src.substring(0, 30)}...`);
-      setIsLoading(false);
-      setLoadedDataFired(true);
-      
-      if (onLoadedData) {
-        logger.log('Firing onLoadedData callback');
-        onLoadedData();
-      }
-      
-      if (autoPlay && !playOnHover && !externallyControlled && !isMobile) {
-        setTimeout(() => {
-          attemptVideoPlay(video, muted);
-        }, 150);
-      }
-      
-      if (!isMobile && ((externallyControlled && isHovering) || (playOnHover && isInternallyHovering))) {
-        logger.log('VideoPlayer: Initially hovering - playing video immediately');
-        setTimeout(() => {
-          attemptVideoPlay(video, muted).then(() => {
-            logger.log('Auto-play successful in lightbox');
-          }).catch(err => {
-            logger.error('Auto-play failed in lightbox:', err);
-          });
-        }, 150);
-      }
-    };
-    
-    const handleError = () => {
-      const { message, details } = getVideoErrorMessage(video.error, src);
-      const format = getVideoFormat(src);
-      
-      if (isBlobUrl) {
-        setError('The temporary preview cannot be played');
-        setErrorDetails('This may be due to the blob URL being created in a different browser context or session');
-        setIsLoading(false);
-        if (onError) onError('Blob URL cannot be played: ' + message);
-        return;
-      }
-      
-      logger.error(`Video error for ${src.substring(0, 30)}...: ${message}`);
-      logger.error(`Video error details: ${details}`);
-      logger.error(`Detected format: ${format}`);
-      
-      setError(message);
-      setErrorDetails(details + ` Detected format: ${format}`);
-      setIsLoading(false);
-      if (onError) onError(message);
-    };
-    
-    video.addEventListener('loadeddata', handleLoadedData);
-    video.addEventListener('error', handleError);
-    
-    video.pause();
-    
-    try {
-      video.preload = videoLoaded ? "auto" : "metadata";
-      video.src = src;
-      if (poster) {
-        video.poster = poster;
-      }
-      video.load();
-    } catch (err) {
-      logger.error('Error setting up video:', err);
-      const errorMessage = `Setup error: ${err}`;
-      setError(errorMessage);
-      setIsLoading(false);
-      if (onError) onError(errorMessage);
-    }
-    
-    return () => {
-      video.removeEventListener('loadeddata', handleLoadedData);
-      video.removeEventListener('error', handleError);
-      
-      video.pause();
-      video.src = '';
-      video.load();
-    };
-  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering, videoLoaded, isInternallyHovering, isMobile]);
-  
-  const handleRetry = () => {
-    const video = videoRef.current;
-    if (!video) return;
-    
-    logger.log(`Retrying video load for: ${src.substring(0, 30)}...`);
-    setError(null);
-    setErrorDetails('');
-    setIsLoading(true);
-    setPlayAttempted(false);
-    setLoadedDataFired(false);
-    
-    video.load();
-  };
+  }, [hasInteracted]);
 
   const handleMouseEnter = () => {
     if (!isMobile) {
@@ -277,7 +134,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
     >
-      {isLoading && videoLoaded && <VideoLoader posterImage={poster} />}
+      {isLoading && <VideoLoader posterImage={poster} />}
       
       {error && !onError && (
         <VideoError 
@@ -288,21 +145,22 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         />
       )}
       
-      {isMobile && poster && (
-        <div 
-          className="absolute inset-0 bg-cover bg-center z-10" 
-          style={{ backgroundImage: `url(${poster})` }} 
-        />
-      )}
+      <VideoOverlay 
+        isMobile={isMobile} 
+        poster={poster} 
+        posterLoaded={posterLoaded} 
+      />
       
-      {!isMobile && lazyLoad && !hasInteracted && poster && (
-        <div className="absolute inset-0 bg-cover bg-center" style={{ backgroundImage: `url(${poster})` }} />
-      )}
+      <LazyPosterImage 
+        poster={poster} 
+        lazyLoad={lazyLoad} 
+        hasInteracted={hasInteracted} 
+      />
       
       <video
         ref={videoRef}
         className={cn("w-full h-full object-cover", className, {
-          'opacity-0': (lazyLoad && !videoLoaded) || (isMobile && poster && posterLoaded)
+          'opacity-0': (lazyLoad && !hasInteracted) || (isMobile && poster && posterLoaded)
         })}
         autoPlay={autoPlay && !playOnHover && !externallyControlled && !isMobile}
         muted={muted}
@@ -310,8 +168,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         controls={isMobile ? true : (showPlayButtonOnHover ? controls : false)}
         playsInline
         poster={poster || undefined}
-        preload={videoLoaded && !isMobile ? "auto" : "metadata"}
-        src={videoLoaded ? src : undefined}
+        preload={hasInteracted && !isMobile ? "auto" : "metadata"}
+        src={src}
         crossOrigin="anonymous"
       >
         Your browser does not support the video tag.
