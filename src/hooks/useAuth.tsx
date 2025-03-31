@@ -1,7 +1,7 @@
 
 import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
 
@@ -83,7 +83,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Set up auth state change listener with a stable reference
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, newSession) => {
+      (event: AuthChangeEvent, newSession) => {
         logger.log(`Auth state changed: ${event}`, newSession?.user?.id || 'no user');
         authStateChangeHandled.current = true;
         

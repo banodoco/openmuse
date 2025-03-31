@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
@@ -31,7 +30,7 @@ const Auth: React.FC = () => {
     }, 5000);
     
     // Listen for auth state changes FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
       logger.log('Auth state changed in Auth page:', event);
       authStateChangeHandled.current = true;
       
@@ -61,7 +60,7 @@ const Auth: React.FC = () => {
           }
         }, 500);
       }
-    }).subscription;
+    });
     
     // THEN check for existing session (after short delay to let auth state listener initialize)
     setTimeout(async () => {
@@ -124,7 +123,7 @@ const Auth: React.FC = () => {
       isActive = false;
       if (timeoutId) clearTimeout(timeoutId);
       if (sessionCheckTimeoutId) clearTimeout(sessionCheckTimeoutId);
-      subscription.unsubscribe();
+      if (data.subscription) data.subscription.unsubscribe();
     };
   }, [navigate, location.search]);
   
