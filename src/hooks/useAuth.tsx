@@ -91,7 +91,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
           updateAuthState(newSession);
-        } else if (event === 'SIGNED_OUT' || event === 'USER_DELETED') {
+        } else if (event === 'SIGNED_OUT') {
+          updateAuthState(null);
+        } else if (event === 'USER_DELETED') {
+          // Handle USER_DELETED separately to avoid TypeScript error
           updateAuthState(null);
         }
       }
