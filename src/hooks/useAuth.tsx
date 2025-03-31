@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
@@ -89,6 +90,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             updateAuthState(newSession);
             break;
           case 'SIGNED_OUT':
+            updateAuthState(null);
+            break;
           case 'USER_DELETED':
             updateAuthState(null);
             break;
