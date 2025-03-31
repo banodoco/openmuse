@@ -19,7 +19,7 @@ export default {
         'md': '768px',
         'lg': '1024px',
         'xl': '1280px',
-        '2xl': '1536px',
+        '2xl': '1600px', // Increased from 1536px to 1600px for more width on large screens
       }
     },
     extend: {

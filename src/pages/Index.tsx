@@ -131,22 +131,24 @@ const Index = () => {
     <div className="flex flex-col min-h-screen bg-background">
       <Navigation />
       
-      <main className="flex-1 container mx-auto p-4">
-        <PageHeader 
-          title="Curated LoRAs for open video models"
-          description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan."
-          buttonText="Propose New LoRA"
-          onButtonClick={handleNavigateToUpload}
-          buttonSize={isMobile ? "sm" : "default"}
-          buttonDisabled={lorasLoading}
-        />
-        
-        <LoraManager 
-          loras={displayLoras} 
-          isLoading={lorasLoading}
-          showExtras={false} // Ensure "View Original" is always hidden on the home page
-        />
-      </main>
+      <div className="flex-1 w-full">
+        <div className="max-w-screen-2xl mx-auto p-4">
+          <PageHeader 
+            title="Curated LoRAs for open video models"
+            description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan."
+            buttonText="Propose New LoRA"
+            onButtonClick={handleNavigateToUpload}
+            buttonSize={isMobile ? "sm" : "default"}
+            buttonDisabled={lorasLoading}
+          />
+          
+          <LoraManager 
+            loras={displayLoras} 
+            isLoading={lorasLoading}
+            showExtras={false} // Ensure "View Original" is always hidden on the home page
+          />
+        </div>
+      </div>
       
       <Footer />
     </div>

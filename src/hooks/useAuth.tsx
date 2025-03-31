@@ -94,8 +94,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else if (event === 'SIGNED_OUT') {
           updateAuthState(null);
         } else if (event === 'USER_DELETED') {
-          // Handle USER_DELETED separately to avoid TypeScript error
+          // Handle USER_DELETED event
           updateAuthState(null);
+        } else if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED') {
+          // Handle other events if needed
+          if (newSession) {
+            updateAuthState(newSession);
+          }
         }
       }
     );

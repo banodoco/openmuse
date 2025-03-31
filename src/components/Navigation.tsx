@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -42,38 +43,40 @@ const Navigation: React.FC = () => {
   };
   
   return (
-    <nav className="w-full max-w-screen-xl mx-auto px-4 py-4 flex justify-between items-center border-b border-olive/20">
-      <div className="flex items-center">
-        <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
-          <img 
-            src={logoPath} 
-            alt="OpenMuse Logo" 
-            className={cn(
-              "w-auto transition-all duration-300", 
-              isMobile ? "h-12" : "h-20"
-            )}
-            onError={handleImageError}
-          />
-        </Link>
-        
-        {!isAuthPage && (
-          <div className="flex space-x-2 relative right-[15px] top-[2px]">
-            <NavLink to="/upload" active={isActive('/upload')}>
-              <UploadCloud className="w-4 h-4 mr-2" />
-              Propose
-            </NavLink>
-            {isAdmin && (
-              <NavLink to="/admin" active={isActive('/admin')}>
-                <LayoutDashboard className="w-4 h-4 mr-2" />
-                Admin
+    <div className="w-full border-b border-olive/20">
+      <nav className="w-full max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
+        <div className="flex items-center">
+          <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
+            <img 
+              src={logoPath} 
+              alt="OpenMuse Logo" 
+              className={cn(
+                "w-auto transition-all duration-300", 
+                isMobile ? "h-12" : "h-20"
+              )}
+              onError={handleImageError}
+            />
+          </Link>
+          
+          {!isAuthPage && (
+            <div className="flex space-x-2 relative right-[15px] top-[2px]">
+              <NavLink to="/upload" active={isActive('/upload')}>
+                <UploadCloud className="w-4 h-4 mr-2" />
+                Propose
               </NavLink>
-            )}
-          </div>
-        )}
-      </div>
-      
-      <AuthButton />
-    </nav>
+              {isAdmin && (
+                <NavLink to="/admin" active={isActive('/admin')}>
+                  <LayoutDashboard className="w-4 h-4 mr-2" />
+                  Admin
+                </NavLink>
+              )}
+            </div>
+          )}
+        </div>
+        
+        <AuthButton />
+      </nav>
+    </div>
   );
 };
 
@@ -103,18 +106,20 @@ export { Navigation, NavLink };
 
 export const Footer = () => {
   return (
-    <footer className="w-full max-w-screen-xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
-      <div className="border-t border-border pt-4">
-        Made with 🦾 by <a 
-          href="https://banodoco.ai/" 
-          target="_blank" 
-          rel="noopener noreferrer" 
-          className="underline hover:text-foreground transition-colors"
-        >
-          Banodoco
-        </a>
-      </div>
-    </footer>
+    <div className="w-full border-t border-border">
+      <footer className="w-full max-w-screen-2xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
+        <div className="pt-4">
+          Made with 🦾 by <a 
+            href="https://banodoco.ai/" 
+            target="_blank" 
+            rel="noopener noreferrer" 
+            className="underline hover:text-foreground transition-colors"
+          >
+            Banodoco
+          </a>
+        </div>
+      </footer>
+    </div>
   );
 };
 
