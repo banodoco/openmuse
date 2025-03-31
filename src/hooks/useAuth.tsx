@@ -1,4 +1,3 @@
-
 import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
@@ -32,7 +31,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initialSessionCheckComplete = useRef(false);
   const authTimeout = useRef<NodeJS.Timeout | null>(null);
   
-  // Clear any existing timers when component unmounts
   useEffect(() => {
     return () => {
       if (authTimeout.current) {
@@ -46,7 +44,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     logger.log('Setting up auth provider');
     
-    // Set a maximum timeout to prevent infinite loading state
     authTimeout.current = setTimeout(() => {
       if (isMounted.current && isLoading && !initialSessionCheckComplete.current) {
         logger.warn('Auth check timed out after 3 seconds, completing loading state');
@@ -55,7 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }, 3000);
 
-    // Function to update auth state safely
     const updateAuthState = (newSession: Session | null) => {
       if (!isMounted.current) return;
       
@@ -73,7 +69,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setIsLoading(false);
         initialSessionCheckComplete.current = true;
         
-        // Clear the timeout since we've completed
         if (authTimeout.current) {
           clearTimeout(authTimeout.current);
           authTimeout.current = null;
@@ -81,7 +76,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Set up auth state change listener with a stable reference
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, newSession) => {
         logger.log(`Auth state changed: ${event}`, newSession?.user?.id || 'no user');
@@ -89,23 +83,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (!isMounted.current) return;
         
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-          updateAuthState(newSession);
-        } else if (event === 'SIGNED_OUT') {
-          updateAuthState(null);
-        } else if (event === 'USER_DELETED') {
-          // Fixed: Corrected the type comparison issue
-          updateAuthState(null);
-        } else if (event === 'PASSWORD_RECOVERY' || event === 'USER_UPDATED' || event === 'MFA_CHALLENGE_VERIFIED') {
-          // Handle other events if needed
-          if (newSession) {
+        switch (event) {
+          case 'SIGNED_IN':
+          case 'TOKEN_REFRESHED':
             updateAuthState(newSession);
-          }
+            break;
+          case 'SIGNED_OUT':
+          case 'USER_DELETED':
+            updateAuthState(null);
+            break;
+          case 'PASSWORD_RECOVERY':
+          case 'USER_UPDATED':
+          case 'MFA_CHALLENGE_VERIFIED':
+            if (newSession) {
+              updateAuthState(newSession);
+            }
+            break;
+          default:
+            logger.log(`Unhandled auth event: ${event}`);
         }
       }
     );
 
-    // Check for existing session if auth state change hasn't been handled
     const checkSession = async () => {
       try {
         if (!isMounted.current) return;
@@ -122,7 +121,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           logger.log(`Found existing session: ${data.session.user.id}`);
           updateAuthState(data.session);
           
-          // Refresh token in the background
           try {
             const { data: refreshData } = await supabase.auth.refreshSession();
             if (refreshData.session && isMounted.current) {
@@ -131,7 +129,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } catch (refreshError) {
             logger.error('Error refreshing session:', refreshError);
-            // Continue with existing session
           }
         } else {
           logger.log('No existing session found');
@@ -146,15 +143,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    // Wait briefly for auth state change before checking session directly
-    // This helps prevent race conditions
     setTimeout(() => {
       if (!authStateChangeHandled.current && isMounted.current) {
         checkSession();
       }
     }, 100);
 
-    // Clean up on unmount
     return () => {
       isMounted.current = false;
       if (authTimeout.current) {
@@ -197,7 +191,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (error) throw error;
       
-      // Clear state immediately
       setUser(null);
       setSession(null);
     } catch (error: any) {
