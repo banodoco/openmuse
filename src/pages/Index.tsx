@@ -90,7 +90,7 @@ const Index = () => {
   }, [user, refetchLoras, lorasLoading]);
   
   useEffect(() => {
-    logger.log('Index page loaded, setting showExtras to false explicitly');
+    logger.log('Index page loaded, explicitly setting showExtras to false');
   }, []);
   
   const handleNavigateToUpload = useCallback(() => {
@@ -148,7 +148,7 @@ const Index = () => {
           <LoraManager 
             loras={displayLoras} 
             isLoading={lorasLoading}
-            showExtras={false} // Force false to hide "View Original" on the home page
+            showExtras={false} // Explicitly set to false to hide "View Original" on the home page
           />
         </div>
       </div>

@@ -1,9 +1,12 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import LoraList from './lora/LoraList';
 import LoadingState from './LoadingState';
 import EmptyState from './EmptyState';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('LoraManager');
 
 interface LoraManagerProps {
   loras: LoraAsset[];
@@ -14,8 +17,12 @@ interface LoraManagerProps {
 const LoraManager: React.FC<LoraManagerProps> = ({ 
   loras, 
   isLoading = false,
-  showExtras = true  // Make sure this is correctly passed down
+  showExtras = true  // Default to true if not specified
 }) => {
+  useEffect(() => {
+    logger.log(`LoraManager initialized with showExtras: ${showExtras}`);
+  }, [showExtras]);
+
   if (isLoading) {
     return <LoadingState />;
   }
@@ -29,6 +36,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
     );
   }
 
+  logger.log(`LoraManager rendering with showExtras: ${showExtras}`);
   return <LoraList loras={loras} showExtras={showExtras} />;
 };
 
