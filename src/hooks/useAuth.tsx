@@ -1,3 +1,4 @@
+
 import { useState, useEffect, createContext, useContext, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
@@ -30,6 +31,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const authStateChangeHandled = useRef(false);
   const initialSessionCheckComplete = useRef(false);
   const authTimeout = useRef<NodeJS.Timeout | null>(null);
+  const lastTokenRefresh = useRef<number>(0);
+  const refreshInterval = 10 * 60 * 1000; // 10 minutes
   
   useEffect(() => {
     return () => {
@@ -40,6 +43,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       isMounted.current = false;
     };
   }, []);
+
+  // Setup periodic session refresh to prevent aggressive sign-outs
+  useEffect(() => {
+    if (!session) return;
+    
+    const refreshSession = async () => {
+      const now = Date.now();
+      if (now - lastTokenRefresh.current < refreshInterval) return;
+      
+      try {
+        logger.log('Refreshing session token');
+        const { data } = await supabase.auth.refreshSession();
+        lastTokenRefresh.current = Date.now();
+        
+        // Only update if we got a valid session back to prevent unnecessary state changes
+        if (data.session && isMounted.current) {
+          logger.log('Session refreshed successfully');
+        }
+      } catch (error) {
+        logger.error('Failed to refresh session:', error);
+      }
+    };
+    
+    // Initial refresh
+    refreshSession();
+    
+    // Set up interval for refreshing
+    const interval = setInterval(refreshSession, refreshInterval / 2);
+    
+    return () => clearInterval(interval);
+  }, [session]);
 
   useEffect(() => {
     logger.log('Setting up auth provider');
@@ -59,6 +93,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logger.log(`Session updated: ${newSession.user.id}`);
         setUser(newSession.user);
         setSession(newSession);
+        lastTokenRefresh.current = Date.now();
       } else {
         logger.log('No session available, clearing user data');
         setUser(null);
@@ -85,8 +120,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         switch (event) {
           case 'SIGNED_IN':
-          case 'TOKEN_REFRESHED':
             updateAuthState(newSession);
+            break;
+          case 'TOKEN_REFRESHED':
+            // Only update if we actually have a valid session
+            if (newSession) {
+              updateAuthState(newSession);
+              lastTokenRefresh.current = Date.now();
+            }
             break;
           case 'SIGNED_OUT':
             updateAuthState(null);
@@ -121,11 +162,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updateAuthState(data.session);
           
           try {
-            const { data: refreshData } = await supabase.auth.refreshSession();
-            if (refreshData.session && isMounted.current) {
-              logger.log('Session refreshed successfully');
-              updateAuthState(refreshData.session);
-            }
+            // Don't automatically refresh on initial load to avoid potential race conditions
+            // The periodic refresh mechanism will handle it shortly after
+            logger.log('Session found, token refresh will happen on next interval');
+            lastTokenRefresh.current = Date.now() - (refreshInterval / 2); // Refresh halfway through the interval
           } catch (refreshError) {
             logger.error('Error refreshing session:', refreshError);
           }
@@ -142,6 +182,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    // Only check session if auth state change hasn't been handled yet
+    // This prevents unnecessary duplicate session checks
     setTimeout(() => {
       if (!authStateChangeHandled.current && isMounted.current) {
         checkSession();
@@ -171,6 +213,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.session) {
         setUser(data.session.user);
         setSession(data.session);
+        lastTokenRefresh.current = Date.now();
       }
     } catch (error: any) {
       toast.error(error.message || 'Error signing in');
