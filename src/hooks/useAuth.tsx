@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initialSessionCheckComplete = useRef(false);
   const authTimeout = useRef<NodeJS.Timeout | null>(null);
   const lastTokenRefresh = useRef<number>(0);
-  const refreshInterval = 5 * 60 * 1000; // 5 minutes (reduced from 10 minutes)
+  const refreshInterval = 3 * 60 * 1000; // 3 minutes (further reduced from 5 minutes)
   
   useEffect(() => {
     return () => {
@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Setup more frequent session refresh to prevent aggressive sign-outs
+  // Setup even more frequent session refresh to prevent aggressive sign-outs
   useEffect(() => {
     if (!session) return;
     
@@ -77,8 +77,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initial refresh
     refreshSession();
     
-    // Set up interval for refreshing - more frequently
-    const interval = setInterval(refreshSession, refreshInterval / 2);
+    // Set up interval for refreshing - even more frequently
+    const interval = setInterval(refreshSession, refreshInterval / 3);
     
     return () => clearInterval(interval);
   }, [session]);
@@ -119,6 +119,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
+    // Set up the auth state listener FIRST before checking for an existing session
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event: AuthChangeEvent, newSession) => {
         logger.log(`Auth state changed: ${event}`, newSession?.user?.id || 'no user');
@@ -127,6 +128,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (!isMounted.current) return;
         
         switch (event) {
+          case 'INITIAL_SESSION':
+            // Handle initial session event
+            if (newSession) {
+              updateAuthState(newSession);
+            }
+            break;
           case 'SIGNED_IN':
             updateAuthState(newSession);
             break;
@@ -155,57 +162,57 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    const checkSession = async () => {
-      try {
-        if (!isMounted.current) return;
-        
-        logger.log('Checking for existing session');
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          logger.error('Error getting session:', error);
-          throw error;
-        }
-        
-        if (data.session) {
-          logger.log(`Found existing session: ${data.session.user.id}`);
-          updateAuthState(data.session);
-          
-          try {
-            // Refresh token immediately to extend session lifetime
-            logger.log('Refreshing session token immediately');
-            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-            
-            if (refreshError) {
-              logger.error('Error refreshing session:', refreshError);
-            } else if (refreshData.session) {
-              logger.log('Session refreshed successfully on initial load');
-              updateAuthState(refreshData.session);
-              lastTokenRefresh.current = Date.now();
-            }
-          } catch (refreshError) {
-            logger.error('Error refreshing session:', refreshError);
-          }
-        } else {
-          logger.log('No existing session found');
-          updateAuthState(null);
-        }
-      } catch (error) {
-        logger.error('Session check failed:', error);
-        if (isMounted.current) {
-          setIsLoading(false);
-          initialSessionCheckComplete.current = true;
-        }
-      }
-    };
-
-    // Only check session if auth state change hasn't been handled yet
-    // This prevents unnecessary duplicate session checks
+    // Wait a tiny bit to let the auth state change listener initialize
     setTimeout(() => {
+      const checkSession = async () => {
+        try {
+          if (!isMounted.current) return;
+          
+          logger.log('Checking for existing session');
+          const { data, error } = await supabase.auth.getSession();
+          
+          if (error) {
+            logger.error('Error getting session:', error);
+            throw error;
+          }
+          
+          if (data.session) {
+            logger.log(`Found existing session: ${data.session.user.id}`);
+            updateAuthState(data.session);
+            
+            try {
+              // Refresh token immediately to extend session lifetime
+              logger.log('Refreshing session token immediately');
+              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+              
+              if (refreshError) {
+                logger.error('Error refreshing session:', refreshError);
+              } else if (refreshData.session) {
+                logger.log('Session refreshed successfully on initial load');
+                updateAuthState(refreshData.session);
+                lastTokenRefresh.current = Date.now();
+              }
+            } catch (refreshError) {
+              logger.error('Error refreshing session:', refreshError);
+            }
+          } else {
+            logger.log('No existing session found');
+            updateAuthState(null);
+          }
+        } catch (error) {
+          logger.error('Session check failed:', error);
+          if (isMounted.current) {
+            setIsLoading(false);
+            initialSessionCheckComplete.current = true;
+          }
+        }
+      };
+      
+      // Only check session if auth state change hasn't been handled yet
       if (!authStateChangeHandled.current && isMounted.current) {
         checkSession();
       }
-    }, 100);
+    }, 50); // Small delay to ensure event listener is set up first
 
     return () => {
       isMounted.current = false;
