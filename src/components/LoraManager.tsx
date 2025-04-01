@@ -17,7 +17,7 @@ interface LoraManagerProps {
 const LoraManager: React.FC<LoraManagerProps> = ({ 
   loras, 
   isLoading = false,
-  showExtras = true  // Default to true if not specified
+  showExtras = false  // Changed default to false
 }) => {
   useEffect(() => {
     logger.log(`LoraManager initialized with showExtras: ${showExtras}`);
