@@ -47,7 +47,8 @@ const LoraList: React.FC<LoraListProps> = ({ loras, showExtras = false }) => {
   
   useEffect(() => {
     logger.log("LoraList received loras:", loras?.length || 0);
-  }, [loras]);
+    logger.log("LoraList showExtras:", showExtras);
+  }, [loras, showExtras]);
   
   const filteredLoras = (loras || []).filter(lora => {
     const searchTerm = filterText.toLowerCase();

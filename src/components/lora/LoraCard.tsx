@@ -55,6 +55,10 @@ const LoraCard: React.FC<LoraCardProps> = ({
     };
   }, []);
   
+  useEffect(() => {
+    logger.log(`LoraCard: showExtras for ${lora.name}: ${showExtras}`);
+  }, [showExtras, lora.name]);
+  
   const getCreatorName = () => {
     if (lora.creatorDisplayName) return lora.creatorDisplayName;
     
