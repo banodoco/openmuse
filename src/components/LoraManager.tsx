@@ -21,7 +21,12 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   }
 
   if (!loras || loras.length === 0) {
-    return <EmptyState message="No LoRAs found" />;
+    return (
+      <EmptyState 
+        title="No LoRAs Available" 
+        description="There are currently no LoRAs in the collection. Upload a new LoRA to get started!" 
+      />
+    );
   }
 
   return <LoraList loras={loras} showExtras={showExtras} />;
