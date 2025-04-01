@@ -253,7 +253,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
         )}
       </div>
       
-      {lora.lora_link && showExtras && (
+      {lora.lora_link && showExtras === true && (
         <div className="p-1">
           <Button 
             variant="ghost" 

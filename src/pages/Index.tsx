@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -90,6 +89,10 @@ const Index = () => {
     }
   }, [user, refetchLoras, lorasLoading]);
   
+  useEffect(() => {
+    logger.log('Index page loaded, setting showExtras to false explicitly');
+  }, []);
+  
   const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');
   }, [navigate]);
@@ -145,7 +148,7 @@ const Index = () => {
           <LoraManager 
             loras={displayLoras} 
             isLoading={lorasLoading}
-            showExtras={false} // Explicitly set to false to hide "View Original" on the home page
+            showExtras={false} // Force false to hide "View Original" on the home page
           />
         </div>
       </div>

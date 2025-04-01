@@ -21,7 +21,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   }
 
   if (!loras || loras.length === 0) {
-    return <EmptyState type="lora" />;
+    return <EmptyState message="No LoRAs found" />;
   }
 
   return <LoraList loras={loras} showExtras={showExtras} />;
