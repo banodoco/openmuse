@@ -32,7 +32,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initialSessionCheckComplete = useRef(false);
   const authTimeout = useRef<NodeJS.Timeout | null>(null);
   const lastTokenRefresh = useRef<number>(0);
-  const refreshInterval = 10 * 60 * 1000; // 10 minutes
+  const refreshInterval = 5 * 60 * 1000; // 5 minutes (reduced from 10 minutes)
   
   useEffect(() => {
     return () => {
@@ -44,7 +44,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     };
   }, []);
 
-  // Setup periodic session refresh to prevent aggressive sign-outs
+  // Setup more frequent session refresh to prevent aggressive sign-outs
   useEffect(() => {
     if (!session) return;
     
@@ -54,12 +54,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       try {
         logger.log('Refreshing session token');
-        const { data } = await supabase.auth.refreshSession();
+        const { data, error } = await supabase.auth.refreshSession();
+        
+        if (error) {
+          logger.error('Failed to refresh session:', error);
+          return;
+        }
+        
         lastTokenRefresh.current = Date.now();
         
         // Only update if we got a valid session back to prevent unnecessary state changes
         if (data.session && isMounted.current) {
           logger.log('Session refreshed successfully');
+          setSession(data.session);
+          setUser(data.session.user);
         }
       } catch (error) {
         logger.error('Failed to refresh session:', error);
@@ -69,7 +77,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Initial refresh
     refreshSession();
     
-    // Set up interval for refreshing
+    // Set up interval for refreshing - more frequently
     const interval = setInterval(refreshSession, refreshInterval / 2);
     
     return () => clearInterval(interval);
@@ -132,15 +140,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           case 'SIGNED_OUT':
             updateAuthState(null);
             break;
-          case 'PASSWORD_RECOVERY':
           case 'USER_UPDATED':
-          case 'MFA_CHALLENGE_VERIFIED':
             if (newSession) {
               updateAuthState(newSession);
             }
             break;
           default:
-            logger.log(`Unhandled auth event: ${event}`);
+            // Don't log out on other events
+            if (newSession) {
+              updateAuthState(newSession);
+            }
+            logger.log(`Other auth event: ${event}`);
         }
       }
     );
@@ -162,10 +172,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           updateAuthState(data.session);
           
           try {
-            // Don't automatically refresh on initial load to avoid potential race conditions
-            // The periodic refresh mechanism will handle it shortly after
-            logger.log('Session found, token refresh will happen on next interval');
-            lastTokenRefresh.current = Date.now() - (refreshInterval / 2); // Refresh halfway through the interval
+            // Refresh token immediately to extend session lifetime
+            logger.log('Refreshing session token immediately');
+            const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+            
+            if (refreshError) {
+              logger.error('Error refreshing session:', refreshError);
+            } else if (refreshData.session) {
+              logger.log('Session refreshed successfully on initial load');
+              updateAuthState(refreshData.session);
+              lastTokenRefresh.current = Date.now();
+            }
           } catch (refreshError) {
             logger.error('Error refreshing session:', refreshError);
           }
