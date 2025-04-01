@@ -28,199 +28,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const isMounted = useRef(true);
-  const authStateChangeHandled = useRef(false);
-  const initialSessionCheckComplete = useRef(false);
-  const authTimeout = useRef<NodeJS.Timeout | null>(null);
-  const lastTokenRefresh = useRef<number>(0);
-  const refreshInterval = 3 * 60 * 1000; // 3 minutes (further reduced from 5 minutes)
   
-  useEffect(() => {
-    return () => {
-      if (authTimeout.current) {
-        clearTimeout(authTimeout.current);
-        authTimeout.current = null;
-      }
-      isMounted.current = false;
-    };
-  }, []);
-
-  // Setup even more frequent session refresh to prevent aggressive sign-outs
-  useEffect(() => {
-    if (!session) return;
-    
-    const refreshSession = async () => {
-      const now = Date.now();
-      if (now - lastTokenRefresh.current < refreshInterval) return;
-      
-      try {
-        logger.log('Refreshing session token');
-        const { data, error } = await supabase.auth.refreshSession();
-        
-        if (error) {
-          logger.error('Failed to refresh session:', error);
-          return;
-        }
-        
-        lastTokenRefresh.current = Date.now();
-        
-        // Only update if we got a valid session back to prevent unnecessary state changes
-        if (data.session && isMounted.current) {
-          logger.log('Session refreshed successfully');
-          setSession(data.session);
-          setUser(data.session.user);
-        }
-      } catch (error) {
-        logger.error('Failed to refresh session:', error);
-      }
-    };
-    
-    // Initial refresh
-    refreshSession();
-    
-    // Set up interval for refreshing - even more frequently
-    const interval = setInterval(refreshSession, refreshInterval / 3);
-    
-    return () => clearInterval(interval);
-  }, [session]);
-
   useEffect(() => {
     logger.log('Setting up auth provider');
     
-    authTimeout.current = setTimeout(() => {
-      if (isMounted.current && isLoading && !initialSessionCheckComplete.current) {
-        logger.warn('Auth check timed out after 3 seconds, completing loading state');
-        setIsLoading(false);
-        initialSessionCheckComplete.current = true;
-      }
-    }, 3000);
-
-    const updateAuthState = (newSession: Session | null) => {
-      if (!isMounted.current) return;
-      
-      if (newSession) {
-        logger.log(`Session updated: ${newSession.user.id}`);
-        setUser(newSession.user);
-        setSession(newSession);
-        lastTokenRefresh.current = Date.now();
-      } else {
-        logger.log('No session available, clearing user data');
-        setUser(null);
-        setSession(null);
-      }
-      
-      if (!initialSessionCheckComplete.current) {
-        setIsLoading(false);
-        initialSessionCheckComplete.current = true;
-        
-        if (authTimeout.current) {
-          clearTimeout(authTimeout.current);
-          authTimeout.current = null;
-        }
-      }
-    };
-
-    // Set up the auth state listener FIRST before checking for an existing session
+    // Set up the auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, newSession) => {
-        logger.log(`Auth state changed: ${event}`, newSession?.user?.id || 'no user');
-        authStateChangeHandled.current = true;
-        
+      (event: AuthChangeEvent, currentSession) => {
         if (!isMounted.current) return;
         
-        switch (event) {
-          case 'INITIAL_SESSION':
-            // Handle initial session event
-            if (newSession) {
-              updateAuthState(newSession);
-            }
-            break;
-          case 'SIGNED_IN':
-            updateAuthState(newSession);
-            break;
-          case 'TOKEN_REFRESHED':
-            // Only update if we actually have a valid session
-            if (newSession) {
-              updateAuthState(newSession);
-              lastTokenRefresh.current = Date.now();
-            }
-            break;
-          case 'SIGNED_OUT':
-            updateAuthState(null);
-            break;
-          case 'USER_UPDATED':
-            if (newSession) {
-              updateAuthState(newSession);
-            }
-            break;
-          default:
-            // Don't log out on other events
-            if (newSession) {
-              updateAuthState(newSession);
-            }
-            logger.log(`Other auth event: ${event}`);
+        logger.log(`Auth state changed: ${event}`, currentSession?.user?.id || 'no user');
+        
+        if (currentSession) {
+          setUser(currentSession.user);
+          setSession(currentSession);
+        } else if (event === 'SIGNED_OUT') {
+          setUser(null);
+          setSession(null);
         }
+        
+        // Don't change loading state here to avoid premature completion
       }
     );
 
-    // Wait a tiny bit to let the auth state change listener initialize
-    setTimeout(() => {
-      const checkSession = async () => {
-        try {
-          if (!isMounted.current) return;
-          
-          logger.log('Checking for existing session');
-          const { data, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            logger.error('Error getting session:', error);
-            throw error;
-          }
-          
-          if (data.session) {
-            logger.log(`Found existing session: ${data.session.user.id}`);
-            updateAuthState(data.session);
-            
-            try {
-              // Refresh token immediately to extend session lifetime
-              logger.log('Refreshing session token immediately');
-              const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-              
-              if (refreshError) {
-                logger.error('Error refreshing session:', refreshError);
-              } else if (refreshData.session) {
-                logger.log('Session refreshed successfully on initial load');
-                updateAuthState(refreshData.session);
-                lastTokenRefresh.current = Date.now();
-              }
-            } catch (refreshError) {
-              logger.error('Error refreshing session:', refreshError);
-            }
-          } else {
-            logger.log('No existing session found');
-            updateAuthState(null);
-          }
-        } catch (error) {
-          logger.error('Session check failed:', error);
-          if (isMounted.current) {
-            setIsLoading(false);
-            initialSessionCheckComplete.current = true;
-          }
-        }
-      };
+    // THEN check for existing session (with a small delay to ensure listener is set)
+    const timeoutId = setTimeout(async () => {
+      if (!isMounted.current) return;
       
-      // Only check session if auth state change hasn't been handled yet
-      if (!authStateChangeHandled.current && isMounted.current) {
-        checkSession();
+      try {
+        logger.log('Checking for existing session');
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          throw error;
+        }
+        
+        if (data.session) {
+          logger.log(`Found existing session: ${data.session.user.id}`);
+          setUser(data.session.user);
+          setSession(data.session);
+          
+          // Also do an immediate token refresh to extend session lifetime
+          try {
+            await supabase.auth.refreshSession();
+          } catch (refreshError) {
+            logger.error('Error refreshing session on initial load:', refreshError);
+          }
+        } else {
+          logger.log('No existing session found');
+        }
+      } catch (error) {
+        logger.error('Error checking session:', error);
+      } finally {
+        if (isMounted.current) {
+          setIsLoading(false);
+        }
       }
-    }, 50); // Small delay to ensure event listener is set up first
+    }, 100);
 
-    return () => {
-      isMounted.current = false;
-      if (authTimeout.current) {
-        clearTimeout(authTimeout.current);
-        authTimeout.current = null;
+    // Set up session refresh on interval (simple approach)
+    const refreshIntervalId = setInterval(async () => {
+      if (!isMounted.current || !session) return;
+      
+      try {
+        logger.log('Refreshing session token');
+        await supabase.auth.refreshSession();
+      } catch (error) {
+        logger.error('Error in session refresh interval:', error);
       }
+    }, 4 * 60 * 1000); // Every 4 minutes
+    
+    return () => {
+      logger.log('Cleaning up auth provider');
+      isMounted.current = false;
       subscription.unsubscribe();
+      clearTimeout(timeoutId);
+      clearInterval(refreshIntervalId);
     };
   }, []);
 
@@ -237,7 +120,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (data.session) {
         setUser(data.session.user);
         setSession(data.session);
-        lastTokenRefresh.current = Date.now();
       }
     } catch (error: any) {
       toast.error(error.message || 'Error signing in');
