@@ -5,6 +5,7 @@ import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
 import { AuthContext } from '@/contexts/AuthContext';
+import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('AuthProvider');
 
@@ -12,7 +13,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const isMounted = useRef(true);
+  
+  // Effect to check admin status whenever user changes
+  useEffect(() => {
+    let isActive = true;
+    
+    const verifyAdminStatus = async () => {
+      if (!user) {
+        if (isActive) setIsAdmin(false);
+        return;
+      }
+      
+      try {
+        logger.log('Checking admin status for user:', user.id);
+        const userIsAdmin = await checkIsAdmin(user.id);
+        
+        if (isActive) {
+          setIsAdmin(userIsAdmin);
+          logger.log(`User admin status: ${userIsAdmin ? 'is admin' : 'not admin'}`);
+        }
+      } catch (error) {
+        logger.error('Error checking admin status:', error);
+        if (isActive) setIsAdmin(false);
+      }
+    };
+    
+    verifyAdminStatus();
+    
+    return () => {
+      isActive = false;
+    };
+  }, [user]);
   
   useEffect(() => {
     logger.log('Setting up auth provider');
@@ -27,9 +60,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (currentSession) {
           setUser(currentSession.user);
           setSession(currentSession);
+          
+          // Don't check admin status here - the user effect will handle it
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
+          setIsAdmin(false);
         }
       }
     );
@@ -51,10 +87,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(data.session.user);
           setSession(data.session);
           
+          // Don't check admin status here - the user effect will handle it
+          
           // Also do an immediate token refresh to extend session lifetime
           try {
             await supabase.auth.refreshSession();
+            logger.log('Session refreshed successfully');
           } catch (refreshError) {
+            // Non-fatal, log but continue
             logger.error('Error refreshing session on initial load:', refreshError);
           }
         } else {
@@ -124,6 +164,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       
       setUser(null);
       setSession(null);
+      setIsAdmin(false);
     } catch (error: any) {
       toast.error(error.message || 'Error signing out');
       logger.error('Sign out error:', error);
@@ -135,7 +176,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, session, isLoading, signIn, signOut, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );

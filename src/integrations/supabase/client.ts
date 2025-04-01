@@ -1,4 +1,3 @@
-
 import { createClient } from '@supabase/supabase-js';
 
 // Use hardcoded values for the Supabase project when environment variables aren't available
@@ -11,11 +10,12 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: false, // This can sometimes interfere with proper session handling
+    detectSessionInUrl: true, // Enable this to better handle OAuth redirects
     flowType: 'implicit',
   },
 });
 
+// Test the RLS permissions to ensure the user has proper access
 export const testRLSPermissions = async () => {
   try {
     const { data: assets, error: assetsError } = await supabase
@@ -41,6 +41,7 @@ export const testRLSPermissions = async () => {
   }
 };
 
+// Keep the debug functions
 export const debugAssetMedia = async (assetId: string) => {
   const { data, error } = await supabase
     .from('asset_media')

@@ -1,11 +1,10 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
-import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('RequireAuth');
 
@@ -20,13 +19,8 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   requireAdmin = false,
   allowUnauthenticated = false
 }) => {
-  const { user, isLoading } = useAuth();
-  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
-  const [adminCheckComplete, setAdminCheckComplete] = useState(!requireAdmin);
+  const { user, isLoading, isAdmin } = useAuth();
   const location = useLocation();
-  const adminCheckInProgress = useRef(false);
-  const lastAdminCheck = useRef<number>(0);
-  const adminCheckCooldown = 30000; // 30 seconds cooldown for admin checks
   
   // Skip checking for certain public pages
   const shouldSkipCheck = 
@@ -36,73 +30,9 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     location.pathname.startsWith('/assets/loras/');
   
   useEffect(() => {
-    let isMounted = true;
-    let timeoutId: NodeJS.Timeout | null = null;
-    
-    // Check admin status if required
-    const verifyAdminStatus = async () => {
-      // Only check admin status if user is authenticated, it's required, and not in progress
-      if (user && requireAdmin && !adminCheckInProgress.current) {
-        const now = Date.now();
-        
-        // Skip if we've checked recently
-        if (now - lastAdminCheck.current < adminCheckCooldown) {
-          return;
-        }
-        
-        adminCheckInProgress.current = true;
-        lastAdminCheck.current = now;
-        
-        try {
-          logger.log('Checking admin status for user:', user.id);
-          const isUserAdmin = await checkIsAdmin(user.id);
-          
-          if (isMounted) {
-            setIsAdmin(isUserAdmin);
-            setAdminCheckComplete(true);
-            
-            if (!isUserAdmin) {
-              logger.log('User is not an admin');
-              toast.error('You do not have admin access');
-            }
-          }
-        } catch (error) {
-          logger.error('Error checking admin status:', error);
-          if (isMounted) {
-            setIsAdmin(false);
-            setAdminCheckComplete(true);
-          }
-        } finally {
-          adminCheckInProgress.current = false;
-        }
-      } else if (requireAdmin && !user) {
-        // If no user but admin required, set isAdmin to false
-        if (isMounted) {
-          setIsAdmin(false);
-          setAdminCheckComplete(true);
-        }
-      }
-    };
-    
-    // Set a timeout to prevent hanging on admin check
-    if (requireAdmin && !adminCheckComplete) {
-      timeoutId = setTimeout(() => {
-        if (isMounted && !adminCheckComplete) {
-          logger.warn('Admin check timed out, assuming not admin');
-          setIsAdmin(false);
-          setAdminCheckComplete(true);
-          adminCheckInProgress.current = false;
-        }
-      }, 5000);
-    }
-    
-    verifyAdminStatus();
-    
-    return () => {
-      isMounted = false;
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [user, requireAdmin, adminCheckComplete]);
+    // Log authentication status when component mounts or auth state changes
+    logger.log(`Auth check - User: ${user ? 'authenticated' : 'unauthenticated'}, Admin: ${isAdmin ? 'yes' : 'no'}`);
+  }, [user, isAdmin]);
   
   // Skip checks for certain paths
   if (shouldSkipCheck) {
@@ -110,8 +40,8 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     return <>{children}</>;
   }
   
-  // Show loading while checking auth or admin status
-  if (isLoading || (requireAdmin && !adminCheckComplete)) {
+  // Show loading while checking auth status
+  if (isLoading) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />

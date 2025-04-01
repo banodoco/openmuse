@@ -4,6 +4,7 @@ import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import LoadingState from '@/components/LoadingState';
 import { AuthProvider } from '@/providers/AuthProvider';
+import AuthCallback from '@/pages/AuthCallback';
 
 // Fix imports to use correct paths
 const HomePage = lazy(() => import('./pages/Index'));
@@ -23,6 +24,7 @@ function App() {
             <Route path="/upload" element={<UploadPage />} />
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/auth" element={<AuthPage />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/videos/:id" element={<VideoPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
             {/* Add the new route format for LoRA assets */}
