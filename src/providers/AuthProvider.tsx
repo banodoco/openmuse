@@ -15,6 +15,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const isMounted = useRef(true);
+  const refreshInProgress = useRef(false); // Track when refresh is happening
+  const lastRefreshTime = useRef<number>(0);
   
   // Effect to check admin status whenever user changes
   useEffect(() => {
@@ -89,13 +91,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           
           // Don't check admin status here - the user effect will handle it
           
+          // Store last refresh time
+          lastRefreshTime.current = Date.now();
+          
           // Also do an immediate token refresh to extend session lifetime
           try {
+            refreshInProgress.current = true;
             await supabase.auth.refreshSession();
             logger.log('Session refreshed successfully');
+            lastRefreshTime.current = Date.now();
           } catch (refreshError) {
             // Non-fatal, log but continue
             logger.error('Error refreshing session on initial load:', refreshError);
+          } finally {
+            refreshInProgress.current = false;
           }
         } else {
           logger.log('No existing session found');
@@ -109,17 +118,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }, 100);
 
-    // Set up session refresh on interval
+    // Set up session refresh on interval with better error handling and throttling
     const refreshIntervalId = setInterval(async () => {
-      if (!isMounted.current || !session) return;
+      if (!isMounted.current || !session || refreshInProgress.current) return;
+      
+      // Only refresh if it's been at least 3 minutes since last refresh
+      const now = Date.now();
+      if (now - lastRefreshTime.current < 3 * 60 * 1000) {
+        return;
+      }
       
       try {
         logger.log('Refreshing session token');
-        await supabase.auth.refreshSession();
+        refreshInProgress.current = true;
+        const { data, error } = await supabase.auth.refreshSession();
+        
+        if (error) {
+          logger.error('Failed to refresh session:', error);
+          // Don't force logout here - let the next attempt try again
+        } else if (data.session) {
+          // Update session and user state with fresh values
+          setSession(data.session);
+          setUser(data.session.user);
+          logger.log('Session refreshed successfully');
+          lastRefreshTime.current = now;
+        }
       } catch (error) {
         logger.error('Error in session refresh interval:', error);
+      } finally {
+        refreshInProgress.current = false;
       }
-    }, 4 * 60 * 1000); // Every 4 minutes
+    }, 1 * 60 * 1000); // Check every minute but only refresh after 3+ minutes
     
     return () => {
       logger.log('Cleaning up auth provider');

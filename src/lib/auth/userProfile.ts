@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
@@ -30,18 +29,17 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
       .from('profiles')
       .select('*')
       .eq('id', userId)
-      .single();
+      .maybeSingle();
     
     if (error) {
       logger.error('Error getting user profile:', error);
-      
-      // If user profile doesn't exist, sign them out
-      if (error.code === 'PGRST116') {
-        logger.log('User profile not found, signing out');
-        toast.error('Your account information could not be found. Please sign in again.');
-        await signOut();
-      }
-      
+      userProfileCache.set(userId, {profile: null, timestamp: now});
+      return null;
+    }
+    
+    if (!data) {
+      logger.warn(`User profile not found for authenticated user: ${userId}`);
+      // Return null profile but don't force signout
       userProfileCache.set(userId, {profile: null, timestamp: now});
       return null;
     }
