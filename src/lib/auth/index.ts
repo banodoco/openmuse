@@ -1,4 +1,6 @@
 
 // Export all auth functionality from this central file
 export { signInWithDiscord, signOut } from './authMethods';
-export { getCurrentUser, getCurrentUserProfile, getUserRoles, checkIsAdmin, addUserRole } from './userManagement';
+export { getCurrentUser } from './currentUser';
+export { getCurrentUserProfile, updateUserProfile } from './userProfile';
+export { getUserRoles, checkIsAdmin, addUserRole } from './userRoles';
