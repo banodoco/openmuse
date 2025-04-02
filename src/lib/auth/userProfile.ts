@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
