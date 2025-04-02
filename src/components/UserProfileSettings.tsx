@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth/userManagement';
+import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { Loader2 } from 'lucide-react';
