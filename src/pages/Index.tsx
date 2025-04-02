@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -15,7 +16,7 @@ const logger = new Logger('Index');
 const Index = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isLoading: authLoading } = useAuth();
   const [permissionsChecked, setPermissionsChecked] = useState(false);
   const permissionCheckInProgress = useRef(false);
   const dataRefreshInProgress = useRef(false);
@@ -38,14 +39,19 @@ const Index = () => {
     return loras;
   }, [loras]);
   
+  // Only check permissions if user is authenticated and not still loading
   useEffect(() => {
-    logger.log('Index page loaded, auth state:', user ? 'logged in' : 'not logged in');
+    if (authLoading) {
+      // Still determining auth state, wait
+      return;
+    }
     
     const checkPermissions = async () => {
       if (user && !permissionsChecked && !permissionCheckInProgress.current) {
         permissionCheckInProgress.current = true;
         
         try {
+          logger.log('Checking user permissions for:', user.id);
           const permissions = await testRLSPermissions();
           setPermissionsChecked(true);
           
@@ -68,9 +74,15 @@ const Index = () => {
     return () => {
       logger.log('Index page unloading');
     };
-  }, [user, permissionsChecked]);
+  }, [user, permissionsChecked, authLoading]);
   
+  // Refresh data when user is authenticated
   useEffect(() => {
+    if (authLoading) {
+      // Still determining auth state, wait
+      return;
+    }
+    
     const hasRefreshed = sessionStorage.getItem('initialDataRefreshed') === 'true';
     
     if (user && !lorasLoading && !dataRefreshInProgress.current && !hasRefreshed && !initialRefreshDone.current) {
@@ -87,11 +99,7 @@ const Index = () => {
       
       return () => clearTimeout(timeoutId);
     }
-  }, [user, refetchLoras, lorasLoading]);
-  
-  useEffect(() => {
-    logger.log('Index page loaded, explicitly setting showExtras to false');
-  }, []);
+  }, [user, refetchLoras, lorasLoading, authLoading]);
   
   const handleNavigateToUpload = useCallback(() => {
     navigate('/upload');
@@ -142,13 +150,13 @@ const Index = () => {
             buttonText="Propose New LoRA"
             onButtonClick={handleNavigateToUpload}
             buttonSize={isMobile ? "sm" : "default"}
-            buttonDisabled={lorasLoading}
+            buttonDisabled={lorasLoading || authLoading}
           />
           
           <LoraManager 
             loras={displayLoras} 
-            isLoading={lorasLoading}
-            showExtras={false} // Explicitly set to false to hide "View Original" on the home page
+            isLoading={lorasLoading || authLoading}
+            showExtras={false} 
           />
         </div>
       </div>

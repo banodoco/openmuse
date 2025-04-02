@@ -14,9 +14,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  
   const isMounted = useRef(true);
-  const refreshInProgress = useRef(false); // Track when refresh is happening
+  const refreshInProgress = useRef(false);
   const lastRefreshTime = useRef<number>(0);
+  const authChangeHandled = useRef(false);
   
   // Effect to check admin status whenever user changes
   useEffect(() => {
@@ -52,22 +54,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     logger.log('Setting up auth provider');
     
+    // Flag to prevent duplicate initializations
+    let isInitializing = true;
+    
     // Set up the auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event: AuthChangeEvent, currentSession) => {
+      async (event: AuthChangeEvent, currentSession) => {
         if (!isMounted.current) return;
         
         logger.log(`Auth state changed: ${event}`, currentSession?.user?.id || 'no user');
+        authChangeHandled.current = true;
         
         if (currentSession) {
+          // Update both user and session state atomically
           setUser(currentSession.user);
           setSession(currentSession);
           
-          // Don't check admin status here - the user effect will handle it
+          // Store last refresh time when we get a new session
+          if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
+            lastRefreshTime.current = Date.now();
+            logger.log('Session refreshed via auth state change');
+          }
         } else if (event === 'SIGNED_OUT') {
           setUser(null);
           setSession(null);
           setIsAdmin(false);
+        }
+        
+        // After first auth change, we're no longer initializing
+        isInitializing = false;
+        
+        // Only end loading after initialization
+        if (isLoading) {
+          setIsLoading(false);
         }
       }
     );
@@ -77,19 +96,27 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!isMounted.current) return;
       
       try {
+        // Skip if we already got auth state via the listener
+        if (authChangeHandled.current && !isInitializing) {
+          logger.log('Auth state already handled by listener, skipping getSession');
+          if (isLoading) setIsLoading(false);
+          return;
+        }
+        
         logger.log('Checking for existing session');
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
+          logger.error('Error getting session:', error);
           throw error;
         }
         
         if (data.session) {
           logger.log(`Found existing session: ${data.session.user.id}`);
+          
+          // Update both user and session atomically
           setUser(data.session.user);
           setSession(data.session);
-          
-          // Don't check admin status here - the user effect will handle it
           
           // Store last refresh time
           lastRefreshTime.current = Date.now();
@@ -98,7 +125,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           try {
             refreshInProgress.current = true;
             await supabase.auth.refreshSession();
-            logger.log('Session refreshed successfully');
+            logger.log('Session refreshed successfully during initialization');
             lastRefreshTime.current = Date.now();
           } catch (refreshError) {
             // Non-fatal, log but continue
@@ -120,35 +147,44 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Set up session refresh on interval with better error handling and throttling
     const refreshIntervalId = setInterval(async () => {
-      if (!isMounted.current || !session || refreshInProgress.current) return;
+      if (!isMounted.current) return;
+      if (!session) return; // Skip if no session
+      if (refreshInProgress.current) return; // Skip if refresh already in progress
       
-      // Only refresh if it's been at least 3 minutes since last refresh
+      // Only refresh if it's been at least 5 minutes since last refresh
       const now = Date.now();
-      if (now - lastRefreshTime.current < 3 * 60 * 1000) {
+      if (now - lastRefreshTime.current < 5 * 60 * 1000) {
         return;
       }
       
       try {
         logger.log('Refreshing session token');
         refreshInProgress.current = true;
+        
         const { data, error } = await supabase.auth.refreshSession();
         
         if (error) {
           logger.error('Failed to refresh session:', error);
           // Don't force logout here - let the next attempt try again
-        } else if (data.session) {
-          // Update session and user state with fresh values
+          return;
+        } 
+        
+        if (data.session) {
+          // Atomically update both session and user state
           setSession(data.session);
           setUser(data.session.user);
-          logger.log('Session refreshed successfully');
+          logger.log('Session refreshed successfully via interval');
           lastRefreshTime.current = now;
+        } else {
+          logger.warn('Session refresh returned no session, but no error');
         }
       } catch (error) {
         logger.error('Error in session refresh interval:', error);
+        // Don't log out on error - be resilient
       } finally {
         refreshInProgress.current = false;
       }
-    }, 1 * 60 * 1000); // Check every minute but only refresh after 3+ minutes
+    }, 2 * 60 * 1000); // Check every 2 minutes but only refresh after 5+ minutes
     
     return () => {
       logger.log('Cleaning up auth provider');
@@ -157,7 +193,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearTimeout(timeoutId);
       clearInterval(refreshIntervalId);
     };
-  }, []);
+  }, [isLoading]);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -170,8 +206,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) throw error;
       
       if (data.session) {
+        // Update both atomically
         setUser(data.session.user);
         setSession(data.session);
+        lastRefreshTime.current = Date.now();
       }
     } catch (error: any) {
       toast.error(error.message || 'Error signing in');
@@ -191,6 +229,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       });
       if (error) throw error;
       
+      // Clear auth state
       setUser(null);
       setSession(null);
       setIsAdmin(false);

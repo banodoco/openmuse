@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
@@ -12,7 +11,13 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
-    if (sessionError || !session) {
+    if (sessionError) {
+      logger.error('Error getting session in getCurrentUserProfile:', sessionError);
+      return null;
+    }
+    
+    if (!session) {
+      logger.log('No active session in getCurrentUserProfile');
       return null;
     }
     
@@ -22,10 +27,11 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
     const now = Date.now();
     const cachedData = userProfileCache.get(userId);
     if (cachedData && now - cachedData.timestamp < PROFILE_CACHE_TTL) {
+      logger.log('Returning cached user profile');
       return cachedData.profile;
     }
     
-    // Check if user still exists in database
+    // Check if user profile exists in database
     const { data, error } = await supabase
       .from('profiles')
       .select('*')
@@ -34,22 +40,29 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
     
     if (error) {
       logger.error('Error getting user profile:', error);
+      // Don't clear cache or return null on temporary errors
+      // Return cached data if available, even if expired
+      if (cachedData) {
+        logger.log('Returning expired cached profile due to database error');
+        return cachedData.profile;
+      }
+      // Only set null if we have no cached data at all
       userProfileCache.set(userId, {profile: null, timestamp: now});
       return null;
     }
     
     if (!data) {
       logger.warn(`User profile not found for authenticated user: ${userId}`);
-      // Return null profile but don't force signout
       userProfileCache.set(userId, {profile: null, timestamp: now});
       return null;
     }
     
+    logger.log('Successfully retrieved user profile');
     userProfileCache.set(userId, {profile: data as UserProfile, timestamp: now});
     return data as UserProfile;
   } catch (error) {
     logger.error('Error in getCurrentUserProfile:', error);
-    userProfileCache.clear();
+    // Don't clear cache on error - be resilient
     return null;
   }
 };

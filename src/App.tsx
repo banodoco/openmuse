@@ -13,9 +13,11 @@ const AdminPage = lazy(() => import('./pages/Admin'));
 const AuthPage = lazy(() => import('./pages/Auth'));
 const VideoPage = lazy(() => import('./pages/VideoPage'));
 const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 function App() {
   return (
+    // Ensure that AuthProvider is outside of the Router
     <AuthProvider>
       <Router>
         <Suspense fallback={<LoadingState />}>
@@ -27,6 +29,7 @@ function App() {
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/videos/:id" element={<VideoPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
             {/* Add the new route format for LoRA assets */}
             <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
           </Routes>
