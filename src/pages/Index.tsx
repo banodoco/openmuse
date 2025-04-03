@@ -163,7 +163,6 @@ const Index = () => {
           <LoraManager 
             loras={displayLoras} 
             isLoading={lorasLoading || authLoading}
-            showExtras={false} 
           />
         </div>
       </div>

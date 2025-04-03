@@ -1,38 +1,18 @@
-
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { UploadCloud, LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
-import { getCurrentUser, checkIsAdmin } from '@/lib/auth';
+import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
+  const { isAdmin, isLoading } = useAuth();
   const [imageError, setImageError] = useState(false);
   const isMobile = useIsMobile();
-  
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      try {
-        const user = await getCurrentUser();
-        if (user) {
-          const adminStatus = await checkIsAdmin(user.id);
-          setIsAdmin(adminStatus);
-        }
-      } catch (error) {
-        console.error('Error checking admin status:', error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    checkAdminStatus();
-  }, []);
   
   const isActive = (path: string) => location.pathname === path;
   const isAuthPage = location.pathname === '/auth';

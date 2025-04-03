@@ -1,27 +1,24 @@
-
-import React, { useEffect } from 'react';
+import React from 'react';
 import { LoraAsset } from '@/lib/types';
 import LoraList from './lora/LoraList';
 import LoadingState from './LoadingState';
 import EmptyState from './EmptyState';
 import { Logger } from '@/lib/logger';
+import { useAuth } from '@/hooks/useAuth';
 
 const logger = new Logger('LoraManager');
 
 interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading?: boolean;
-  showExtras?: boolean;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
   loras, 
-  isLoading = false,
-  showExtras = false  // Changed default to false
+  isLoading = false
 }) => {
-  useEffect(() => {
-    logger.log(`LoraManager initialized with showExtras: ${showExtras}`);
-  }, [showExtras]);
+  const { user, isAdmin } = useAuth();
+  logger.log("LoraManager initialized.");
 
   if (isLoading) {
     return <LoadingState />;
@@ -36,8 +33,8 @@ const LoraManager: React.FC<LoraManagerProps> = ({
     );
   }
 
-  logger.log(`LoraManager rendering with showExtras: ${showExtras}`);
-  return <LoraList loras={loras} showExtras={showExtras} />;
+  logger.log(`LoraManager rendering.`);
+  return <LoraList loras={loras} />;
 };
 
 export default LoraManager;

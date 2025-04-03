@@ -1,5 +1,3 @@
-
-
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -77,5 +75,4 @@ export interface LoraAsset {
 export interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading: boolean;
-  showExtras?: boolean;
 }

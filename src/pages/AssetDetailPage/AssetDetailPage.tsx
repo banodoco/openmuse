@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { VideoEntry } from '@/lib/types';
-import { checkIsAdmin } from '@/lib/auth';
 import { useAuth } from '@/hooks/useAuth';
 import LoadingState from '@/components/LoadingState';
 import EmptyState from '@/components/EmptyState';
@@ -22,9 +21,7 @@ import AssetVideoSection from './components/AssetVideoSection';
 const AssetDetailPage: React.FC = () => {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [isAdmin, setIsAdmin] = useState(false);
-  const { user } = useAuth();
-  const [authChecked, setAuthChecked] = useState(false);
+  const { user, isAdmin } = useAuth();
   const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -51,23 +48,6 @@ const AssetDetailPage: React.FC = () => {
     handleDeleteVideo,
     handleApproveVideo
   } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
-
-  React.useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (user?.id) {
-        console.log('AssetDetailPage - Checking admin status for user:', user.id);
-        const adminStatus = await checkIsAdmin(user.id);
-        console.log('AssetDetailPage - Admin status result:', adminStatus);
-        setIsAdmin(adminStatus);
-      } else {
-        console.log('AssetDetailPage - No user, setting isAdmin to false');
-        setIsAdmin(false);
-      }
-      setAuthChecked(true);
-    };
-    
-    checkAdminStatus();
-  }, [user]);
 
   React.useEffect(() => {
     setIsLoading(assetLoading);
@@ -149,7 +129,6 @@ const AssetDetailPage: React.FC = () => {
             asset={asset}
             creatorDisplayName={creatorDisplayName}
             isAdmin={isAdmin}
-            authChecked={authChecked}
             isApproving={isApproving}
             handleCurateAsset={handleCurateAsset}
             handleListAsset={handleListAsset}

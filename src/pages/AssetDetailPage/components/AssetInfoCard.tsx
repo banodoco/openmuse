@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Card, CardHeader, CardContent, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -12,7 +11,6 @@ interface AssetInfoCardProps {
   asset: LoraAsset | null;
   creatorDisplayName: string | null;
   isAdmin: boolean;
-  authChecked: boolean;
   isApproving: boolean;
   handleCurateAsset: () => Promise<void>;
   handleListAsset: () => Promise<void>;
@@ -24,7 +22,6 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
   asset,
   creatorDisplayName,
   isAdmin,
-  authChecked,
   isApproving,
   handleCurateAsset,
   handleListAsset,
@@ -187,7 +184,7 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
           </Button>
         )}
       </CardContent>
-      {isAdmin && authChecked && (
+      {isAdmin && (
         <CardFooter className="flex-col items-stretch space-y-2">
           <div className="text-sm font-medium text-muted-foreground mb-2">Admin Actions</div>
           <div className="grid grid-cols-3 gap-2">

@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Badge } from '@/components/ui/badge';
@@ -39,7 +38,6 @@ import {
 import VideoPreview from './VideoPreview';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { useAuth } from '@/hooks/useAuth';
-import { checkIsAdmin } from '@/lib/auth';
 
 interface VideoListProps {
   videos: VideoEntry[];
@@ -62,8 +60,7 @@ const VideoList: React.FC<VideoListProps> = ({
   const [selectAll, setSelectAll] = useState(false);
   const [filterText, setFilterText] = useState('');
   const [videoUrls, setVideoUrls] = useState<Record<string, string>>({});
-  const [isAdmin, setIsAdmin] = useState(false);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -86,24 +83,6 @@ const VideoList: React.FC<VideoListProps> = ({
     
     loadVideoUrls();
   }, [videos]);
-
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (user?.id) {
-        try {
-          const adminStatus = await checkIsAdmin(user.id);
-          setIsAdmin(adminStatus);
-        } catch (error) {
-          console.error('Error checking admin status:', error);
-          setIsAdmin(false);
-        }
-      } else {
-        setIsAdmin(false);
-      }
-    };
-    
-    checkAdminStatus();
-  }, [user]);
 
   useEffect(() => {
     if (videos && videos.length > 0) {

@@ -4,7 +4,6 @@ import VideoList from './VideoList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useAuth } from '@/hooks/useAuth';
-import { checkIsAdmin } from '@/lib/auth';
 import VideoFilter from './VideoFilter';
 
 interface VideoManagerProps {
@@ -26,8 +25,7 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   listVideo,
   rejectVideo
 }) => {
-  const { user } = useAuth();
-  const [isAdmin, setIsAdmin] = React.useState(false);
+  const { user, isAdmin } = useAuth();
   const [videoFilter, setVideoFilter] = useState('curated');
   
   const sortedVideos = React.useMemo(() => {
@@ -58,19 +56,6 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   const curatedVideos = sortedVideos.filter(video => video.admin_approved === 'Curated');
   const listedVideos = sortedVideos.filter(video => !video.admin_approved || video.admin_approved === 'Listed');
   const rejectedVideos = sortedVideos.filter(video => video.admin_approved === 'Rejected');
-  
-  React.useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (user?.id) {
-        const adminStatus = await checkIsAdmin(user.id);
-        setIsAdmin(adminStatus);
-      } else {
-        setIsAdmin(false);
-      }
-    };
-    
-    checkAdminStatus();
-  }, [user]);
   
   const handleDelete = async (id: string) => {
     try {

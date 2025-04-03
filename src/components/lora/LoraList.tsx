@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -8,47 +7,22 @@ import { Button } from "@/components/ui/button";
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
-import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('LoraList');
 
 interface LoraListProps {
   loras: LoraAsset[];
-  showExtras?: boolean;
 }
 
-const LoraList: React.FC<LoraListProps> = ({ loras, showExtras = false }) => {
+const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   const [filterText, setFilterText] = useState('');
   const [approvalFilter, setApprovalFilter] = useState('curated'); // Default to 'curated'
-  const [isAdmin, setIsAdmin] = useState(false);
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const adminCheckComplete = React.useRef(false);
   
   useEffect(() => {
-    const checkAdminStatus = async () => {
-      if (user?.id && !adminCheckComplete.current) {
-        try {
-          adminCheckComplete.current = true;
-          const adminStatus = await checkIsAdmin(user.id);
-          setIsAdmin(adminStatus);
-          logger.log("Admin status checked in LoraList:", adminStatus);
-        } catch (error) {
-          logger.error("Error checking admin status:", error);
-          setIsAdmin(false);
-        }
-      } else if (!user) {
-        setIsAdmin(false);
-        adminCheckComplete.current = false;
-      }
-    };
-    
-    checkAdminStatus();
-  }, [user]);
-  
-  useEffect(() => {
     logger.log("LoraList received loras:", loras?.length || 0);
-    logger.log("LoraList showExtras:", showExtras);
-  }, [loras, showExtras]);
+  }, [loras]);
   
   const filteredLoras = (loras || []).filter(lora => {
     const searchTerm = filterText.toLowerCase();
@@ -146,7 +120,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras, showExtras = false }) => {
                 key={lora.id} 
                 lora={lora} 
                 isAdmin={isAdmin} 
-                showExtras={showExtras} 
               />
             ))
           ) : (
