@@ -115,6 +115,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         let userChanged = false; // Track if user actually changed
         
         if (currentSession) {
+          // Set loading true FIRST to ensure admin check effect runs
+          if (!isLoading) { 
+             setIsLoading(true); 
+             logger.log('Session detected, setting isLoading true to trigger admin check.');
+          }
+          
           if (user?.id !== currentSession.user.id) {
              setUser(currentSession.user);
              userChanged = true;
@@ -217,7 +223,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signIn = async (email: string, password: string) => {
     try {
-      setIsLoading(true);
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
@@ -234,14 +239,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       toast.error(error.message || 'Error signing in');
       logger.error('Sign in error:', error);
-    } finally {
-      // REMOVED: if (isMounted.current) { setIsLoading(false); }
     }
   };
 
   const signOut = async () => {
     try {
-      setIsLoading(true);
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
@@ -252,8 +254,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } catch (error: any) {
       toast.error(error.message || 'Error signing out');
       logger.error('Sign out error:', error);
-    } finally {
-       // REMOVED: if (isMounted.current) { setIsLoading(false); }
     }
   };
 
