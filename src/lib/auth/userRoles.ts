@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '../logger';
 import { userRolesCache, ROLES_CACHE_TTL } from './cache';
@@ -40,25 +39,39 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
 export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   logger.log(`Checking if user ${userId} is admin`);
   
+  let data = null; // Initialize data outside try block
+  let error = null; // Initialize error outside try block
+
   try {
     // Use a direct query without the table name in the column reference
-    const { data, error } = await supabase
+    const response = await supabase
       .from('user_roles')
-      .select('*')
+      .select('role') // Only select necessary field
       .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
       
+    data = response.data;
+    error = response.error;
+
     if (error) {
-      logger.error('Error checking admin status:', error);
-      return false;
+      // Log the specific error object from Supabase
+      logger.error(`Supabase query error checking admin status for ${userId}:`, error);
+      return false; // Return false on query error
     }
     
-    const isAdmin = !!data;
-    logger.log(`User roles check result:`, isAdmin);
-    return isAdmin;
-  } catch (error) {
-    logger.error('Error in admin check:', error);
+    // Explicitly log the data received (or lack thereof)
+    if (data) {
+      logger.log(`Admin check successful for ${userId}: Found role data.`);
+      return true; // User has the admin role
+    } else {
+      logger.log(`Admin check successful for ${userId}: No admin role row found (data is null/empty).`);
+      return false; // User does not have the admin role row
+    }
+
+  } catch (catchError) {
+    // Catch unexpected errors during the async operation itself
+    logger.error(`Unexpected error during admin check for ${userId}:`, catchError);
     return false;
   }
 };
