@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import { userProfileCache, userRolesCache } from './cache';
@@ -49,10 +48,8 @@ export const signOut = async () => {
     userProfileCache.clear();
     userRolesCache.clear();
     
-    // Sign out from Supabase with local scope to preserve sessions in other tabs/devices
-    const { error } = await supabase.auth.signOut({
-      scope: 'local' // Use local scope to avoid clearing all sessions
-    });
+    // Sign out from Supabase globally
+    const { error } = await supabase.auth.signOut();
     
     if (error) {
       logger.error('Error signing out:', error);
