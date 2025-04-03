@@ -114,6 +114,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     // Set up the auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
+        // Add a log to confirm the callback itself is running the latest code
+        logger.log('--- onAuthStateChange Callback Executing ---');
+        
         if (!isMounted.current) return;
         
         logger.log(`Auth state changed: ${event}`, currentSession?.user?.id || 'no user');
