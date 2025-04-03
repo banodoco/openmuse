@@ -9,6 +9,9 @@ import { checkIsAdmin } from '@/lib/auth';
 const logger = new Logger('AuthProvider');
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // Add a version marker log
+  logger.log('--- AuthProvider Module Execution (v5 - Unconditional isLoading) ---');
+  
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -119,10 +122,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         if (currentSession) {
           // Set loading true FIRST to ensure admin check effect runs
-          if (!isLoading) { 
-             setIsLoading(true); 
-             logger.log('Session detected, setting isLoading true to trigger admin check.');
-          }
+          setIsLoading(true); 
+          logger.log('Session detected, explicitly setting isLoading true to trigger admin check.');
           
           if (user?.id !== currentSession.user.id) {
              setUser(currentSession.user);
