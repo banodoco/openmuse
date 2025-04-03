@@ -10,13 +10,14 @@ const logger = new Logger('AuthProvider');
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Add a version marker log
-  logger.log('--- AuthProvider Module Execution (v6 - Separate Admin Loading State) ---');
+  logger.log('--- AuthProvider Module Execution (v7 - Robust Admin Loading) ---');
   
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true); // Tracks Supabase initial auth check
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAdminCheckInProgress, setIsAdminCheckInProgress] = useState<boolean>(false); // Tracks the async admin check
+  const [isAdminStatusKnown, setIsAdminStatusKnown] = useState<boolean>(false); // New state: Tracks if admin status check has completed for the current user
 
   const isMounted = useRef(true);
   const refreshInProgress = useRef(false);
@@ -25,6 +26,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Effect to check admin status *only* when user changes
   useEffect(() => {
     let isActive = true;
+    setIsAdminStatusKnown(false); // Reset admin status knowledge when user changes
 
     const verifyAdminStatus = async (userId: string) => {
       logger.log('Checking admin status for user:', userId);
@@ -35,18 +37,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       while (attempt <= maxAttempts) {
         if (!isActive) {
-          setIsAdminCheckInProgress(false); // Ensure state is cleared if unmounted during check
-          return;
+          // Don't update state if component unmounted during check
+          return; 
         }
 
         try {
           const userIsAdmin = await checkIsAdmin(userId);
           if (isActive) {
             if (userIsAdmin) {
-              setIsAdmin(true);
-              logger.log(`Attempt ${attempt}: User is admin`);
+              setIsAdmin(true); // Set admin status
+              setIsAdminStatusKnown(true); // Mark status as known
               setIsAdminCheckInProgress(false); // Check complete (success)
-              logger.log('Admin status resolved successfully, isAdminCheckInProgress set false.');
+              logger.log(`Attempt ${attempt}: User is admin. Status known, check complete.`);
               return; 
             } else {
                logger.log(`Attempt ${attempt}: User is not admin (check returned false)`);
@@ -62,9 +64,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } else {
            if (isActive) {
              logger.warn(`Max attempts (${maxAttempts}) reached for admin check. Concluding user is not admin.`);
-             setIsAdmin(false);
-             setIsAdminCheckInProgress(false); // Check complete (failure)
-             logger.log('Admin check failed after retries, isAdminCheckInProgress set false.');
+             setIsAdmin(false); // Set admin status to false
+             setIsAdminStatusKnown(true); // Mark status as known
+             setIsAdminCheckInProgress(false); // Check complete (failure after retries)
+             logger.log('Admin check failed after retries. Status known, check complete.');
            }
         }
         attempt++;
@@ -75,9 +78,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user) {
       verifyAdminStatus(user.id);
     } else {
-      // If there's no user, ensure admin status is false and check is not in progress
+      // If there's no user, ensure admin status is false and status is known
       setIsAdmin(false);
-      setIsAdminCheckInProgress(false);
+      setIsAdminStatusKnown(true); // Admin status is known (false) when no user
+      setIsAdminCheckInProgress(false); // No check is in progress
     }
 
     return () => {
@@ -113,22 +117,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (user?.id !== currentSession.user.id) {
              logger.log('User ID changed or user newly logged in. Setting user state.');
              setIsAdmin(false); // Reset admin status before check
+             setIsAdminStatusKnown(false); // Reset admin status knowledge
              setIsAdminCheckInProgress(true); // Indicate check will start
              setUser(currentSession.user); // This will trigger the admin check useEffect
           } else if (event === 'TOKEN_REFRESHED') {
              logger.log('Token refreshed for the same user.');
              // No need to re-trigger admin check if user is the same
-          } else if (event === 'INITIAL_SESSION') {
-              // If initial session finds a user, set it (will trigger admin check)
-              logger.log('Initial session has a user. Setting user state.');
+          } else if (event === 'INITIAL_SESSION' && user?.id !== currentSession.user.id) {
+              // If initial session finds a DIFFERENT user, set it (will trigger admin check)
+              logger.log('Initial session has a different user. Setting user state.');
               setIsAdmin(false);
+              setIsAdminStatusKnown(false);
               setIsAdminCheckInProgress(true);
               setUser(currentSession.user);
+          } else if (event === 'INITIAL_SESSION' && !user) {
+               // If initial session finds a user and we currently have none
+               logger.log('Initial session has a user (currently none). Setting user state.');
+               setIsAdmin(false);
+               setIsAdminStatusKnown(false);
+               setIsAdminCheckInProgress(true);
+               setUser(currentSession.user);
           } else if (event === 'SIGNED_IN') {
              logger.log('User explicitly signed in.');
-             setIsAdmin(false); 
-             setIsAdminCheckInProgress(true);
-             setUser(currentSession.user);
+             // User state update is handled above if needed
           }
           
         } else { // No currentSession (SIGNED_OUT or INITIAL_SESSION without user)
@@ -139,6 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            }
            setSession(null);
            setIsAdmin(false); // Ensure admin is false if no session
+           setIsAdminStatusKnown(true); // Admin status is known (false) if no user
            setIsAdminCheckInProgress(false); // No admin check needed if no user
            
            // If INITIAL_SESSION finished without a user, isInitialLoading is already false.
@@ -231,8 +243,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Combine initial loading and admin check status for the exposed isLoading value
-  const combinedIsLoading = isInitialLoading || isAdminCheckInProgress;
+  // Combine initial loading and admin status knowledge for the exposed isLoading value
+  // Loading is true if:
+  // 1. Supabase initial check is ongoing OR
+  // 2. We have a user BUT their admin status isn't known yet.
+  const combinedIsLoading = isInitialLoading || (!!user && !isAdminStatusKnown);
+
+  logger.log(`AuthProvider State: isInitialLoading=${isInitialLoading}, user=${!!user}, isAdminStatusKnown=${isAdminStatusKnown}, combinedIsLoading=${combinedIsLoading}, isAdmin=${isAdmin}`);
 
   return (
     <AuthContext.Provider 
