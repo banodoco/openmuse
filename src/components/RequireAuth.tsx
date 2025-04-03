@@ -43,6 +43,8 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   const isLoading = isAuthLoading; 
   
   // Show loading state
+  // Add log before the loading check
+  logger.log(`RequireAuth Checkpoint 1: Before isLoading check. isAuthLoading=${isAuthLoading}, isContextAdmin=${isContextAdmin}`);
   if (isLoading) {
     // Updated log message
     logger.log(`Rendering Loading State - Path: ${location.pathname} (Auth Loading: ${isAuthLoading})`);
@@ -78,6 +80,8 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   
   // Handle non-admin users trying to access admin resources
   // Use isContextAdmin directly now.
+  // Add log before the admin check
+  logger.log(`RequireAuth Checkpoint 2: Before requireAdmin check. isAuthLoading=${isAuthLoading}, isContextAdmin=${isContextAdmin}, requireAdmin=${requireAdmin}`);
   if (requireAdmin && !isContextAdmin) {
     // Updated log message
     logger.warn(
