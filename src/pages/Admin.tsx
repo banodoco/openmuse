@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
@@ -15,6 +14,9 @@ import { Label } from '@/components/ui/label';
 import { downloadEntriesAsCsv } from '@/lib/csvUtils';
 import { Download, CheckCircle, X, MessageCircle, SkipForward, MessageSquareOff } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('AdminPage');
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
@@ -40,7 +42,11 @@ const Admin: React.FC = () => {
   });
 
   useEffect(() => {
+    logger.log('Admin page mounted');
     loadEntries();
+    return () => {
+      logger.log('Admin page unmounting');
+    };
   }, []);
 
   useEffect(() => {

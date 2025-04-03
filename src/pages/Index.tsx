@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -38,6 +37,14 @@ const Index = () => {
     
     return loras;
   }, [loras]);
+  
+  // Add lifecycle logging
+  useEffect(() => {
+    logger.log('Index page mounted');
+    return () => {
+      logger.log('Index page unmounting'); // This should fire right before unload
+    };
+  }, []);
   
   // Only check permissions if user is authenticated and not still loading
   useEffect(() => {

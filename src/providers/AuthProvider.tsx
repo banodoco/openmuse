@@ -43,6 +43,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isActive) {
           setIsAdmin(userIsAdmin);
           logger.log(`User admin status: ${userIsAdmin ? 'is admin' : 'not admin'}`);
+          // Log the state just before setting isLoading false
+          logger.log('State before setting isLoading=false:', { user: !!user, isAdmin: userIsAdmin, newIsLoading: false });
           // Now that admin status is set, we are fully loaded
           setIsLoading(false); 
           logger.log('Admin status checked, setting isLoading false.');
@@ -51,6 +53,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logger.error('Error checking admin status:', error);
         if (isActive) {
           setIsAdmin(false);
+          // Log the state just before setting isLoading false, even on error
+          logger.log('State before setting isLoading=false (on error):', { user: !!user, isAdmin: false, newIsLoading: false });
           // Still set loading false even on error
           setIsLoading(false); 
           logger.log('Error checking admin status, setting isLoading false.');

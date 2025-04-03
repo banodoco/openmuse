@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -22,26 +21,26 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   const { user, isLoading, isAdmin } = useAuth();
   const location = useLocation();
   
-  // Skip checking for certain public pages
+  // Determine if the path should skip auth checks
   const shouldSkipCheck = 
+    allowUnauthenticated || // Always allow if explicitly set
     location.pathname === '/auth' || 
     location.pathname === '/auth/callback' ||
-    location.pathname === '/upload' ||
-    location.pathname.startsWith('/assets/loras/');
+    location.pathname.startsWith('/assets/loras/'); // Allow unauthenticated access to LoRA details
+
+  // Log the state RequireAuth sees *before* any decisions are made
+  logger.log(
+    `State Check - Path: ${location.pathname}, isLoading: ${isLoading}, User: ${!!user}, isAdmin: ${isAdmin}, requireAdmin: ${requireAdmin}, allowUnauthenticated: ${allowUnauthenticated}, shouldSkipCheck: ${shouldSkipCheck}`
+  );
   
   useEffect(() => {
     // Log authentication status when component mounts or auth state changes
     logger.log(`Auth check - User: ${user ? 'authenticated' : 'unauthenticated'}, Admin: ${isAdmin ? 'yes' : 'no'}`);
   }, [user, isAdmin]);
   
-  // Skip checks for certain paths
-  if (shouldSkipCheck) {
-    logger.log(`Skipping auth check for path: ${location.pathname}`);
-    return <>{children}</>;
-  }
-  
-  // Show loading while checking auth status
+  // Show loading state
   if (isLoading) {
+    logger.log(`Rendering Loading State - Path: ${location.pathname}`);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
@@ -52,14 +51,17 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
     );
   }
   
-  // For the LoRA detail page, allow unauthenticated users
-  if (location.pathname.startsWith('/assets/loras/')) {
+  // Handle skipped checks first
+  if (shouldSkipCheck) {
+    logger.log(`Skipping Auth Checks - Path: ${location.pathname}`);
     return <>{children}</>;
   }
   
-  // Handle unauthenticated users
-  if (!user && !allowUnauthenticated) {
-    logger.log('User not authenticated, redirecting to auth page from:', location.pathname);
+  // Handle unauthenticated users for protected routes
+  if (!user) {
+    logger.warn(
+      `Redirecting to /auth: User not authenticated. Path: ${location.pathname}, isLoading: ${isLoading}`
+    );
     return (
       <Navigate 
         to={`/auth?returnUrl=${encodeURIComponent(location.pathname)}`} 
@@ -70,12 +72,15 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   
   // Handle non-admin users trying to access admin resources
   if (requireAdmin && !isAdmin) {
-    logger.log('User is not admin, redirecting to home page');
+    logger.warn(
+      `Redirecting to /: User NOT admin. Path: ${location.pathname}, isLoading: ${isLoading}, isAdmin value: ${isAdmin}`
+    );
     toast.error('You do not have access to this resource');
     return <Navigate to="/" replace />;
   }
   
   // If all checks pass, render children
+  logger.log(`Rendering Children - Path: ${location.pathname}`);
   return <>{children}</>;
 };
 
