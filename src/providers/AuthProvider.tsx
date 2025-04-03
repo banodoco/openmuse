@@ -205,7 +205,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }, 2 * 60 * 1000); // Check every 2 minutes but only refresh after 5+ minutes
     
     return () => {
-      logger.log('Cleaning up auth provider');
+      logger.log('Cleaning up auth provider subscription and interval');
       isMounted.current = false;
       subscription.unsubscribe();
       clearInterval(refreshIntervalId);
