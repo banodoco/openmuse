@@ -34,18 +34,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         try {
           const userIsAdmin = await checkIsAdmin(userId);
           if (isActive) {
-            setIsAdmin(userIsAdmin);
-            logger.log(`Attempt ${attempt}: User admin status: ${userIsAdmin ? 'is admin' : 'not admin'}`);
-            setIsLoading(false);
-            logger.log('Admin status resolved, setting isLoading false.');
-            return; // Success, exit the loop and function
+            if (userIsAdmin) { // Only set loading false on SUCCESS
+              setIsAdmin(true);
+              logger.log(`Attempt ${attempt}: User is admin`);
+              setIsLoading(false); // Set loading false only if admin check succeeded
+              logger.log('Admin status resolved successfully, setting isLoading false.');
+              return; // Success, exit the loop and function
+            } else {
+               logger.log(`Attempt ${attempt}: User is not admin (check returned false)`);
+               // Don't set isLoading false yet, proceed to retry logic
+            }
           }
         } catch (error) {
           logger.error(`Attempt ${attempt}: Error checking admin status:`, error);
           // Fall through to potentially retry
         }
 
-        // If try failed or caught error, and we haven't reached max attempts
+        // If try block finished without returning (i.e., userIsAdmin was false)
+        // or if catch block was executed, proceed to retry logic:
+
         if (attempt < maxAttempts) {
           logger.log(`Attempt ${attempt} failed, retrying after ${retryDelay}ms...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
