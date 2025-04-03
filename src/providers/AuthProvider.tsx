@@ -210,9 +210,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.error(error.message || 'Error signing in');
       logger.error('Sign in error:', error);
     } finally {
-      if (isMounted.current) {
-        setIsLoading(false);
-      }
+      // REMOVED: if (isMounted.current) { setIsLoading(false); }
     }
   };
 
@@ -222,17 +220,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
-      // Clear auth state
-      setUser(null);
-      setSession(null);
-      setIsAdmin(false);
+      // Clear auth state - handled by listener now more reliably
+      // setUser(null);
+      // setSession(null);
+      // setIsAdmin(false);
     } catch (error: any) {
       toast.error(error.message || 'Error signing out');
       logger.error('Sign out error:', error);
     } finally {
-      if (isMounted.current) {
-        setIsLoading(false);
-      }
+       // REMOVED: if (isMounted.current) { setIsLoading(false); }
     }
   };
 
