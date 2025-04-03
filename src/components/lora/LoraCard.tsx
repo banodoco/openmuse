@@ -28,36 +28,20 @@ const logger = new Logger('LoraCard');
 interface LoraCardProps {
   lora: LoraAsset;
   isAdmin?: boolean;
-  showExtras?: boolean;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
   lora, 
   isAdmin = false, 
-  showExtras = false 
 }) => {
   const navigate = useNavigate();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
-  const [isHovering, setIsHovering] = useState(false);
   const { user } = useAuth();
-  const hoverTimeoutRef = useRef<number | null>(null);
   
   const videoUrl = lora.primaryVideo?.video_location;
   const thumbnailUrl = lora.primaryVideo?.metadata?.thumbnailUrl;
-  
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
-  
-  useEffect(() => {
-    logger.log(`LoraCard: showExtras for ${lora.name}: ${showExtras}`);
-  }, [showExtras, lora.name]);
   
   const getCreatorName = () => {
     if (lora.creatorDisplayName) return lora.creatorDisplayName;
@@ -204,27 +188,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
       !isActive && "bg-transparent"
     );
   };
-
-  const handleMouseEnter = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-    }
-    
-    hoverTimeoutRef.current = window.setTimeout(() => {
-      logger.log(`LoraCard: Mouse entered, setting hover state for ${lora.name}`);
-      setIsHovering(true);
-    }, 50);
-  };
-
-  const handleMouseLeave = () => {
-    if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current);
-      hoverTimeoutRef.current = null;
-    }
-    
-    logger.log(`LoraCard: Mouse left, clearing hover state for ${lora.name}`);
-    setIsHovering(false);
-  };
   
   return (
     <Card 
@@ -233,8 +196,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
     >
       <div 
         className="aspect-video w-full overflow-hidden bg-muted relative"
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
         {videoUrl ? (
           <VideoPreview 
@@ -242,7 +203,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
             className="w-full h-full object-cover" 
             title={lora.name}
             creator={getCreatorName()}
-            isHovering={isHovering}
             lazyLoad={true}
             thumbnailUrl={thumbnailUrl}
           />
@@ -252,23 +212,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
           </div>
         )}
       </div>
-      
-      {lora.lora_link && showExtras === true && (
-        <div className="p-1">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="w-full h-7 text-xs gap-1"
-            onClick={(e) => {
-              e.stopPropagation();
-              window.open(lora.lora_link, '_blank');
-            }}
-          >
-            <ExternalLink className="h-3 w-3" />
-            View Original
-          </Button>
-        </div>
-      )}
       
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-1">
