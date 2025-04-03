@@ -71,7 +71,8 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   }
   
   // Handle non-admin users trying to access admin resources
-  if (requireAdmin && !isAdmin) {
+  // Only check admin if loading is complete, user exists, and admin is required
+  if (!isLoading && user && requireAdmin && !isAdmin) {
     logger.warn(
       `Redirecting to /: User NOT admin. Path: ${location.pathname}, isLoading: ${isLoading}, isAdmin value: ${isAdmin}`
     );
