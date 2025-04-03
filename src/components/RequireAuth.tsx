@@ -79,11 +79,12 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   }
   
   // Handle non-admin users trying to access admin resources
-  // Use isContextAdmin directly now.
-  // Add log before the admin check
   logger.log(`RequireAuth Checkpoint 2: Before requireAdmin check. isAuthLoading=${isAuthLoading}, isContextAdmin=${isContextAdmin}, requireAdmin=${requireAdmin}`);
   if (requireAdmin && !isContextAdmin) {
-    // Updated log message
+    // Log the exact values causing the redirect
+    logger.warn(
+      `REDIRECTING! Condition: (requireAdmin && !isContextAdmin) -> (${requireAdmin} && !${isContextAdmin})`
+    );
     logger.warn(
       `Redirecting to /: User NOT admin (checked context). Path: ${location.pathname}, isContextAdmin: ${isContextAdmin}`
     );
