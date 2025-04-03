@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
@@ -18,7 +17,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isMounted = useRef(true);
   const refreshInProgress = useRef(false);
   const lastRefreshTime = useRef<number>(0);
-  const authChangeHandled = useRef(false);
   
   // Effect to check admin status whenever user changes
   useEffect(() => {
@@ -54,16 +52,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     logger.log('Setting up auth provider');
     
-    // Flag to prevent duplicate initializations
-    let isInitializing = true;
-    
     // Set up the auth state change listener FIRST
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
         if (!isMounted.current) return;
         
         logger.log(`Auth state changed: ${event}`, currentSession?.user?.id || 'no user');
-        authChangeHandled.current = true;
         
         if (currentSession) {
           // Update both user and session state atomically
@@ -81,69 +75,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setIsAdmin(false);
         }
         
-        // After first auth change, we're no longer initializing
-        isInitializing = false;
-        
-        // Only end loading after initialization
+        // The listener fires immediately with initial state (e.g., INITIAL_SESSION)
+        // or SIGNED_IN/SIGNED_OUT later. We are done loading once it fires.
         if (isLoading) {
           setIsLoading(false);
         }
       }
     );
-
-    // THEN check for existing session (with a small delay to ensure listener is set)
-    const timeoutId = setTimeout(async () => {
-      if (!isMounted.current) return;
-      
-      try {
-        // Skip if we already got auth state via the listener
-        if (authChangeHandled.current && !isInitializing) {
-          logger.log('Auth state already handled by listener, skipping getSession');
-          if (isLoading) setIsLoading(false);
-          return;
-        }
-        
-        logger.log('Checking for existing session');
-        const { data, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          logger.error('Error getting session:', error);
-          throw error;
-        }
-        
-        if (data.session) {
-          logger.log(`Found existing session: ${data.session.user.id}`);
-          
-          // Update both user and session atomically
-          setUser(data.session.user);
-          setSession(data.session);
-          
-          // Store last refresh time
-          lastRefreshTime.current = Date.now();
-          
-          // Also do an immediate token refresh to extend session lifetime
-          try {
-            refreshInProgress.current = true;
-            await supabase.auth.refreshSession();
-            logger.log('Session refreshed successfully during initialization');
-            lastRefreshTime.current = Date.now();
-          } catch (refreshError) {
-            // Non-fatal, log but continue
-            logger.error('Error refreshing session on initial load:', refreshError);
-          } finally {
-            refreshInProgress.current = false;
-          }
-        } else {
-          logger.log('No existing session found');
-        }
-      } catch (error) {
-        logger.error('Error checking session:', error);
-      } finally {
-        if (isMounted.current) {
-          setIsLoading(false);
-        }
-      }
-    }, 100);
 
     // Set up session refresh on interval with better error handling and throttling
     const refreshIntervalId = setInterval(async () => {
@@ -190,10 +128,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logger.log('Cleaning up auth provider');
       isMounted.current = false;
       subscription.unsubscribe();
-      clearTimeout(timeoutId);
       clearInterval(refreshIntervalId);
     };
-  }, [isLoading]);
+  }, []);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -224,9 +161,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const signOut = async () => {
     try {
       setIsLoading(true);
-      const { error } = await supabase.auth.signOut({
-        scope: 'local'  // Only sign out from this tab, not all sessions
-      });
+      const { error } = await supabase.auth.signOut();
       if (error) throw error;
       
       // Clear auth state
