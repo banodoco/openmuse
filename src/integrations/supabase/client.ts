@@ -11,7 +11,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     persistSession: true,
     autoRefreshToken: true,
     detectSessionInUrl: true, // Enable this to better handle OAuth redirects
-    flowType: 'implicit',
   },
 });
 
