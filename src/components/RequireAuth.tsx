@@ -1,10 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
-import { checkIsAdmin } from '@/lib/auth/userRoles';
 
 const logger = new Logger('RequireAuth');
 
@@ -19,13 +18,9 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   requireAdmin = false,
   allowUnauthenticated = false
 }) => {
-  const { user, isLoading: isAuthLoading, isAdmin: isAdminFromContext } = useAuth();
+  const { user, isLoading: isAuthLoading, isAdmin: isContextAdmin } = useAuth();
   const location = useLocation();
   
-  // Local state for admin check result
-  const [localIsAdmin, setLocalIsAdmin] = useState<boolean | null>(null);
-  const [isCheckingAdmin, setIsCheckingAdmin] = useState(false);
-
   // Determine if the path should skip auth checks
   const shouldSkipCheck = 
     allowUnauthenticated || // Always allow if explicitly set
@@ -35,53 +30,28 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
 
   // Log the state RequireAuth sees *before* any decisions are made
   logger.log(
-    `State Check - Path: ${location.pathname}, isAuthLoading: ${isAuthLoading}, User: ${!!user}, isAdminFromContext: ${isAdminFromContext}, requireAdmin: ${requireAdmin}, allowUnauthenticated: ${allowUnauthenticated}, shouldSkipCheck: ${shouldSkipCheck}, localIsAdmin: ${localIsAdmin}`
+    `State Check - Path: ${location.pathname}, isAuthLoading: ${isAuthLoading}, User: ${!!user}, isContextAdmin: ${isContextAdmin}, requireAdmin: ${requireAdmin}, allowUnauthenticated: ${allowUnauthenticated}, shouldSkipCheck: ${shouldSkipCheck}`
   );
   
   useEffect(() => {
     // Log authentication status when component mounts or auth state changes
-    logger.log(`Auth check - User: ${user ? 'authenticated' : 'unauthenticated'}, AdminFromContext: ${isAdminFromContext ? 'yes' : 'no'}`);
-  }, [user, isAdminFromContext]);
+    logger.log(`Auth check - User: ${user ? 'authenticated' : 'unauthenticated'}, ContextAdmin: ${isContextAdmin ? 'yes' : 'no'}`);
+  }, [user, isContextAdmin]);
 
-  // Effect to perform local admin check when auth is loaded and admin is required
-  useEffect(() => {
-    let isActive = true;
-    if (!isAuthLoading && user && requireAdmin && localIsAdmin === null) {
-      setIsCheckingAdmin(true);
-      logger.log(`Performing local admin check for user: ${user.id}`);
-      checkIsAdmin(user.id).then(result => {
-        if (isActive) {
-          logger.log(`Local admin check result: ${result}`);
-          setLocalIsAdmin(result);
-          setIsCheckingAdmin(false);
-        }
-      }).catch(err => {
-        logger.error('Local admin check failed:', err);
-        if (isActive) {
-          setLocalIsAdmin(false); // Default to false on error
-          setIsCheckingAdmin(false);
-        }
-      });
-    }
-     // Reset local check if user logs out or auth becomes loading again
-     else if (isAuthLoading || !user) {
-        setLocalIsAdmin(null);
-     }
-    
-    return () => { isActive = false; };
-  }, [isAuthLoading, user, requireAdmin, localIsAdmin]);
-
-  // Combined Loading State: Auth loading OR local admin check in progress (if required)
-  const isLoading = isAuthLoading || (requireAdmin && isCheckingAdmin);
+  // Use the loading state directly from the Auth context.
+  // AuthProvider now correctly handles loading until admin status is confirmed.
+  const isLoading = isAuthLoading; 
   
   // Show loading state
   if (isLoading) {
-    logger.log(`Rendering Loading State - Path: ${location.pathname} (Auth: ${isAuthLoading}, AdminCheck: ${isCheckingAdmin})`);
+    // Updated log message
+    logger.log(`Rendering Loading State - Path: ${location.pathname} (Auth Loading: ${isAuthLoading})`);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
         <h1 className="text-xl font-medium mt-4">
-          {requireAdmin ? 'Checking authorization...' : 'Checking authentication...'}
+          {/* Simplified message as AuthProvider handles context */}
+          Checking access... 
         </h1>
       </div>
     );
@@ -107,10 +77,11 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   }
   
   // Handle non-admin users trying to access admin resources
-  // Use localIsAdmin status if requireAdmin is true, otherwise ignore
-  if (requireAdmin && localIsAdmin === false) {
+  // Use isContextAdmin directly now.
+  if (requireAdmin && !isContextAdmin) {
+    // Updated log message
     logger.warn(
-      `Redirecting to /: User NOT admin (local check). Path: ${location.pathname}, isAdminFromContext: ${isAdminFromContext}, localIsAdmin: ${localIsAdmin}`
+      `Redirecting to /: User NOT admin (checked context). Path: ${location.pathname}, isContextAdmin: ${isContextAdmin}`
     );
     toast.error('You do not have access to this resource');
     return <Navigate to="/" replace />;
