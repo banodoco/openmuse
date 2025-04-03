@@ -23,57 +23,21 @@ function App() {
         <Suspense fallback={<LoadingState />}>
           <Routes>
             {/* Public Routes */}
+            <Route path="/" element={<HomePage />} />
+            <Route path="/upload" element={<UploadPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
-            {/* LoRA asset view is public */}
+            <Route path="/videos/:id" element={<VideoPage />} />
+            <Route path="/assets/:id" element={<AssetDetailPage />} />
             <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
+            <Route path="/profile" element={<ProfilePage />} />
 
-            {/* Protected Routes */}
-            <Route 
-              path="/"
-              element={
-                <RequireAuth>
-                  <HomePage />
-                </RequireAuth>
-              }
-            />
-            <Route 
-              path="/upload"
-              element={
-                <RequireAuth>
-                  <UploadPage />
-                </RequireAuth>
-              }
-            />
+            {/* Admin Route (protected) */}
             <Route 
               path="/admin"
               element={
                 <RequireAuth requireAdmin={true}>
                   <AdminPage />
-                </RequireAuth>
-              }
-            />
-            <Route 
-              path="/videos/:id"
-              element={
-                <RequireAuth>
-                  <VideoPage />
-                </RequireAuth>
-              }
-            />
-            <Route 
-              path="/assets/:id"
-              element={
-                <RequireAuth>
-                  <AssetDetailPage />
-                </RequireAuth>
-              }
-            />
-            <Route 
-              path="/profile"
-              element={
-                <RequireAuth>
-                  <ProfilePage />
                 </RequireAuth>
               }
             />
