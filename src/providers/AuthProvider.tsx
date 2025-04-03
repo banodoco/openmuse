@@ -24,9 +24,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     
     const verifyAdminStatus = async () => {
       if (!user) {
-        if (isActive) setIsAdmin(false);
+        // If no user, we are done loading and not admin
+        if (isActive) {
+          setIsAdmin(false);
+          setIsLoading(false); // Set loading false here for no-user case
+          logger.log('No user found, setting isLoading false.');
+        }
         return;
       }
+      
+      // If user exists, but we are still in initial loading phase, keep isLoading true for now
+      // We will set it false after the admin check
       
       try {
         logger.log('Checking admin status for user:', user.id);
@@ -35,19 +43,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isActive) {
           setIsAdmin(userIsAdmin);
           logger.log(`User admin status: ${userIsAdmin ? 'is admin' : 'not admin'}`);
+          // Now that admin status is set, we are fully loaded
+          setIsLoading(false); 
+          logger.log('Admin status checked, setting isLoading false.');
         }
       } catch (error) {
         logger.error('Error checking admin status:', error);
-        if (isActive) setIsAdmin(false);
+        if (isActive) {
+          setIsAdmin(false);
+          // Still set loading false even on error
+          setIsLoading(false); 
+          logger.log('Error checking admin status, setting isLoading false.');
+        }
       }
     };
     
-    verifyAdminStatus();
+    // Don't run verifyAdminStatus if the initial Supabase load isn't done yet
+    // Let the onAuthStateChange handle the initial isLoading state more reliably.
+    // We only run this effect *after* the user state is definitively set by onAuthStateChange.
+    if (!isLoading) { // Only run if initial session check is done
+       verifyAdminStatus();
+    }
     
     return () => {
       isActive = false;
     };
-  }, [user]);
+  }, [user, isLoading]); // Add isLoading dependency to re-evaluate when initial loading finishes
   
   useEffect(() => {
     logger.log('Setting up auth provider');
@@ -59,29 +80,59 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         logger.log(`Auth state changed: ${event}`, currentSession?.user?.id || 'no user');
         
+        let userChanged = false; // Track if user actually changed
+        
         if (currentSession) {
-          // Update both user and session state atomically
-          setUser(currentSession.user);
+          if (user?.id !== currentSession.user.id) {
+             setUser(currentSession.user);
+             userChanged = true;
+          }
           setSession(currentSession);
           
-          // Store last refresh time when we get a new session
           if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
             lastRefreshTime.current = Date.now();
             logger.log('Session refreshed via auth state change');
           }
+          // Keep isLoading=true until the admin check effect runs
         } else if (event === 'SIGNED_OUT') {
-          setUser(null);
+          if (user !== null) { // Check if user actually changed to null
+             setUser(null);
+             userChanged = true;
+          }
           setSession(null);
           setIsAdmin(false);
+           // If signed out, we are done loading.
+           setIsLoading(false); 
+           logger.log('Signed out, setting isLoading false.');
+        } else if (event === 'INITIAL_SESSION' && !currentSession) {
+           // Handle case where initial check finds no session
+           setUser(null);
+           setSession(null);
+           setIsAdmin(false);
+           setIsLoading(false);
+           logger.log('Initial session check found no user, setting isLoading false.');
         }
         
-        // The listener fires immediately with initial state (e.g., INITIAL_SESSION)
-        // or SIGNED_IN/SIGNED_OUT later. We are done loading once it fires.
-        if (isLoading) {
-          setIsLoading(false);
-        }
+        // The INITIAL_SESSION event marks the end of Supabase's initial check.
+        // If there IS a session, the admin check effect will handle setting isLoading=false.
+        // If there's NO session (handled above), isLoading is already set to false.
       }
     );
+
+    // Initial check for session (helps ensure state before listener fires)
+    supabase.auth.getSession().then(({ data: { session: initialSess } }) => {
+      if (!isMounted.current) return;
+      if (!session && initialSess) { // Only set if not already set by listener
+         logger.log('Setting initial session data proactively');
+         setUser(initialSess.user);
+         setSession(initialSess);
+         // Don't set isLoading false here, let the effects handle it
+      } else if (!initialSess && isLoading) {
+         // If getSession returns no session and we haven't heard from listener yet
+         // it's likely there's no session.
+         // Let the INITIAL_SESSION event in the listener handle setting isLoading=false
+      }
+    });
 
     // Set up session refresh on interval with better error handling and throttling
     const refreshIntervalId = setInterval(async () => {
