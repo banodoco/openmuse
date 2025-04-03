@@ -18,62 +18,65 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const refreshInProgress = useRef(false);
   const lastRefreshTime = useRef<number>(0);
   
-  // Effect to check admin status whenever user changes
+  // Effect to check admin status whenever user changes OR initial loading finishes
   useEffect(() => {
     let isActive = true;
-    
-    const verifyAdminStatus = async () => {
-      if (!user) {
-        // If no user, we are done loading and not admin
-        if (isActive) {
-          setIsAdmin(false);
-          setIsLoading(false); // Set loading false here for no-user case
-          logger.log('No user found, setting isLoading false.');
-        }
-        return;
-      }
-      
-      // If user exists, but we are still in initial loading phase, keep isLoading true for now
-      // We will set it false after the admin check
-      
+
+    const verifyAdminStatus = async (userId: string) => {
+      // This function should only be called when we are reasonably sure
+      // we need to check the status and then set loading to false.
+      logger.log('Checking admin status for user:', userId);
       try {
-        logger.log('Checking admin status for user:', user.id);
-        const userIsAdmin = await checkIsAdmin(user.id);
-        
+        const userIsAdmin = await checkIsAdmin(userId);
         if (isActive) {
           setIsAdmin(userIsAdmin);
           logger.log(`User admin status: ${userIsAdmin ? 'is admin' : 'not admin'}`);
-          // Log the state just before setting isLoading false
-          logger.log('State before setting isLoading=false:', { user: !!user, isAdmin: userIsAdmin, newIsLoading: false });
-          // Now that admin status is set, we are fully loaded
-          setIsLoading(false); 
+          setIsLoading(false); // Now we are loaded
           logger.log('Admin status checked, setting isLoading false.');
         }
       } catch (error) {
         logger.error('Error checking admin status:', error);
         if (isActive) {
           setIsAdmin(false);
-          // Log the state just before setting isLoading false, even on error
-          logger.log('State before setting isLoading=false (on error):', { user: !!user, isAdmin: false, newIsLoading: false });
-          // Still set loading false even on error
-          setIsLoading(false); 
+          setIsLoading(false); // Still loaded, just not admin (due to error)
           logger.log('Error checking admin status, setting isLoading false.');
         }
       }
     };
-    
-    // Don't run verifyAdminStatus if the initial Supabase load isn't done yet
-    // Let the onAuthStateChange handle the initial isLoading state more reliably.
-    // We only run this effect *after* the user state is definitively set by onAuthStateChange.
-    if (!isLoading) { // Only run if initial session check is done
-       verifyAdminStatus();
+
+    // Decision logic:
+    // 1. If we have a user object AND we are still in the initial loading phase:
+    //    This is the primary case after onAuthStateChange confirms a user. Check admin status.
+    if (user && isLoading) {
+      verifyAdminStatus(user.id);
     }
-    
+    // 2. If we DON'T have a user object AND we are NOT loading anymore:
+    //    This means either initial check found no user, or user logged out. Ensure isAdmin is false.
+    //    (onAuthStateChange handles setting isLoading=false in these cases)
+    else if (!user && !isLoading) {
+      if (isActive && isAdmin) { // Only change if it was previously true
+         setIsAdmin(false);
+         logger.log('User is null and not loading, ensuring isAdmin is false.');
+      }
+    }
+    // 3. If we DON'T have a user object BUT we ARE still loading:
+    //    Initial check is still running. Do nothing, wait for onAuthStateChange.
+    else if (!user && isLoading) {
+       logger.log('Initial load/check in progress, user not yet determined.');
+    }
+     // 4. If we HAVE a user object AND we are NOT loading:
+     //    This means we already loaded and checked admin status. Do nothing on subsequent renders
+     //    unless user object itself changes (handled by dependency array).
+    else if (user && !isLoading) {
+       logger.log('Already loaded and checked admin status for this user.');
+    }
+
     return () => {
       isActive = false;
     };
-  }, [user, isLoading]); // Add isLoading dependency to re-evaluate when initial loading finishes
-  
+    // Re-run whenever user object reference changes or isLoading status changes.
+  }, [user, isLoading]);
+
   useEffect(() => {
     logger.log('Setting up auth provider');
     
