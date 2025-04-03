@@ -23,24 +23,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     let isActive = true;
 
     const verifyAdminStatus = async (userId: string) => {
-      // This function should only be called when we are reasonably sure
-      // we need to check the status and then set loading to false.
       logger.log('Checking admin status for user:', userId);
-      try {
-        const userIsAdmin = await checkIsAdmin(userId);
-        if (isActive) {
-          setIsAdmin(userIsAdmin);
-          logger.log(`User admin status: ${userIsAdmin ? 'is admin' : 'not admin'}`);
-          setIsLoading(false); // Now we are loaded
-          logger.log('Admin status checked, setting isLoading false.');
+      let attempt = 1;
+      const maxAttempts = 2; // Try twice
+      const retryDelay = 500; // ms
+
+      while (attempt <= maxAttempts) {
+        if (!isActive) return; // Stop if component unmounted
+
+        try {
+          const userIsAdmin = await checkIsAdmin(userId);
+          if (isActive) {
+            setIsAdmin(userIsAdmin);
+            logger.log(`Attempt ${attempt}: User admin status: ${userIsAdmin ? 'is admin' : 'not admin'}`);
+            setIsLoading(false);
+            logger.log('Admin status resolved, setting isLoading false.');
+            return; // Success, exit the loop and function
+          }
+        } catch (error) {
+          logger.error(`Attempt ${attempt}: Error checking admin status:`, error);
+          // Fall through to potentially retry
         }
-      } catch (error) {
-        logger.error('Error checking admin status:', error);
-        if (isActive) {
-          setIsAdmin(false);
-          setIsLoading(false); // Still loaded, just not admin (due to error)
-          logger.log('Error checking admin status, setting isLoading false.');
+
+        // If try failed or caught error, and we haven't reached max attempts
+        if (attempt < maxAttempts) {
+          logger.log(`Attempt ${attempt} failed, retrying after ${retryDelay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay));
+        } else {
+           // Max attempts reached, conclude failure
+           if (isActive) {
+             logger.warn(`Max attempts (${maxAttempts}) reached for admin check. Concluding user is not admin.`);
+             setIsAdmin(false);
+             setIsLoading(false); 
+             logger.log('Admin check failed after retries, setting isLoading false.');
+           }
         }
+        attempt++;
       }
     };
 
