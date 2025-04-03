@@ -10,199 +10,174 @@ const logger = new Logger('AuthProvider');
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Add a version marker log
-  logger.log('--- AuthProvider Module Execution (v5 - Unconditional isLoading) ---');
+  logger.log('--- AuthProvider Module Execution (v6 - Separate Admin Loading State) ---');
   
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isInitialLoading, setIsInitialLoading] = useState(true); // Tracks Supabase initial auth check
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  
+  const [isAdminCheckInProgress, setIsAdminCheckInProgress] = useState<boolean>(false); // Tracks the async admin check
+
   const isMounted = useRef(true);
   const refreshInProgress = useRef(false);
   const lastRefreshTime = useRef<number>(0);
   
-  // Effect to check admin status whenever user changes OR initial loading finishes
+  // Effect to check admin status *only* when user changes
   useEffect(() => {
     let isActive = true;
 
     const verifyAdminStatus = async (userId: string) => {
       logger.log('Checking admin status for user:', userId);
+      setIsAdminCheckInProgress(true); // Mark check as started
       let attempt = 1;
-      const maxAttempts = 2; // Try twice
-      const retryDelay = 500; // ms
+      const maxAttempts = 2;
+      const retryDelay = 500;
 
       while (attempt <= maxAttempts) {
-        if (!isActive) return; // Stop if component unmounted
+        if (!isActive) {
+          setIsAdminCheckInProgress(false); // Ensure state is cleared if unmounted during check
+          return;
+        }
 
         try {
           const userIsAdmin = await checkIsAdmin(userId);
           if (isActive) {
-            if (userIsAdmin) { // Only set loading false on SUCCESS
+            if (userIsAdmin) {
               setIsAdmin(true);
               logger.log(`Attempt ${attempt}: User is admin`);
-              setIsLoading(false); // Set loading false only if admin check succeeded
-              logger.log('Admin status resolved successfully, setting isLoading false.');
-              return; // Success, exit the loop and function
+              setIsAdminCheckInProgress(false); // Check complete (success)
+              logger.log('Admin status resolved successfully, isAdminCheckInProgress set false.');
+              return; 
             } else {
                logger.log(`Attempt ${attempt}: User is not admin (check returned false)`);
-               // Don't set isLoading false yet, proceed to retry logic
             }
           }
         } catch (error) {
           logger.error(`Attempt ${attempt}: Error checking admin status:`, error);
-          // Fall through to potentially retry
         }
-
-        // If try block finished without returning (i.e., userIsAdmin was false)
-        // or if catch block was executed, proceed to retry logic:
 
         if (attempt < maxAttempts) {
           logger.log(`Attempt ${attempt} failed, retrying after ${retryDelay}ms...`);
           await new Promise(resolve => setTimeout(resolve, retryDelay));
         } else {
-           // Max attempts reached, conclude failure
            if (isActive) {
              logger.warn(`Max attempts (${maxAttempts}) reached for admin check. Concluding user is not admin.`);
              setIsAdmin(false);
-             setIsLoading(false); 
-             logger.log('Admin check failed after retries, setting isLoading false.');
+             setIsAdminCheckInProgress(false); // Check complete (failure)
+             logger.log('Admin check failed after retries, isAdminCheckInProgress set false.');
            }
         }
         attempt++;
       }
     };
 
-    // Decision logic:
-    // 1. If we have a user object AND we are still in the initial loading phase:
-    //    This is the primary case after onAuthStateChange confirms a user. Check admin status.
-    if (user && isLoading) {
+    // Only run the check if we have a user object
+    if (user) {
       verifyAdminStatus(user.id);
-    }
-    // 2. If we DON'T have a user object AND we ARE still loading:
-    //    This means the initial check is done (INITIAL_SESSION fired) but found no user.
-    //    Set loading to false.
-    else if (!user && isLoading) {
-      logger.log('Initial check complete, no user found. Setting isLoading false.');
-      if (isActive) { // Check if component is still mounted
-        setIsLoading(false);
-      }
-    }
-    // 3. If we DON'T have a user object AND we are NOT loading anymore:
-    //    This means either initial check found no user, or user logged out. Ensure isAdmin is false.
-    else if (!user && !isLoading) {
-      if (isActive && isAdmin) { // Only change if it was previously true
-         setIsAdmin(false);
-         logger.log('User is null and not loading, ensuring isAdmin is false.');
-      }
-    }
-    // 4. If we HAVE a user object AND we are NOT loading:
-    //    This means we already loaded and checked admin status. Do nothing on subsequent renders
-    //    unless user object itself changes (handled by dependency array).
-    else if (user && !isLoading) {
-       logger.log('Already loaded and checked admin status for this user.');
+    } else {
+      // If there's no user, ensure admin status is false and check is not in progress
+      setIsAdmin(false);
+      setIsAdminCheckInProgress(false);
     }
 
     return () => {
       isActive = false;
     };
-    // Re-run whenever user object reference changes or isLoading status changes.
-  }, [user, isLoading]);
+    // Re-run only when the user object reference changes.
+  }, [user]); 
 
   useEffect(() => {
     logger.log('Setting up auth provider');
-    
-    // Set up the auth state change listener FIRST
+    isMounted.current = true; // Ensure mounted flag is true on setup
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
-        // Add a log to confirm the callback itself is running the latest code
         logger.log('--- onAuthStateChange Callback Executing ---');
         
         if (!isMounted.current) return;
         
         logger.log(`Auth state changed: ${event}`, currentSession?.user?.id || 'no user');
         
-        let userChanged = false; // Track if user actually changed
-        
-        if (currentSession) {
-          // Set loading true FIRST to ensure admin check effect runs
-          setIsLoading(true); 
-          logger.log('Session detected, explicitly setting isLoading true to trigger admin check.');
-          
-          if (user?.id !== currentSession.user.id) {
-             setUser(currentSession.user);
-             userChanged = true;
-          }
-          setSession(currentSession);
-          
-          if (event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') {
-            lastRefreshTime.current = Date.now();
-            logger.log('Session refreshed via auth state change');
-          }
-          // Keep isLoading=true until the admin check effect runs
-        } else if (event === 'SIGNED_OUT') {
-          if (user !== null) { // Check if user actually changed to null
-             setUser(null);
-             userChanged = true;
-          }
-          setSession(null);
-          setIsAdmin(false);
-           // If signed out, we are done loading.
-           setIsLoading(false); 
-           logger.log('Signed out, setting isLoading false.');
-        } else if (event === 'INITIAL_SESSION' && !currentSession) {
-           // Handle case where initial check finds no session
-           setUser(null);
-           setSession(null);
-           setIsAdmin(false);
-           logger.log('Initial session check found no user. User/Admin state cleared.');
+        // Handle INITIAL_SESSION first to determine end of initial loading
+        if (event === 'INITIAL_SESSION') {
+           logger.log('INITIAL_SESSION event received.');
+           setIsInitialLoading(false); // Supabase initial check is complete
         }
         
-        // The INITIAL_SESSION event marks the end of Supabase's initial check.
-        // If there IS a session, the admin check effect will handle setting isLoading=false.
-        // If there's NO session (handled above), isLoading is already set to false.
+        if (currentSession) {
+          // Always update session if present
+          setSession(currentSession);
+          lastRefreshTime.current = Date.now(); // Update last refresh on any valid session event
+          
+          // Update user only if it changed, triggers the admin check effect
+          if (user?.id !== currentSession.user.id) {
+             logger.log('User ID changed or user newly logged in. Setting user state.');
+             setIsAdmin(false); // Reset admin status before check
+             setIsAdminCheckInProgress(true); // Indicate check will start
+             setUser(currentSession.user); // This will trigger the admin check useEffect
+          } else if (event === 'TOKEN_REFRESHED') {
+             logger.log('Token refreshed for the same user.');
+             // No need to re-trigger admin check if user is the same
+          } else if (event === 'INITIAL_SESSION') {
+              // If initial session finds a user, set it (will trigger admin check)
+              logger.log('Initial session has a user. Setting user state.');
+              setIsAdmin(false);
+              setIsAdminCheckInProgress(true);
+              setUser(currentSession.user);
+          } else if (event === 'SIGNED_IN') {
+             logger.log('User explicitly signed in.');
+             setIsAdmin(false); 
+             setIsAdminCheckInProgress(true);
+             setUser(currentSession.user);
+          }
+          
+        } else { // No currentSession (SIGNED_OUT or INITIAL_SESSION without user)
+           logger.log('No session found in auth event.');
+           if (user !== null) { // Only update state if user actually changes to null
+             logger.log('User is now null. Clearing user state.');
+             setUser(null); // This will trigger the admin check useEffect to clear admin state
+           }
+           setSession(null);
+           setIsAdmin(false); // Ensure admin is false if no session
+           setIsAdminCheckInProgress(false); // No admin check needed if no user
+           
+           // If INITIAL_SESSION finished without a user, isInitialLoading is already false.
+           // If SIGNED_OUT, isInitialLoading was likely already false.
+        }
       }
     );
 
-    // Set up session refresh on interval with better error handling and throttling
+    // Session refresh interval (unchanged logic)
     const refreshIntervalId = setInterval(async () => {
-      if (!isMounted.current) return;
-      if (!session) return; // Skip if no session
-      if (refreshInProgress.current) return; // Skip if refresh already in progress
-      
-      // Only refresh if it's been at least 5 minutes since last refresh
+      if (!isMounted.current || !session || refreshInProgress.current) return;
       const now = Date.now();
-      if (now - lastRefreshTime.current < 5 * 60 * 1000) {
-        return;
-      }
+      if (now - lastRefreshTime.current < 5 * 60 * 1000) return;
       
       try {
-        logger.log('Refreshing session token');
+        logger.log('Refreshing session token via interval');
         refreshInProgress.current = true;
-        
         const { data, error } = await supabase.auth.refreshSession();
-        
         if (error) {
-          logger.error('Failed to refresh session:', error);
-          // Don't force logout here - let the next attempt try again
+          logger.error('Failed to refresh session via interval:', error);
           return;
         } 
-        
         if (data.session) {
-          // Atomically update both session and user state
           setSession(data.session);
-          setUser(data.session.user);
+          // Update user only if it changed to prevent unnecessary admin check trigger
+          if (user?.id !== data.session.user.id) {
+             setUser(data.session.user); 
+          }
           logger.log('Session refreshed successfully via interval');
           lastRefreshTime.current = now;
         } else {
-          logger.warn('Session refresh returned no session, but no error');
+          logger.warn('Interval session refresh returned no session, but no error');
         }
       } catch (error) {
         logger.error('Error in session refresh interval:', error);
-        // Don't log out on error - be resilient
       } finally {
         refreshInProgress.current = false;
       }
-    }, 2 * 60 * 1000); // Check every 2 minutes but only refresh after 5+ minutes
+    }, 2 * 60 * 1000);
     
     return () => {
       logger.log('Cleaning up auth provider subscription and interval');
@@ -210,24 +185,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       subscription.unsubscribe();
       clearInterval(refreshIntervalId);
     };
-  }, []);
+  }, []); // Run setup only once
 
   const signIn = async (email: string, password: string) => {
     try {
+      // Set loading true immediately for better UX feedback during sign-in attempt
+      // Note: This doesn't use the main loading states, just provides visual feedback
+      toast.loading('Signing in...', { id: 'signin-toast' }); 
+      
       const { data, error } = await supabase.auth.signInWithPassword({ 
         email, 
         password 
       });
       
+      toast.dismiss('signin-toast'); // Dismiss loading toast
+
       if (error) throw error;
       
+      // State update (user, session, isAdmin) will be handled by onAuthStateChange
       if (data.session) {
-        // Update both atomically
-        setUser(data.session.user);
-        setSession(data.session);
-        lastRefreshTime.current = Date.now();
+        logger.log('Sign in successful, waiting for onAuthStateChange.');
+      } else {
+         logger.warn('Sign in successful but no session data received immediately.');
       }
+
     } catch (error: any) {
+      toast.dismiss('signin-toast');
       toast.error(error.message || 'Error signing in');
       logger.error('Sign in error:', error);
     }
@@ -235,21 +218,33 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const signOut = async () => {
     try {
+      toast.loading('Signing out...', { id: 'signout-toast' });
       const { error } = await supabase.auth.signOut();
+      toast.dismiss('signout-toast');
       if (error) throw error;
-      
-      // Clear auth state - handled by listener now more reliably
-      // setUser(null);
-      // setSession(null);
-      // setIsAdmin(false);
+      // State update handled by onAuthStateChange listener
+      logger.log('Sign out successful, waiting for onAuthStateChange.');
     } catch (error: any) {
+      toast.dismiss('signout-toast');
       toast.error(error.message || 'Error signing out');
       logger.error('Sign out error:', error);
     }
   };
 
+  // Combine initial loading and admin check status for the exposed isLoading value
+  const combinedIsLoading = isInitialLoading || isAdminCheckInProgress;
+
   return (
-    <AuthContext.Provider value={{ user, session, isLoading, signIn, signOut, isAdmin }}>
+    <AuthContext.Provider 
+      value={{ 
+        user, 
+        session, 
+        isAdmin, 
+        isLoading: combinedIsLoading, // Use the combined loading state
+        signIn, 
+        signOut 
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );
