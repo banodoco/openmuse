@@ -157,21 +157,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     );
 
-    // Initial check for session (helps ensure state before listener fires)
-    supabase.auth.getSession().then(({ data: { session: initialSess } }) => {
-      if (!isMounted.current) return;
-      if (!session && initialSess) { // Only set if not already set by listener
-         logger.log('Setting initial session data proactively');
-         setUser(initialSess.user);
-         setSession(initialSess);
-         // Don't set isLoading false here, let the effects handle it
-      } else if (!initialSess && isLoading) {
-         // If getSession returns no session and we haven't heard from listener yet
-         // it's likely there's no session.
-         // Let the INITIAL_SESSION event in the listener handle setting isLoading=false
-      }
-    });
-
     // Set up session refresh on interval with better error handling and throttling
     const refreshIntervalId = setInterval(async () => {
       if (!isMounted.current) return;
