@@ -75,23 +75,26 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (user && isLoading) {
       verifyAdminStatus(user.id);
     }
-    // 2. If we DON'T have a user object AND we are NOT loading anymore:
+    // 2. If we DON'T have a user object AND we ARE still loading:
+    //    This means the initial check is done (INITIAL_SESSION fired) but found no user.
+    //    Set loading to false.
+    else if (!user && isLoading) {
+      logger.log('Initial check complete, no user found. Setting isLoading false.');
+      if (isActive) { // Check if component is still mounted
+        setIsLoading(false);
+      }
+    }
+    // 3. If we DON'T have a user object AND we are NOT loading anymore:
     //    This means either initial check found no user, or user logged out. Ensure isAdmin is false.
-    //    (onAuthStateChange handles setting isLoading=false in these cases)
     else if (!user && !isLoading) {
       if (isActive && isAdmin) { // Only change if it was previously true
          setIsAdmin(false);
          logger.log('User is null and not loading, ensuring isAdmin is false.');
       }
     }
-    // 3. If we DON'T have a user object BUT we ARE still loading:
-    //    Initial check is still running. Do nothing, wait for onAuthStateChange.
-    else if (!user && isLoading) {
-       logger.log('Initial load/check in progress, user not yet determined.');
-    }
-     // 4. If we HAVE a user object AND we are NOT loading:
-     //    This means we already loaded and checked admin status. Do nothing on subsequent renders
-     //    unless user object itself changes (handled by dependency array).
+    // 4. If we HAVE a user object AND we are NOT loading:
+    //    This means we already loaded and checked admin status. Do nothing on subsequent renders
+    //    unless user object itself changes (handled by dependency array).
     else if (user && !isLoading) {
        logger.log('Already loaded and checked admin status for this user.');
     }
@@ -147,8 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            setUser(null);
            setSession(null);
            setIsAdmin(false);
-           setIsLoading(false);
-           logger.log('Initial session check found no user, setting isLoading false.');
+           logger.log('Initial session check found no user. User/Admin state cleared.');
         }
         
         // The INITIAL_SESSION event marks the end of Supabase's initial check.
