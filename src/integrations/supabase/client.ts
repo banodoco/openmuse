@@ -1,19 +1,36 @@
+
 import { createClient } from '@supabase/supabase-js';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('SupabaseClient');
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ujlwuvkrxlvoswwkerdf.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbHd1dmtyeGx2b3N3d2tlcmRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3ODM1MDYsImV4cCI6MjA1NzM1OTUwNn0.htwJHr4Z4NlMZYVrH1nNGkU53DyBTWgMeOeUONYFy_4';
 
+logger.log('Creating Supabase client with persistent session configuration');
+
+// Create the Supabase client with detailed session persistence configuration
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true
+    detectSessionInUrl: true,
+    flowType: 'implicit' // Ensures implicit flow for better session handling
   }
+});
+
+// Log connection information for debugging
+logger.log('Supabase client initialized:', { 
+  url: supabaseUrl.substring(0, 20) + '...', 
+  persistSession: true,
+  autoRefreshToken: true,
+  detectSessionInUrl: true
 });
 
 export const testRLSPermissions = async () => {
   try {
+    logger.log('Testing RLS permissions');
     const { data: assets, error: assetsError } = await supabase
       .from('assets')
       .select('id')
@@ -24,12 +41,15 @@ export const testRLSPermissions = async () => {
       .select('id')
       .limit(1);
     
-    return {
+    const result = {
       assetsAccess: !assetsError && Array.isArray(assets),
       mediaAccess: !mediaError && Array.isArray(media)
     };
+    
+    logger.log('RLS permissions test result:', result);
+    return result;
   } catch (error) {
-    console.error("Error testing RLS permissions:", error);
+    logger.error("Error testing RLS permissions:", error);
     return {
       assetsAccess: false,
       mediaAccess: false
@@ -38,15 +58,45 @@ export const testRLSPermissions = async () => {
 };
 
 export const debugAssetMedia = async (assetId: string) => {
+  logger.log(`Debugging asset media for asset: ${assetId}`);
   const { data, error } = await supabase
     .from('asset_media')
     .select('*')
     .eq('asset_id', assetId);
   
   if (error) {
-    console.error('Error fetching asset_media relationships:', error);
+    logger.error('Error fetching asset_media relationships:', error);
     return [];
   }
   
+  logger.log(`Found ${data?.length || 0} asset_media relationships`);
   return data || [];
+};
+
+// Add a debug function to check current session
+export const debugCurrentSession = async () => {
+  try {
+    logger.log('Debug: Checking current session');
+    const { data, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      logger.error('Debug: Error getting session:', error);
+      return null;
+    }
+    
+    if (data.session) {
+      logger.log('Debug: Session found:', {
+        userId: data.session.user.id,
+        expiresAt: new Date(data.session.expires_at! * 1000).toISOString(),
+        refreshToken: !!data.session.refresh_token,
+      });
+      return data.session;
+    }
+    
+    logger.log('Debug: No session found');
+    return null;
+  } catch (error) {
+    logger.error('Debug: Unexpected error checking session:', error);
+    return null;
+  }
 };
