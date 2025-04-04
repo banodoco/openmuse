@@ -1,4 +1,5 @@
-import React, { useEffect, useState, useRef } from 'react';
+
+import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { signInWithDiscord } from '@/lib/auth';
@@ -14,21 +15,21 @@ const Auth: React.FC = () => {
   const location = useLocation();
   const [isLoadingDiscord, setIsLoadingDiscord] = useState(false);
 
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const { user, session, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
-    logger.log(`Auth page useEffect: isAuthLoading=${isAuthLoading}, user=${!!user}`);
+    logger.log(`Auth page useEffect: isAuthLoading=${isAuthLoading}, user=${!!user}, session=${!!session}`);
 
-    if (!isAuthLoading && user) {
+    if (!isAuthLoading && user && session) {
       const searchParams = new URLSearchParams(location.search);
       const returnUrl = searchParams.get('returnUrl') || '/';
 
       logger.log(`Auth page: User is logged in (via useAuth), redirecting to ${returnUrl}`);
       navigate(returnUrl, { replace: true });
-    } else if (!isAuthLoading && !user) {
+    } else if (!isAuthLoading && (!user || !session)) {
       logger.log('Auth page: User is not logged in (via useAuth), showing login form.');
     }
-  }, [user, isAuthLoading, navigate, location.search]);
+  }, [user, session, isAuthLoading, navigate, location.search]);
 
   const handleDiscordSignIn = async () => {
     if (isLoadingDiscord) return;

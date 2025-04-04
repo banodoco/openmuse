@@ -1,3 +1,4 @@
+
 import React, { useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -18,7 +19,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   requireAdmin = false,
   allowUnauthenticated = false
 }) => {
-  const { user, isLoading: isAuthLoading, isAdmin: isContextAdmin } = useAuth();
+  const { user, session, isLoading: isAuthLoading, isAdmin: isContextAdmin } = useAuth();
   const location = useLocation();
   
   // Determine if the path should skip auth checks
@@ -30,7 +31,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
 
   // Log the state RequireAuth sees *before* any decisions are made
   logger.log(
-    `State Check - Path: ${location.pathname}, isAuthLoading: ${isAuthLoading}, User: ${!!user}, isContextAdmin: ${isContextAdmin}, requireAdmin: ${requireAdmin}, allowUnauthenticated: ${allowUnauthenticated}, shouldSkipCheck: ${shouldSkipCheck}`
+    `State Check - Path: ${location.pathname}, isAuthLoading: ${isAuthLoading}, User: ${!!user}, Session: ${!!session}, isContextAdmin: ${isContextAdmin}, requireAdmin: ${requireAdmin}, allowUnauthenticated: ${allowUnauthenticated}, shouldSkipCheck: ${shouldSkipCheck}`
   );
   
   useEffect(() => {
@@ -42,17 +43,13 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   // AuthProvider now correctly handles loading until admin status is confirmed.
   const isLoading = isAuthLoading; 
   
-  // Show loading state
-  // Add log before the loading check
-  logger.log(`RequireAuth Checkpoint 1: Before isLoading check. isAuthLoading=${isAuthLoading}, isContextAdmin=${isContextAdmin}`);
+  // Show loading state while authentication is being checked
   if (isLoading) {
-    // Updated log message
     logger.log(`Rendering Loading State - Path: ${location.pathname} (Auth Loading: ${isAuthLoading})`);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
         <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
         <h1 className="text-xl font-medium mt-4">
-          {/* Simplified message as AuthProvider handles context */}
           Checking access... 
         </h1>
       </div>
@@ -66,7 +63,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   }
   
   // Handle unauthenticated users for protected routes
-  if (!user) {
+  if (!user || !session) {
     logger.warn(
       `Redirecting to /auth: User not authenticated. Path: ${location.pathname}, isAuthLoading: ${isAuthLoading}`
     );
@@ -79,11 +76,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   }
   
   // Handle non-admin users trying to access admin resources
-  // Use isContextAdmin directly now.
-  // Add log before the admin check
-  logger.log(`RequireAuth Checkpoint 2: Before requireAdmin check. isAuthLoading=${isAuthLoading}, isContextAdmin=${isContextAdmin}, requireAdmin=${requireAdmin}`);
   if (requireAdmin && !isContextAdmin) {
-    // Updated log message
     logger.warn(
       `Redirecting to /: User NOT admin (checked context). Path: ${location.pathname}, isContextAdmin: ${isContextAdmin}`
     );

@@ -10,18 +10,19 @@ const logger = new Logger('AuthProvider');
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   // Add a version marker log
-  logger.log('--- AuthProvider Module Execution (v7 - Robust Admin Loading) ---');
+  logger.log('--- AuthProvider Module Execution (v8 - Fix Direct Navigation) ---');
   
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isInitialLoading, setIsInitialLoading] = useState(true); // Tracks Supabase initial auth check
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [isAdminCheckInProgress, setIsAdminCheckInProgress] = useState<boolean>(false); // Tracks the async admin check
-  const [isAdminStatusKnown, setIsAdminStatusKnown] = useState<boolean>(false); // New state: Tracks if admin status check has completed for the current user
+  const [isAdminStatusKnown, setIsAdminStatusKnown] = useState<boolean>(false); // Tracks if admin status check has completed for the current user
 
   const isMounted = useRef(true);
   const refreshInProgress = useRef(false);
   const lastRefreshTime = useRef<number>(0);
+  const initialSessionCheckComplete = useRef<boolean>(false);
   
   // Effect to check admin status *only* when user changes
   useEffect(() => {
@@ -93,6 +94,42 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     logger.log('Setting up auth provider');
     isMounted.current = true; // Ensure mounted flag is true on setup
+    initialSessionCheckComplete.current = false;
+
+    // Immediately check for an existing session when the component mounts
+    const checkInitialSession = async () => {
+      try {
+        logger.log('Checking for existing session on mount');
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          logger.error('Error getting initial session:', error);
+          setIsInitialLoading(false);
+          initialSessionCheckComplete.current = true;
+          return;
+        }
+        
+        if (data.session) {
+          logger.log('Initial session found:', data.session.user.id);
+          setSession(data.session);
+          setUser(data.session.user);
+          lastRefreshTime.current = Date.now();
+        } else {
+          logger.log('No initial session found');
+        }
+        
+        // Mark initial loading as complete after checking session
+        setIsInitialLoading(false);
+        initialSessionCheckComplete.current = true;
+      } catch (error) {
+        logger.error('Unexpected error during initial session check:', error);
+        setIsInitialLoading(false);
+        initialSessionCheckComplete.current = true;
+      }
+    };
+    
+    // Run the initial session check immediately
+    checkInitialSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
@@ -102,19 +139,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         
         logger.log(`Auth state changed: ${event}`, currentSession?.user?.id || 'no user');
         
-        // Handle INITIAL_SESSION first to determine end of initial loading
-        if (event === 'INITIAL_SESSION') {
-           logger.log('INITIAL_SESSION event received.');
-           setIsInitialLoading(false); // Supabase initial check is complete
-        }
-        
+        // Handle auth events appropriately
         if (currentSession) {
           // Always update session if present
           setSession(currentSession);
           lastRefreshTime.current = Date.now(); // Update last refresh on any valid session event
           
           // Update user only if it changed, triggers the admin check effect
-          if (user?.id !== currentSession.user.id) {
+          if (!user || user.id !== currentSession.user.id) {
              logger.log('User ID changed or user newly logged in. Setting user state.');
              setIsAdmin(false); // Reset admin status before check
              setIsAdminStatusKnown(false); // Reset admin status knowledge
@@ -123,26 +155,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           } else if (event === 'TOKEN_REFRESHED') {
              logger.log('Token refreshed for the same user.');
              // No need to re-trigger admin check if user is the same
-          } else if (event === 'INITIAL_SESSION' && user?.id !== currentSession.user.id) {
-              // If initial session finds a DIFFERENT user, set it (will trigger admin check)
-              logger.log('Initial session has a different user. Setting user state.');
-              setIsAdmin(false);
-              setIsAdminStatusKnown(false);
-              setIsAdminCheckInProgress(true);
-              setUser(currentSession.user);
-          } else if (event === 'INITIAL_SESSION' && !user) {
-               // If initial session finds a user and we currently have none
-               logger.log('Initial session has a user (currently none). Setting user state.');
-               setIsAdmin(false);
-               setIsAdminStatusKnown(false);
-               setIsAdminCheckInProgress(true);
-               setUser(currentSession.user);
           } else if (event === 'SIGNED_IN') {
              logger.log('User explicitly signed in.');
              // User state update is handled above if needed
           }
           
-        } else { // No currentSession (SIGNED_OUT or INITIAL_SESSION without user)
+        } else { // No currentSession (SIGNED_OUT or session expired)
            logger.log('No session found in auth event.');
            if (user !== null) { // Only update state if user actually changes to null
              logger.log('User is now null. Clearing user state.');
@@ -152,14 +170,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
            setIsAdmin(false); // Ensure admin is false if no session
            setIsAdminStatusKnown(true); // Admin status is known (false) if no user
            setIsAdminCheckInProgress(false); // No admin check needed if no user
-           
-           // If INITIAL_SESSION finished without a user, isInitialLoading is already false.
-           // If SIGNED_OUT, isInitialLoading was likely already false.
+        }
+        
+        // Mark initial loading as complete after processing auth state change
+        if (isInitialLoading && initialSessionCheckComplete.current) {
+          setIsInitialLoading(false);
         }
       }
     );
 
-    // Session refresh interval (unchanged logic)
+    // Session refresh interval
     const refreshIntervalId = setInterval(async () => {
       if (!isMounted.current || !session || refreshInProgress.current) return;
       const now = Date.now();
@@ -176,7 +196,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (data.session) {
           setSession(data.session);
           // Update user only if it changed to prevent unnecessary admin check trigger
-          if (user?.id !== data.session.user.id) {
+          if (!user || user.id !== data.session.user.id) {
              setUser(data.session.user); 
           }
           logger.log('Session refreshed successfully via interval');
@@ -249,7 +269,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // 2. We have a user BUT their admin status isn't known yet.
   const combinedIsLoading = isInitialLoading || (!!user && !isAdminStatusKnown);
 
-  logger.log(`AuthProvider State: isInitialLoading=${isInitialLoading}, user=${!!user}, isAdminStatusKnown=${isAdminStatusKnown}, combinedIsLoading=${combinedIsLoading}, isAdmin=${isAdmin}`);
+  logger.log(`AuthProvider State: isInitialLoading=${isInitialLoading}, user=${!!user}, session=${!!session}, isAdminStatusKnown=${isAdminStatusKnown}, combinedIsLoading=${combinedIsLoading}, isAdmin=${isAdmin}`);
 
   return (
     <AuthContext.Provider 
