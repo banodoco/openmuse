@@ -1,20 +1,17 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Use hardcoded values for the Supabase project when environment variables aren't available
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://ujlwuvkrxlvoswwkerdf.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbHd1dmtyeGx2b3N3d2tlcmRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3ODM1MDYsImV4cCI6MjA1NzM1OTUwNn0.htwJHr4Z4NlMZYVrH1nNGkU53DyBTWgMeOeUONYFy_4';
 
-// Create the Supabase client with explicit session handling configuration
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage: localStorage,
     persistSession: true,
     autoRefreshToken: true,
-    detectSessionInUrl: true, // Enable this to better handle OAuth redirects
-  },
+    detectSessionInUrl: true
+  }
 });
 
-// Test the RLS permissions to ensure the user has proper access
 export const testRLSPermissions = async () => {
   try {
     const { data: assets, error: assetsError } = await supabase
@@ -40,7 +37,6 @@ export const testRLSPermissions = async () => {
   }
 };
 
-// Keep the debug functions
 export const debugAssetMedia = async (assetId: string) => {
   const { data, error } = await supabase
     .from('asset_media')
