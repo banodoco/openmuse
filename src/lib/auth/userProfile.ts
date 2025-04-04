@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
@@ -88,8 +89,14 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
         .neq('id', userId)
         .limit(1);
       
+      if (checkError) {
+        logger.error('Error checking display name uniqueness:', checkError);
+        toast.error('Failed to check if display name is available');
+        return null;
+      }
+      
       if (existingUser && existingUser.length > 0) {
-        toast.error('This display name is already taken');
+        toast.error('This display name is already taken. Please choose another one.');
         return null;
       }
     }

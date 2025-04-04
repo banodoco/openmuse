@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -17,6 +18,7 @@ export default function UserProfileSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isCheckingName, setIsCheckingName] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -64,6 +66,16 @@ export default function UserProfileSettings() {
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Update the ProfilePage button handler to use this
+  const handleSaveChanges = () => {
+    if (!displayName.trim()) {
+      toast.error('Display name cannot be empty');
+      return;
+    }
+    
+    handleSubmit(new Event('submit') as unknown as React.FormEvent);
   };
 
   const getInitials = (name: string) => {
@@ -128,7 +140,7 @@ export default function UserProfileSettings() {
               placeholder="Enter your preferred display name"
             />
             <p className="text-xs text-muted-foreground">
-              This is the name that will be displayed to other users
+              This is the name that will be displayed to other users. It must be unique.
             </p>
           </div>
           
