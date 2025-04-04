@@ -6,6 +6,9 @@ import UserProfileSettings from '@/components/UserProfileSettings';
 import RequireAuth from '@/components/RequireAuth';
 
 export default function ProfilePage() {
+  // Provide a no-op function for onButtonClick
+  const handleButtonClick = () => {};
+
   return (
     <RequireAuth>
       <div className="min-h-screen flex flex-col bg-background">
@@ -14,6 +17,8 @@ export default function ProfilePage() {
           <PageHeader
             title="Profile Settings"
             description="Manage your profile information"
+            buttonText=""  // Empty string as we don't want a visible button
+            onButtonClick={handleButtonClick}
           />
           <div className="max-w-2xl mx-auto">
             <UserProfileSettings />
