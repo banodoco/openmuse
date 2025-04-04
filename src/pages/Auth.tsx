@@ -1,150 +1,51 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { signInWithDiscord } from '@/lib/auth';
 import { toast } from 'sonner';
 import Navigation, { Footer } from '@/components/Navigation';
-import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
+import { useAuth } from '@/hooks/useAuth';
 
 const logger = new Logger('Auth');
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCheckingSession, setIsCheckingSession] = useState(true);
-  const authStateChangeHandled = useRef(false);
-  
-  // Check if user is already logged in
+  const [isLoadingDiscord, setIsLoadingDiscord] = useState(false);
+
+  const { user, isLoading: isAuthLoading } = useAuth();
+
   useEffect(() => {
-    let isActive = true; // For cleanup
-    let timeoutId: NodeJS.Timeout | null = null;
-    
-    // Set a timeout to avoid hanging on session check
-    const sessionCheckTimeoutId = setTimeout(() => {
-      if (isActive && isCheckingSession) {
-        logger.log('Session check timed out, assuming no session');
-        setIsCheckingSession(false);
-      }
-    }, 5000);
-    
-    // Listen for auth state changes FIRST
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      logger.log('Auth state changed in Auth page:', event);
-      authStateChangeHandled.current = true;
-      
-      if (!isActive) return;
-      
-      if (session && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED')) {
-        // Get return URL if available
-        const searchParams = new URLSearchParams(location.search);
-        const returnUrl = searchParams.get('returnUrl') || '/';
-        
-        // Add a slight delay to ensure state is updated before navigation
-        timeoutId = setTimeout(() => {
-          if (isActive) {
-            logger.log(`Auth page: Auth state changed, redirecting to ${returnUrl}`);
-            navigate(returnUrl, { replace: true });
-          }
-        }, 500);
-      } else if (event === 'INITIAL_SESSION' && session) {
-        // Also handle initial session
-        const searchParams = new URLSearchParams(location.search);
-        const returnUrl = searchParams.get('returnUrl') || '/';
-        
-        timeoutId = setTimeout(() => {
-          if (isActive) {
-            logger.log(`Auth page: Initial session present, redirecting to ${returnUrl}`);
-            navigate(returnUrl, { replace: true });
-          }
-        }, 500);
-      }
-    });
-    
-    // THEN check for existing session (after short delay to let auth state listener initialize)
-    setTimeout(async () => {
-      if (!isActive) return;
-      
-      try {
-        if (!authStateChangeHandled.current) {
-          logger.log('Auth page: Checking session explicitly');
-          
-          const { data: { session }, error } = await supabase.auth.getSession();
-          
-          if (error) {
-            logger.error('Auth page: Error checking session:', error);
-            if (isActive) {
-              setIsCheckingSession(false);
-            }
-            return;
-          }
-          
-          if (session) {
-            logger.log('Auth page: User already has session, redirecting');
-            if (isActive) {
-              const searchParams = new URLSearchParams(location.search);
-              const returnUrl = searchParams.get('returnUrl') || '/';
-              
-              // Add a slight delay to ensure state is updated before navigation
-              timeoutId = setTimeout(() => {
-                if (isActive) {
-                  logger.log(`Auth page: Redirecting to ${returnUrl}`);
-                  navigate(returnUrl, { replace: true });
-                }
-              }, 500);
-            }
-          } else {
-            logger.log('Auth page: No session found, showing login form');
-            if (isActive) {
-              setIsCheckingSession(false);
-            }
-          }
-        } else {
-          // Auth state change has been handled by listener
-          if (isActive && isCheckingSession) {
-            setIsCheckingSession(false);
-          }
-        }
-      } catch (error) {
-        logger.error('Auth page: Error in session check:', error);
-        if (isActive) {
-          setIsCheckingSession(false);
-        }
-      } finally {
-        if (sessionCheckTimeoutId) {
-          clearTimeout(sessionCheckTimeoutId);
-        }
-      }
-    }, 100);
-    
-    return () => {
-      logger.log('Auth page: Cleaning up');
-      isActive = false;
-      if (timeoutId) clearTimeout(timeoutId);
-      if (sessionCheckTimeoutId) clearTimeout(sessionCheckTimeoutId);
-      subscription.unsubscribe();
-    };
-  }, [navigate, location.search]);
-  
+    logger.log(`Auth page useEffect: isAuthLoading=${isAuthLoading}, user=${!!user}`);
+
+    if (!isAuthLoading && user) {
+      const searchParams = new URLSearchParams(location.search);
+      const returnUrl = searchParams.get('returnUrl') || '/';
+
+      logger.log(`Auth page: User is logged in (via useAuth), redirecting to ${returnUrl}`);
+      navigate(returnUrl, { replace: true });
+    } else if (!isAuthLoading && !user) {
+      logger.log('Auth page: User is not logged in (via useAuth), showing login form.');
+    }
+  }, [user, isAuthLoading, navigate, location.search]);
+
   const handleDiscordSignIn = async () => {
-    if (isLoading) return;
-    
+    if (isLoadingDiscord) return;
+
     try {
       logger.log('Auth page: Starting Discord sign-in');
-      setIsLoading(true);
-      
+      setIsLoadingDiscord(true);
+
       await signInWithDiscord();
-      // Note: We don't need to navigate here as the redirect will happen automatically
     } catch (error) {
       logger.error('Error signing in with Discord:', error);
       toast.error('Failed to sign in with Discord');
-      setIsLoading(false);
+      setIsLoadingDiscord(false);
     }
   };
-  
-  if (isCheckingSession) {
+
+  if (isAuthLoading) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
@@ -178,9 +79,9 @@ const Auth: React.FC = () => {
             <Button
               className="w-full flex items-center justify-center gap-2"
               onClick={handleDiscordSignIn}
-              disabled={isLoading}
+              disabled={isLoadingDiscord}
             >
-              {isLoading ? (
+              {isLoadingDiscord ? (
                 <div className="animate-spin h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
               ) : (
                 <svg
