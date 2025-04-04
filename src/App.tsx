@@ -24,13 +24,22 @@ function App() {
           <Routes>
             {/* Public Routes */}
             <Route path="/" element={<HomePage />} />
-            <Route path="/upload" element={<UploadPage />} />
             <Route path="/auth" element={<AuthPage />} />
             <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/videos/:id" element={<VideoPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
             <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
             <Route path="/profile" element={<ProfilePage />} />
+
+            {/* Protected Routes */}
+            <Route
+              path="/upload"
+              element={
+                <RequireAuth>
+                  <UploadPage />
+                </RequireAuth>
+              }
+            />
 
             {/* Admin Route (protected) */}
             <Route 
