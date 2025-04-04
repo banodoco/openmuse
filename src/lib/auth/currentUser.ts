@@ -6,8 +6,12 @@ const logger = new Logger('CurrentUser');
 
 export const getCurrentUser = async () => {
   try {
-    logger.log('Getting current session with detailed error handling');
+    const startTime = new Date().getTime();
+    logger.log(`Getting current session at ${startTime}`);
     const { data: { session }, error } = await supabase.auth.getSession();
+    
+    const endTime = new Date().getTime();
+    logger.log(`Session fetch completed in ${endTime - startTime}ms`);
     
     if (error) {
       logger.error('Error getting session:', error);
@@ -23,17 +27,18 @@ export const getCurrentUser = async () => {
     const expiresAt = session.expires_at ? new Date(session.expires_at * 1000) : null;
     const now = new Date();
     const isExpired = expiresAt ? expiresAt < now : false;
+    const timeUntilExpiry = expiresAt ? Math.floor((expiresAt.getTime() - now.getTime()) / 1000) : null;
     
     logger.log('User found in session:', {
       userId: session.user.id,
       expiresAt: expiresAt?.toISOString(),
       now: now.toISOString(),
       isExpired,
+      timeUntilExpiry: timeUntilExpiry !== null ? `${timeUntilExpiry} seconds` : 'unknown',
       hasRefreshToken: !!session.refresh_token,
     });
     
     // Return the user directly without checking profile
-    // This prevents unnecessary signouts if profile doesn't exist
     return session.user;
   } catch (error) {
     logger.error('Error in getCurrentUser:', error);
