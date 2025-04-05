@@ -25,6 +25,7 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   const [authCheckCount, setAuthCheckCount] = useState(0);
   const [autoRefreshAttempted, setAutoRefreshAttempted] = useState(false);
   const loadStartTime = React.useRef(Date.now());
+  const checkCompleted = React.useRef(false);
   
   // Determine if the path should skip auth checks
   const shouldSkipCheck = 
@@ -39,8 +40,10 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
   );
   
   useEffect(() => {
-    // Increment the check counter for logging purposes
-    setAuthCheckCount(prev => prev + 1);
+    // Only increment check counter if we haven't completed our check yet
+    if (!checkCompleted.current) {
+      setAuthCheckCount(prev => prev + 1);
+    }
     
     // Log authentication status when component mounts or auth state changes
     logger.log(`Auth check #${authCheckCount} - Path: ${location.pathname}, User: ${user ? user.id : 'unauthenticated'}, Session: ${session ? 'valid' : 'none'}, ContextAdmin: ${isContextAdmin ? 'yes' : 'no'}, isLoading: ${isAuthLoading}`);
@@ -54,35 +57,36 @@ const RequireAuth: React.FC<RequireAuthProps> = ({
         logger.log(`Session refresh attempt result: ${success ? 'successful' : 'failed'}`);
       });
     }
+    
+    // Mark our check as completed if we have auth state
+    if (!isAuthLoading && !checkCompleted.current) {
+      checkCompleted.current = true;
+      logger.log(`Auth check completed after ${authCheckCount} checks and ${Date.now() - loadStartTime.current}ms`);
+    }
   }, [user, session, isContextAdmin, isAuthLoading]);
 
   // Debug check to prevent infinite loading
   useEffect(() => {
-    if (isAuthLoading && authCheckCount > 5) {
+    if (isAuthLoading && authCheckCount > 5 && !checkCompleted.current) {
       logger.warn(`Potential loading loop detected in RequireAuth - Path: ${location.pathname}, checks: ${authCheckCount}, time in loading: ${(Date.now() - loadStartTime.current) / 1000}s`);
       
       // After 30 seconds, show a toast with helpful information
       if (authCheckCount === 15) {
         toast.error("Authentication is taking longer than expected. You may need to sign in again.");
       }
+      
+      // After 20 checks, force completion to break potential loops
+      if (authCheckCount > 20 && !checkCompleted.current) {
+        logger.error(`Force-breaking potential auth loop after ${authCheckCount} checks`);
+        checkCompleted.current = true;
+      }
     }
   }, [authCheckCount, isAuthLoading, location.pathname]);
   
-  // Detect direct page load vs navigation within the app
-  useEffect(() => {
-    const isDirectAccess = performance.navigation?.type === 0 || document.referrer === '';
-    logger.log(`Page access type: ${isDirectAccess ? 'Direct URL access' : 'In-app navigation'}`);
-    
-    // For admin page, log extra authentication details on direct access
-    if (location.pathname === '/admin' && isDirectAccess) {
-      logger.log('Direct access to admin page detected, extra auth logging enabled');
-    }
-  }, [location.pathname]);
-  
   // Use the loading state directly from the Auth context
-  const isLoading = isAuthLoading; 
+  const isLoading = isAuthLoading && !checkCompleted.current; 
   
-  // Show loading state while authentication is being checked
+  // Show loading state while authentication is being checked (but not forever)
   if (isLoading) {
     const loadTime = (Date.now() - loadStartTime.current) / 1000;
     logger.log(`Rendering Loading State - Path: ${location.pathname} (Auth Loading: ${isAuthLoading}), check #${authCheckCount}, loading for ${loadTime}s`);

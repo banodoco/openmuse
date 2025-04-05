@@ -14,22 +14,29 @@ const Auth: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoadingDiscord, setIsLoadingDiscord] = useState(false);
+  const [redirecting, setRedirecting] = useState(false);
 
   const { user, session, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
-    logger.log(`Auth page useEffect: isAuthLoading=${isAuthLoading}, user=${!!user}, session=${!!session}`);
+    logger.log(`Auth page useEffect: isAuthLoading=${isAuthLoading}, user=${!!user}, session=${!!session}, redirecting=${redirecting}`);
 
-    if (!isAuthLoading && user && session) {
+    // Prevent redirect loops by tracking if we've already started redirecting
+    if (!isAuthLoading && user && session && !redirecting) {
       const searchParams = new URLSearchParams(location.search);
       const returnUrl = searchParams.get('returnUrl') || '/';
 
       logger.log(`Auth page: User is logged in (via useAuth), redirecting to ${returnUrl}`);
-      navigate(returnUrl, { replace: true });
+      setRedirecting(true);
+      
+      // Use setTimeout to break potential synchronous loop
+      setTimeout(() => {
+        navigate(returnUrl, { replace: true });
+      }, 100);
     } else if (!isAuthLoading && (!user || !session)) {
       logger.log('Auth page: User is not logged in (via useAuth), showing login form.');
     }
-  }, [user, session, isAuthLoading, navigate, location.search]);
+  }, [user, session, isAuthLoading, navigate, location.search, redirecting]);
 
   const handleDiscordSignIn = async () => {
     if (isLoadingDiscord) return;
@@ -46,7 +53,7 @@ const Auth: React.FC = () => {
     }
   };
 
-  if (isAuthLoading) {
+  if (isAuthLoading || redirecting) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
@@ -55,7 +62,7 @@ const Auth: React.FC = () => {
           <div className="max-w-screen-2xl mx-auto flex items-center justify-center p-4">
             <div className="text-center">
               <div className="animate-spin h-8 w-8 border-2 border-primary border-t-transparent rounded-full mx-auto mb-4" />
-              <p>Checking authentication status...</p>
+              <p>{redirecting ? "Redirecting you..." : "Checking authentication status..."}</p>
             </div>
           </div>
         </div>

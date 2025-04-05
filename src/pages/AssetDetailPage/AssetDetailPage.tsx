@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { VideoEntry } from '@/lib/types';
@@ -8,6 +9,7 @@ import EmptyState from '@/components/EmptyState';
 import VideoLightbox from '@/components/VideoLightbox';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
+import { Logger } from '@/lib/logger';
 
 // Custom hooks
 import { useAssetDetails } from './hooks/useAssetDetails';
@@ -18,15 +20,21 @@ import AssetHeader from './components/AssetHeader';
 import AssetInfoCard from './components/AssetInfoCard';
 import AssetVideoSection from './components/AssetVideoSection';
 
+const logger = new Logger('AssetDetailPage');
+
 const AssetDetailPage: React.FC = () => {
   const params = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isLoading: authLoading } = useAuth();
   const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [hasFetchFailed, setHasFetchFailed] = useState(false);
 
   const id = params.id;
+  
+  // Log entry to help debug when this component renders
+  logger.log(`AssetDetailPage - Fetching asset details for ID: ${id}`);
 
   const {
     asset,
@@ -49,13 +57,39 @@ const AssetDetailPage: React.FC = () => {
     handleApproveVideo
   } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
 
-  React.useEffect(() => {
-    setIsLoading(assetLoading);
-  }, [assetLoading]);
+  // Sync loading state
+  useEffect(() => {
+    setIsLoading(assetLoading || (authLoading && user !== null));
+  }, [assetLoading, authLoading, user]);
+
+  // Handle fetch failure after timeout
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout | null = null;
+    
+    if (isLoading && !hasFetchFailed) {
+      timeoutId = setTimeout(() => {
+        if (isLoading) {
+          logger.warn(`Asset fetch timeout reached for ID: ${id}`);
+          setHasFetchFailed(true);
+          setIsLoading(false);
+        }
+      }, 15000); // 15 second timeout
+    }
+    
+    return () => {
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [isLoading, id, hasFetchFailed]);
 
   const handleRetry = () => {
     setIsLoading(true);
+    setHasFetchFailed(false);
     setDataFetchAttempted(false);
+    
+    // Add a small delay to ensure state updates have propagated
+    setTimeout(() => {
+      fetchAssetDetails();
+    }, 100);
   };
 
   const handleGoBack = () => {
@@ -94,14 +128,16 @@ const AssetDetailPage: React.FC = () => {
     );
   }
 
-  if (!asset && dataFetchAttempted) {
+  if ((!asset && dataFetchAttempted) || hasFetchFailed) {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navigation />
         <main className="flex-1 container max-w-6xl py-8 px-4">
           <EmptyState 
             title="LoRA not found"
-            description="The requested LoRA could not be found."
+            description={hasFetchFailed 
+              ? "Failed to load the LoRA details. There might be a connectivity issue."
+              : "The requested LoRA could not be found."}
           />
           <div className="flex justify-center gap-4 mt-6">
             <Button onClick={handleGoBack} className="gap-2">
