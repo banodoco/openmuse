@@ -85,15 +85,26 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
 
       console.log(`Uploading ${videosWithContent.length} videos for LoRA ${assetName} (${assetId})`);
       
-      // Process and upload all videos - only add to existing asset, never override primary
+      // Get asset details to determine the base model
+      const { data: assetDetails } = await supabase
+        .from('assets')
+        .select('*')
+        .eq('id', assetId)
+        .single();
+        
+      const baseModel = assetDetails?.lora_base_model || assetDetails?.type === 'LoRA' ? 'wan' : assetDetails?.type;
+      console.log(`Asset base model: ${baseModel}`);
+      
+      // Process and upload all videos
       const uploadPromises = videosWithContent.map(async (video) => {
         if (video.file) {
           // File upload
-          const videoMetadata: VideoMetadata = {
+          const videoMetadata = {
             ...video.metadata,
             loraName: assetName,
             assetId: assetId,
-            // Explicitly set isPrimary to false when adding to existing LoRA
+            // Include the base model in the metadata
+            model: baseModel,
             isPrimary: false
           };
 

@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -185,6 +184,7 @@ const submitVideos = async (videos: any[], loraDetails: any, reviewerName: strin
   logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
   
   try {
+    // Store the model both as lora_base_model and in the type field for backward compatibility
     const { data: assetData, error: assetError } = await supabase
       .from('assets')
       .insert({
@@ -244,7 +244,7 @@ const submitVideos = async (videos: any[], loraDetails: any, reviewerName: strin
       
       logger.log(`Creating media entry for video ${video.metadata.title}`);
       try {
-        // Add model as type field in media
+        // Store the model both in the lora_base_model field and as type in media
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
           .insert({
