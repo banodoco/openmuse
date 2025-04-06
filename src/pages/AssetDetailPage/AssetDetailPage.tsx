@@ -1,10 +1,11 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft, Filter } from 'lucide-react';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, VideoEntry } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import AssetHeader from './components/AssetHeader';
@@ -16,6 +17,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
+import VideoLightbox from '@/components/VideoLightbox';
 
 const logger = new Logger('AssetDetailPage');
 
@@ -24,6 +26,8 @@ function AssetDetailPage() {
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const [modelFilter, setModelFilter] = useState<string>('all');
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
   
   const {
     asset,
@@ -99,6 +103,46 @@ function AssetDetailPage() {
   const handleModelFilterChange = (value: string) => {
     setModelFilter(value);
     navigate(`/?model=${value}`);
+  };
+  
+  const handleOpenLightbox = (video: VideoEntry) => {
+    setCurrentVideo(video);
+    setLightboxOpen(true);
+  };
+  
+  const handleCloseLightbox = () => {
+    setLightboxOpen(false);
+    setCurrentVideo(null);
+  };
+  
+  const handleApproveVideo = async (videoId: string) => {
+    try {
+      logger.log(`Approving video: ${videoId}`);
+      const { error } = await supabase
+        .from('media')
+        .update({ admin_approved: 'Curated' })
+        .eq('id', videoId);
+        
+      if (error) throw error;
+      await fetchAssetDetails();
+    } catch (error) {
+      logger.error('Error approving video:', error);
+    }
+  };
+  
+  const handleDeleteVideo = async (videoId: string) => {
+    try {
+      logger.log(`Rejecting video: ${videoId}`);
+      const { error } = await supabase
+        .from('media')
+        .update({ admin_approved: 'Rejected' })
+        .eq('id', videoId);
+        
+      if (error) throw error;
+      await fetchAssetDetails();
+    } catch (error) {
+      logger.error('Error rejecting video:', error);
+    }
   };
   
   if (isLoading) {
@@ -197,9 +241,9 @@ function AssetDetailPage() {
                       asset={asset}
                       videos={videos}
                       isAdmin={isAdmin}
-                      handleOpenLightbox={() => {}}
-                      handleApproveVideo={() => Promise.resolve()}
-                      handleDeleteVideo={() => Promise.resolve()}
+                      handleOpenLightbox={handleOpenLightbox}
+                      handleApproveVideo={handleApproveVideo}
+                      handleDeleteVideo={handleDeleteVideo}
                       fetchAssetDetails={fetchAssetDetails}
                     />
                   </div>
@@ -209,6 +253,17 @@ function AssetDetailPage() {
           </div>
         </div>
       </div>
+      
+      {currentVideo && (
+        <VideoLightbox
+          isOpen={lightboxOpen}
+          onClose={handleCloseLightbox}
+          videoUrl={currentVideo.video_location}
+          title={currentVideo.metadata?.title || `Video for ${asset?.name || 'LoRA'}`}
+          creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
+          thumbnailUrl={currentVideo.metadata?.thumbnailUrl}
+        />
+      )}
       
       <Footer />
     </div>
