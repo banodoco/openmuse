@@ -23,10 +23,10 @@ export const useAssetDetails = (assetId: string | undefined) => {
     try {
       console.log('AssetDetailPage - Fetching asset details for ID:', assetId);
       
-      // Enhanced query to get more fields including lora_base_model
+      // Removed lora_base_model from the select query since it doesn't exist in the database
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
-        .select('*, lora_base_model, lora_type, lora_link')
+        .select('*, lora_type, lora_link')
         .eq('id', assetId)
         .maybeSingle();
 
@@ -105,7 +105,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 title: media.title,
                 description: '',
                 classification: media.classification,
-                model: assetData.lora_base_model || media.type, // Use asset's base model first, fall back to media type
+                model: media.type, // Use media type since lora_base_model doesn't exist
                 loraName: assetData.name,
                 loraDescription: assetData.description,
                 assetId: assetData.id,

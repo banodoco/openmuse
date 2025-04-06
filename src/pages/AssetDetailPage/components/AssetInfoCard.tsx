@@ -62,7 +62,7 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
   console.log("Asset Database Details:", {
     id: asset.id,
     name: asset.name,
-    lora_base_model: asset.lora_base_model || 'Not specified',
+    type: asset.type,
     lora_type: asset.lora_type || 'Not specified',
     raw_asset: asset
   });
@@ -129,18 +129,18 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
             </div>
           </div>
           
-          {/* Display base model information */}
+          {/* Display type instead of base model since it doesn't exist */}
           <div>
-            <h3 className="text-sm font-medium mb-1">Base Model</h3>
+            <h3 className="text-sm font-medium mb-1">Type</h3>
             <div className="flex items-center gap-2">
               <Server className="h-4 w-4 text-muted-foreground" />
               <span>
-                {asset.lora_base_model ? (
+                {asset.type ? (
                   <Badge 
                     variant="model" 
-                    className={cn(getModelColor(asset.lora_base_model))}
+                    className={cn(getModelColor(asset.type))}
                   >
-                    {asset.lora_base_model.toUpperCase()}
+                    {asset.type.toUpperCase()}
                   </Badge>
                 ) : (
                   <span className="text-muted-foreground italic">Not specified</span>
