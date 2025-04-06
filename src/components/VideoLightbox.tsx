@@ -34,19 +34,35 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
     const fetchCreatorDisplayName = async () => {
       if (creator) {
         try {
-          // Try to get the profile information based on username or email
-          const { data, error } = await supabase
+          // First try to find user by username (which might be an email in the DB)
+          const { data: userByUsername, error: usernameError } = await supabase
             .from('profiles')
             .select('display_name, username')
-            .or(`username.eq.${creator},email.eq.${creator}`)
+            .eq('username', creator)
             .maybeSingle();
           
-          if (data && !error) {
-            setCreatorDisplayName(data.display_name || data.username);
-          } else {
-            // If no profile found, use the basic email formatting
-            setCreatorDisplayName(getFormattedCreatorName(creator));
+          if (userByUsername && !usernameError) {
+            setCreatorDisplayName(userByUsername.display_name || userByUsername.username);
+            return;
           }
+          
+          // If we get here, try to match the email or part of it
+          // Some users might be associated with their emails in the creator field
+          const emailUsername = creator.includes('@') ? creator.split('@')[0] : creator;
+          
+          const { data: userByPartialMatch, error: partialError } = await supabase
+            .from('profiles')
+            .select('display_name, username')
+            .ilike('username', `%${emailUsername}%`)
+            .maybeSingle();
+          
+          if (userByPartialMatch && !partialError) {
+            setCreatorDisplayName(userByPartialMatch.display_name || userByPartialMatch.username);
+            return;
+          }
+          
+          // If no profile found, use the basic email formatting
+          setCreatorDisplayName(getFormattedCreatorName(creator));
         } catch (error) {
           console.error('Error fetching creator profile:', error);
           setCreatorDisplayName(getFormattedCreatorName(creator));
