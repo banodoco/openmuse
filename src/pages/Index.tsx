@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -60,6 +59,19 @@ const Index = () => {
       logger.log('Index page unmounting'); // This should fire right before unload
     };
   }, []);
+  
+  // Add detailed logging for base models
+  useEffect(() => {
+    if (loras && loras.length > 0) {
+      console.log("Base Models in Current LoRAs:", 
+        loras.map(lora => ({
+          id: lora.id, 
+          name: lora.name, 
+          baseModel: lora.lora_base_model
+        }))
+      );
+    }
+  }, [loras]);
   
   // Only check permissions if user is authenticated and not still loading
   useEffect(() => {
