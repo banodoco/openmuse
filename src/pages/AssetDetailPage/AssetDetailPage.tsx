@@ -4,7 +4,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Filter } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { LoraAsset, VideoEntry } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
@@ -14,9 +14,6 @@ import AssetVideoSection from './components/AssetVideoSection';
 import { useAssetDetails } from './hooks/useAssetDetails';
 import { useAssetAdminActions } from './hooks/useAssetAdminActions';
 import { useAuth } from '@/hooks/useAuth';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
 import VideoLightbox from '@/components/VideoLightbox';
 
 const logger = new Logger('AssetDetailPage');
@@ -25,7 +22,6 @@ function AssetDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
-  const [modelFilter, setModelFilter] = useState<string>('all');
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
   
@@ -46,63 +42,8 @@ function AssetDetailPage() {
     handleRejectAsset,
   } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
   
-  // Get unique models from the database to use in filter
-  const [allLoras, setAllLoras] = useState<LoraAsset[]>([]);
-  const [isLoadingAll, setIsLoadingAll] = useState(true);
-  
-  useEffect(() => {
-    async function loadAllLoras() {
-      try {
-        const { data, error } = await supabase
-          .from('assets')
-          .select('*')
-          .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
-          
-        if (error) {
-          throw error;
-        }
-        
-        setAllLoras(data || []);
-      } catch (error) {
-        logger.error('Error loading all loras:', error);
-      } finally {
-        setIsLoadingAll(false);
-      }
-    }
-    
-    loadAllLoras();
-  }, []);
-  
-  // Get unique models from loras
-  const uniqueModels = React.useMemo(() => {
-    const models = new Set<string>();
-    allLoras?.forEach(lora => {
-      if (lora.lora_base_model) {
-        models.add(lora.lora_base_model.toLowerCase());
-      }
-    });
-    return Array.from(models).sort();
-  }, [allLoras]);
-
-  // Format model name for display
-  const formatModelName = (model: string) => {
-    switch (model.toLowerCase()) {
-      case 'wan': return 'Wan';
-      case 'hunyuan': return 'Hunyuan';
-      case 'ltxv': return 'LTXV';
-      case 'cogvideox': return 'CogVideoX';
-      case 'animatediff': return 'Animatediff';
-      default: return model.charAt(0).toUpperCase() + model.slice(1);
-    }
-  };
-  
   const handleBackClick = () => {
     navigate('/');
-  };
-  
-  const handleModelFilterChange = (value: string) => {
-    setModelFilter(value);
-    navigate(`/?model=${value}`);
   };
   
   const handleOpenLightbox = (video: VideoEntry) => {
@@ -178,39 +119,20 @@ function AssetDetailPage() {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {/* Left sidebar with model filter */}
+          {/* Left sidebar with LoRA info */}
           <div className="col-span-1">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg flex items-center gap-2">
-                  <Filter size={18} />
-                  Filters
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="model-filter">Model</Label>
-                    <Select
-                      value={modelFilter}
-                      onValueChange={handleModelFilterChange}
-                    >
-                      <SelectTrigger id="model-filter" className="w-full mt-1">
-                        <SelectValue placeholder="Filter by model" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="all">All Models</SelectItem>
-                        {uniqueModels.map(model => (
-                          <SelectItem key={model} value={model}>
-                            {formatModelName(model)}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
+            {asset && (
+              <AssetInfoCard 
+                asset={asset}
+                creatorDisplayName={creatorDisplayName}
+                isAdmin={isAdmin}
+                isApproving={isApproving}
+                handleCurateAsset={handleCurateAsset}
+                handleListAsset={handleListAsset}
+                handleRejectAsset={handleRejectAsset}
+                getCreatorName={getCreatorName}
+              />
+            )}
           </div>
           
           {/* Main content */}
@@ -222,31 +144,16 @@ function AssetDetailPage() {
                   handleGoBack={handleBackClick}
                 />
                 
-                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-                  <div className="lg:col-span-1">
-                    <AssetInfoCard 
-                      asset={asset}
-                      creatorDisplayName={creatorDisplayName}
-                      isAdmin={isAdmin}
-                      isApproving={isApproving}
-                      handleCurateAsset={handleCurateAsset}
-                      handleListAsset={handleListAsset}
-                      handleRejectAsset={handleRejectAsset}
-                      getCreatorName={getCreatorName}
-                    />
-                  </div>
-                  
-                  <div className="lg:col-span-2">
-                    <AssetVideoSection 
-                      asset={asset}
-                      videos={videos}
-                      isAdmin={isAdmin}
-                      handleOpenLightbox={handleOpenLightbox}
-                      handleApproveVideo={handleApproveVideo}
-                      handleDeleteVideo={handleDeleteVideo}
-                      fetchAssetDetails={fetchAssetDetails}
-                    />
-                  </div>
+                <div className="mt-6">
+                  <AssetVideoSection 
+                    asset={asset}
+                    videos={videos}
+                    isAdmin={isAdmin}
+                    handleOpenLightbox={handleOpenLightbox}
+                    handleApproveVideo={handleApproveVideo}
+                    handleDeleteVideo={handleDeleteVideo}
+                    fetchAssetDetails={fetchAssetDetails}
+                  />
                 </div>
               </>
             )}
