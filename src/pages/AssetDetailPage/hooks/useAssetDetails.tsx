@@ -1,6 +1,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, debugAssetMedia, debugAsset } from '@/integrations/supabase/client';
+import { supabase, debugAssetMedia } from '@/integrations/supabase/client';
 import { LoraAsset, VideoEntry } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
@@ -22,11 +22,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
     try {
       console.log('AssetDetailPage - Fetching asset details for ID:', assetId);
-      
-      // Get a complete debug log of the asset first to see all available fields
-      const assetDebug = await debugAsset(assetId);
-      console.log('AssetDetailPage - Full asset debug:', assetDebug);
-      
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
         .select('*')
@@ -46,9 +41,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
       }
 
       console.log('AssetDetailPage - Asset data retrieved:', assetData);
-      
-      // Debug log to see all fields from the database
-      console.log('AssetDetailPage - Full asset data:', JSON.stringify(assetData, null, 2));
 
       const assetMediaRelationships = await debugAssetMedia(assetId);
       console.log('AssetDetailPage - Asset media relationships:', assetMediaRelationships);
@@ -96,9 +88,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
           try {
             const videoUrl = await videoUrlService.getVideoUrl(media.url);
             
-            // Determine the model - try to get it from where it might be stored
-            const baseModel = media.type || 'Unknown';
-            
             return {
               id: media.id,
               video_location: videoUrl,
@@ -111,7 +100,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 title: media.title,
                 description: '',
                 classification: media.classification,
-                model: baseModel,
+                model: assetData.lora_base_model || media.type, // Use asset's base model first, fall back to media type
                 loraName: assetData.name,
                 loraDescription: assetData.description,
                 assetId: assetData.id,

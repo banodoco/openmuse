@@ -37,9 +37,6 @@ export interface Database {
           user_id?: string | null
           created_at: string
           admin_approved?: string | null
-          lora_type?: string | null
-          lora_base_model?: string | null
-          lora_link?: string | null
         }
       }
       asset_media: {

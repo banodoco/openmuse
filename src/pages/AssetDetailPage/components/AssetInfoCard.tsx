@@ -15,8 +15,7 @@ import {
   Check, 
   X, 
   Info,
-  ExternalLink,
-  Server
+  ExternalLink
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -58,15 +57,6 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
   
   if (!asset) return null;
   
-  // Log the asset details to console for debugging
-  console.log("Asset Database Details:", {
-    id: asset.id,
-    name: asset.name,
-    type: asset.type,
-    lora_type: asset.lora_type || 'Not specified',
-    raw_asset: asset
-  });
-
   const getModelColor = (modelType?: string): string => {
     switch (modelType?.toLowerCase()) {
       case 'wan':
@@ -126,26 +116,6 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
             <div className="flex items-center gap-2">
               <Calendar className="h-4 w-4 text-muted-foreground" />
               <span>{new Date(asset.created_at).toLocaleDateString()}</span>
-            </div>
-          </div>
-          
-          {/* Display type instead of base model since it doesn't exist */}
-          <div>
-            <h3 className="text-sm font-medium mb-1">Type</h3>
-            <div className="flex items-center gap-2">
-              <Server className="h-4 w-4 text-muted-foreground" />
-              <span>
-                {asset.type ? (
-                  <Badge 
-                    variant="model" 
-                    className={cn(getModelColor(asset.type))}
-                  >
-                    {asset.type.toUpperCase()}
-                  </Badge>
-                ) : (
-                  <span className="text-muted-foreground italic">Not specified</span>
-                )}
-              </span>
             </div>
           </div>
           
