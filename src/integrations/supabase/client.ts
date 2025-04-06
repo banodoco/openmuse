@@ -177,6 +177,45 @@ export const debugAssetsTable = async () => {
   }
 };
 
+// Add a function to debug the columns of a table
+export const debugTableColumns = async (tableName: string) => {
+  try {
+    logger.log(`Debugging columns for table: ${tableName}`);
+    
+    const { data, error } = await supabase.rpc('debug_column_exists', {
+      table_name: tableName,
+      column_name: 'lora_base_model'
+    });
+    
+    if (error) {
+      logger.error(`Error checking for column in ${tableName}:`, error);
+      return null;
+    }
+    
+    logger.log(`Column 'lora_base_model' exists in ${tableName}: ${data}`);
+    
+    // Also get all column names from information schema
+    const { data: columnsData, error: columnsError } = await supabase
+      .from('information_schema.columns')
+      .select('column_name')
+      .eq('table_name', tableName);
+      
+    if (columnsError) {
+      logger.error(`Error getting columns for ${tableName}:`, columnsError);
+    } else {
+      logger.log(`All columns in ${tableName}:`, columnsData);
+    }
+    
+    return { 
+      lora_base_model_exists: data,
+      columns: columnsData 
+    };
+  } catch (error) {
+    logger.error(`Error debugging table columns for ${tableName}:`, error);
+    return null;
+  }
+};
+
 // Add a function to debug a specific asset
 export const debugAsset = async (assetId: string) => {
   try {
@@ -194,7 +233,21 @@ export const debugAsset = async (assetId: string) => {
     }
     
     logger.log(`Asset ${assetId} details:`, data);
-    return data;
+    
+    // Check if lora_base_model exists in this asset
+    const hasLoraBaseModel = 'lora_base_model' in data;
+    logger.log(`Asset has lora_base_model field: ${hasLoraBaseModel}`);
+    
+    // Also check if the column exists in the table
+    await debugTableColumns('assets');
+    
+    return {
+      ...data,
+      _debug: {
+        hasLoraBaseModel,
+        allFields: Object.keys(data)
+      }
+    };
   } catch (error) {
     logger.error(`Error debugging asset ${assetId}:`, error);
     return null;
