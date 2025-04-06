@@ -1,4 +1,3 @@
-
 import React, { useRef, useEffect, memo, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { X } from 'lucide-react';
@@ -26,16 +25,24 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
   const playerRef = useRef<HTMLVideoElement>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [playTriggered, setPlayTriggered] = useState(false);
-  
-  // Reset state when the lightbox opens or changes videos
+
+  const getFormattedCreatorName = (creatorName?: string) => {
+    if (!creatorName) return 'Unknown Creator';
+    
+    if (creatorName.includes('@')) {
+      return creatorName.split('@')[0];
+    }
+    
+    return creatorName;
+  };
+
   useEffect(() => {
     if (isOpen) {
       setIsVideoReady(false);
       setPlayTriggered(false);
     }
   }, [isOpen, videoUrl]);
-  
-  // Add keyboard event handler for Escape key
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
@@ -49,19 +56,16 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
     };
   }, [isOpen, onClose]);
 
-  // Ensure video pauses when dialog closes
   useEffect(() => {
     if (!isOpen && playerRef.current) {
       playerRef.current.pause();
     }
   }, [isOpen]);
 
-  // Ensure video plays when dialog opens and is ready
   useEffect(() => {
     if (isOpen && isVideoReady && playerRef.current && !playTriggered) {
       console.log('Attempting to play video in lightbox after ready event');
       
-      // Use a short timeout to ensure the video plays after the dialog is fully rendered
       const playTimeout = setTimeout(() => {
         if (playerRef.current) {
           playerRef.current.play()
@@ -71,7 +75,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
             })
             .catch(err => {
               console.error('Failed to play video in lightbox:', err);
-              // Retry once more after a delay
               setTimeout(() => {
                 if (playerRef.current && isOpen) {
                   playerRef.current.play()
@@ -98,12 +101,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
         ref={contentRef} 
         aria-describedby="video-content-description"
       >
-        {/* Add a dialog title for accessibility */}
         <DialogTitle className="sr-only">
           {title || "Video Preview"}
         </DialogTitle>
         
-        {/* Add visually hidden description for accessibility */}
         <div id="video-content-description" className="sr-only">
           {creator ? `Video by ${creator}` : "Video preview content"}
         </div>
@@ -134,7 +135,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
           {(title || creator) && (
             <div className="p-4 bg-black/10">
               {title && <h3 className="text-lg font-medium">{title}</h3>}
-              {creator && <p className="text-sm text-muted-foreground">By {creator}</p>}
+              {creator && <p className="text-sm text-muted-foreground">By {getFormattedCreatorName(creator)}</p>}
             </div>
           )}
         </div>
