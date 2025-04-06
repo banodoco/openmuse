@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -27,18 +28,19 @@ function AssetDetailPage() {
   
   const {
     asset,
-    assetVideos,
+    videos,
     isLoading,
-    error,
-    refetchAsset,
+    creatorDisplayName,
+    getCreatorName,
+    fetchAssetDetails,
   } = useAssetDetails(id);
   
   const {
-    handleApproveAsset,
+    isApproving,
+    handleCurateAsset,
     handleListAsset,
     handleRejectAsset,
-    isActionLoading,
-  } = useAssetAdminActions(id, refetchAsset);
+  } = useAssetAdminActions(id, fetchAssetDetails);
   
   // Get unique models from the database to use in filter
   const [allLoras, setAllLoras] = useState<LoraAsset[]>([]);
@@ -98,30 +100,6 @@ function AssetDetailPage() {
     setModelFilter(value);
     navigate(`/?model=${value}`);
   };
-  
-  if (error) {
-    return (
-      <div className="flex flex-col min-h-screen bg-background">
-        <Navigation />
-        <div className="flex-1 w-full max-w-6xl mx-auto p-4">
-          <div className="mb-6">
-            <Button variant="outline" size="sm" onClick={handleBackClick}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to LoRAs
-            </Button>
-          </div>
-          <div className="flex justify-center items-center h-64">
-            <div className="text-center">
-              <FileVideo className="h-16 w-16 mx-auto text-muted-foreground" />
-              <h2 className="mt-4 text-xl font-semibold">Error Loading LoRA</h2>
-              <p className="mt-2 text-muted-foreground">{error.message}</p>
-            </div>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
   
   if (isLoading) {
     return (
@@ -196,23 +174,33 @@ function AssetDetailPage() {
             {asset && (
               <>
                 <AssetHeader 
-                  asset={asset} 
-                  onApprove={handleApproveAsset}
+                  asset={asset}
+                  isAdmin={isAdmin}
+                  isActionLoading={isApproving}
+                  onCurate={handleCurateAsset}
                   onList={handleListAsset}
                   onReject={handleRejectAsset}
-                  isActionLoading={isActionLoading}
                 />
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
                   <div className="lg:col-span-1">
-                    <AssetInfoCard asset={asset} />
+                    <AssetInfoCard 
+                      asset={asset}
+                      creatorDisplayName={creatorDisplayName}
+                      isAdmin={isAdmin}
+                      isApproving={isApproving}
+                      handleCurateAsset={handleCurateAsset}
+                      handleListAsset={handleListAsset}
+                      handleRejectAsset={handleRejectAsset}
+                      getCreatorName={getCreatorName}
+                    />
                   </div>
                   
                   <div className="lg:col-span-2">
                     <AssetVideoSection 
-                      videos={assetVideos} 
-                      assetId={asset.id} 
-                      refetchAsset={refetchAsset}
+                      videos={videos}
+                      asset={asset}
+                      refetchAsset={fetchAssetDetails}
                     />
                   </div>
                 </div>
