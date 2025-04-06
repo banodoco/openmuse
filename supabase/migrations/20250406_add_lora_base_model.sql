@@ -40,3 +40,13 @@ BEGIN
   RETURN column_exists;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Also add a function to get all assets with debug info
+CREATE OR REPLACE FUNCTION debug_get_all_assets()
+RETURNS SETOF json AS $$
+BEGIN
+  RETURN QUERY
+  SELECT row_to_json(a) 
+  FROM assets a;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
