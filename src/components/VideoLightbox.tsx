@@ -5,6 +5,9 @@ import { X } from 'lucide-react';
 import StorageVideoPlayer from './StorageVideoPlayer';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
 import { supabase } from '@/integrations/supabase/client';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoLightbox');
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -32,23 +35,58 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
   useEffect(() => {
     // Fetch the creator's display name when the component mounts or creator changes
     const fetchCreatorDisplayName = async () => {
-      if (creator) {
-        try {
-          // First try to find user by username (which might be an email in the DB)
-          const { data: userByUsername, error: usernameError } = await supabase
+      if (!creator) {
+        setCreatorDisplayName(null);
+        return;
+      }
+
+      logger.log(`Attempting to fetch display name for creator: ${creator}`);
+      
+      try {
+        // First, try looking up by user_id if it might be a UUID
+        if (creator.includes('-') && creator.length > 30) {
+          const { data: userById, error: userIdError } = await supabase
             .from('profiles')
             .select('display_name, username')
-            .eq('username', creator)
+            .eq('id', creator)
             .maybeSingle();
           
-          if (userByUsername && !usernameError) {
-            setCreatorDisplayName(userByUsername.display_name || userByUsername.username);
+          if (userById && !userIdError) {
+            logger.log('Found user by ID:', userById);
+            setCreatorDisplayName(userById.display_name || userById.username);
+            return;
+          }
+        }
+        
+        // Next try by exact username match
+        const { data: userByUsername, error: usernameError } = await supabase
+          .from('profiles')
+          .select('display_name, username')
+          .eq('username', creator)
+          .maybeSingle();
+        
+        if (userByUsername && !usernameError) {
+          logger.log('Found user by exact username:', userByUsername);
+          setCreatorDisplayName(userByUsername.display_name || userByUsername.username);
+          return;
+        }
+        
+        // If creator looks like an email, try to find by email directly
+        if (creator.includes('@')) {
+          const { data: userByEmail, error: emailError } = await supabase
+            .from('profiles')
+            .select('display_name, username')
+            .eq('email', creator)
+            .maybeSingle();
+          
+          if (userByEmail && !emailError) {
+            logger.log('Found user by email:', userByEmail);
+            setCreatorDisplayName(userByEmail.display_name || userByEmail.username);
             return;
           }
           
-          // If we get here, try to match the email or part of it
-          // Some users might be associated with their emails in the creator field
-          const emailUsername = creator.includes('@') ? creator.split('@')[0] : creator;
+          // Try by partial match on username with the email username part
+          const emailUsername = creator.split('@')[0];
           
           const { data: userByPartialMatch, error: partialError } = await supabase
             .from('profiles')
@@ -57,18 +95,52 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
             .maybeSingle();
           
           if (userByPartialMatch && !partialError) {
+            logger.log('Found user by partial username match:', userByPartialMatch);
             setCreatorDisplayName(userByPartialMatch.display_name || userByPartialMatch.username);
             return;
           }
-          
-          // If no profile found, use the basic email formatting
-          setCreatorDisplayName(getFormattedCreatorName(creator));
-        } catch (error) {
-          console.error('Error fetching creator profile:', error);
-          setCreatorDisplayName(getFormattedCreatorName(creator));
         }
-      } else {
-        setCreatorDisplayName(null);
+        
+        // If all lookups failed, check if there's a user_id in the media record
+        // This last attempt is specifically to handle cases where the creator field may 
+        // contain just an email but the media record has the correct user_id
+        if (creator.includes('@')) {
+          const { data: mediaWithUserId, error: mediaError } = await supabase
+            .from('media')
+            .select('user_id')
+            .eq('creator', creator)
+            .maybeSingle();
+          
+          if (mediaWithUserId?.user_id && !mediaError) {
+            const { data: userByMediaId, error: mediaUserError } = await supabase
+              .from('profiles')
+              .select('display_name, username')
+              .eq('id', mediaWithUserId.user_id)
+              .maybeSingle();
+            
+            if (userByMediaId && !mediaUserError) {
+              logger.log('Found user from media user_id:', userByMediaId);
+              setCreatorDisplayName(userByMediaId.display_name || userByMediaId.username);
+              return;
+            }
+          }
+        }
+        
+        // If all else fails, use the creator as is, without email domain if it's an email
+        if (creator.includes('@')) {
+          setCreatorDisplayName(creator.split('@')[0]);
+        } else {
+          setCreatorDisplayName(creator);
+        }
+        
+      } catch (error) {
+        logger.error('Error fetching creator profile:', error);
+        // Fallback to creator name without domain if it's an email
+        if (creator.includes('@')) {
+          setCreatorDisplayName(creator.split('@')[0]);
+        } else {
+          setCreatorDisplayName(creator);
+        }
       }
     };
 
@@ -76,16 +148,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
       fetchCreatorDisplayName();
     }
   }, [isOpen, creator]);
-
-  const getFormattedCreatorName = (creatorName?: string) => {
-    if (!creatorName) return 'Unknown Creator';
-    
-    if (creatorName.includes('@')) {
-      return creatorName.split('@')[0];
-    }
-    
-    return creatorName;
-  };
 
   useEffect(() => {
     if (isOpen) {
