@@ -132,12 +132,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
               thumbnailUrl={thumbnailUrl}
             />
           </div>
-          {(title || creator) && (
-            <div className="p-4 bg-black/10">
-              {title && <h3 className="text-lg font-medium">{title}</h3>}
-              {creator && <p className="text-sm text-muted-foreground">By {getFormattedCreatorName(creator)}</p>}
-            </div>
-          )}
+          <div className="p-4 bg-black/10">
+            {title && <h3 className="text-lg font-medium">{title}</h3>}
+            {creator && <p className="text-sm text-muted-foreground">By {getFormattedCreatorName(creator)}</p>}
+          </div>
         </div>
       </DialogContent>
     </Dialog>
