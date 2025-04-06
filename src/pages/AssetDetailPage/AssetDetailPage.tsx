@@ -1,11 +1,10 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { FilePenLine, ArrowLeft, FileVideo, Filter } from 'lucide-react';
-import { LoraAsset, VideoEntry } from '@/lib/types';
+import { ArrowLeft, Filter } from 'lucide-react';
+import { LoraAsset } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import AssetHeader from './components/AssetHeader';
@@ -33,6 +32,7 @@ function AssetDetailPage() {
     creatorDisplayName,
     getCreatorName,
     fetchAssetDetails,
+    setAsset
   } = useAssetDetails(id);
   
   const {
@@ -40,7 +40,7 @@ function AssetDetailPage() {
     handleCurateAsset,
     handleListAsset,
     handleRejectAsset,
-  } = useAssetAdminActions(id, fetchAssetDetails);
+  } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
   
   // Get unique models from the database to use in filter
   const [allLoras, setAllLoras] = useState<LoraAsset[]>([]);
@@ -175,11 +175,7 @@ function AssetDetailPage() {
               <>
                 <AssetHeader 
                   asset={asset}
-                  isAdmin={isAdmin}
-                  isActionLoading={isApproving}
-                  onCurate={handleCurateAsset}
-                  onList={handleListAsset}
-                  onReject={handleRejectAsset}
+                  handleGoBack={handleBackClick}
                 />
                 
                 <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
@@ -198,9 +194,13 @@ function AssetDetailPage() {
                   
                   <div className="lg:col-span-2">
                     <AssetVideoSection 
-                      videos={videos}
                       asset={asset}
-                      refetchAsset={fetchAssetDetails}
+                      videos={videos}
+                      isAdmin={isAdmin}
+                      handleOpenLightbox={() => {}}
+                      handleApproveVideo={() => Promise.resolve()}
+                      handleDeleteVideo={() => Promise.resolve()}
+                      fetchAssetDetails={fetchAssetDetails}
                     />
                   </div>
                 </div>

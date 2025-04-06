@@ -1,7 +1,6 @@
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
-import { Button } from '@/components/ui/button';
 import EmptyState from '@/components/EmptyState';
 import VideoCard from '@/components/video/VideoCard';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
