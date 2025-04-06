@@ -1,8 +1,10 @@
+
 import React, { useRef, useEffect, memo, useState } from 'react';
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { X } from 'lucide-react';
 import StorageVideoPlayer from './StorageVideoPlayer';
 import { VisuallyHidden } from '@/components/ui/visually-hidden';
+import { supabase } from '@/integrations/supabase/client';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -25,6 +27,39 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
   const playerRef = useRef<HTMLVideoElement>(null);
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [playTriggered, setPlayTriggered] = useState(false);
+  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+
+  useEffect(() => {
+    // Fetch the creator's display name when the component mounts or creator changes
+    const fetchCreatorDisplayName = async () => {
+      if (creator) {
+        try {
+          // Try to get the profile information based on username or email
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('display_name, username')
+            .or(`username.eq.${creator},email.eq.${creator}`)
+            .maybeSingle();
+          
+          if (data && !error) {
+            setCreatorDisplayName(data.display_name || data.username);
+          } else {
+            // If no profile found, use the basic email formatting
+            setCreatorDisplayName(getFormattedCreatorName(creator));
+          }
+        } catch (error) {
+          console.error('Error fetching creator profile:', error);
+          setCreatorDisplayName(getFormattedCreatorName(creator));
+        }
+      } else {
+        setCreatorDisplayName(null);
+      }
+    };
+
+    if (isOpen && creator) {
+      fetchCreatorDisplayName();
+    }
+  }, [isOpen, creator]);
 
   const getFormattedCreatorName = (creatorName?: string) => {
     if (!creatorName) return 'Unknown Creator';
@@ -132,10 +167,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = memo(({
               thumbnailUrl={thumbnailUrl}
             />
           </div>
-          <div className="p-4 bg-black/10">
-            {title && <h3 className="text-lg font-medium">{title}</h3>}
-            {creator && <p className="text-sm text-muted-foreground">By {getFormattedCreatorName(creator)}</p>}
-          </div>
+          {(title || creatorDisplayName) && (
+            <div className="p-4 bg-black/10">
+              {title && <h3 className="text-lg font-medium">{title}</h3>}
+              {creatorDisplayName && <p className="text-sm text-muted-foreground">By {creatorDisplayName}</p>}
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

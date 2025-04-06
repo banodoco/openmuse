@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -191,8 +190,9 @@ const AssetDetailPage: React.FC = () => {
           isOpen={isLightboxOpen}
           onClose={handleCloseLightbox}
           videoUrl={selectedVideo.video_location}
-          title={selectedVideo.metadata?.title || `Video by ${selectedVideo.reviewer_name}`}
+          title={selectedVideo.metadata?.title || undefined}
           creator={selectedVideo.reviewer_name}
+          thumbnailUrl={selectedVideo.metadata?.thumbnailUrl}
         />
       )}
     </div>
