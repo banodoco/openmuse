@@ -22,9 +22,11 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
     try {
       console.log('AssetDetailPage - Fetching asset details for ID:', assetId);
+      
+      // Enhanced query to get more fields including lora_base_model
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
-        .select('*')
+        .select('*, lora_base_model, lora_type, lora_link')
         .eq('id', assetId)
         .maybeSingle();
 
@@ -41,6 +43,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
       }
 
       console.log('AssetDetailPage - Asset data retrieved:', assetData);
+      
+      // Debug log to see all fields from the database
+      console.log('AssetDetailPage - Full asset data:', JSON.stringify(assetData, null, 2));
 
       const assetMediaRelationships = await debugAssetMedia(assetId);
       console.log('AssetDetailPage - Asset media relationships:', assetMediaRelationships);

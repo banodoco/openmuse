@@ -134,3 +134,69 @@ export const debugCurrentSession = async () => {
     return null;
   }
 };
+
+// Add a debug function to inspect the assets table structure
+export const debugAssetsTable = async () => {
+  try {
+    logger.log('Debugging assets table structure');
+    
+    // First, get a single row to examine structure
+    const { data: sampleAsset, error: sampleError } = await supabase
+      .from('assets')
+      .select('*')
+      .limit(1)
+      .single();
+      
+    if (sampleError) {
+      logger.error('Error fetching sample asset:', sampleError);
+      return { structure: null, sample: null, error: sampleError };
+    }
+    
+    // Log the sample to see actual structure
+    logger.log('Sample asset structure:', sampleAsset);
+    
+    // Now specifically check if lora_base_model exists
+    const { data: loraModelCheck, error: modelError } = await supabase
+      .rpc('debug_get_all_assets')
+      .limit(5);
+      
+    if (modelError) {
+      logger.error('Error checking for lora_base_model field:', modelError);
+    } else {
+      logger.log('Assets from debug function (first 5):', loraModelCheck);
+    }
+    
+    return { 
+      structure: Object.keys(sampleAsset || {}), 
+      sample: sampleAsset,
+      debug: loraModelCheck
+    };
+  } catch (error) {
+    logger.error('Error debugging assets table:', error);
+    return { structure: null, sample: null, error };
+  }
+};
+
+// Add a function to debug a specific asset
+export const debugAsset = async (assetId: string) => {
+  try {
+    logger.log(`Debugging specific asset: ${assetId}`);
+    
+    const { data, error } = await supabase
+      .from('assets')
+      .select('*')
+      .eq('id', assetId)
+      .single();
+      
+    if (error) {
+      logger.error(`Error fetching asset ${assetId}:`, error);
+      return null;
+    }
+    
+    logger.log(`Asset ${assetId} details:`, data);
+    return data;
+  } catch (error) {
+    logger.error(`Error debugging asset ${assetId}:`, error);
+    return null;
+  }
+};

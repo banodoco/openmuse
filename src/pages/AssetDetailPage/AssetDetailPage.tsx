@@ -6,7 +6,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
 import { LoraAsset, VideoEntry } from '@/lib/types';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, debugAsset, debugAssetMedia } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import AssetHeader from './components/AssetHeader';
 import AssetInfoCard from './components/AssetInfoCard';
@@ -24,6 +24,16 @@ function AssetDetailPage() {
   const { user, isAdmin } = useAuth();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
+  
+  // Add a debug effect that runs once when the component mounts
+  useEffect(() => {
+    if (id) {
+      // Debug the asset directly from the database
+      debugAsset(id).then(assetData => {
+        logger.log('Direct database debug for asset:', assetData);
+      });
+    }
+  }, [id]);
   
   const {
     asset,
