@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -10,7 +11,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseStorage } from '@/lib/supabaseStorage';
-import RequireAuth from '@/components/RequireAuth';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 const logger = new Logger('Upload');
@@ -139,7 +139,7 @@ const UploadPage: React.FC = () => {
           <Alert className="mb-8 border border-olive/20 bg-cream-light text-foreground font-body">
             <AlertTitle className="font-heading font-medium">You must be signed in to submit videos.</AlertTitle>
             <AlertDescription className="mt-1 font-body">
-              Please <Link to="/auth" className="font-medium text-olive hover:text-olive-dark underline">sign in</Link> to access all features.
+              Please <Link to="/auth" className="font-medium text-olive hover:text-olive-dark underline">sign in</Link> to access all features. You can preview the form below, but fields are disabled.
             </AlertDescription>
           </Alert>
         )}

@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -30,16 +31,7 @@ function App() {
             <Route path="/assets/:id" element={<AssetDetailPage />} />
             <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
             <Route path="/profile" element={<ProfilePage />} />
-
-            {/* Protected Routes */}
-            <Route
-              path="/upload"
-              element={
-                <RequireAuth>
-                  <UploadPage />
-                </RequireAuth>
-              }
-            />
+            <Route path="/upload" element={<UploadPage />} />
 
             {/* Admin Route (protected) */}
             <Route 
