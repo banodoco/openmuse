@@ -1,52 +1,57 @@
 
-import React, { Suspense, lazy } from 'react';
-import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
-import { Toaster } from '@/components/ui/toaster';
-import LoadingState from '@/components/LoadingState';
-import { AuthProvider } from '@/providers/AuthProvider';
-import AuthCallback from '@/pages/AuthCallback';
-import RequireAuth from '@/components/RequireAuth';
+import { useEffect } from 'react';
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import './App.css';
+import Index from './pages/Index';
+import Auth from './pages/Auth';
+import AuthCallback from './pages/AuthCallback';
+import VideoPage from './pages/VideoPage';
+import Admin from './pages/Admin';
+import NotFound from './pages/NotFound';
+import AssetDetailPage from './pages/AssetDetailPage';
+import UploadPage from './pages/upload/UploadPage';
+import ProfilePage from './pages/ProfilePage';
+import { AuthProvider } from './providers/AuthProvider';
+import { Toaster } from './components/ui/toaster';
+import { Toaster as SonnerToaster } from 'sonner';
+import { addLoraBaseModelColumn } from './lib/addLoraBaseModelColumn';
+import { Logger } from './lib/logger';
 
-// Fix imports to use correct paths
-const HomePage = lazy(() => import('./pages/Index'));
-const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
-const AdminPage = lazy(() => import('./pages/Admin'));
-const AuthPage = lazy(() => import('./pages/Auth'));
-const VideoPage = lazy(() => import('./pages/VideoPage'));
-const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const logger = new Logger('App');
 
 function App() {
-  return (
-    // Ensure that AuthProvider is outside of the Router
-    <AuthProvider>
-      <Router>
-        <Suspense fallback={<LoadingState />}>
-          <Routes>
-            {/* Public Routes */}
-            <Route path="/" element={<HomePage />} />
-            <Route path="/auth" element={<AuthPage />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/videos/:id" element={<VideoPage />} />
-            <Route path="/assets/:id" element={<AssetDetailPage />} />
-            <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
-            <Route path="/upload" element={<UploadPage />} />
+  useEffect(() => {
+    // Check and add the lora_base_model column if needed
+    const initializeApp = async () => {
+      try {
+        const result = await addLoraBaseModelColumn();
+        logger.log(`Database column check completed: ${result ? 'Success' : 'Failed'}`);
+      } catch (error) {
+        logger.error('Error during app initialization:', error);
+      }
+    };
+    
+    initializeApp();
+  }, []);
 
-            {/* Admin Route (protected) */}
-            <Route 
-              path="/admin"
-              element={
-                <RequireAuth requireAdmin={true}>
-                  <AdminPage />
-                </RequireAuth>
-              }
-            />
-          </Routes>
-        </Suspense>
+  return (
+    <BrowserRouter>
+      <AuthProvider>
+        <Routes>
+          <Route path="/" element={<Index />} />
+          <Route path="/auth" element={<Auth />} />
+          <Route path="/auth/callback" element={<AuthCallback />} />
+          <Route path="/video/:id" element={<VideoPage />} />
+          <Route path="/asset/:id" element={<AssetDetailPage />} />
+          <Route path="/admin" element={<Admin />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/profile" element={<ProfilePage />} />
+          <Route path="*" element={<NotFound />} />
+        </Routes>
         <Toaster />
-      </Router>
-    </AuthProvider>
+        <SonnerToaster position="top-right" />
+      </AuthProvider>
+    </BrowserRouter>
   );
 }
 
