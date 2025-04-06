@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { LoraAsset } from '@/lib/types';
 import LoraList from './lora/LoraList';
@@ -11,11 +12,13 @@ const logger = new Logger('LoraManager');
 interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading?: boolean;
+  modelFilter?: string;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
   loras, 
-  isLoading = false
+  isLoading = false,
+  modelFilter = 'all'
 }) => {
   const { user, isAdmin } = useAuth();
   logger.log("LoraManager initialized.");
@@ -33,8 +36,8 @@ const LoraManager: React.FC<LoraManagerProps> = ({
     );
   }
 
-  logger.log(`LoraManager rendering.`);
-  return <LoraList loras={loras} />;
+  logger.log(`LoraManager rendering with model filter: ${modelFilter}`);
+  return <LoraList loras={loras} initialModelFilter={modelFilter} />;
 };
 
 export default LoraManager;

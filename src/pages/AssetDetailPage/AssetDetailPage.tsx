@@ -1,203 +1,230 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
-import { VideoEntry } from '@/lib/types';
-import { useAuth } from '@/hooks/useAuth';
-import LoadingState from '@/components/LoadingState';
-import EmptyState from '@/components/EmptyState';
-import VideoLightbox from '@/components/VideoLightbox';
+import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft } from 'lucide-react';
+import { FilePenLine, ArrowLeft, FileVideo, Filter } from 'lucide-react';
+import { LoraAsset, VideoEntry } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
-
-// Custom hooks
-import { useAssetDetails } from './hooks/useAssetDetails';
-import { useAssetAdminActions } from './hooks/useAssetAdminActions';
-
-// Components
 import AssetHeader from './components/AssetHeader';
 import AssetInfoCard from './components/AssetInfoCard';
 import AssetVideoSection from './components/AssetVideoSection';
+import { useAssetDetails } from './hooks/useAssetDetails';
+import { useAssetAdminActions } from './hooks/useAssetAdminActions';
+import { useAuth } from '@/hooks/useAuth';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
 
 const logger = new Logger('AssetDetailPage');
 
-const AssetDetailPage: React.FC = () => {
-  const params = useParams<{ id: string }>();
+function AssetDetailPage() {
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { user, isAdmin, isLoading: authLoading } = useAuth();
-  const [selectedVideo, setSelectedVideo] = useState<VideoEntry | null>(null);
-  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [hasFetchFailed, setHasFetchFailed] = useState(false);
-
-  const id = params.id;
+  const { user, isAdmin } = useAuth();
+  const [modelFilter, setModelFilter] = useState<string>('all');
   
-  // Log entry to help debug when this component renders
-  logger.log(`AssetDetailPage - Fetching asset details for ID: ${id}`);
-
   const {
     asset,
-    videos,
-    isLoading: assetLoading,
-    dataFetchAttempted,
-    creatorDisplayName,
-    getCreatorName,
-    fetchAssetDetails,
-    setAsset,
-    setDataFetchAttempted
+    assetVideos,
+    isLoading,
+    error,
+    refetchAsset,
   } = useAssetDetails(id);
-
+  
   const {
-    isApproving,
-    handleCurateAsset,
+    handleApproveAsset,
     handleListAsset,
     handleRejectAsset,
-    handleDeleteVideo,
-    handleApproveVideo
-  } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
-
-  // Sync loading state
+    isActionLoading,
+  } = useAssetAdminActions(id, refetchAsset);
+  
+  // Get unique models from the database to use in filter
+  const [allLoras, setAllLoras] = useState<LoraAsset[]>([]);
+  const [isLoadingAll, setIsLoadingAll] = useState(true);
+  
   useEffect(() => {
-    setIsLoading(assetLoading || (authLoading && user !== null));
-  }, [assetLoading, authLoading, user]);
-
-  // Handle fetch failure after timeout
-  useEffect(() => {
-    let timeoutId: NodeJS.Timeout | null = null;
-    
-    if (isLoading && !hasFetchFailed) {
-      timeoutId = setTimeout(() => {
-        if (isLoading) {
-          logger.warn(`Asset fetch timeout reached for ID: ${id}`);
-          setHasFetchFailed(true);
-          setIsLoading(false);
+    async function loadAllLoras() {
+      try {
+        const { data, error } = await supabase
+          .from('assets')
+          .select('*')
+          .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
+          
+        if (error) {
+          throw error;
         }
-      }, 15000); // 15 second timeout
+        
+        setAllLoras(data || []);
+      } catch (error) {
+        logger.error('Error loading all loras:', error);
+      } finally {
+        setIsLoadingAll(false);
+      }
     }
     
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-    };
-  }, [isLoading, id, hasFetchFailed]);
+    loadAllLoras();
+  }, []);
+  
+  // Get unique models from loras
+  const uniqueModels = React.useMemo(() => {
+    const models = new Set<string>();
+    allLoras?.forEach(lora => {
+      if (lora.lora_base_model) {
+        models.add(lora.lora_base_model.toLowerCase());
+      }
+    });
+    return Array.from(models).sort();
+  }, [allLoras]);
 
-  const handleRetry = () => {
-    setIsLoading(true);
-    setHasFetchFailed(false);
-    setDataFetchAttempted(false);
-    
-    // Add a small delay to ensure state updates have propagated
-    setTimeout(() => {
-      fetchAssetDetails();
-    }, 100);
+  // Format model name for display
+  const formatModelName = (model: string) => {
+    switch (model.toLowerCase()) {
+      case 'wan': return 'Wan';
+      case 'hunyuan': return 'Hunyuan';
+      case 'ltxv': return 'LTXV';
+      case 'cogvideox': return 'CogVideoX';
+      case 'animatediff': return 'Animatediff';
+      default: return model.charAt(0).toUpperCase() + model.slice(1);
+    }
   };
-
-  const handleGoBack = () => {
+  
+  const handleBackClick = () => {
     navigate('/');
   };
-
-  const handleOpenLightbox = (video: VideoEntry) => {
-    setSelectedVideo(video);
-    setIsLightboxOpen(true);
+  
+  const handleModelFilterChange = (value: string) => {
+    setModelFilter(value);
+    navigate(`/?model=${value}`);
   };
-
-  const handleCloseLightbox = () => {
-    setIsLightboxOpen(false);
-  };
-
+  
+  if (error) {
+    return (
+      <div className="flex flex-col min-h-screen bg-background">
+        <Navigation />
+        <div className="flex-1 w-full max-w-6xl mx-auto p-4">
+          <div className="mb-6">
+            <Button variant="outline" size="sm" onClick={handleBackClick}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to LoRAs
+            </Button>
+          </div>
+          <div className="flex justify-center items-center h-64">
+            <div className="text-center">
+              <FileVideo className="h-16 w-16 mx-auto text-muted-foreground" />
+              <h2 className="mt-4 text-xl font-semibold">Error Loading LoRA</h2>
+              <p className="mt-2 text-muted-foreground">{error.message}</p>
+            </div>
+          </div>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+  
   if (isLoading) {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
+      <div className="flex flex-col min-h-screen bg-background">
         <Navigation />
-        <main className="flex-1 container max-w-6xl py-8 px-4">
-          <div className="mb-4 flex items-center">
-            <Button 
-              variant="outline" 
-              onClick={handleGoBack}
-              className="mr-4 gap-2"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-bold">Loading LoRA Details...</h1>
-          </div>
-          <LoadingState />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  if ((!asset && dataFetchAttempted) || hasFetchFailed) {
-    return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <Navigation />
-        <main className="flex-1 container max-w-6xl py-8 px-4">
-          <EmptyState 
-            title="LoRA not found"
-            description={hasFetchFailed 
-              ? "Failed to load the LoRA details. There might be a connectivity issue."
-              : "The requested LoRA could not be found."}
-          />
-          <div className="flex justify-center gap-4 mt-6">
-            <Button onClick={handleGoBack} className="gap-2">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Home
-            </Button>
-            <Button onClick={handleRetry} variant="outline">
-              Retry Loading
+        <div className="flex-1 w-full max-w-6xl mx-auto p-4">
+          <div className="mb-6">
+            <Button variant="outline" size="sm" onClick={handleBackClick}>
+              <ArrowLeft className="h-4 w-4 mr-2" />
+              Back to LoRAs
             </Button>
           </div>
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen flex flex-col bg-background">
-      <Navigation />
-      <main className="flex-1 container max-w-6xl py-8 px-4">
-        <AssetHeader asset={asset} handleGoBack={handleGoBack} />
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <AssetInfoCard 
-            asset={asset}
-            creatorDisplayName={creatorDisplayName}
-            isAdmin={isAdmin}
-            isApproving={isApproving}
-            handleCurateAsset={handleCurateAsset}
-            handleListAsset={handleListAsset}
-            handleRejectAsset={handleRejectAsset}
-            getCreatorName={getCreatorName}
-          />
-          
-          <AssetVideoSection 
-            asset={asset}
-            videos={videos}
-            isAdmin={isAdmin}
-            handleOpenLightbox={handleOpenLightbox}
-            handleApproveVideo={handleApproveVideo}
-            handleDeleteVideo={handleDeleteVideo}
-            fetchAssetDetails={fetchAssetDetails}
-          />
+          <div className="flex justify-center items-center h-64">
+            <Skeleton className="h-16 w-16 rounded-full" />
+          </div>
         </div>
-      </main>
+        <Footer />
+      </div>
+    );
+  }
+  
+  return (
+    <div className="flex flex-col min-h-screen bg-background">
+      <Navigation />
+      
+      <div className="flex-1 w-full max-w-screen-2xl mx-auto p-4">
+        <div className="mb-6">
+          <Button variant="outline" size="sm" onClick={handleBackClick}>
+            <ArrowLeft className="h-4 w-4 mr-2" />
+            Back to LoRAs
+          </Button>
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          {/* Left sidebar with model filter */}
+          <div className="col-span-1">
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-lg flex items-center gap-2">
+                  <Filter size={18} />
+                  Filters
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="model-filter">Model</Label>
+                    <Select
+                      value={modelFilter}
+                      onValueChange={handleModelFilterChange}
+                    >
+                      <SelectTrigger id="model-filter" className="w-full mt-1">
+                        <SelectValue placeholder="Filter by model" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Models</SelectItem>
+                        {uniqueModels.map(model => (
+                          <SelectItem key={model} value={model}>
+                            {formatModelName(model)}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          
+          {/* Main content */}
+          <div className="col-span-1 md:col-span-2 lg:col-span-3">
+            {asset && (
+              <>
+                <AssetHeader 
+                  asset={asset} 
+                  onApprove={handleApproveAsset}
+                  onList={handleListAsset}
+                  onReject={handleRejectAsset}
+                  isActionLoading={isActionLoading}
+                />
+                
+                <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
+                  <div className="lg:col-span-1">
+                    <AssetInfoCard asset={asset} />
+                  </div>
+                  
+                  <div className="lg:col-span-2">
+                    <AssetVideoSection 
+                      videos={assetVideos} 
+                      assetId={asset.id} 
+                      refetchAsset={refetchAsset}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      </div>
       
       <Footer />
-      
-      {selectedVideo && (
-        <VideoLightbox
-          isOpen={isLightboxOpen}
-          onClose={handleCloseLightbox}
-          videoUrl={selectedVideo.video_location}
-          title={selectedVideo.metadata?.title || undefined}
-          creator={selectedVideo.user_id || selectedVideo.reviewer_name}
-          thumbnailUrl={selectedVideo.metadata?.thumbnailUrl}
-        />
-      )}
     </div>
   );
-};
+}
 
 export default AssetDetailPage;

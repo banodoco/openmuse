@@ -1,7 +1,8 @@
+
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
@@ -15,11 +16,16 @@ const logger = new Logger('Index');
 const Index = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, isLoading: authLoading } = useAuth();
   const [permissionsChecked, setPermissionsChecked] = useState(false);
   const permissionCheckInProgress = useRef(false);
   const dataRefreshInProgress = useRef(false);
   const initialRefreshDone = useRef(false);
+  
+  // Get model filter from URL query params
+  const queryParams = new URLSearchParams(location.search);
+  const modelFilterFromUrl = queryParams.get('model') || 'all';
   
   const { 
     loras, 
@@ -27,6 +33,7 @@ const Index = () => {
     refetchLoras
   } = useLoraManagement();
   
+  // Filter loras based on model if a model filter is active
   const displayLoras = React.useMemo(() => {
     if (!loras || loras.length === 0) {
       logger.log('No LoRAs available');
@@ -35,8 +42,16 @@ const Index = () => {
     
     logger.log('Total LoRAs available:', loras.length);
     
+    // Apply model filter if it's not 'all'
+    if (modelFilterFromUrl !== 'all') {
+      return loras.filter(lora => 
+        lora.lora_base_model && 
+        lora.lora_base_model.toLowerCase() === modelFilterFromUrl.toLowerCase()
+      );
+    }
+    
     return loras;
-  }, [loras]);
+  }, [loras, modelFilterFromUrl]);
   
   // Add lifecycle logging
   useEffect(() => {
@@ -163,6 +178,7 @@ const Index = () => {
           <LoraManager 
             loras={displayLoras} 
             isLoading={lorasLoading || authLoading}
+            modelFilter={modelFilterFromUrl}
           />
         </div>
       </div>
