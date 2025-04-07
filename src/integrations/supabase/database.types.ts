@@ -37,6 +37,9 @@ export interface Database {
           user_id?: string | null
           created_at: string
           admin_approved?: string | null
+          lora_type?: string | null
+          lora_base_model?: string | null
+          lora_link?: string | null
         }
       }
       asset_media: {
@@ -46,6 +49,33 @@ export interface Database {
           media_id: string
           created_at: string
         }
+      }
+      profiles: {
+        Row: {
+          id: string
+          username: string
+          display_name?: string | null
+          avatar_url?: string | null
+          created_at: string
+          video_upload_consent?: boolean | null
+        }
+      }
+    }
+    Functions: {
+      debug_asset_media: {
+        Args: {
+          asset_id: string
+        }
+        Returns: {
+          id: string
+          asset_id: string
+          media_id: string
+          created_at: string
+        }[]
+      }
+      debug_get_all_assets: {
+        Args: Record<PropertyKey, never>
+        Returns: Json
       }
     }
   }

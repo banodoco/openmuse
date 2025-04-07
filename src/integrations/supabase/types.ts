@@ -52,6 +52,7 @@ export type Database = {
           creator: string | null
           description: string | null
           id: string
+          lora_base_model: string | null
           lora_link: string | null
           lora_type: string | null
           name: string
@@ -65,6 +66,7 @@ export type Database = {
           creator?: string | null
           description?: string | null
           id?: string
+          lora_base_model?: string | null
           lora_link?: string | null
           lora_type?: string | null
           name: string
@@ -78,6 +80,7 @@ export type Database = {
           creator?: string | null
           description?: string | null
           id?: string
+          lora_base_model?: string | null
           lora_link?: string | null
           lora_type?: string | null
           name?: string
@@ -184,6 +187,17 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      debug_asset_media: {
+        Args: {
+          asset_id: string
+        }
+        Returns: {
+          asset_id: string
+          created_at: string
+          id: string
+          media_id: string
+        }[]
+      }
       debug_get_all_assets: {
         Args: Record<PropertyKey, never>
         Returns: Json
