@@ -89,13 +89,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           </div>
           
           <div className="p-4 pt-0">
-            {title ? (
-              <div className="text-xl font-semibold">{title}</div>
-            ) : creatorDisplayName && (
-              <div className="text-xl font-semibold text-muted-foreground">
-                By {creatorDisplayName}
+            {title || creatorDisplayName ? (
+              <div className="text-xl font-semibold">
+                {title || (creatorDisplayName && `By ${creatorDisplayName}`)}
               </div>
-            )}
+            ) : null}
           </div>
         </div>
       </DialogContent>

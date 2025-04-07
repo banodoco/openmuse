@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -160,9 +159,10 @@ function AssetDetailPage() {
           isOpen={lightboxOpen}
           onClose={handleCloseLightbox}
           videoUrl={currentVideo.video_location}
-          title={currentVideo.metadata?.title || `Video for ${asset?.name || 'LoRA'}`}
+          title={currentVideo.metadata?.title}
           creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
           thumbnailUrl={currentVideo.metadata?.thumbnailUrl}
+          creatorId={currentVideo.user_id}
         />
       )}
       
