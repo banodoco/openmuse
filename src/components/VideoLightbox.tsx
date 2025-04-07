@@ -55,7 +55,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             <VideoPlayer
               src={videoUrl}
               poster={thumbnailUrl}
-              ref={videoRef}
               className="w-full rounded-md"
               controls
               autoPlay

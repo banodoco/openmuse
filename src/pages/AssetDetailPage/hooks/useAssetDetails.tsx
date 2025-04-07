@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, debugAssetMedia } from '@/integrations/supabase/client';
 import { LoraAsset, VideoEntry } from '@/lib/types';
@@ -50,7 +51,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
       const assetMediaRelationships = await debugAssetMedia(assetId);
       
-      if (assetMediaRelationships && assetMediaRelationships.length > 0) {
+      if (assetMediaRelationships && Array.isArray(assetMediaRelationships) && assetMediaRelationships.length > 0) {
         const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
         
         const { data: mediaData, error: mediaError } = await supabase
@@ -73,7 +74,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
       let assetVideos: any[] = [];
       
-      if (assetMediaRelationships && assetMediaRelationships.length > 0) {
+      if (assetMediaRelationships && Array.isArray(assetMediaRelationships) && assetMediaRelationships.length > 0) {
         const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
         console.log('AssetDetailPage - Fetching media with IDs:', mediaIds);
         
