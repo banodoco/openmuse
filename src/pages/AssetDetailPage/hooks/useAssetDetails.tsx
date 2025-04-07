@@ -1,9 +1,11 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, debugAssetMedia } from '@/integrations/supabase/client';
 import { LoraAsset, VideoEntry } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('useAssetDetails');
 
 export const useAssetDetails = (assetId: string | undefined) => {
   const [asset, setAsset] = useState<LoraAsset | null>(null);
@@ -40,10 +42,34 @@ export const useAssetDetails = (assetId: string | undefined) => {
         return;
       }
 
-      console.log('AssetDetailPage - Asset data retrieved:', assetData);
+      logger.log('Asset Base Model Verification:', {
+        lora_base_model: assetData.lora_base_model,
+        type: assetData.type,
+        name: assetData.name
+      });
 
       const assetMediaRelationships = await debugAssetMedia(assetId);
-      console.log('AssetDetailPage - Asset media relationships:', assetMediaRelationships);
+      
+      if (assetMediaRelationships && assetMediaRelationships.length > 0) {
+        const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
+        
+        const { data: mediaData, error: mediaError } = await supabase
+          .from('media')
+          .select('*')
+          .in('id', mediaIds);
+          
+        if (mediaError) {
+          console.error('AssetDetailPage - Error fetching related media:', mediaError);
+        } else {
+          mediaData.forEach(media => {
+            logger.log('Related Media Type:', {
+              id: media.id,
+              type: media.type,
+              title: media.title
+            });
+          });
+        }
+      }
 
       let assetVideos: any[] = [];
       
@@ -160,7 +186,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
     }
   }, [asset]);
 
-  // Creator name helper function
   const getCreatorName = () => {
     if (creatorDisplayName) {
       return creatorDisplayName;
