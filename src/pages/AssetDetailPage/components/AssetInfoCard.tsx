@@ -128,13 +128,13 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
               </div>
             )}
             
-            {asset.primaryVideo?.metadata?.model && (
+            {asset.lora_base_model && (
               <div>
                 <Badge 
                   variant="model" 
-                  className={cn(getModelColor(asset.primaryVideo.metadata.model))}
+                  className={cn(getModelColor(asset.lora_base_model))}
                 >
-                  {asset.primaryVideo.metadata.model.toUpperCase()}
+                  {asset.lora_base_model.toUpperCase()}
                 </Badge>
               </div>
             )}
