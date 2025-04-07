@@ -1,4 +1,3 @@
-
 import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { X } from 'lucide-react';
@@ -90,15 +89,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           </div>
           
           <div className="p-4 pt-0">
-            {(title || creatorDisplayName) && (
-              <div className="text-xl font-semibold">
-                {title || ''} 
-                {title && creatorDisplayName && ' '}
-                {creatorDisplayName && (
-                  <span className="text-muted-foreground text-base">
-                    {creatorDisplayName ? `Video by ${creatorDisplayName}` : ''}
-                  </span>
-                )}
+            {title ? (
+              <div className="text-xl font-semibold">{title}</div>
+            ) : creatorDisplayName && (
+              <div className="text-xl font-semibold text-muted-foreground">
+                By {creatorDisplayName}
               </div>
             )}
           </div>
