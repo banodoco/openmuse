@@ -7,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
-const APP_VERSION = 'v0.1.5'; // Updated version number
+const APP_VERSION = 'v0.1.6'; // Incremented version number
 
 const Navigation: React.FC = () => {
   const location = useLocation();
