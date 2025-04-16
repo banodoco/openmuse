@@ -56,6 +56,35 @@ const LoraCard: React.FC<LoraCardProps> = ({
     return creator;
   };
   
+  const getModelColor = (modelType?: string): string => {
+    switch (modelType?.toLowerCase()) {
+      case 'wan':
+        return "bg-blue-500 text-white";
+      case 'hunyuan':
+        return "bg-purple-500 text-white";
+      case 'ltxv':
+        return "bg-amber-500 text-white";
+      case 'cogvideox':
+        return "bg-emerald-500 text-white";
+      case 'animatediff':
+        return "bg-pink-500 text-white";
+      default:
+        return "bg-gray-500 text-white";
+    }
+  };
+  
+  const getModel = (): string => {
+    if (lora.primaryVideo?.metadata?.model) {
+      return lora.primaryVideo.metadata.model;
+    }
+    
+    if (lora.lora_type) {
+      return lora.lora_type;
+    }
+    
+    return "Unknown";
+  };
+  
   const handleView = () => {
     navigate(`/assets/loras/${lora.id}`);
   };
@@ -95,6 +124,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
       if (error) throw error;
       
       toast.success('LoRA curated successfully');
+      lora.admin_approved = 'Curated';
     } catch (error) {
       console.error('Error curating LoRA:', error);
       toast.error('Failed to curate LoRA');
@@ -116,6 +146,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
       if (error) throw error;
       
       toast.success('LoRA listed successfully');
+      lora.admin_approved = 'Listed';
     } catch (error) {
       console.error('Error listing LoRA:', error);
       toast.error('Failed to list LoRA');
@@ -137,12 +168,25 @@ const LoraCard: React.FC<LoraCardProps> = ({
       if (error) throw error;
       
       toast.success('LoRA rejected');
+      lora.admin_approved = 'Rejected';
     } catch (error) {
       console.error('Error rejecting LoRA:', error);
       toast.error('Failed to reject LoRA');
     } finally {
       setIsRejecting(false);
     }
+  };
+  
+  const getButtonStyle = (status: string) => {
+    const isActive = lora.admin_approved === status;
+    
+    return cn(
+      "text-xs h-8 flex-1",
+      isActive && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
+      isActive && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
+      isActive && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
+      !isActive && "bg-transparent"
+    );
   };
   
   return (
@@ -167,101 +211,89 @@ const LoraCard: React.FC<LoraCardProps> = ({
             <p className="text-muted-foreground text-sm">No preview available</p>
           </div>
         )}
-        {isAdmin && lora.admin_approved && (
-           <Badge
-             variant={
-               lora.admin_approved === 'Curated' ? 'default' :
-               lora.admin_approved === 'Rejected' ? 'destructive' :
-               'outline'
-             }
-             className="absolute top-2 right-2 text-xs"
-           >
-             {lora.admin_approved}
-           </Badge>
-         )}
       </div>
       
-      <CardContent className="p-3 flex-grow flex flex-col">
-        <div className="mb-2">
+      <CardContent className="p-3">
+        <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-sm truncate flex-1">{lora.name}</h3>
+          <Badge 
+            variant="model" 
+            className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(getModel()))}
+          >
+            {getModel().toUpperCase()}
+          </Badge>
         </div>
-        <div className="space-y-1 text-xs text-muted-foreground mt-auto">
-          {lora.lora_base_model && (
-            <p><span className="font-medium text-foreground">Base:</span> {lora.lora_base_model}</p>
-          )}
-          {lora.model_variant && (
-            <p><span className="font-medium text-foreground">Variant:</span> {lora.model_variant}</p>
-          )}
-          {lora.lora_type && (
-             <p><span className="font-medium text-foreground">Type:</span> {lora.lora_type}</p>
-          )}
-          {getCreatorName() && (
-            <p><span className="font-medium text-foreground">Creator:</span> {getCreatorName()}</p>
-          )}
-          {lora.created_at && (
-             <p><span className="font-medium text-foreground">Created:</span> {new Date(lora.created_at).toLocaleDateString()}</p>
-           )}
-        </div>
+        {getCreatorName() && (
+          <p className="text-xs text-muted-foreground">Creator: {getCreatorName()}</p>
+        )}
       </CardContent>
       
       {isAdmin && (
-        <CardFooter className="p-3 border-t flex flex-col gap-2" onClick={(e) => e.stopPropagation()}>
-          <div className="flex gap-2 w-full">
-            <Button
-              variant={lora.admin_approved === 'Curated' ? 'success' : 'outline'}
-              size="sm"
-              className="text-xs h-8 flex-1"
+        <CardFooter className="p-3 border-t grid gap-2" onClick={(e) => e.stopPropagation()}>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive" 
+                size="sm" 
+                className="text-xs h-8 w-full"
+                disabled={isDeleting}
+              >
+                <Trash className="h-3 w-3 mr-1" /> 
+                Delete
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently delete this LoRA and all its associated data.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDelete}
+                  className="bg-destructive text-destructive-foreground"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+          
+          <div className="col-span-1 grid grid-cols-3 gap-2 mt-1">
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={handleCurate}
-              disabled={isApproving || isRejecting || isDeleting || lora.admin_approved === 'Curated'}
+              disabled={isApproving}
+              className={getButtonStyle('Curated')}
             >
-              <Check className="h-3 w-3 mr-1" /> Curate
+              <Check className="h-3 w-3 mr-1" /> 
+              Curate
             </Button>
-             <Button
-              variant={lora.admin_approved === 'Listed' ? 'default' : 'outline'}
-              size="sm"
-              className="text-xs h-8 flex-1"
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
               onClick={handleList}
-              disabled={isApproving || isRejecting || isDeleting || lora.admin_approved === 'Listed'}
+              disabled={isApproving}
+              className={getButtonStyle('Listed')}
             >
-               List
+              List
             </Button>
-            <Button
-               variant={lora.admin_approved === 'Rejected' ? 'destructive' : 'outline'}
-               size="sm"
-               className="text-xs h-8 flex-1"
-               onClick={handleReject}
-               disabled={isRejecting || isApproving || isDeleting || lora.admin_approved === 'Rejected'}
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleReject}
+              disabled={isRejecting}
+              className={getButtonStyle('Rejected')}
             >
-              <X className="h-3 w-3 mr-1" /> Reject
+              <X className="h-3 w-3 mr-1" /> 
+              Reject
             </Button>
           </div>
-           <AlertDialog>
-             <AlertDialogTrigger asChild>
-               <Button
-                 variant="destructive"
-                 size="sm"
-                 className="text-xs h-8 w-full"
-                 disabled={isDeleting || isApproving || isRejecting}
-               >
-                 <Trash className="h-3 w-3 mr-1" />
-                 Delete
-               </Button>
-             </AlertDialogTrigger>
-             <AlertDialogContent>
-               <AlertDialogHeader>
-                 <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                 <AlertDialogDescription>
-                   This will permanently delete this LoRA and all its associated data. This action cannot be undone.
-                 </AlertDialogDescription>
-               </AlertDialogHeader>
-               <AlertDialogFooter>
-                 <AlertDialogCancel>Cancel</AlertDialogCancel>
-                 <AlertDialogAction onClick={handleDelete} disabled={isDeleting}>
-                   {isDeleting ? 'Deleting...' : 'Delete'}
-                 </AlertDialogAction>
-               </AlertDialogFooter>
-             </AlertDialogContent>
-           </AlertDialog>
         </CardFooter>
       )}
     </Card>

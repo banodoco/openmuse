@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { 
   Card, 
@@ -118,6 +117,26 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
               <span>{new Date(asset.created_at).toLocaleDateString()}</span>
             </div>
           </div>
+          
+          {asset.lora_base_model && (
+            <div>
+              <h3 className="text-sm font-medium mb-1">Base Model</h3>
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <span className="uppercase">{asset.lora_base_model}</span>
+              </div>
+            </div>
+          )}
+
+          {asset.model_variant && (
+            <div>
+              <h3 className="text-sm font-medium mb-1">Model Variant</h3>
+              <div className="flex items-center gap-2">
+                <Info className="h-4 w-4 text-muted-foreground" />
+                <span>{asset.model_variant}</span>
+              </div>
+            </div>
+          )}
           
           <div className="flex flex-wrap gap-2">
             {asset.lora_type && (
