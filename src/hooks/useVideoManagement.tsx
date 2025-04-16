@@ -26,16 +26,11 @@ export const useVideoManagement = () => {
       logger.log("[loadAllVideos] Skipping: Component not mounted");
       return;
     }
-    // Keep the authIsLoading check for now as per original logic, but log its effect
-    if (authIsLoading) {
-       logger.log("[loadAllVideos] Skipping: Auth is still loading");
-       return;
-    }
 
     logger.log('[loadAllVideos] Setting videoIsLoading = true');
     setVideoIsLoading(true);
     fetchAttempted.current = true;
-    logger.log("[loadAllVideos] Fetching videos for user ID:", userId);
+    logger.log("[loadAllVideos] Fetching videos (User ID for potential RLS: ", userId, ")");
 
     try {
       logger.log("[loadAllVideos] Getting database from switcher");
@@ -50,7 +45,7 @@ export const useVideoManagement = () => {
 
       logger.log("[loadAllVideos] Loaded entries count:", allEntries.length);
 
-      // Original transformation logic - consider adding logs inside map if needed
+      // Original transformation logic
       const transformedEntries = allEntries.map(entry => {
         if (entry.metadata && entry.metadata.assetId) {
           const isPrimary = entry.metadata.isPrimary === true;
@@ -77,21 +72,20 @@ export const useVideoManagement = () => {
         setVideoIsLoading(false);
       }
     }
-  }, [userId, authIsLoading]); // Keep authIsLoading dependency as per original logic for now
+  }, [userId]);
 
   useEffect(() => {
-    logger.log('[Effect Mount/Auth Change] Running effect');
+    logger.log('[Effect Mount] Running effect to trigger initial load');
     isMounted.current = true;
-    fetchAttempted.current = false; // Reset fetch attempt flag on effect run
+    fetchAttempted.current = false; // Reset fetch attempt flag on mount/effect run
 
-    logger.log(`[Effect Mount/Auth Change] Current state: authIsLoading=${authIsLoading}, fetchAttempted=${fetchAttempted.current}`);
-    if (!authIsLoading && !fetchAttempted.current) {
-      logger.log("[Effect Mount/Auth Change] Auth loaded and fetch not attempted, triggering video load");
+    logger.log(`[Effect Mount] Current state: fetchAttempted=${fetchAttempted.current}`);
+    // Trigger load immediately if not already attempted
+    if (!fetchAttempted.current) {
+      logger.log("[Effect Mount] Fetch not attempted, triggering video load");
       loadAllVideos();
-    } else if (authIsLoading) {
-       logger.log("[Effect Mount/Auth Change] Waiting for auth to load before triggering video load");
-    } else if (fetchAttempted.current) {
-       logger.log("[Effect Mount/Auth Change] Fetch already attempted, not triggering video load");
+    } else {
+       logger.log("[Effect Mount] Fetch already attempted, not triggering video load");
     }
 
     return () => {
@@ -99,13 +93,12 @@ export const useVideoManagement = () => {
       isMounted.current = false;
       logger.log("useVideoManagement cleanup complete");
     };
-  // Dependency array includes authIsLoading and userId as per original logic
-  }, [authIsLoading, userId, loadAllVideos]);
+  }, [loadAllVideos]);
 
   const refetchVideos = useCallback(async () => {
     logger.log('[refetchVideos] Attempting refetch...');
     if (isMounted.current && !authIsLoading) {
-      logger.log("[refetchVideos] Conditions met, calling loadAllVideos");
+      logger.log("[refetchVideos] Conditions met (mounted, auth not loading), calling loadAllVideos");
       fetchAttempted.current = false; // Reset fetch attempt flag before refetching
       await loadAllVideos();
       toast.success("Videos refreshed");
@@ -130,7 +123,7 @@ export const useVideoManagement = () => {
   }, []);
 
   const approveVideo = useCallback(async (id: string) => {
-     logger.log(`[approveVideo] Attempting to approve video ID: ${id}`);
+    logger.log(`[approveVideo] Attempting to approve video ID: ${id}`);
     try {
       const db = await databaseSwitcher.getDatabase();
       const updatedVideo = await db.setApprovalStatus(id, "Curated");
@@ -165,13 +158,11 @@ export const useVideoManagement = () => {
     }
   }, []);
 
-  // Keep original isLoading logic but log the result
-  const combinedIsLoading = authIsLoading || videoIsLoading;
-  logger.log(`useVideoManagement: Returning state - combinedIsLoading: ${combinedIsLoading} (auth: ${authIsLoading}, video: ${videoIsLoading}), videos count: ${videos.length}`);
+  logger.log(`useVideoManagement: Returning state - isLoading: ${videoIsLoading}, videos count: ${videos.length}`);
 
   return {
     videos,
-    isLoading: combinedIsLoading,
+    isLoading: videoIsLoading,
     userId,
     refetchVideos,
     deleteVideo,
