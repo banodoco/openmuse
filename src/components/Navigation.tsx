@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -7,6 +8,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
+const APP_VERSION = 'v0.1.0'; // Added version constant
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -26,7 +28,7 @@ const Navigation: React.FC = () => {
     <div className="w-full border-b border-olive/20">
       <nav className="w-full max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center">
-          <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
+          <Link to="/" className="mr-8 flex flex-col items-center hover:opacity-80 transition-opacity">
             <img 
               src={logoPath} 
               alt="OpenMuse Logo" 
@@ -36,6 +38,7 @@ const Navigation: React.FC = () => {
               )}
               onError={handleImageError}
             />
+            <span className="text-xs text-muted-foreground mt-1">{APP_VERSION}</span>
           </Link>
           
           {!isAuthPage && (
