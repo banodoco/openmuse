@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -135,7 +136,7 @@ const AuthButton: React.FC = () => {
       
       <Button 
         variant="ghost" 
-        className="w-full flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-cream/50"
+        className="w-full flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-cream/50 text-xs" // Added text-xs to make text smaller
         onClick={handleSignOut}
       >
         <LogOut className="h-4 w-4 mr-2" />
