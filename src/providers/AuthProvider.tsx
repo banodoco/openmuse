@@ -104,8 +104,35 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
         if (!initialCheckCompleted.current) {
-          logger.log(`[${loadingCount}] Initial check not complete, ignoring auth state change event: ${event}`);
-          return;
+          if (event === 'SIGNED_OUT') {
+            logger.log(`[${loadingCount}] Initial check not complete but received SIGNED_OUT, updating state as logged out.`);
+            initialCheckCompleted.current = true;
+            setSession(null);
+            setUser(null);
+            setIsAdmin(false);
+            setIsLoading(false);
+          } else if (event === 'SIGNED_IN') {
+            logger.log(`[${loadingCount}] Initial check not complete but received SIGNED_IN, updating state with new session.`);
+            initialCheckCompleted.current = true;
+            setSession(currentSession);
+            const newUser = currentSession?.user || null;
+            setUser(newUser);
+            if (newUser) {
+              try {
+                const adminStatus = await checkIsAdmin(newUser.id);
+                setIsAdmin(adminStatus);
+              } catch (adminError) {
+                logger.error(`[${loadingCount}] Error during admin check in initial SIGNED_IN event:`, adminError);
+                setIsAdmin(false);
+              }
+            } else {
+              setIsAdmin(false);
+            }
+            setIsLoading(false);
+          } else {
+            logger.log(`[${loadingCount}] Initial check not complete, ignoring auth state change event: ${event}`);
+            return;
+          }
         }
 
         logger.log(`[${loadingCount}] Persistent auth state changed: ${event}`, currentSession?.user?.id || 'no user');
@@ -113,7 +140,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[AuthProvider] Raw onAuthStateChange session object:', currentSession);
 
         const newUser = currentSession?.user || null;
-        if (newUser?.id === userRef.current?.id) {
+        if (newUser && userRef.current && newUser.id === userRef.current.id) {
           logger.log(`[${loadingCount}] Auth state change: user unchanged, skipping update.`);
           return;
         }
