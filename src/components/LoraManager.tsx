@@ -6,6 +6,7 @@ import EmptyState from './EmptyState';
 import { Logger } from '@/lib/logger';
 import { LoraGallerySkeleton } from './LoraGallerySkeleton';
 import { LoraFilters } from './lora/LoraFilters';
+import { useAuth } from '@/hooks/useAuth';
 
 const logger = new Logger('LoraManager');
 logger.log('LoraManager component module loaded');
@@ -15,12 +16,11 @@ interface LoraManagerProps {
   isLoading?: boolean;
   lorasAreLoading?: boolean;
   filterText: string;
-  onFilterTextChange: (value: string) => void;
   approvalFilter: string;
-  onApprovalFilterChange: (value: string) => void;
   modelFilter: string;
+  onFilterTextChange: (value: string) => void;
+  onApprovalFilterChange: (value: string) => void;
   onModelFilterChange: (value: string) => void;
-  isAdmin?: boolean;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
@@ -28,16 +28,16 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   isLoading = false,
   lorasAreLoading = false,
   filterText,
-  onFilterTextChange,
   approvalFilter,
-  onApprovalFilterChange,
   modelFilter,
+  onFilterTextChange,
+  onApprovalFilterChange,
   onModelFilterChange,
-  isAdmin = false
 }) => {
-  logger.log(`LoraManager rendering/initializing. Props: isLoading=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, modelFilter=${modelFilter}`);
+  logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, modelFilter=${modelFilter}, approvalFilter=${approvalFilter}, filterText=${filterText}`);
 
-  // Extract unique models from loras (still needed for the filter dropdown)
+  const { isAdmin } = useAuth();
+  
   const uniqueModels = useMemo(() => {
     if (!loras) return [];
     const models = new Set(loras.map(lora => lora.lora_base_model).filter(Boolean));

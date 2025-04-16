@@ -1,14 +1,19 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
+import { Input } from '@/components/ui/input';
 import { FileVideo } from 'lucide-react';
 import LoraCard from './LoraCard';
+import { Button } from "@/components/ui/button";
+import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const logger = new Logger('LoraList');
 
 interface LoraListProps {
   loras: LoraAsset[];
+  initialModelFilter?: string;
 }
 
 const LoraList: React.FC<LoraListProps> = ({ loras }) => {

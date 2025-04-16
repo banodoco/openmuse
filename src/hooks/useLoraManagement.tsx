@@ -9,14 +9,22 @@ import { Logger } from '@/lib/logger';
 const logger = new Logger('useLoraManagement');
 logger.log('useLoraManagement hook initializing');
 
-export const useLoraManagement = () => {
-  logger.log('useLoraManagement executing');
+// Define filter types
+interface LoraFilters {
+  modelFilter: string; // e.g., 'all', 'wan', 'ltxv'
+  approvalFilter: string; // e.g., 'curated', 'listed', 'rejected', 'all'
+}
+
+export const useLoraManagement = (filters: LoraFilters) => {
+  const { modelFilter, approvalFilter } = filters;
+  logger.log(`useLoraManagement executing with filters: model=${modelFilter}, approval=${approvalFilter}`);
+  
   const [loras, setLoras] = useState<LoraAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user, isLoading: isAuthLoading } = useAuth();
   const { videos, isLoading: videosLoading } = useVideoManagement();
   const isMounted = useRef(true);
-  const fetchAttempted = useRef(false);
+  const fetchAttempted = useRef(false); // Maybe remove this if filters trigger fetches
   const fetchInProgress = useRef(false);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
@@ -44,7 +52,9 @@ export const useLoraManagement = () => {
   };
 
   const loadAllLoras = useCallback(async () => {
-    logger.log('[loadAllLoras] Attempting to load...');
+    // Pass filters to the log
+    logger.log(`[loadAllLoras] Attempting to load... Filters: model=${modelFilter}, approval=${approvalFilter}`);
+    
     if (!isMounted.current) {
       logger.log("[loadAllLoras] Skipping: Component unmounted");
       return;
@@ -58,11 +68,11 @@ export const useLoraManagement = () => {
       return;
     }
 
-    logger.log('[loadAllLoras] Conditions met (mounted, not in progress, videos loaded). Setting fetchInProgress=true, isLoading=true');
+    logger.log('[loadAllLoras] Conditions met. Setting fetchInProgress=true, isLoading=true');
     fetchInProgress.current = true;
     setIsLoading(true);
-    fetchAttempted.current = true;
-    logger.log("[loadAllLoras] Fetching LoRA assets from Supabase...");
+    // fetchAttempted.current = true; // Let filter changes reset this if needed?
+    logger.log("[loadAllLoras] Fetching LoRA assets from Supabase with filters...");
 
     if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     loadingTimeoutRef.current = setTimeout(() => {
@@ -77,8 +87,30 @@ export const useLoraManagement = () => {
       let query = supabase
         .from('assets')
         .select('*')
-        .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
-      const { data: loraAssets, error } = await query.order('created_at', { ascending: false });
+        .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`); // Base filter for LoRA type
+
+      // Apply model filter if not 'all'
+      if (modelFilter && modelFilter !== 'all') {
+         logger.log(`[loadAllLoras] Applying model filter: ${modelFilter}`);
+         query = query.ilike('lora_base_model', modelFilter);
+      }
+
+      // Apply approval status filter if not 'all'
+      if (approvalFilter && approvalFilter !== 'all') {
+          logger.log(`[loadAllLoras] Applying approval filter: ${approvalFilter}`);
+          // Assuming 'Listed' might be null or 'Listed', handle accordingly
+          if (approvalFilter === 'listed') {
+              query = query.or('admin_approved.is.null,admin_approved.eq.Listed');
+          } else {
+             // For 'Curated' or 'Rejected', use direct equality
+             query = query.eq('admin_approved', approvalFilter.charAt(0).toUpperCase() + approvalFilter.slice(1)); // Capitalize e.g., 'curated' -> 'Curated'
+          }
+      }
+
+      // Add ordering
+      query = query.order('created_at', { ascending: false });
+
+      const { data: loraAssets, error } = await query;
 
       if (!isMounted.current) {
         logger.log("[loadAllLoras] Component unmounted during LoRA asset fetch, aborting.");
@@ -90,7 +122,7 @@ export const useLoraManagement = () => {
         logger.error("[loadAllLoras] Error querying LoRA assets:", error);
         throw error;
       }
-      logger.log("[loadAllLoras] Fetched LoRA assets count:", loraAssets?.length || 0);
+      logger.log("[loadAllLoras] Fetched LoRA assets count (post-filter):", loraAssets?.length || 0);
 
       const userIds = loraAssets?.filter(asset => asset.user_id).map(asset => asset.user_id) || [];
       const uniqueUserIds = [...new Set(userIds)].filter(Boolean) as string[];
@@ -102,12 +134,12 @@ export const useLoraManagement = () => {
           .from('profiles')
           .select('id, display_name, username')
           .in('id', uniqueUserIds);
-
+          
         if (!isMounted.current) {
-          logger.log("[loadAllLoras] Component unmounted during profile fetch, aborting.");
-          if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
-          fetchInProgress.current = false;
-          return;
+           logger.log("[loadAllLoras] Component unmounted during profile fetch, aborting.");
+           if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+           fetchInProgress.current = false;
+           return;
         }
         if (profilesError) {
           logger.error("[loadAllLoras] Error fetching user profiles:", profilesError);
@@ -168,19 +200,22 @@ export const useLoraManagement = () => {
          logger.log("[loadAllLoras] FINALLY block: Component unmounted, fetchInProgress remains", fetchInProgress.current);
       }
     }
-  }, [videos, videosLoading]);
+  // Add filters to dependencies
+  }, [videos, videosLoading, modelFilter, approvalFilter]); 
 
   useEffect(() => {
-    logger.log(`[Effect Initial Load] Running. State: videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
-    if (!videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("[Effect Initial Load] Videos loaded, triggering loadAllLoras.");
+    // This effect now triggers loadAllLoras whenever videos finish loading OR when filters change
+    logger.log(`[Effect Load/Refetch] Running. State: videosLoading=${videosLoading}, fetchInProgress=${fetchInProgress.current}. Filters: model=${modelFilter}, approval=${approvalFilter}`);
+    if (!videosLoading && !fetchInProgress.current) {
+      logger.log("[Effect Load/Refetch] Videos loaded & no fetch in progress, triggering loadAllLoras.");
       loadAllLoras();
     } else if (videosLoading) {
-      logger.log("[Effect Initial Load] Waiting for videos to load.");
-    } else {
-      logger.log("[Effect Initial Load] Already fetched or fetch in progress, skipping.");
+      logger.log("[Effect Load/Refetch] Waiting for videos to load.");
+    } else if (fetchInProgress.current) {
+      logger.log("[Effect Load/Refetch] Fetch already in progress, skipping trigger.");
     }
-  }, [videosLoading, loadAllLoras]);
+  // Depend on filters and videosLoading status
+  }, [videosLoading, modelFilter, approvalFilter, loadAllLoras]); 
 
   useEffect(() => {
     logger.log('[Effect Mount] Setting isMounted = true');
@@ -195,12 +230,13 @@ export const useLoraManagement = () => {
     };
   }, []);
 
+  // Refetch function might need adjustment if loadAllLoras is automatically called on filter change
   const refetchLoras = useCallback(async () => {
-    logger.log('[refetchLoras] Attempting refetch...');
+    logger.log('[refetchLoras] Attempting explicit refetch...');
     if (isMounted.current && !fetchInProgress.current) {
       logger.log("[refetchLoras] Conditions met, calling loadAllLoras");
-      fetchAttempted.current = false;
-      await loadAllLoras();
+      // No need to set fetchAttempted.current = false anymore?
+      await loadAllLoras(); 
       toast.success("LoRAs refreshed");
     } else {
       logger.log(`[refetchLoras] Skipping: isMounted=${isMounted.current}, fetchInProgress=${fetchInProgress.current}`);
@@ -211,6 +247,6 @@ export const useLoraManagement = () => {
   return {
     loras,
     isLoading,
-    refetchLoras
+    refetchLoras // Keep refetchLoras for manual refresh scenarios
   };
 };
