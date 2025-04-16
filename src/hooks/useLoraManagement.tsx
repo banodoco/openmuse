@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
@@ -12,14 +11,12 @@ const logger = new Logger('useLoraManagement');
 export const useLoraManagement = () => {
   const [loras, setLoras] = useState<LoraAsset[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const { user } = useAuth();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const { videos, isLoading: videosLoading } = useVideoManagement();
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
   const fetchInProgress = useRef(false);
   const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const adminCheckAttempted = useRef(false);
-  const adminCheckInProgress = useRef(false);
 
   const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
     try {
@@ -72,23 +69,6 @@ export const useLoraManagement = () => {
         .select('*')
         .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
         
-      let isAdmin = false; 
-      if (user) {
-        if (!adminCheckAttempted.current && !adminCheckInProgress.current) {
-          adminCheckInProgress.current = true;
-          try {
-            isAdmin = await checkUserIsAdmin(user.id);
-            adminCheckAttempted.current = true;
-            logger.log(`User ${user.id} is admin: ${isAdmin}`);
-          } catch (error) {
-            logger.error("Error checking admin role:", error);
-            isAdmin = false;
-          } finally {
-            adminCheckInProgress.current = false;
-          }
-        }
-      }
-      
       const { data: loraAssets, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
@@ -194,25 +174,16 @@ export const useLoraManagement = () => {
     } finally {
       fetchInProgress.current = false;
     }
-  }, [videos, user]);
+  }, [videos]);
 
   useEffect(() => {
-    if (!videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Videos loaded, loading LoRAs");
+    logger.log(`Initial load check: isAuthLoading=${isAuthLoading}, videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
+
+    if (!isAuthLoading && !videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
+      logger.log("Auth and Videos loaded, triggering loadAllLoras.");
       loadAllLoras();
     }
-  }, [videos, videosLoading, loadAllLoras]);
-
-  useEffect(() => {
-    logger.log(`Auth state in useLoraManagement: ${user ? 'signed in' : 'not signed in'}`);
-    
-    if (user && !isLoading && !fetchInProgress.current) {
-      if (!fetchAttempted.current) {
-        logger.log("Auth state changed with user, reloading LoRAs");
-        loadAllLoras();
-      }
-    }
-  }, [user, loadAllLoras, isLoading]);
+  }, [isAuthLoading, videosLoading, loadAllLoras]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -232,7 +203,6 @@ export const useLoraManagement = () => {
     if (isMounted.current && !fetchInProgress.current) {
       logger.log("Manually refreshing LoRAs");
       fetchAttempted.current = false;
-      adminCheckAttempted.current = false;
       await loadAllLoras();
       toast.success("LoRAs refreshed");
     } else {
