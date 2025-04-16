@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -115,7 +114,7 @@ const AuthButton: React.FC = () => {
   const displayName = getDisplayName();
   
   return (
-    <>
+    <div className="flex flex-col items-stretch gap-2">
       <Button 
         variant="outline" 
         className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream pl-2 pr-3"
@@ -132,31 +131,16 @@ const AuthButton: React.FC = () => {
         {isLoadingProfile ? '...' : displayName}
       </Button>
       
-      <DropdownMenu>
-        <DropdownMenuTrigger asChild>
-          <Button 
-            variant="ghost" 
-            className="ml-1 p-1 h-auto" 
-            aria-label="Account options"
-          >
-            <LogOut className="h-4 w-4 text-olive" />
-          </Button>
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48 border border-olive/20">
-          <DropdownMenuLabel className="font-heading">Account Actions</DropdownMenuLabel>
-          <DropdownMenuSeparator className="bg-olive/10" />
-          <DropdownMenuItem 
-            onClick={handleSignOut} 
-            className="text-destructive flex items-center cursor-pointer font-medium hover:bg-destructive/10"
-          >
-            <LogOut className="h-4 w-4 mr-2" />
-            Sign Out
-          </DropdownMenuItem>
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </>
+      <Button 
+        variant="destructive" 
+        className="w-full flex items-center gap-2"
+        onClick={handleSignOut}
+      >
+        <LogOut className="h-4 w-4" />
+        Sign Out
+      </Button>
+    </div>
   );
 };
 
 export default AuthButton;
-
