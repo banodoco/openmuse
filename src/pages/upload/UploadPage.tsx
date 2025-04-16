@@ -27,6 +27,7 @@ const UploadPage: React.FC = () => {
     creator: 'self' as 'self' | 'someone_else',
     creatorName: '',
     model: 'wan' as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff',
+    modelVariant: '', // Added missing modelVariant property
     loraType: 'Concept' as 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Other',
     loraLink: ''
   });
