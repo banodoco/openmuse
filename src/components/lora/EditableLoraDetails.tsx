@@ -1,6 +1,6 @@
 // @ts-nocheck
 import * as React from "react";
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
+import { getCurrentUserProfile } from '@/lib/auth/userProfile';
 
 const MODEL_VARIANTS = {
   wan: ['1.3b', '14b T2V', '14b I2V'],
@@ -35,23 +36,40 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [userProfile, setUserProfile] = useState<any>(null);
+
+  // Helper function to determine if the current user owns the asset
+  const isOwnedByCurrentUser = () => {
+    return user && asset?.user_id === user.id;
+  };
+
   const [details, setDetails] = useState({
     name: asset?.name || '',
     description: asset?.description || '',
-    creator: asset?.creator?.includes('@') ? 'someone_else' : 'self',
-    creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : '',
+    creator: isOwnedByCurrentUser() ? 'self' : 'someone_else',
+    creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : asset?.creator || '',
     lora_type: asset?.lora_type || 'Concept',
     lora_base_model: asset?.lora_base_model || 'wan',
     model_variant: asset?.model_variant || '',
     lora_link: asset?.lora_link || ''
   });
 
+  useEffect(() => {
+    const loadUserProfile = async () => {
+      if (user) {
+        const profile = await getCurrentUserProfile();
+        setUserProfile(profile);
+      }
+    };
+    loadUserProfile();
+  }, [user]);
+
   const handleEdit = () => {
     setDetails({
       name: asset?.name || '',
       description: asset?.description || '',
-      creator: asset?.creator?.includes('@') ? 'someone_else' : 'self',
-      creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : '',
+      creator: isOwnedByCurrentUser() ? 'self' : 'someone_else',
+      creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : asset?.creator || '',
       lora_type: asset?.lora_type || 'Concept',
       lora_base_model: asset?.lora_base_model || 'wan',
       model_variant: asset?.model_variant || '',
@@ -65,21 +83,33 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   };
 
   const handleSave = async () => {
-    if (!asset || !user) return;
+    if (!asset || !user || !userProfile) return;
     
     setIsSaving(true);
     try {
+      const updates: any = {
+        name: details.name,
+        description: details.description,
+        lora_type: details.lora_type,
+        lora_base_model: details.lora_base_model,
+        model_variant: details.model_variant,
+        lora_link: details.lora_link
+      };
+
+      if (details.creator === 'self') {
+        updates.creator = userProfile.display_name || userProfile.username;
+        updates.user_id = user.id;
+      } else {
+        updates.creator = `@${details.creatorName}`;
+        // When changing from self to someone else, clear the user_id
+        if (isOwnedByCurrentUser()) {
+          updates.user_id = null;
+        }
+      }
+
       const { error } = await supabase
         .from('assets')
-        .update({
-          name: details.name,
-          description: details.description,
-          creator: details.creator === 'self' ? user.email : `@${details.creatorName}`,
-          lora_type: details.lora_type,
-          lora_base_model: details.lora_base_model,
-          model_variant: details.model_variant,
-          lora_link: details.lora_link
-        })
+        .update(updates)
         .eq('id', asset.id);
       
       if (error) throw error;
