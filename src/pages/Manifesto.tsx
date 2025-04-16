@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { PageHeader } from '@/components/PageHeader';
+import PageHeader from '@/components/PageHeader';
 
 const ManifestoPage: React.FC = () => {
   return (
@@ -8,6 +8,13 @@ const ManifestoPage: React.FC = () => {
       <PageHeader 
         title="Our Manifesto" 
         description="Our vision and guiding principles" 
+        buttonText="Learn More"
+        onButtonClick={() => {
+          window.scrollTo({
+            top: document.documentElement.scrollHeight,
+            behavior: 'smooth'
+          });
+        }}
       />
       
       <div className="prose max-w-2xl mx-auto">
