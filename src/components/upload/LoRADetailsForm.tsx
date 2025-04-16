@@ -14,7 +14,6 @@ interface LoRADetailsFormProps {
     loraName: string;
     loraDescription: string;
     baseModel: string;
-    modelVariant?: string;
     trainingSteps: string;
     resolution: string;
     trainingDataset: string;
@@ -83,20 +82,6 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({
                   placeholder="Enter base model"
                   value={metadata.baseModel}
                   onChange={(e) => updateMetadata(videoId, 'baseModel', e.target.value)}
-                  disabled={disabled}
-                />
-              </div>
-              
-              <div>
-                <Label htmlFor={`model-variant-${videoId}`} className="text-sm font-medium mb-1.5 block">
-                  Model Variant
-                </Label>
-                <Input
-                  type="text"
-                  id={`model-variant-${videoId}`}
-                  placeholder="Enter model variant"
-                  value={metadata.modelVariant || ''}
-                  onChange={(e) => updateMetadata(videoId, 'modelVariant', e.target.value)}
                   disabled={disabled}
                 />
               </div>
