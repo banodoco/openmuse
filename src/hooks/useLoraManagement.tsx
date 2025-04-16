@@ -206,7 +206,7 @@ export const useLoraManagement = () => {
       // }
     }
     // Depend on videosLoading state and the videos array itself for re-association
-  }, [videosLoading, videos, loadAllLoras, associateVideosWithLoras, loras]);
+  }, [videosLoading, videos, loadAllLoras, associateVideosWithLoras]);
 
   useEffect(() => {
     isMounted.current = true;
