@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
@@ -10,11 +10,14 @@ import { useAuth } from '@/hooks/useAuth';
 import { testRLSPermissions } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useVideoManagement } from '@/hooks/useVideoManagement';
+import { useQuery } from '@tanstack/react-query';
+import { supabase } from '@/lib/supabase';
+import { LoraAsset } from '@/lib/types';
 
 const logger = new Logger('Index');
 logger.log('Index page component module loaded');
 
-const Index = () => {
+const Index: React.FC = () => {
   logger.log('Index component rendering/mounting');
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -222,6 +225,26 @@ const Index = () => {
   // Actions might still be disabled if auth or LoRAs are loading (prevent interaction with incomplete data)
   const isActionDisabled = videosLoading || lorasLoading || authLoading;
 
+  const [searchParams] = useSearchParams();
+  const modelFilter = searchParams.get('model') || 'all';
+
+  const { data: lorasQuery, isLoading: lorasAreLoadingQuery } = useQuery<LoraAsset[]>({
+    queryKey: ['loras'],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from('loras')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        logger.error('Error fetching loras:', error);
+        throw error;
+      }
+
+      return data;
+    },
+  });
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navigation />
@@ -241,7 +264,7 @@ const Index = () => {
             loras={displayLoras} 
             isLoading={isPageLoading} // Pass video loading state
             lorasAreLoading={lorasLoading} // Pass LoRA loading state separately
-            modelFilter={modelFilterFromUrl}
+            modelFilter={modelFilter}
           />
         </div>
       </div>
