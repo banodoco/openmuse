@@ -149,22 +149,34 @@ Supabase Client Config
 
 localStorage Issues
 
-*   **Finding:** The app relies on Supabase's `persistSession: true`. Issues arise if the browser clears or blocks `localStorage`.
-*   **Check:** Test in incognito/private browsing mode. Check browser settings, extensions (especially privacy-focused ones), or if storage quotas are being hit. Check `AuthProvider` logs to see if `getSession()` returns `null` unexpectedly on page load.
+*   **Finding:** The app relies on Supabase's `persistSession: true`. Issues arise if the browser clears or blocks `localStorage`. **However, debugging revealed cases where the session *is* correctly present in localStorage before and after refresh, yet the user is still logged out.**
+*   **Check:** Use browser DevTools (Application -> Local Storage) to confirm if the `sb-...-auth-token` key exists and contains valid data *after* a refresh that causes logout. If the data is present, the issue likely lies elsewhere (see **Spurious `SIGNED_IN` Event** below).
 
 Network Instability
 
-*   **Finding:** `AuthProvider` logs errors if `getSession()` fails.
-*   **Check:** Review logs in `AuthProvider` for errors indicating failure to reach Supabase during initial session checks or state changes.
+*   **Finding:** `AuthProvider` logs errors if `getSession()` fails. Logs during debugging showed `getSession()` was *not* failing due to network issues during the problematic refresh.
+*   **Check:** Review logs in `AuthProvider` for errors indicating failure to reach Supabase during initial session checks or state changes. Check network tab for failed Supabase requests.
 
 Race Conditions in State / React Strict Mode
 
-*   **Finding:** `AuthProvider` uses `isMounted` and `initialCheckCompleted` refs to mitigate potential issues from multiple effect runs (common in Strict Mode). Extensive logging with `loadingCount` helps trace execution flow.
-*   **Check:** Examine console logs from `AuthProvider` for repeated "Setting up persistent auth provider effect" or "Initial session & admin check completed" messages, which might indicate multiple initializations.
+*   **Finding:** `AuthProvider` uses `isMounted` and `initialCheckCompleted` refs to mitigate potential issues from multiple effect runs (common in Strict Mode). The observed issue (logout on refresh despite valid stored session) might still be related to StrictMode interactions or initialization timing.
+*   **Check:** Examine console logs from `AuthProvider` for repeated initialization messages. Test in a production build (where StrictMode is off) to see if the behavior differs.
+
+**Spurious `SIGNED_IN` Event on Refresh (Observed Scenario)**
+
+*   **Observation:** Debugging revealed a scenario where, upon page refresh:
+    1.  The session *is* correctly stored in `localStorage`.
+    2.  `AuthProvider` calls `supabase.auth.getSession()`.
+    3.  `getSession()` successfully logs that it found the session data (e.g., `getSession() returned data: { hasSession: true, ... }`).
+    4.  **Immediately after**, the `supabase.auth.onAuthStateChange` listener incorrectly fires a `SIGNED_IN` event.
+    5.  This unexpected event seems correlated with the user being logged out, potentially due to faulty re-initialization logic triggered by the event.
+*   **Cause:** This points to a potential issue within the Supabase client library (`@supabase/supabase-js@2.49.4` used during diagnosis) where its internal state management incorrectly triggers `SIGNED_IN` on refresh, despite correctly reading the session initially. This might be sensitive to initialization timing or interactions with React.
+*   **Check:** Monitor console logs closely during the problematic refresh for this specific sequence: `getSession() returned data: { hasSession: true, ... }` **followed immediately by** `Persistent auth state changed: SIGNED_IN`. Verify the URL hash is empty after login (manual clearing via `window.location.hash = ''` in `AuthCallback` did not resolve this specific issue during testing).
+*   **Next Steps:** Consider searching the `@supabase/supabase-js` GitHub issues for similar behavior. If possible, try upgrading/downgrading the library version slightly. Further investigation into the library's internal initialization might be needed.
 
 Backend/Supabase Config
 
-*   **Finding:** Code cannot verify this. Settings in the Supabase Dashboard are crucial.
+*   **Finding:** Code cannot verify this. Settings in the Supabase Dashboard are crucial, although less likely to be the cause given the specific logging observed.
 *   **Check:** **ACTION REQUIRED:** Manually review Supabase project settings:
     *   Authentication -> Settings: Check session length, inactivity timeout settings.
     *   Authentication -> Rate Limits: Ensure token refresh limits are not being hit.
@@ -173,20 +185,20 @@ Backend/Supabase Config
 
 DatabaseProvider or Role Check Conflicts
 
-*   **Finding:** `AuthProvider` calls `checkIsAdmin` (`src/lib/auth/userRoles.ts`) upon session load/change. `checkIsAdmin` performs a direct, *uncached* database query for the 'admin' role, avoiding stale cache issues for this critical check. General roles *are* cached (`userRolesCache` in `src/lib/auth/cache.ts`, TTL 5 mins), but this cache is cleared on `signOut`. No obvious conflicts found.
+*   **Finding:** `AuthProvider` calls `checkIsAdmin` (`src/lib/auth/userRoles.ts`) upon session load/change. `checkIsAdmin` performs a direct, *uncached* database query. No obvious conflicts found.
 *   **Check:** Review logs from `UserRoles` (`checkIsAdmin`) if admin status seems incorrect or causes issues.
 
 401 Unauthorized Handling
 
-*   **Finding:** Code review did not find any global API interceptors (e.g., Axios) that automatically trigger `signOut()` upon receiving a 401 status code from API calls.
-*   **Check:** Verify that specific data-fetching components handle 401s appropriately (e.g., prompting re-login) rather than forcing a global sign-out.
+*   **Finding:** Code review did not find any global API interceptors that automatically trigger `signOut()` upon receiving a 401 status code.
+*   **Check:** Verify that specific data-fetching components handle 401s appropriately.
 
 Browser/Environment Factors
 
 *   **Finding:** Code cannot control the browser environment.
-*   **Check:** Test across different browsers. Disable browser extensions temporarily. Be aware that multiple tabs running the same app *can* sometimes interfere with `localStorage` or session state depending on how events are handled.
+*   **Check:** Test across different browsers. Disable browser extensions temporarily.
 
-By leveraging the extensive logging (especially from `AuthProvider`, `CurrentUser`, `UserRoles`) and debugging features (`testSessionRefresh`), and cross-referencing with Supabase Dashboard settings, most authentication issues, including unexpected logouts, can be pinpointed.
+By leveraging the extensive logging (especially from `AuthProvider`, `CurrentUser`, `UserRoles`) and debugging features (`testSessionRefresh`), and cross-referencing with Supabase Dashboard settings and potentially the Supabase JS library issues, authentication problems can be further investigated. The key observed issue appears to be an unexpected `SIGNED_IN` event firing on refresh despite a valid session being read from storage.
 
 5. Supabase Row-Level Security (RLS) Policies
 Supabase RLS policies ensure that only authorized users (or roles) can read, insert, update, or delete rows. Below is a summary of the existing RLS rules:
