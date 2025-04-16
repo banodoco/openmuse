@@ -1,4 +1,3 @@
-
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -6,10 +5,13 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
+import { useVideoManagement } from '@/hooks/useVideoManagement';
 import LoraManager from '@/components/LoraManager';
+import SkeletonGallery from '@/components/SkeletonGallery';
 import { useAuth } from '@/hooks/useAuth';
 import { testRLSPermissions } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import AdminBar from '@/components/AdminBar';
 
 const logger = new Logger('Index');
 
@@ -17,7 +19,7 @@ const Index = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, isAdmin } = useAuth();
   const [permissionsChecked, setPermissionsChecked] = useState(false);
   const permissionCheckInProgress = useRef(false);
   const dataRefreshInProgress = useRef(false);
@@ -26,6 +28,9 @@ const Index = () => {
   // Get model filter from URL query params
   const queryParams = new URLSearchParams(location.search);
   const modelFilterFromUrl = queryParams.get('model') || 'all';
+  
+  // Get video loading state
+  const { isLoading: videosLoading } = useVideoManagement();
   
   const { 
     loras, 
@@ -172,14 +177,21 @@ const Index = () => {
             buttonText="Propose New LoRA"
             onButtonClick={handleNavigateToUpload}
             buttonSize={isMobile ? "sm" : "default"}
-            buttonDisabled={lorasLoading || authLoading}
+            buttonDisabled={authLoading}
           />
           
-          <LoraManager 
-            loras={displayLoras} 
-            isLoading={lorasLoading || authLoading}
-            modelFilter={modelFilterFromUrl}
-          />
+          {/* Show skeleton based on video/lora loading, independent of auth */}
+          {videosLoading || lorasLoading ? (
+            <SkeletonGallery /> 
+          ) : (
+            <LoraManager 
+              loras={displayLoras} 
+              isLoading={lorasLoading}
+              modelFilter={modelFilterFromUrl}
+            />
+          )}
+          {/* Add AdminBar rendering based on auth state and isAdmin flag */}
+          {!authLoading && user && isAdmin && <AdminBar />} 
         </div>
       </div>
       

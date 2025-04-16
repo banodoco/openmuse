@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -10,8 +10,7 @@ const logger = new Logger('useLoraManagement');
 
 export const useLoraManagement = () => {
   const [loras, setLoras] = useState<LoraAsset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const [lorasLoading, setLorasLoading] = useState(true);
   const { videos, isLoading: videosLoading } = useVideoManagement();
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
@@ -46,7 +45,7 @@ export const useLoraManagement = () => {
     }
     
     fetchInProgress.current = true;
-    setIsLoading(true);
+    setLorasLoading(true);
     fetchAttempted.current = true;
     logger.log("Loading all LoRAs");
     
@@ -56,9 +55,9 @@ export const useLoraManagement = () => {
       }
       
       loadingTimeoutRef.current = setTimeout(() => {
-        if (isMounted.current && isLoading) {
+        if (isMounted.current && lorasLoading) {
           logger.warn("LoRA loading timeout reached, forcing completion");
-          setIsLoading(false);
+          setLorasLoading(false);
           fetchInProgress.current = false;
         }
       }, 10000); // 10 second timeout
@@ -148,7 +147,7 @@ export const useLoraManagement = () => {
       
       if (isMounted.current) {
         setLoras(lorasWithVideos);
-        setIsLoading(false);
+        setLorasLoading(false);
         
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
@@ -159,7 +158,7 @@ export const useLoraManagement = () => {
       logger.error("Loading LoRAs:", error);
       if (isMounted.current) {
         toast.error("Error loading LoRAs. Please try again.");
-        setIsLoading(false);
+        setLorasLoading(false);
         
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
@@ -172,13 +171,13 @@ export const useLoraManagement = () => {
   }, [videos]);
 
   useEffect(() => {
-    logger.log(`Initial load check: isAuthLoading=${isAuthLoading}, videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
+    logger.log(`Initial load check: videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
 
-    if (!isAuthLoading && !videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Auth and Videos loaded, triggering loadAllLoras.");
+    if (!videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
+      logger.log("Videos loaded, triggering loadAllLoras.");
       loadAllLoras();
     }
-  }, [isAuthLoading, videosLoading, loadAllLoras]);
+  }, [videosLoading, loadAllLoras]);
 
   useEffect(() => {
     isMounted.current = true;
@@ -207,7 +206,7 @@ export const useLoraManagement = () => {
 
   return {
     loras,
-    isLoading,
+    isLoading: lorasLoading,
     refetchLoras
   };
 };
