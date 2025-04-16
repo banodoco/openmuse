@@ -25,8 +25,6 @@ const AuthButton: React.FC = () => {
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
   
-  const [forceUpdate, setForceUpdate] = useState(0);
-  
   useEffect(() => {
     if (isLoading) {
       const timer = setTimeout(() => {
@@ -38,13 +36,6 @@ const AuthButton: React.FC = () => {
       setLoadingTimeout(false);
     }
   }, [isLoading]);
-  
-  useEffect(() => {
-    if (user) {
-      setForceUpdate(prev => prev + 1);
-      logger.log('User authenticated, forcing re-render');
-    }
-  }, [user]);
   
   useEffect(() => {
     const fetchUserProfile = async () => {
@@ -64,7 +55,7 @@ const AuthButton: React.FC = () => {
     };
     
     fetchUserProfile();
-  }, [user, forceUpdate]);
+  }, [user]);
   
   const handleSignIn = () => {
     navigate('/auth');
