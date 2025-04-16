@@ -4,7 +4,7 @@ import LoraList from './lora/LoraList';
 import LoadingState from './LoadingState';
 import EmptyState from './EmptyState';
 import { Logger } from '@/lib/logger';
-import { useAuth } from '@/hooks/useAuth';
+import { LoraGallerySkeleton } from './LoraGallerySkeleton';
 
 const logger = new Logger('LoraManager');
 logger.log('LoraManager component module loaded');
@@ -12,37 +12,40 @@ logger.log('LoraManager component module loaded');
 interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading?: boolean;
+  lorasAreLoading?: boolean;
   modelFilter?: string;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
   loras, 
   isLoading = false,
+  lorasAreLoading = false,
   modelFilter = 'all'
 }) => {
-  // Removed useAuth() call as it's not directly used for rendering logic here
-  // const { user, isAdmin } = useAuth(); 
-  logger.log(`LoraManager rendering/initializing. Props: isLoading=${isLoading}, loras count=${loras?.length || 0}, modelFilter=${modelFilter}`);
+  logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, modelFilter=${modelFilter}`);
 
   if (isLoading) {
-    logger.log('LoraManager: isLoading is true, rendering LoadingState.');
+    logger.log('LoraManager: isLoading (videos) is true, rendering LoadingState.');
     return <LoadingState />;
   }
 
+  if (lorasAreLoading) {
+    logger.log('LoraManager: Videos loaded, but lorasAreLoading is true, rendering LoraGallerySkeleton.');
+    return <LoraGallerySkeleton count={6} />;
+  }
+
   if (!loras || loras.length === 0) {
-    logger.log('LoraManager: No loras available, rendering EmptyState.');
+    logger.log('LoraManager: Videos & LoRAs loaded, but no loras available, rendering EmptyState.');
     return (
       <EmptyState 
         title="No LoRAs Available" 
-        description="There are currently no LoRAs in the collection. Upload a new LoRA to get started!" 
+        description="There are currently no LoRAs in the collection that match your filters. Upload a new LoRA or adjust filters!" 
       />
     );
   }
 
   logger.log(`LoraManager: Rendering LoraList with ${loras.length} loras, initial filter: ${modelFilter}`);
-  // Pass isAdmin down to LoraList if needed for filtering controls there
-  // const { isAdmin } = useAuth(); // If needed, re-add useAuth here
-  return <LoraList loras={loras} initialModelFilter={modelFilter} /* isAdmin={isAdmin} */ />;
+  return <LoraList loras={loras} initialModelFilter={modelFilter} />;
 };
 
 export default LoraManager;

@@ -240,6 +240,7 @@ const Index = () => {
           <LoraManager 
             loras={displayLoras} 
             isLoading={isPageLoading} // Pass video loading state
+            lorasAreLoading={lorasLoading} // Pass LoRA loading state separately
             modelFilter={modelFilterFromUrl}
           />
         </div>
