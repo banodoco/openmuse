@@ -128,7 +128,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           classification: entry.metadata?.classification || 'art',
           creator: entry.metadata?.creatorName || entry.reviewer_name,
           user_id: entry.user_id || this.currentUserId,
-          admin_approved: 'Listed' // Default to Listed
+          admin_approved: 'Listed', // Default to Listed
+          model_variant: entry.metadata?.modelVariant // Add model variant to media entry
         })
         .select()
         .single();
@@ -154,7 +155,9 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
             primary_media_id: mediaData.id,
             admin_approved: 'Listed', // Default to Listed
             lora_type: entry.metadata.loraType,
-            lora_link: entry.metadata.loraLink
+            lora_link: entry.metadata.loraLink,
+            lora_base_model: entry.metadata.model, // Store base model
+            model_variant: entry.metadata.modelVariant // Store model variant
           })
           .select()
           .single();
@@ -231,7 +234,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           creator: entry.metadata?.creator || 'self',
           classification: mediaData.classification || 'art',
           description: entry.metadata?.description || '',
-          assetId
+          assetId,
+          modelVariant: entry.metadata?.modelVariant // Include model variant in returned entry
         }
       };
       
@@ -249,7 +253,9 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
     creatorName: string,
     userId: string | null,
     loraType: string,
-    loraLink: string
+    loraLink: string,
+    baseModel?: string,
+    modelVariant?: string
   ): Promise<string> {
     this.logger.log(`Creating new asset for LoRA: ${loraName}`);
     
@@ -265,7 +271,9 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           primary_media_id: mediaId,
           admin_approved: 'Listed',
           lora_type: loraType,
-          lora_link: loraLink
+          lora_link: loraLink,
+          lora_base_model: baseModel,
+          model_variant: modelVariant
         })
         .select()
         .single();

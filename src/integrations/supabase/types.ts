@@ -55,6 +55,7 @@ export type Database = {
           lora_base_model: string | null
           lora_link: string | null
           lora_type: string | null
+          model_variant: string | null
           name: string
           primary_media_id: string | null
           type: string
@@ -69,6 +70,7 @@ export type Database = {
           lora_base_model?: string | null
           lora_link?: string | null
           lora_type?: string | null
+          model_variant?: string | null
           name: string
           primary_media_id?: string | null
           type: string
@@ -83,6 +85,7 @@ export type Database = {
           lora_base_model?: string | null
           lora_link?: string | null
           lora_type?: string | null
+          model_variant?: string | null
           name?: string
           primary_media_id?: string | null
           type?: string
@@ -105,6 +108,7 @@ export type Database = {
           created_at: string
           creator: string | null
           id: string
+          model_variant: string | null
           title: string
           type: string
           url: string
@@ -116,6 +120,7 @@ export type Database = {
           created_at?: string
           creator?: string | null
           id?: string
+          model_variant?: string | null
           title: string
           type: string
           url: string
@@ -127,6 +132,7 @@ export type Database = {
           created_at?: string
           creator?: string | null
           id?: string
+          model_variant?: string | null
           title?: string
           type?: string
           url?: string

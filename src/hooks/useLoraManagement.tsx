@@ -20,7 +20,6 @@ export const useLoraManagement = () => {
 
   const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
     try {
-      // Fix the query to avoid ambiguous column reference
       const { data, error } = await supabase
         .from('user_roles')
         .select('*')
@@ -83,7 +82,6 @@ export const useLoraManagement = () => {
       
       if (!isMounted.current) return;
 
-      // Fetch profiles for all user_ids to get display names
       const userIds = loraAssets
         ?.filter(asset => asset.user_id)
         .map(asset => asset.user_id) || [];
@@ -107,7 +105,6 @@ export const useLoraManagement = () => {
             logger.log(`Profile ${profile.id}: display_name=${profile.display_name}, username=${profile.username}`);
           });
           
-          // Create a map of user_id to display_name or username
           userProfiles = profiles.reduce((acc, profile) => {
             acc[profile.id] = profile.display_name || profile.username || '';
             return acc;
@@ -126,12 +123,10 @@ export const useLoraManagement = () => {
         
         const admin_approved = asset.admin_approved || 'Listed';
         
-        // Add display_name from profiles if available
         const creatorDisplayName = asset.user_id && userProfiles[asset.user_id] 
           ? userProfiles[asset.user_id] 
           : asset.creator;
         
-        // Log creator information for debugging
         logger.log(`Asset ${asset.id} creator info:`, {
           user_id: asset.user_id,
           creator: asset.creator,
@@ -139,13 +134,13 @@ export const useLoraManagement = () => {
           final_display_name: creatorDisplayName
         });
         
-        // We're mapping database columns to our LoraAsset interface, making sure to not reference non-existent columns
         return {
           ...asset,
           primaryVideo,
           videos: assetVideos,
           admin_approved,
-          creatorDisplayName
+          creatorDisplayName,
+          model_variant: asset.model_variant
         } as LoraAsset;
       }) || [];
       
