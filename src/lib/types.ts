@@ -1,3 +1,4 @@
+
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -11,6 +12,7 @@ export interface VideoMetadata {
   loraType?: string;
   loraLink?: string;
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';  // This is the base model
+  modelVariant?: string;  // New field for model variant
   baseModel?: string;
   thumbnailUrl?: string;
   trainingSteps?: string | number;
@@ -65,6 +67,7 @@ export interface LoraAsset {
   admin_approved?: string | null;
   lora_type?: string;  // LoRA type (Concept, Motion Style, etc)
   lora_base_model?: string;  // Base model (wan, hunyuan, etc)
+  model_variant?: string;  // New field for model variant
   lora_link?: string;
   // Populated from related data
   primaryVideo?: VideoEntry;

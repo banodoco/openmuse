@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
@@ -27,7 +26,8 @@ const UploadPage: React.FC = () => {
     creator: 'self' as 'self' | 'someone_else',
     creatorName: '',
     model: 'wan' as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff',
-    loraType: 'Concept' as 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Other',
+    modelVariant: '1.3b', // Default model variant for Wan
+    loraType: 'Concept' as 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other',
     loraLink: ''
   });
   
@@ -98,7 +98,8 @@ const UploadPage: React.FC = () => {
             blob: video.file,
             metadata: {
               ...video.metadata,
-              model: loraDetails.model // Ensure model is set from loraDetails
+              model: loraDetails.model, // Ensure model is set from loraDetails
+              modelVariant: loraDetails.modelVariant // Add model variant
             }
           });
           
@@ -195,7 +196,8 @@ const submitVideos = async (videos: any[], loraDetails: any, reviewerName: strin
         user_id: user?.id || null,
         lora_type: loraDetails.loraType,
         lora_base_model: loraDetails.model, // Save model as lora_base_model in asset
-        lora_link: loraDetails.loraLink
+        lora_link: loraDetails.loraLink,
+        model_variant: loraDetails.modelVariant // Store the model variant
       })
       .select()
       .single();
@@ -244,13 +246,14 @@ const submitVideos = async (videos: any[], loraDetails: any, reviewerName: strin
       
       logger.log(`Creating media entry for video ${video.metadata.title}`);
       try {
-        // Add model as type field in media
+        // Add model and model_variant to media
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
           .insert({
             title: video.metadata.title,
             url: videoUrl,
             type: loraDetails.model, // Store the model as type in media table for backward compatibility
+            model_variant: loraDetails.modelVariant, // Store the model variant
             classification: video.metadata.classification || 'art',
             creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
             user_id: user?.id || null

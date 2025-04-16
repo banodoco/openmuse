@@ -16,6 +16,7 @@ interface LoRADetailsForm {
   creatorName: string;
   creatorOrigin?: string;
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  modelVariant: string;
   loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
   loraLink: string;
 }
@@ -26,12 +27,30 @@ interface GlobalLoRADetailsFormProps {
   disabled?: boolean;
 }
 
+const MODEL_VARIANTS = {
+  wan: ['1.3b', '14b T2V', '14b I2V'],
+  ltxv: ['0.9', '0.9.5', '0.9.7'],
+  hunyuan: ['Base', 'Large', 'Mini'],
+  cogvideox: ['Base', 'SD', 'SDXL'],
+  animatediff: ['Base', 'v3', 'Lightning']
+};
+
 const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({ 
   loraDetails, 
   updateLoRADetails,
   disabled = false
 }) => {
   const { user } = useAuth();
+  
+  // Update model variant when model changes
+  useEffect(() => {
+    if (loraDetails.model && MODEL_VARIANTS[loraDetails.model]?.length > 0) {
+      const variants = MODEL_VARIANTS[loraDetails.model as keyof typeof MODEL_VARIANTS];
+      if (!variants.includes(loraDetails.modelVariant)) {
+        updateLoRADetails('modelVariant', variants[0]);
+      }
+    }
+  }, [loraDetails.model]);
   
   return (
     <Card>
@@ -138,6 +157,37 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                   <SelectItem value="animatediff">AnimateDiff</SelectItem>
                 </SelectContent>
               </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="model-variant" className="text-sm font-medium mb-1.5 block">
+                Model Variant <span className="text-destructive">*</span>
+              </Label>
+              {MODEL_VARIANTS[loraDetails.model as keyof typeof MODEL_VARIANTS] ? (
+                <Select 
+                  value={loraDetails.modelVariant} 
+                  onValueChange={(value) => updateLoRADetails('modelVariant', value)}
+                  disabled={disabled}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder="Select Variant" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {MODEL_VARIANTS[loraDetails.model as keyof typeof MODEL_VARIANTS].map(variant => (
+                      <SelectItem key={variant} value={variant}>{variant}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  type="text"
+                  id="model-variant"
+                  placeholder="Enter model variant"
+                  value={loraDetails.modelVariant}
+                  onChange={(e) => updateLoRADetails('modelVariant', e.target.value)}
+                  disabled={disabled}
+                />
+              )}
             </div>
             
             <div>
