@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
@@ -10,13 +10,12 @@ const logger = new Logger('useLoraManagement');
 
 export const useLoraManagement = () => {
   const [loras, setLoras] = useState<LoraAsset[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const { user, isLoading: isAuthLoading } = useAuth();
+  const [lorasLoading, setLorasLoading] = useState(true);
   const { videos, isLoading: videosLoading } = useVideoManagement();
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
   const fetchInProgress = useRef(false);
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const loadingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const checkUserIsAdmin = async (userId: string): Promise<boolean> => {
     try {
@@ -46,9 +45,9 @@ export const useLoraManagement = () => {
     }
     
     fetchInProgress.current = true;
-    setIsLoading(true);
+    setLorasLoading(true);
     fetchAttempted.current = true;
-    logger.log("Loading all LoRAs (no longer waiting for auth)");
+    logger.log("Loading all LoRAs");
     
     try {
       if (loadingTimeoutRef.current) {
@@ -56,9 +55,9 @@ export const useLoraManagement = () => {
       }
       
       loadingTimeoutRef.current = setTimeout(() => {
-        if (isMounted.current && isLoading) {
+        if (isMounted.current && lorasLoading) {
           logger.warn("LoRA loading timeout reached, forcing completion");
-          setIsLoading(false);
+          setLorasLoading(false);
           fetchInProgress.current = false;
         }
       }, 10000); // 10 second timeout
@@ -148,7 +147,7 @@ export const useLoraManagement = () => {
       
       if (isMounted.current) {
         setLoras(lorasWithVideos);
-        setIsLoading(false);
+        setLorasLoading(false);
         
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
@@ -159,7 +158,7 @@ export const useLoraManagement = () => {
       logger.error("Loading LoRAs:", error);
       if (isMounted.current) {
         toast.error("Error loading LoRAs. Please try again.");
-        setIsLoading(false);
+        setLorasLoading(false);
         
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
@@ -171,30 +170,31 @@ export const useLoraManagement = () => {
     }
   }, [videos]);
 
-  useEffect(() => {
-    logger.log(`Lora effect trigger: videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
-    if (!fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Initial LoRA load triggered.");
-      loadAllLoras();
-    } else if (!videosLoading && fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Videos finished loading after LoRAs, re-triggering LoRA load to associate videos.");
-      loadAllLoras();
-    }
-  }, [videosLoading, loadAllLoras]);
-
+  // Trigger initial load immediately on mount
   useEffect(() => {
     isMounted.current = true;
-    
+    fetchAttempted.current = false;
+    logger.log("useLoraManagement: Initial load triggered");
+    loadAllLoras();
+
     return () => {
       isMounted.current = false;
       logger.log("useLoraManagement unmounting, cleaning up");
-      
+
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
       }
     };
-  }, []);
+  }, [loadAllLoras]);
+
+  // Update LoRAs mapping when videos finish loading
+  useEffect(() => {
+    if (!videosLoading) {
+      logger.log("useLoraManagement: Videos loaded, updating LoRAs mapping");
+      loadAllLoras();
+    }
+  }, [videosLoading, loadAllLoras]);
 
   const refetchLoras = useCallback(async () => {
     if (isMounted.current && !fetchInProgress.current) {
@@ -209,7 +209,7 @@ export const useLoraManagement = () => {
 
   return {
     loras,
-    isLoading,
+    isLoading: lorasLoading,
     refetchLoras
   };
 };

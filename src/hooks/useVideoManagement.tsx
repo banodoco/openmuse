@@ -14,12 +14,12 @@ export const useVideoManagement = () => {
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
 
-  const { user, isLoading: authIsLoading } = useAuth();
+  const { user } = useAuth();
   const userId = user?.id || null;
 
   const loadAllVideos = useCallback(async () => {
-    if (!isMounted.current || authIsLoading) {
-      logger.log("useVideoManagement: Skipping loadAllVideos - component not mounted or auth loading");
+    if (!isMounted.current) {
+      logger.log("useVideoManagement: Skipping loadAllVideos - component not mounted");
       return;
     }
 
@@ -60,32 +60,29 @@ export const useVideoManagement = () => {
         setVideoIsLoading(false);
       }
     }
-  }, [userId, authIsLoading]);
+  }, [userId]);
 
   useEffect(() => {
     isMounted.current = true;
     fetchAttempted.current = false;
-
-    if (!authIsLoading && !fetchAttempted.current) {
-      logger.log("useVideoManagement: Auth loaded, triggering video load");
-      loadAllVideos();
-    }
+    logger.log("useVideoManagement: Initial load triggered");
+    loadAllVideos();
 
     return () => {
       isMounted.current = false;
       logger.log("useVideoManagement unmounting");
     };
-  }, [authIsLoading, userId]);
+  }, [loadAllVideos]);
 
   const refetchVideos = useCallback(async () => {
-    if (isMounted.current && !authIsLoading) {
+    if (isMounted.current) {
       logger.log("useVideoManagement: Refetching videos");
       await loadAllVideos();
       toast.success("Videos refreshed");
     } else {
-      logger.log("useVideoManagement: Skipping refetch - component not mounted or auth loading");
+      logger.log("useVideoManagement: Skipping refetch - component not mounted");
     }
-  }, [loadAllVideos, authIsLoading]);
+  }, [loadAllVideos]);
 
   const deleteVideo = useCallback(async (id: string) => {
     try {
@@ -131,11 +128,9 @@ export const useVideoManagement = () => {
     }
   }, []);
 
-  const combinedIsLoading = authIsLoading || videoIsLoading;
-
   return {
     videos,
-    isLoading: combinedIsLoading,
+    isLoading: videoIsLoading,
     userId,
     refetchVideos,
     deleteVideo,
