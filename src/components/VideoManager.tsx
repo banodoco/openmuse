@@ -109,34 +109,6 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     );
   }
   
-  if (!isAdmin) {
-    React.useEffect(() => {
-      if (videoFilter === 'rejected' && !isAdmin) {
-        setVideoFilter('curated');
-      }
-    }, [videoFilter, isAdmin]);
-    
-    return (
-      <div className="mt-8">
-        <VideoFilter
-          videoFilter={videoFilter}
-          setVideoFilter={setVideoFilter}
-          onRefresh={refetchVideos}
-          isDisabled={isLoading}
-          isAdmin={isAdmin}
-        />
-        <VideoList
-          videos={filteredVideos}
-          onDelete={handleDelete}
-          onApprove={handleApprove}
-          onList={listVideo ? handleList : undefined}
-          onReject={handleReject}
-          refetchData={refetchVideos}
-        />
-      </div>
-    );
-  }
-  
   return (
     <div className="mt-8">
       <VideoFilter
@@ -147,52 +119,14 @@ const VideoManager: React.FC<VideoManagerProps> = ({
         isAdmin={isAdmin}
       />
       
-      <Tabs defaultValue="curated" className="mt-4">
-        <TabsList className="mb-4">
-          <TabsTrigger value="curated">
-            Curated ({curatedVideos.length})
-          </TabsTrigger>
-          <TabsTrigger value="listed">
-            Listed ({listedVideos.length})
-          </TabsTrigger>
-          <TabsTrigger value="rejected">
-            Rejected ({rejectedVideos.length})
-          </TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="curated">
-          <VideoList
-            videos={curatedVideos}
-            onDelete={handleDelete}
-            onApprove={handleApprove}
-            onList={listVideo ? handleList : undefined}
-            onReject={handleReject}
-            refetchData={refetchVideos}
-          />
-        </TabsContent>
-        
-        <TabsContent value="listed">
-          <VideoList
-            videos={listedVideos}
-            onDelete={handleDelete}
-            onApprove={handleApprove}
-            onList={listVideo ? handleList : undefined}
-            onReject={handleReject}
-            refetchData={refetchVideos}
-          />
-        </TabsContent>
-        
-        <TabsContent value="rejected">
-          <VideoList
-            videos={rejectedVideos}
-            onDelete={handleDelete}
-            onApprove={handleApprove}
-            onList={listVideo ? handleList : undefined}
-            onReject={handleReject}
-            refetchData={refetchVideos}
-          />
-        </TabsContent>
-      </Tabs>
+      <VideoList
+        videos={filteredVideos}
+        onDelete={handleDelete}
+        onApprove={handleApprove}
+        onList={listVideo ? handleList : undefined}
+        onReject={handleReject}
+        refetchData={refetchVideos}
+      />
     </div>
   );
 };
