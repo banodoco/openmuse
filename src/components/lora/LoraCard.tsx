@@ -47,7 +47,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
     if (lora.creatorDisplayName) return lora.creatorDisplayName;
     
     const creator = lora.creator;
-    if (!creator) return "Unknown";
+    if (!creator) return "";
     
     if (creator.includes('@')) {
       return creator.split('@')[0];
