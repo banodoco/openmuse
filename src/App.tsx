@@ -6,6 +6,7 @@ import LoadingState from '@/components/LoadingState';
 import { AuthProvider } from '@/providers/AuthProvider';
 import AuthCallback from '@/pages/AuthCallback';
 import RequireAuth from '@/components/RequireAuth';
+import AssetDetailPage from './pages/AssetDetailPage'; // Import directly instead of lazy loading
 
 // Fix imports to use correct paths
 const HomePage = lazy(() => import('./pages/Index'));
@@ -13,7 +14,6 @@ const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
 const AdminPage = lazy(() => import('./pages/Admin'));
 const AuthPage = lazy(() => import('./pages/Auth'));
 const VideoPage = lazy(() => import('./pages/VideoPage'));
-const AssetDetailPage = lazy(() => import('./pages/AssetDetailPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 
 function App() {
