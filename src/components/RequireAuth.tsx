@@ -1,5 +1,4 @@
-
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
@@ -15,138 +14,82 @@ interface RequireAuthProps {
   allowUnauthenticated?: boolean;
 }
 
-const RequireAuth: React.FC<RequireAuthProps> = ({ 
-  children, 
+const RequireAuth: React.FC<RequireAuthProps> = ({
+  children,
   requireAdmin = false,
   allowUnauthenticated = false
 }) => {
   const { user, session, isLoading: isAuthLoading, isAdmin: isContextAdmin } = useAuth();
   const location = useLocation();
-  const [authCheckCount, setAuthCheckCount] = useState(0);
-  const [autoRefreshAttempted, setAutoRefreshAttempted] = useState(false);
-  const loadStartTime = React.useRef(Date.now());
-  const checkCompleted = React.useRef(false);
-  
+  const [shouldRedirect, setShouldRedirect] = useState<string | null>(null);
+  const [isCheckComplete, setIsCheckComplete] = useState(false);
+  const checkStarted = useRef(false);
+
   // Determine if the path should skip auth checks
-  const shouldSkipCheck = 
+  const shouldSkipCheck =
     allowUnauthenticated || // Always allow if explicitly set
-    location.pathname === '/auth' || 
+    location.pathname === '/auth' ||
     location.pathname === '/auth/callback' ||
     location.pathname.startsWith('/assets/loras/'); // Allow unauthenticated access to LoRA details
 
-  // Log the state RequireAuth sees *before* any decisions are made
-  logger.log(
-    `RequireAuth Initial Check (${authCheckCount}) - Path: ${location.pathname}, isAuthLoading: ${isAuthLoading}, User: ${!!user}, Session: ${!!session}, isContextAdmin: ${isContextAdmin}, requireAdmin: ${requireAdmin}, allowUnauthenticated: ${allowUnauthenticated}, shouldSkipCheck: ${shouldSkipCheck}`
-  );
-  
   useEffect(() => {
-    // Only increment check counter if we haven't completed our check yet
-    if (!checkCompleted.current) {
-      setAuthCheckCount(prev => prev + 1);
-    }
+    if (checkStarted.current || shouldSkipCheck) return;
+    checkStarted.current = true;
     
-    // Log authentication status when component mounts or auth state changes
-    logger.log(`Auth check #${authCheckCount} - Path: ${location.pathname}, User: ${user ? user.id : 'unauthenticated'}, Session: ${session ? 'valid' : 'none'}, ContextAdmin: ${isContextAdmin ? 'yes' : 'no'}, isLoading: ${isAuthLoading}`);
-    
-    // If we've been in loading state too long, try auto-refreshing the session once
-    const loadingTime = Date.now() - loadStartTime.current;
-    if (isAuthLoading && loadingTime > 5000 && !autoRefreshAttempted && !shouldSkipCheck) {
-      logger.log(`Auth loading for ${loadingTime}ms - attempting session refresh`);
-      setAutoRefreshAttempted(true);
-      testSessionRefresh().then(success => {
-        logger.log(`Session refresh attempt result: ${success ? 'successful' : 'failed'}`);
-      });
-    }
-    
-    // Mark our check as completed if we have auth state
-    if (!isAuthLoading && !checkCompleted.current) {
-      checkCompleted.current = true;
-      logger.log(`Auth check completed after ${authCheckCount} checks and ${Date.now() - loadStartTime.current}ms`);
-    }
-  }, [user, session, isContextAdmin, isAuthLoading]);
+    logger.log(
+      `RequireAuth Check START - Path: ${location.pathname}, isAuthLoading: ${isAuthLoading}, requireAdmin: ${requireAdmin}, allowUnauthenticated: ${allowUnauthenticated}`
+    );
 
-  // Debug check to prevent infinite loading
-  useEffect(() => {
-    if (isAuthLoading && authCheckCount > 5 && !checkCompleted.current) {
-      logger.warn(`Potential loading loop detected in RequireAuth - Path: ${location.pathname}, checks: ${authCheckCount}, time in loading: ${(Date.now() - loadStartTime.current) / 1000}s`);
+    // This effect runs when auth state potentially changes
+    if (!isAuthLoading) {
+      logger.log(`Auth state resolved: User=${!!user}, Session=${!!session}, Admin=${isContextAdmin}`);
       
-      // After 30 seconds, show a toast with helpful information
-      if (authCheckCount === 15) {
-        toast.error("Authentication is taking longer than expected. You may need to sign in again.");
+      let redirectTarget: string | null = null;
+
+      // Handle unauthenticated users for protected routes
+      if (!user || !session) {
+        if (!allowUnauthenticated && location.pathname !== '/auth' && location.pathname !== '/auth/callback') {
+          logger.warn(
+            `Redirecting to /auth: User not authenticated for protected route. Path: ${location.pathname}`
+          );
+          redirectTarget = `/auth?returnUrl=${encodeURIComponent(location.pathname)}`;
+        }
       }
-      
-      // After 20 checks, force completion to break potential loops
-      if (authCheckCount > 20 && !checkCompleted.current) {
-        logger.error(`Force-breaking potential auth loop after ${authCheckCount} checks`);
-        checkCompleted.current = true;
+      // Handle non-admin users trying to access admin resources
+      else if (requireAdmin && !isContextAdmin) {
+        logger.warn(
+          `Redirecting to /: User NOT admin (checked context). Path: ${location.pathname}`
+        );
+        toast.error('You do not have access to this resource');
+        redirectTarget = "/";
       }
+
+      setShouldRedirect(redirectTarget);
+      setIsCheckComplete(true);
+      logger.log(`RequireAuth Check COMPLETE - Path: ${location.pathname}, Redirect target: ${redirectTarget || 'none'}`);
+    } else {
+      logger.log(`RequireAuth waiting for auth state - Path: ${location.pathname}`);
+      // Optionally: Set a timer here to handle excessively long loading times if needed
     }
-  }, [authCheckCount, isAuthLoading, location.pathname]);
-  
-  // Use the loading state directly from the Auth context
-  const isLoading = isAuthLoading && !checkCompleted.current; 
-  
-  // Show loading state while authentication is being checked (but not forever)
-  if (isLoading) {
-    const loadTime = (Date.now() - loadStartTime.current) / 1000;
-    logger.log(`Rendering Loading State - Path: ${location.pathname} (Auth Loading: ${isAuthLoading}), check #${authCheckCount}, loading for ${loadTime}s`);
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center p-4 bg-background">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mx-auto" />
-        <h1 className="text-xl font-medium mt-4">
-          Checking access... {authCheckCount > 5 ? `(${loadTime.toFixed(1)}s)` : ""}
-        </h1>
-        {authCheckCount > 10 && (
-          <p className="text-sm text-muted-foreground mt-2 max-w-md text-center">
-            {loadTime > 15 ? 
-              "This is taking much longer than expected. There may be an issue with the authentication service." :
-              "Still checking... This is taking longer than expected."}
-          </p>
-        )}
-        {loadTime > 30 && (
-          <div className="mt-4">
-            <button 
-              onClick={() => window.location.href = '/auth'} 
-              className="bg-primary text-white px-4 py-2 rounded hover:bg-primary/90 transition-colors"
-            >
-              Go to login page
-            </button>
-          </div>
-        )}
-      </div>
-    );
+  }, [isAuthLoading, user, session, isContextAdmin, requireAdmin, allowUnauthenticated, location.pathname, shouldSkipCheck]);
+
+  // Render children immediately
+  // Apply redirect only *after* the check is complete and a redirect is needed
+  if (isCheckComplete && shouldRedirect) {
+    return <Navigate to={shouldRedirect} replace />;
   }
-  
-  // Handle skipped checks first
+
+  // If checks are skipped, just render children
   if (shouldSkipCheck) {
-    logger.log(`Skipping Auth Checks - Path: ${location.pathname}`);
-    return <>{children}</>;
+     logger.log(`Skipping Auth Checks - Path: ${location.pathname}`);
+     return <>{children}</>;
   }
-  
-  // Handle unauthenticated users for protected routes
-  if (!user || !session) {
-    logger.warn(
-      `Redirecting to /auth: User not authenticated. Path: ${location.pathname}, User: ${user ? 'exists' : 'null'}, Session: ${session ? 'exists' : 'null'}`
-    );
-    return (
-      <Navigate 
-        to={`/auth?returnUrl=${encodeURIComponent(location.pathname)}`} 
-        replace 
-      />
-    );
-  }
-  
-  // Handle non-admin users trying to access admin resources
-  if (requireAdmin && !isContextAdmin) {
-    logger.warn(
-      `Redirecting to /: User NOT admin (checked context). Path: ${location.pathname}, isContextAdmin: ${isContextAdmin}`
-    );
-    toast.error('You do not have access to this resource');
-    return <Navigate to="/" replace />;
-  }
-  
-  // If all checks pass, render children
-  logger.log(`Rendering Children - Path: ${location.pathname}, User authenticated and authorized`);
+
+  // Render children while waiting for auth state or if access is granted
+  // Consider adding a subtle, non-blocking loading indicator here if desired
+  // e.g., a small spinner in a corner or a top progress bar
+  // For now, just render children directly.
+  logger.log(`Rendering Children (check complete: ${isCheckComplete}, redirect: ${shouldRedirect}) - Path: ${location.pathname}`);
   return <>{children}</>;
 };
 

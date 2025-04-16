@@ -172,13 +172,13 @@ export const useLoraManagement = () => {
   }, [videos]);
 
   useEffect(() => {
-    logger.log(`Initial load check: isAuthLoading=${isAuthLoading}, videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
+    logger.log(`Initial load check: videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
 
-    if (!isAuthLoading && !videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Auth and Videos loaded, triggering loadAllLoras.");
+    if (!videosLoading && !fetchAttempted.current && !fetchInProgress.current) {
+      logger.log("Videos loaded, triggering loadAllLoras.");
       loadAllLoras();
     }
-  }, [isAuthLoading, videosLoading, loadAllLoras]);
+  }, [videosLoading, loadAllLoras]);
 
   useEffect(() => {
     isMounted.current = true;
