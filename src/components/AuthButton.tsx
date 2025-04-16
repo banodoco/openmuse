@@ -132,11 +132,11 @@ const AuthButton: React.FC = () => {
       </Button>
       
       <Button 
-        variant="destructive" 
-        className="w-full flex items-center gap-2"
+        variant="ghost" 
+        className="w-full flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-cream/50"
         onClick={handleSignOut}
       >
-        <LogOut className="h-4 w-4" />
+        <LogOut className="h-4 w-4 mr-2" />
         Sign Out
       </Button>
     </div>
