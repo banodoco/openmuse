@@ -12,6 +12,14 @@ import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset } from '@/lib/types';
 
+const MODEL_VARIANTS = {
+  wan: ['1.3b', '14b T2V', '14b I2V'],
+  ltxv: ['0.9', '0.9.5', '0.9.7'],
+  hunyuan: ['Base', 'Large', 'Mini'],
+  cogvideox: ['Base', 'SD', 'SDXL'],
+  animatediff: ['Base', 'v3', 'Lightning']
+};
+
 interface EditableLoraDetailsProps {
   asset: LoraAsset | null;
   isAuthorized: boolean;
@@ -189,14 +197,31 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
             <Label htmlFor="model-variant" className="text-sm font-medium mb-1.5 block">
               Model Variant
             </Label>
-            <Input
-              type="text"
-              id="model-variant"
-              placeholder="Enter model variant"
-              value={details.model_variant}
-              onChange={(e) => updateField('model_variant', e.target.value)}
-              disabled={isSaving}
-            />
+            {MODEL_VARIANTS[details.lora_base_model as keyof typeof MODEL_VARIANTS] ? (
+              <Select 
+                value={details.model_variant} 
+                onValueChange={(value) => updateField('model_variant', value)}
+                disabled={isSaving}
+              >
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select Variant" />
+                </SelectTrigger>
+                <SelectContent>
+                  {MODEL_VARIANTS[details.lora_base_model as keyof typeof MODEL_VARIANTS].map(variant => (
+                    <SelectItem key={variant} value={variant}>{variant}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <Input
+                type="text"
+                id="model-variant"
+                placeholder="Enter model variant"
+                value={details.model_variant}
+                onChange={(e) => updateField('model_variant', e.target.value)}
+                disabled={isSaving}
+              />
+            )}
           </div>
 
           <div>
