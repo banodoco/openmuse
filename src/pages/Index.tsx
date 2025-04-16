@@ -9,6 +9,7 @@ import LoraManager from '@/components/LoraManager';
 import { useAuth } from '@/hooks/useAuth';
 import { testRLSPermissions } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useVideoManagement } from '@/hooks/useVideoManagement';
 
 const logger = new Logger('Index');
 logger.log('Index page component module loaded');
@@ -18,13 +19,17 @@ const Index = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isLoading: authLoading, isAdmin } = useAuth(); // Added isAdmin for logging
+  const { user, isLoading: authLoading, isAdmin } = useAuth();
   logger.log(`Index: useAuth() state - user: ${user?.id || 'null'}, authLoading: ${authLoading}, isAdmin: ${isAdmin}`);
 
   const [permissionsChecked, setPermissionsChecked] = useState(false);
   const permissionCheckInProgress = useRef(false);
   const dataRefreshInProgress = useRef(false);
   const initialRefreshDone = useRef(false);
+  
+  // Get video loading state
+  const { isLoading: videosLoading } = useVideoManagement();
+  logger.log(`Index: useVideoManagement() state - videosLoading: ${videosLoading}`);
   
   // Get model filter from URL query params
   const queryParams = new URLSearchParams(location.search);
@@ -211,9 +216,11 @@ const Index = () => {
     }
   }, [refetchLoras, user]); // Added user dependency
   
-  logger.log(`Index rendering return. lorasLoading=${lorasLoading}, authLoading=${authLoading}, displayLoras count=${displayLoras.length}`);
-  const isPageLoading = lorasLoading; // Only base page loading on loras now
-  const isActionDisabled = lorasLoading || authLoading; // Disable actions if either is loading
+  logger.log(`Index rendering return. videosLoading=${videosLoading}, lorasLoading=${lorasLoading}, authLoading=${authLoading}, displayLoras count=${displayLoras.length}`);
+  // Page loading state now depends on videos finishing
+  const isPageLoading = videosLoading;
+  // Actions might still be disabled if auth or LoRAs are loading (prevent interaction with incomplete data)
+  const isActionDisabled = videosLoading || lorasLoading || authLoading;
 
   return (
     <div className="flex flex-col min-h-screen bg-background">
@@ -232,7 +239,7 @@ const Index = () => {
           
           <LoraManager 
             loras={displayLoras} 
-            isLoading={isPageLoading} // Use lora-only loading state
+            isLoading={isPageLoading} // Pass video loading state
             modelFilter={modelFilterFromUrl}
           />
         </div>
