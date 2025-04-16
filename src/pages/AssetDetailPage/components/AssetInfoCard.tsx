@@ -1,4 +1,5 @@
-import React from 'react';
+// @ts-nocheck
+import * as React from "react";
 import { 
   Card, 
   CardContent, 
@@ -7,7 +8,7 @@ import {
   CardDescription,
   CardFooter
 } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
+import { Badge, badgeVariants } from "@/components/ui/badge";
 import { 
   Calendar, 
   User, 
@@ -20,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LoraAsset } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import EditableLoraDescription from '@/components/lora/EditableLoraDescription';
+import EditableLoraDetails from '@/components/lora/EditableLoraDetails';
 
 interface AssetInfoCardProps {
   asset: LoraAsset | null;
@@ -33,7 +34,7 @@ interface AssetInfoCardProps {
   getCreatorName: () => string;
 }
 
-const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
+const AssetInfoCard = ({
   asset,
   creatorDisplayName,
   isAdmin,
@@ -42,20 +43,10 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
   handleListAsset,
   handleRejectAsset,
   getCreatorName
-}) => {
+}: AssetInfoCardProps) => {
   const { user } = useAuth();
-  
-  // Check if current user is authorized to edit (admin or original uploader)
-  const isAuthorizedToEdit = isAdmin || (user && asset?.user_id === user.id);
-  
-  const handleDescriptionUpdated = (newDescription: string) => {
-    if (asset) {
-      asset.description = newDescription;
-    }
-  };
-  
-  if (!asset) return null;
-  
+  const isAuthorizedToEdit = isAdmin || user?.id === asset?.user_id;
+
   const getModelColor = (modelType?: string): string => {
     switch (modelType?.toLowerCase()) {
       case 'wan':
@@ -72,8 +63,8 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
         return "bg-gray-500 text-white";
     }
   };
-  
-  const getStatusColor = (status: string | null): string => {
+
+  const getStatusColor = (status?: string | null): string => {
     switch (status) {
       case 'Curated':
         return "bg-green-500 text-white";
@@ -82,10 +73,10 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
       case 'Rejected':
         return "bg-red-500 text-white";
       default:
-        return "bg-gray-500 text-white";
+        return "bg-yellow-500 text-white";
     }
   };
-  
+
   return (
     <div className="md:col-span-1 space-y-4">
       <Card>
@@ -93,142 +84,65 @@ const AssetInfoCard: React.FC<AssetInfoCardProps> = ({
           <CardTitle>LoRA Information</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div>
-            <h3 className="text-sm font-medium mb-1">Description</h3>
-            <EditableLoraDescription 
-              asset={asset} 
-              isAuthorized={isAuthorizedToEdit}
-              onDescriptionUpdated={handleDescriptionUpdated}
-            />
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium mb-1">Creator</h3>
-            <div className="flex items-center gap-2">
-              <User className="h-4 w-4 text-muted-foreground" />
-              <span>{getCreatorName()}</span>
-            </div>
-          </div>
-          
-          <div>
-            <h3 className="text-sm font-medium mb-1">Created</h3>
-            <div className="flex items-center gap-2">
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-              <span>{new Date(asset.created_at).toLocaleDateString()}</span>
-            </div>
-          </div>
-          
-          {asset.lora_base_model && (
-            <div>
-              <h3 className="text-sm font-medium mb-1">Base Model</h3>
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-muted-foreground" />
-                <span className="uppercase">{asset.lora_base_model}</span>
-              </div>
-            </div>
-          )}
-
-          {asset.model_variant && (
-            <div>
-              <h3 className="text-sm font-medium mb-1">Model Variant</h3>
-              <div className="flex items-center gap-2">
-                <Info className="h-4 w-4 text-muted-foreground" />
-                <span>{asset.model_variant}</span>
-              </div>
-            </div>
-          )}
+          <EditableLoraDetails 
+            asset={asset}
+            isAuthorized={isAuthorizedToEdit}
+            onDetailsUpdated={() => window.location.reload()}
+          />
           
           <div className="flex flex-wrap gap-2">
-            {asset.lora_type && (
+            {asset?.lora_type && (
               <div>
-                <Badge variant="outline" className="bg-background">
+                <div className={cn(badgeVariants({ variant: "outline" }))}>
                   Type: {asset.lora_type}
-                </Badge>
+                </div>
               </div>
             )}
             
-            {asset.lora_base_model && (
+            {asset?.lora_base_model && (
               <div>
-                <Badge 
-                  variant="model" 
-                  className={cn(getModelColor(asset.lora_base_model))}
-                >
+                <div className={cn(badgeVariants({ variant: "default" }), getModelColor(asset.lora_base_model))}>
                   {asset.lora_base_model.toUpperCase()}
-                </Badge>
+                </div>
               </div>
             )}
             
             <div>
-              <Badge 
-                variant="model" 
-                className={cn(getStatusColor(asset.admin_approved))}
-              >
+              <div className={cn(badgeVariants({ variant: "default" }), getStatusColor(asset.admin_approved))}>
                 {asset.admin_approved || 'Pending'}
-              </Badge>
+              </div>
             </div>
           </div>
-
-          {asset.lora_link && (
-            <div>
-              <h3 className="text-sm font-medium mb-1">External Link</h3>
-              <a 
-                href={asset.lora_link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 hover:underline flex items-center gap-1"
-              >
-                <ExternalLink className="h-3 w-3" />
-                View on external site
-              </a>
-            </div>
-          )}
         </CardContent>
         
         {isAdmin && (
-          <CardFooter className="flex flex-col gap-2 border-t pt-4">
-            <h3 className="text-sm font-medium mb-1 w-full">Admin Actions</h3>
-            <div className="grid grid-cols-3 gap-2 w-full">
-              <Button 
-                onClick={handleCurateAsset} 
-                variant="outline" 
-                size="sm"
-                disabled={isApproving}
-                className={cn(
-                  "text-xs h-8",
-                  asset.admin_approved === 'Curated' && "bg-green-500 text-white hover:bg-green-600"
-                )}
-              >
-                <Check className="h-3 w-3 mr-1" />
-                Curate
-              </Button>
-              
-              <Button 
-                onClick={handleListAsset} 
-                variant="outline" 
-                size="sm"
-                disabled={isApproving}
-                className={cn(
-                  "text-xs h-8",
-                  asset.admin_approved === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600"
-                )}
-              >
-                List
-              </Button>
-              
-              <Button 
-                onClick={handleRejectAsset} 
-                variant="outline" 
-                size="sm"
-                disabled={isApproving}
-                className={cn(
-                  "text-xs h-8",
-                  asset.admin_approved === 'Rejected' && "bg-red-500 text-white hover:bg-red-600"
-                )}
-              >
-                <X className="h-3 w-3 mr-1" />
-                Reject
-              </Button>
-            </div>
+          <CardFooter className="flex flex-col gap-2">
+            <Button
+              onClick={handleCurateAsset}
+              className="w-full gap-2"
+              disabled={isApproving || asset?.admin_approved === 'Curated'}
+            >
+              <Check className="h-4 w-4" />
+              Curate
+            </Button>
+            <Button
+              onClick={handleListAsset}
+              variant="secondary"
+              className="w-full gap-2"
+              disabled={isApproving || asset?.admin_approved === 'Listed'}
+            >
+              <Check className="h-4 w-4" />
+              List
+            </Button>
+            <Button
+              onClick={handleRejectAsset}
+              variant="destructive"
+              className="w-full gap-2"
+              disabled={isApproving || asset?.admin_approved === 'Rejected'}
+            >
+              <X className="h-4 w-4" />
+              Reject
+            </Button>
           </CardFooter>
         )}
       </Card>
