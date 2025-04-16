@@ -17,10 +17,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loadingCount, setLoadingCount] = useState(0);
+  const userRef = useRef<User | null>(null);
 
   const isMounted = useRef(true);
   const initialCheckCompleted = useRef(false);
   const adminCheckInProgress = useRef(false);
+
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
 
   useEffect(() => {
     logger.log(`[${loadingCount}] Setting up persistent auth provider effect`);
@@ -107,24 +112,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         console.log('[AuthProvider] Raw onAuthStateChange event:', event);
         console.log('[AuthProvider] Raw onAuthStateChange session object:', currentSession);
 
+        const newUser = currentSession?.user || null;
+        if (newUser?.id === userRef.current?.id) {
+          logger.log(`[${loadingCount}] Auth state change: user unchanged, skipping update.`);
+          return;
+        }
+
         if (!isMounted.current) {
           logger.log(`[${loadingCount}] Component not mounted, ignoring auth state change`);
           return;
         }
 
         setSession(currentSession);
-        const currentUser = currentSession?.user || null;
-        setUser(currentUser);
+        setUser(newUser);
 
-        if (!currentUser) {
+        if (!newUser) {
           logger.log(`[${loadingCount}] Auth state change: No session/user. Resetting admin status.`);
           setIsAdmin(false);
         } else {
           if (!adminCheckInProgress.current) {
             adminCheckInProgress.current = true;
-            logger.log(`[${loadingCount}] Starting admin check for user after auth change:`, currentUser.id);
+            logger.log(`[${loadingCount}] Starting admin check for user after auth change:`, newUser.id);
             try {
-              const adminStatus = await checkIsAdmin(currentUser.id);
+              const adminStatus = await checkIsAdmin(newUser.id);
               if (!isMounted.current) return;
               logger.log(`[${loadingCount}] Admin check result after auth change:`, adminStatus);
               setIsAdmin(adminStatus);
@@ -133,9 +143,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               logger.error(`[${loadingCount}] Error checking admin status after auth change:`, adminError);
               setIsAdmin(false);
             } finally {
-               if (isMounted.current) {
-                 adminCheckInProgress.current = false;
-               }
+              if (isMounted.current) {
+                adminCheckInProgress.current = false;
+              }
             }
           }
         }
