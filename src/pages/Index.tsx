@@ -1,3 +1,4 @@
+
 import React, { useCallback, useEffect, useState, useRef } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -99,8 +100,6 @@ const Index = () => {
   
   // Refresh data when user is authenticated
   useEffect(() => {
-    // Temporarily disable this effect to test initial load display
-    /*
     if (authLoading) {
       // Still determining auth state, wait
       return;
@@ -109,20 +108,19 @@ const Index = () => {
     const hasRefreshed = sessionStorage.getItem('initialDataRefreshed') === 'true';
     
     if (user && !lorasLoading && !dataRefreshInProgress.current && !hasRefreshed && !initialRefreshDone.current) {
-      logger.log('User is logged in, refreshing LoRAs on mount - DISABLED');
-      // dataRefreshInProgress.current = true;
-      // initialRefreshDone.current = true;
+      logger.log('User is logged in, refreshing LoRAs on mount');
+      dataRefreshInProgress.current = true;
+      initialRefreshDone.current = true;
       
-      // const timeoutId = setTimeout(() => {
-      //   refetchLoras().finally(() => {
-      //     dataRefreshInProgress.current = false;
-      //     sessionStorage.setItem('initialDataRefreshed', 'true');
-      //   });
-      // }, 100);
+      const timeoutId = setTimeout(() => {
+        refetchLoras().finally(() => {
+          dataRefreshInProgress.current = false;
+          sessionStorage.setItem('initialDataRefreshed', 'true');
+        });
+      }, 100);
       
-      // return () => clearTimeout(timeoutId);
+      return () => clearTimeout(timeoutId);
     }
-    */
   }, [user, refetchLoras, lorasLoading, authLoading]);
   
   const handleNavigateToUpload = useCallback(() => {
@@ -179,7 +177,7 @@ const Index = () => {
           
           <LoraManager 
             loras={displayLoras} 
-            isLoading={lorasLoading}
+            isLoading={lorasLoading || authLoading}
             modelFilter={modelFilterFromUrl}
           />
         </div>

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Input } from '@/components/ui/input';
@@ -60,12 +61,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras, initialModelFilter = 'all' }
     const videoApproved = lora.primaryVideo?.admin_approved;
     
     if (approvalFilter === 'curated') {
-      // Primarily check the LoRA's status. 
-      matchesApproval = loraApproved === 'Curated';
-      // If LoRA isn't 'Curated' but video exists and IS 'Curated', also match.
-      if (!matchesApproval && videoApproved === 'Curated') {
-          matchesApproval = true;
-      }
+      matchesApproval = loraApproved === 'Curated' || videoApproved === 'Curated';
     } else if (approvalFilter === 'listed') {
       matchesApproval = (!loraApproved || loraApproved === 'Listed' || !videoApproved || videoApproved === 'Listed') 
                       && loraApproved !== 'Rejected' && videoApproved !== 'Rejected';
