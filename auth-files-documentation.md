@@ -262,20 +262,60 @@ This section details aspects of the authentication system relevant to diagnosing
   // src/providers/AuthProvider.tsx
   const { data: { subscription } } = supabase.auth.onAuthStateChange(
     async (event: AuthChangeEvent, currentSession) => {
-      logger.log(`Persistent auth state changed: ${event}`, /* ... */);
+      logger.log(`Persistent auth state changed: ${event}`, currentSession?.user?.id || 'no user');
+      
+      if (!isMounted.current) {
+        logger.log(`[${loadingCount}] Component not mounted, ignoring auth state change`);
+        return;
+      }
+      
       if (currentSession) {
         setSession(currentSession);
         setUser(currentSession.user);
-        // ... check admin status ...
+        
+        // Check admin status
+        if (!adminCheckInProgress.current) {
+          adminCheckInProgress.current = true;
+          logger.log(`[${loadingCount}] Starting admin check for user after auth change:`, currentSession.user.id);
+          
+          try {
+            const adminStatus = await checkIsAdmin(currentSession.user.id);
+            logger.log(`[${loadingCount}] Admin check result after auth change:`, adminStatus);
+            setIsAdmin(adminStatus);
+          } catch (adminError) {
+            logger.error(`[${loadingCount}] Error checking admin status after auth change:`, adminError);
+            setIsAdmin(false);
+          } finally {
+            adminCheckInProgress.current = false;
+          }
+        }
       } else {
-        // No session, clear state
+        logger.log(`[${loadingCount}] Auth state change: No session`);
         setUser(null);
         setSession(null);
         setIsAdmin(false);
       }
+      
+      if (isInitialLoading && initialSessionCheckComplete.current) {
+        logger.log(`[${loadingCount}] Finishing initial loading after auth state change`);
+        setIsInitialLoading(false);
+      }
+      
+      setLoadingCount(prev => prev + 1);
     }
   );
-  ```
+
+  // Start the initial session check after setting up the listener
+  checkInitialSession();
+
+  return () => {
+    logger.log(`[${loadingCount}] Cleaning up auth provider subscription`);
+    isMounted.current = false;
+    subscription.unsubscribe();
+  };
+}, []);
+
+```
 
 ### Token Expiry & Refresh
 
@@ -359,6 +399,8 @@ This section details aspects of the authentication system relevant to diagnosing
     );
     ```
     If `persistSession` is effectively `false`, the session will not be stored in `localStorage` and will be lost on page reloads.
+    
+    *Note: Explicitly setting `persistSession` and `autoRefreshToken` to `true` was attempted but did not resolve the observed random logout issue, suggesting the cause lies elsewhere.*
 5.  **`localStorage` Issues**:
     *   Browser clearing `localStorage` (e.g., privacy settings, manual clearing).
     *   `localStorage` corruption (rare).
@@ -369,32 +411,157 @@ This section details aspects of the authentication system relevant to diagnosing
     *   Issues with multiple tabs/windows not syncing the logout state correctly (Supabase client usually handles this via `localStorage` events, but browser behaviour can vary).
 8.  **Backend Issues & Configuration**: 
     * Problems on the Supabase side (e.g., user manually revoked sessions, server errors). Check Supabase dashboard logs.
-    * Incorrect URL configuration in the Supabase Dashboard -> Auth -> URL Configuration. Ensure the **Site URL** is set to `https://openmuse.ai/` and the **Redirect URL** used for OAuth (like Discord) includes `https://openmuse.ai/auth/callback`. Mismatches here can break the OAuth flow or session handling.
-9.  **Component Mounting/Unmounting**: `AuthProvider` uses `isMounted.current` checks to prevent state updates after unmounting, but rapid mounting/unmounting cycles could potentially cause issues.
+    * Incorrect URL configuration in the Supabase Dashboard -> Auth -> URL Configuration:
+      - Ensure the **Site URL** is set to `https://openmuse.ai/`.
+      - Ensure the **Redirect URLs** allow list includes all required callback URLs. Currently, this should include:
+        - `https://openmuse.ai/auth/callback`
+        - `https://openmuse.lovable.app/auth/callback`
+      Mismatches or missing entries here can break the OAuth flow (like Discord login) or session handling after authentication.
+    * Session Management Settings (Supabase Dashboard -> Auth -> Session Management):
+      - **Refresh Token Reuse Interval**: `10 seconds` (Time interval where the same refresh token can be used multiple times).
+      - **Enforce single session per user**: `Disabled` (If enabled, logging in on a new device/browser terminates older sessions).
+      - **Time-box user sessions**: `0` / `never` (No maximum session duration enforced).
+      - **Inactivity timeout**: `0` / `never` (No forced logout due to inactivity).
+      While the current settings (mostly disabled limits) are unlikely to cause random logouts, enabling features like "Enforce single session" could.
+9.  **Rate Limits & Advanced Configuration**: Excessive requests from a single IP or user could trigger rate limits, potentially causing failed sign-ins, token refreshes, or other auth operations that might appear as logouts. (Supabase Dashboard -> Auth -> Rate Limits & Advanced)
+    *   **Rate Limits (per IP / relevant period):**
+        *   Email Sending: 30/hour
+        *   SMS Sending: 30/hour
+        *   Token Refreshes: 30/5-min interval
+        *   Token Verifications (OTP/Magic Link): 30/5-min interval
+        *   Anonymous Sign-ins: 30/hour
+        *   Sign-ups/Sign-ins (non-anonymous): 30/5-min interval
+    *   **Advanced Settings:**
+        *   Request Duration Timeout: 10 seconds
+        *   Max Direct Auth DB Connections: 10
+    Hitting these limits, especially token refresh or sign-in limits, could prevent users from maintaining or establishing a session.
+10. **Component Mounting/Unmounting**: `AuthProvider` uses `isMounted.current` checks to prevent state updates after unmounting, but rapid mounting/unmounting cycles could potentially cause issues.
+11. **Conflicting Session Checks (`DatabaseProvider.ts`)**: The `DatabaseProvider` performs its own `supabase.auth.getSession()` calls with a cooldown mechanism. If this logic incorrectly determines the user is logged out (e.g., due to a temporary network error during its check, or a cooldown mismatch with the actual session state change), it might clear the user ID used for database operations (`supabaseDatabaseOperations.setCurrentUserId(null)`). While this shouldn't directly log the user *out* via `AuthProvider`, it could cause subsequent database requests to fail RLS checks, potentially leading to errors or redirects that appear like a logout. See file content below.
+12. **Role Check Failures (`userRoles.ts`)**: Errors during the asynchronous `checkIsAdmin` call within `AuthProvider` (or other role checks using `getUserRoles`) could lead to incorrect `isAdmin` state. If a protected route relies on `isAdmin`, a temporary failure could cause a redirect, mimicking a logout. Caching (`userRolesCache`) adds another layer where stale data could potentially cause issues if not invalidated correctly. See file content below.
+13. **General Authenticated API Call Errors**: How does the application handle `401 Unauthorized` errors when making general Supabase API calls (e.g., fetching data)? If a `401` occurs (due to an expired/invalid token missed by the initial checks), does the error handler trigger a `signOut()` call or a redirect to `/auth`? This could be a common source of apparent logouts.
+14. **Browser/Environment Factors**: Consider if the issue is specific to certain browsers, occurs when multiple tabs are open, or is affected by browser extensions (especially those related to privacy or script blocking). Testing in an Incognito/Private window can help isolate these factors. Inspecting `localStorage` (for keys like `sb-*-auth-token`) in the browser's developer tools can confirm if the session data is unexpectedly missing.
 
 ### Debugging Features
 
-- **Extensive Logging**: `AuthProvider`, `currentUser`, `RequireAuth`, `AuthCallback`, `AuthButton` contain detailed logs about session checks, state changes, loading times, and errors. Enable verbose logging in the browser console to view these.
+- **Extensive Logging**: `AuthProvider`, `currentUser`, `RequireAuth`, `AuthCallback`, `AuthButton`, `DatabaseProvider`, `UserRoles` contain detailed logs about session checks, state changes, loading times, and errors. Enable verbose logging in the browser console to view these.
 - **Loading State Tracking**: `AuthProvider` and `RequireAuth` track loading states (`isInitialLoading`, `initialSessionCheckComplete`, `isLoading`) and log timing information. `RequireAuth` includes logic to detect and break potential loading loops.
 - **Session Details**: `currentUser.ts` logs detailed session information, including expiry times and refresh token presence.
 - **Manual Refresh Test**: `testSessionRefresh` in `currentUser.ts` allows manually testing the refresh flow.
-- **Admin Check**: `AuthProvider` includes checks for admin status (`checkIsAdmin`) and logs the results.
+- **Admin Check**: `AuthProvider` includes checks for admin status (`checkIsAdmin`) and logs the results. See `userRoles.ts` below.
+- **Role Management Implementation (`src/lib/auth/userRoles.ts`)**: Details how roles are fetched (`getUserRoles` with 5-min cache), checked (`checkIsAdmin`), and added (`addUserRole`). See file contents below.
+- **Caching Implementation (`src/lib/auth/cache.ts`)**: Defines `userProfileCache` (1-min TTL) and `userRolesCache` (5-min TTL) using Maps. Caches cleared on sign-out/updates. See file contents below.
+- **Database Provider Auth Interaction (`src/lib/database/DatabaseProvider.ts`)**: Contains logic (`getDatabase`) for separate auth checks (`getSession` with 10s cooldown) to set user ID for DB operations. See file contents below.
+
+## Supabase RLS Policies
+
+This section outlines the Row Level Security policies configured for the main tables in Supabase.
+
+### `asset_media` Table
+
+- **Policy:** `Allow admins to manage all asset_media`
+  - **Operation:** `ALL`
+  - **Role:** `public` (*Note: Likely intended for an 'admin' role via function security or check*) 
+- **Policy:** `Allow anonymous users to insert asset_media`
+  - **Operation:** `INSERT`
+  - **Role:** `anon`
+- **Policy:** `Allow anonymous users to select asset_media`
+  - **Operation:** `SELECT`
+  - **Role:** `anon`
+- **Policy:** `Allow authenticated users to read all asset_media`
+  - **Operation:** `SELECT`
+  - **Role:** `authenticated`
+- **Policy:** `Users can delete their own asset_media`
+  - **Operation:** `DELETE`
+  - **Role:** `public` (*Note: Likely requires a `USING` clause checking `auth.uid()`*)
+- **Policy:** `Users can insert their own asset_media`
+  - **Operation:** `INSERT`
+  - **Role:** `public` (*Note: Likely requires a `WITH CHECK` clause checking `auth.uid()`*)
+- **Policy:** `Users can view their own asset_media`
+  - **Operation:** `SELECT`
+  - **Role:** `public` (*Note: Likely requires a `USING` clause checking `auth.uid()`*)
+
+### `assets` Table
+
+- **Policy:** `Allow admins to manage all assets`
+  - **Operation:** `ALL`
+  - **Role:** `public` (*Note: Likely intended for an 'admin' role via function security or check*)
+- **Policy:** `Allow anonymous users to insert assets`
+  - **Operation:** `INSERT`
+  - **Role:** `anon`
+- **Policy:** `Allow anonymous users to select assets`
+  - **Operation:** `SELECT`
+  - **Role:** `anon`
+- **Policy:** `Allow anonymous users to update assets`
+  - **Operation:** `UPDATE`
+  - **Role:** `anon`
+- **Policy:** `Allow authenticated users to read all assets`
+  - **Operation:** `SELECT`
+  - **Role:** `authenticated`
+- **Policy:** `Users can delete their own assets`
+  - **Operation:** `DELETE`
+  - **Role:** `public` (*Note: Likely requires a `USING` clause checking `auth.uid()`*)
+- **Policy:** `Users can insert their own assets`
+  - **Operation:** `INSERT`
+  - **Role:** `public` (*Note: Likely requires a `WITH CHECK` clause checking `auth.uid()`*)
+- **Policy:** `Users can update their own assets`
+  - **Operation:** `UPDATE`
+  - **Role:** `public` (*Note: Likely requires `USING` and `WITH CHECK` clauses checking `auth.uid()`*)
+- **Policy:** `Users can view their own assets`
+  - **Operation:** `SELECT`
+  - **Role:** `public` (*Note: Likely requires a `USING` clause checking `auth.uid()`*)
+
+### `media` Table
+
+- **Policy:** `Allow admins to manage all media`
+  - **Operation:** `ALL`
+  - **Role:** `public` (*Note: Likely intended for an 'admin' role via function security or check*)
+- **Policy:** `Allow anonymous users to insert media`
+  - **Operation:** `INSERT`
+  - **Role:** `anon`
+- **Policy:** `Allow anonymous users to select media`
+  - **Operation:** `SELECT`
+  - **Role:** `anon`
+- **Policy:** `Allow authenticated users to read all media`
+  - **Operation:** `SELECT`
+  - **Role:** `authenticated`
+- **Policy:** `Users can delete their own media`
+  - **Operation:** `DELETE`
+  - **Role:** `public` (*Note: Likely requires a `USING` clause checking `auth.uid()`*)
+- **Policy:** `Users can insert their own media`
+  - **Operation:** `INSERT`
+  - **Role:** `public` (*Note: Likely requires a `WITH CHECK` clause checking `auth.uid()`*)
+- **Policy:** `Users can update their own media`
+  - **Operation:** `UPDATE`
+  - **Role:** `public` (*Note: Likely requires `USING` and `WITH CHECK` clauses checking `auth.uid()`*)
+- **Policy:** `Users can view their own media`
+  - **Operation:** `SELECT`
+  - **Role:** `public` (*Note: Likely requires a `USING` clause checking `auth.uid()`*)
+
+### `profiles` Table
+
+- **Policy:** `Allow public access to profiles`
+  - **Operation:** `SELECT`
+  - **Role:** `public`
+- **Policy:** `Users can update own profile`
+  - **Operation:** `UPDATE`
+  - **Role:** `public` (*Note: Likely requires `USING` and `WITH CHECK` clauses checking `auth.uid() = id`*)
+
+### `user_roles` Table
+
+- **Policy:** `Allow users to see all roles`
+  - **Operation:** `SELECT`
+  - **Role:** `public` (*Caution: This allows any user, including anonymous, to potentially see all user-role assignments if not further restricted by column permissions or views*)
 
 ## Authentication Files
 
 ### src/integrations/supabase/client.ts
 
 ```typescript
-
-// This file is automatically generated. Do not edit it directly.
 import { createClient } from '@supabase/supabase-js';
 import type { Database } from './database.types';
 
 const SUPABASE_URL = "https://ujlwuvkrxlvoswwkerdf.supabase.co";
 const SUPABASE_PUBLISHABLE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVqbHd1dmtyeGx2b3N3d2tlcmRmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDE3ODM1MDYsImV4cCI6MjA1NzM1OTUwNn0.htwJHr4Z4NlMZYVrH1nNGkU53DyBTWgMeOeUONYFy_4";
-
-// Import the supabase client like this:
-// import { supabase } from "@/integrations/supabase/client";
 
 export const supabase = createClient<Database>(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
 
@@ -450,7 +617,6 @@ export const testRLSPermissions = async () => {
 ### src/contexts/AuthContext.tsx
 
 ```typescript
-
 import { createContext } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 
@@ -478,7 +644,6 @@ export const AuthContext = createContext<AuthContextType>({
 ### src/providers/AuthProvider.tsx
 
 ```typescript
-
 import React, { useState, useEffect, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
@@ -684,7 +849,6 @@ export default AuthProvider;
 ### src/hooks/useAuth.tsx
 
 ```typescript
-
 import { useContext } from 'react';
 import { AuthContext } from '@/contexts/AuthContext';
 
@@ -774,7 +938,6 @@ export const signOut = async () => {
 ### src/lib/auth/currentUser.ts
 
 ```typescript
-
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '../logger';
 
@@ -850,7 +1013,6 @@ export const testSessionRefresh = async () => {
 ### src/lib/auth/userProfile.ts
 
 ```typescript
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
@@ -983,7 +1145,6 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
 ### src/components/RequireAuth.tsx
 
 ```typescript
-
 import React, { useEffect, useState } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
@@ -1313,7 +1474,6 @@ export default AuthButton;
 ### src/pages/Auth.tsx
 
 ```typescript
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
