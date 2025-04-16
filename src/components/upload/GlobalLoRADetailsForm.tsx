@@ -16,6 +16,7 @@ interface LoRADetailsForm {
   creatorName: string;
   creatorOrigin?: string;
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  modelVariant: string;
   loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
   loraLink: string;
 }
@@ -26,12 +27,28 @@ interface GlobalLoRADetailsFormProps {
   disabled?: boolean;
 }
 
+// Model variant options for each model
+const MODEL_VARIANTS = {
+  wan: ['1.3b', '14b T2V', '14b I2V'],
+  ltxv: ['0.9', '0.9.5', '0.9.7'],
+  hunyuan: ['V1', 'V2', 'V2.5'],
+  cogvideox: ['Base', 'XL'],
+  animatediff: ['V1', 'V2', 'V3']
+};
+
 const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({ 
   loraDetails, 
   updateLoRADetails,
   disabled = false
 }) => {
   const { user } = useAuth();
+  
+  // Set default variant when model changes
+  useEffect(() => {
+    if (loraDetails.model && MODEL_VARIANTS[loraDetails.model]?.length > 0 && !loraDetails.modelVariant) {
+      updateLoRADetails('modelVariant', MODEL_VARIANTS[loraDetails.model][0]);
+    }
+  }, [loraDetails.model]);
   
   return (
     <Card>
@@ -139,6 +156,51 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 </SelectContent>
               </Select>
             </div>
+            
+            {loraDetails.model && (
+              <div>
+                <Label htmlFor="model-variant" className="text-sm font-medium mb-1.5 block">
+                  Model Variant
+                </Label>
+                {MODEL_VARIANTS[loraDetails.model]?.length > 0 ? (
+                  <Select 
+                    value={loraDetails.modelVariant || ''} 
+                    onValueChange={(value) => updateLoRADetails('modelVariant', value)}
+                    disabled={disabled}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder="Select Variant" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {MODEL_VARIANTS[loraDetails.model].map((variant) => (
+                        <SelectItem key={variant} value={variant}>{variant}</SelectItem>
+                      ))}
+                      <SelectItem value="custom">Other (Custom)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <Input
+                    type="text"
+                    id="model-variant"
+                    placeholder="Enter model variant"
+                    value={loraDetails.modelVariant || ''}
+                    onChange={(e) => updateLoRADetails('modelVariant', e.target.value)}
+                    disabled={disabled}
+                  />
+                )}
+                {loraDetails.modelVariant === 'custom' && (
+                  <Input
+                    type="text"
+                    id="custom-model-variant"
+                    placeholder="Enter custom variant"
+                    className="mt-2"
+                    value={loraDetails.modelVariant === 'custom' ? '' : loraDetails.modelVariant}
+                    onChange={(e) => updateLoRADetails('modelVariant', e.target.value)}
+                    disabled={disabled}
+                  />
+                )}
+              </div>
+            )}
             
             <div>
               <Label htmlFor="lora-type" className="text-sm font-medium mb-1.5 block">
