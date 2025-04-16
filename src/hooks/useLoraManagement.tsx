@@ -39,7 +39,29 @@ export const useLoraManagement = () => {
     }
   };
 
-  const loadAllLoras = useCallback(async () => {
+  const associateVideosWithLoras = useCallback((loraAssets: LoraAsset[], videoData: VideoEntry[]) => {
+    logger.log("Associating videos with LoRAs");
+    return loraAssets.map((asset) => {
+      const primaryVideo = videoData.find(v => v.id === asset.primary_media_id);
+      const assetVideos = videoData.filter(v => 
+        v.metadata?.assetId === asset.id ||
+        (v.metadata?.loraName && 
+         v.metadata.loraName.toLowerCase() === (asset.name || '').toLowerCase())
+      );
+      
+      // Profile data should already be fetched and attached to asset if needed
+      const creatorDisplayName = asset.creatorDisplayName || asset.creator;
+
+      return {
+        ...asset,
+        primaryVideo,
+        videos: assetVideos,
+        // Keep other existing properties like admin_approved, creatorDisplayName, model_variant
+      } as LoraAsset;
+    });
+  }, []);
+
+  const loadAllLoras = useCallback(async (skipVideoAssociation = false) => {
     if (!isMounted.current || fetchInProgress.current) {
       logger.log("Fetch already in progress or component unmounted, skipping");
       return;
@@ -48,8 +70,10 @@ export const useLoraManagement = () => {
     fetchInProgress.current = true;
     setIsLoading(true);
     fetchAttempted.current = true;
-    logger.log("Loading all LoRAs (no longer waiting for auth)");
+    logger.log(`Loading all LoRAs (skipVideoAssociation=${skipVideoAssociation})`);
     
+    let fetchedLoraAssets: any[] = []; // Store fetched assets temporarily
+
     try {
       if (loadingTimeoutRef.current) {
         clearTimeout(loadingTimeoutRef.current);
@@ -65,31 +89,29 @@ export const useLoraManagement = () => {
       
       let query = supabase
         .from('assets')
-        .select('*')
+        .select('*') // Fetch profiles initially? Could optimize later.
         .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
         
-      const { data: loraAssets, error } = await query.order('created_at', { ascending: false });
+      const { data: loraAssetsData, error } = await query.order('created_at', { ascending: false });
       
       if (error) {
         logger.error("Error querying LoRA assets:", error);
         throw error;
       }
       
-      logger.log("LoRA assets from database:", loraAssets?.length || 0);
-      if (loraAssets?.length) {
-        logger.log("Sample asset data:", loraAssets[0]);
+      logger.log("LoRA assets from database:", loraAssetsData?.length || 0);
+      if (!loraAssetsData) {
+         throw new Error("No LoRA assets returned from database");
       }
-      
-      if (!isMounted.current) return;
 
-      const userIds = loraAssets
-        ?.filter(asset => asset.user_id)
-        .map(asset => asset.user_id) || [];
-      
+      fetchedLoraAssets = loraAssetsData;
+
+      // --- Fetch Profiles --- (Keep this part)
+      const userIds = fetchedLoraAssets
+        .filter(asset => asset.user_id)
+        .map(asset => asset.user_id);
       const uniqueUserIds = [...new Set(userIds)].filter(Boolean) as string[];
-      
       let userProfiles: Record<string, string> = {};
-      
       if (uniqueUserIds.length > 0) {
         logger.log("Fetching user profiles for display names:", uniqueUserIds.length);
         const { data: profiles, error: profilesError } = await supabase
@@ -111,44 +133,38 @@ export const useLoraManagement = () => {
           }, {} as Record<string, string>);
         }
       }
-      
-      const lorasWithVideos = loraAssets?.map((asset) => {
-        const primaryVideo = videos.find(v => v.id === asset.primary_media_id);
-        
-        const assetVideos = videos.filter(v => 
-          v.metadata?.assetId === asset.id ||
-          (v.metadata?.loraName && 
-           v.metadata.loraName.toLowerCase() === (asset.name || '').toLowerCase())
-        );
-        
-        const admin_approved = asset.admin_approved || 'Listed';
-        
-        const creatorDisplayName = asset.user_id && userProfiles[asset.user_id] 
-          ? userProfiles[asset.user_id] 
-          : asset.creator;
-        
-        logger.log(`Asset ${asset.id} creator info:`, {
-          user_id: asset.user_id,
-          creator: asset.creator,
-          display_name_from_profile: asset.user_id ? userProfiles[asset.user_id] : 'No user_id',
-          final_display_name: creatorDisplayName
-        });
-        
-        return {
-          ...asset,
-          primaryVideo,
-          videos: assetVideos,
-          admin_approved,
-          creatorDisplayName,
-          model_variant: asset.model_variant
-        } as LoraAsset;
-      }) || [];
-      
-      logger.log("Final LoRAs with videos:", lorasWithVideos.length);
-      
+
+      // --- Map assets and attach profile data --- (Keep this part)
+       const lorasWithProfiles = fetchedLoraAssets.map((asset) => {
+          const creatorDisplayName = asset.user_id && userProfiles[asset.user_id] 
+            ? userProfiles[asset.user_id] 
+            : asset.creator;
+          
+          logger.log(`Asset ${asset.id} creator info mapping:`, {
+            user_id: asset.user_id, creator: asset.creator,
+            final_display_name: creatorDisplayName
+          });
+
+          return {
+            ...asset,
+            creatorDisplayName,
+             admin_approved: asset.admin_approved || 'Listed',
+             model_variant: asset.model_variant
+          } as LoraAsset; // Initial mapping without videos
+       });
+
       if (isMounted.current) {
-        setLoras(lorasWithVideos);
-        setIsLoading(false);
+        if (skipVideoAssociation) {
+           // Set state with only profile data, videos will be associated later
+           logger.log("Setting LoRAs state (without video association yet)");
+           setLoras(lorasWithProfiles);
+        } else {
+           // Associate videos immediately if not skipping
+           const finalLoras = associateVideosWithLoras(lorasWithProfiles, videos);
+           logger.log("Setting LoRAs state (with video association)");
+           setLoras(finalLoras);
+        }
+        setIsLoading(false); // Set loading false after fetch/initial association
         
         if (loadingTimeoutRef.current) {
           clearTimeout(loadingTimeoutRef.current);
@@ -169,18 +185,28 @@ export const useLoraManagement = () => {
     } finally {
       fetchInProgress.current = false;
     }
-  }, [videos]);
+  }, [associateVideosWithLoras, videos]);
 
   useEffect(() => {
     logger.log(`Lora effect trigger: videosLoading=${videosLoading}, fetchAttempted=${fetchAttempted.current}, fetchInProgress=${fetchInProgress.current}`);
+    
     if (!fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Initial LoRA load triggered.");
-      loadAllLoras();
-    } else if (!videosLoading && fetchAttempted.current && !fetchInProgress.current) {
-      logger.log("Videos finished loading after LoRAs, re-triggering LoRA load to associate videos.");
-      loadAllLoras();
+      logger.log("Initial LoRA load triggered (will associate videos later if needed).");
+      // Initial load - skip video association for now, it will happen when videos load
+      loadAllLoras(true); 
+    } else if (!videosLoading && fetchAttempted.current && !fetchInProgress.current && loras.length > 0) {
+      // Videos finished loading *after* initial LoRA fetch, and we have LoRAs in state
+      // Now, just associate the videos with the existing LoRA data
+      logger.log("Videos finished loading after LoRAs, associating videos with existing LoRA state.");
+      const updatedLoras = associateVideosWithLoras(loras, videos);
+      // Only update state if the video associations actually changed something (optional optimization)
+      // This deep comparison could be expensive, maybe skip
+      // if (!isEqual(updatedLoras, loras)) { 
+           setLoras(updatedLoras); 
+      // }
     }
-  }, [videosLoading, loadAllLoras]);
+    // Depend on videosLoading state and the videos array itself for re-association
+  }, [videosLoading, videos, loadAllLoras, associateVideosWithLoras, loras]);
 
   useEffect(() => {
     isMounted.current = true;
