@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
@@ -50,7 +51,15 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   
   const filteredVideos = videos.filter(video => {
     if (classification === 'all') return true;
-    return video.metadata?.classification === classification;
+    
+    // Handle both "gen" and "generation" classification values
+    const videoClassification = video.metadata?.classification;
+    if (classification === 'generation') {
+      return videoClassification === 'gen' || videoClassification === 'generation';
+    } else if (classification === 'art') {
+      return videoClassification === 'art';
+    }
+    return false;
   });
   
   return (
