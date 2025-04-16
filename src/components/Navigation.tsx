@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -8,7 +7,7 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
-const APP_VERSION = 'v0.1.1'; // Updated version number
+const APP_VERSION = 'v0.1.2'; // Updated version number
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -17,7 +16,6 @@ const Navigation: React.FC = () => {
   const isMobile = useIsMobile();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   
-  // Add effect to track authentication state changes
   useEffect(() => {
     if (!isLoading) {
       setIsAuthenticated(!!user);
