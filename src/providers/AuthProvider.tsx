@@ -14,7 +14,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(false);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loadingCount, setLoadingCount] = useState(0);
   const userRef = useRef<User | null>(null);
@@ -94,7 +94,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isMounted.current && !initialCheckCompleted.current) {
           logger.log(`[${loadingCount}] Initial session & admin check completed.`);
           initialCheckCompleted.current = true;
-          setIsLoading(false);
           setLoadingCount(prev => prev + 1);
         }
       }
@@ -110,7 +109,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(null);
             setUser(null);
             setIsAdmin(false);
-            setIsLoading(false);
           } else if (event === 'SIGNED_IN') {
             logger.log(`[${loadingCount}] Initial check not complete but received SIGNED_IN, updating state with new session.`);
             initialCheckCompleted.current = true;
@@ -118,94 +116,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             const newUser = currentSession?.user || null;
             setUser(newUser);
 
-            // Safety timeout to ensure we always complete loading
-            const safetyTimeout = setTimeout(() => {
-              if (isLoading) {
-                logger.warn(`[${loadingCount}] Safety timeout triggered - forcing loading state to complete`);
-                setIsLoading(false);
-              }
-            }, 6000);
-
-            if (newUser) {
-              try {
-                logger.log(`[${loadingCount}] Starting admin check for SIGNED_IN user:`, newUser.id);
-                const adminStatus = await checkIsAdmin(newUser.id);
-                logger.log(`[${loadingCount}] Admin check completed for SIGNED_IN user. Status:`, adminStatus);
-                setIsAdmin(adminStatus);
-              } catch (adminError) {
-                logger.error(`[${loadingCount}] Error during admin check in initial SIGNED_IN event:`, adminError);
-                setIsAdmin(false);
-              } finally {
-                clearTimeout(safetyTimeout);
-                logger.log(`[${loadingCount}] Admin check process complete, setting isLoading to false`);
-                setIsLoading(false);
-              }
-            } else {
-              clearTimeout(safetyTimeout);
-              logger.log(`[${loadingCount}] No user in SIGNED_IN event, setting isLoading to false`);
-              setIsAdmin(false);
-              setIsLoading(false);
-            }
-          } else {
-            logger.log(`[${loadingCount}] Initial check not complete, ignoring auth state change event: ${event}`);
-            return;
-          }
-        }
-
-        logger.log(`[${loadingCount}] Persistent auth state changed: ${event}`, currentSession?.user?.id || 'no user');
-        console.log('[AuthProvider] Raw onAuthStateChange event:', event);
-        console.log('[AuthProvider] Raw onAuthStateChange session object:', currentSession);
-
-        const newUser = currentSession?.user || null;
-        if (newUser && userRef.current && newUser.id === userRef.current.id) {
-          logger.log(`[${loadingCount}] Auth state change: user unchanged, skipping update.`);
-          return;
-        }
-
-        if (!isMounted.current) {
-          logger.log(`[${loadingCount}] Component not mounted, ignoring auth state change`);
-          return;
-        }
-
-        setSession(currentSession);
-        setUser(newUser);
-
-        if (!newUser) {
-          logger.log(`[${loadingCount}] Auth state change: No session/user. Resetting admin status.`);
-          setIsAdmin(false);
-        } else {
-          if (!adminCheckInProgress.current) {
-            adminCheckInProgress.current = true;
-            logger.log(`[${loadingCount}] Starting admin check for user after auth change:`, newUser.id);
+          if (newUser) {
             try {
+              logger.log(`[${loadingCount}] Starting admin check for SIGNED_IN user:`, newUser.id);
               const adminStatus = await checkIsAdmin(newUser.id);
-              if (!isMounted.current) return;
-              logger.log(`[${loadingCount}] Admin check result after auth change:`, adminStatus);
+              logger.log(`[${loadingCount}] Admin check completed for SIGNED_IN user. Status:`, adminStatus);
               setIsAdmin(adminStatus);
             } catch (adminError) {
-              if (!isMounted.current) return;
-              logger.error(`[${loadingCount}] Error checking admin status after auth change:`, adminError);
+              logger.error(`[${loadingCount}] Error during admin check in initial SIGNED_IN event:`, adminError);
               setIsAdmin(false);
             } finally {
-              if (isMounted.current) {
-                adminCheckInProgress.current = false;
-              }
+              logger.log(`[${loadingCount}] Admin check process complete.`);
+            }
+          } else {
+            logger.log(`[${loadingCount}] No user in SIGNED_IN event.`);
+            setIsAdmin(false);
+          }
+        } else {
+          logger.log(`[${loadingCount}] Initial check not complete, ignoring auth state change event: ${event}`);
+          return;
+        }
+      }
+
+      logger.log(`[${loadingCount}] Persistent auth state changed: ${event}`, currentSession?.user?.id || 'no user');
+      console.log('[AuthProvider] Raw onAuthStateChange event:', event);
+      console.log('[AuthProvider] Raw onAuthStateChange session object:', currentSession);
+
+      const newUser = currentSession?.user || null;
+      if (newUser && userRef.current && newUser.id === userRef.current.id) {
+        logger.log(`[${loadingCount}] Auth state change: user unchanged, skipping update.`);
+        return;
+      }
+
+      if (!isMounted.current) {
+        logger.log(`[${loadingCount}] Component not mounted, ignoring auth state change`);
+        return;
+      }
+
+      setSession(currentSession);
+      setUser(newUser);
+
+      if (!newUser) {
+        logger.log(`[${loadingCount}] Auth state change: No session/user. Resetting admin status.`);
+        setIsAdmin(false);
+      } else {
+        if (!adminCheckInProgress.current) {
+          adminCheckInProgress.current = true;
+          logger.log(`[${loadingCount}] Starting admin check for user after auth change:`, newUser.id);
+          try {
+            const adminStatus = await checkIsAdmin(newUser.id);
+            if (!isMounted.current) return;
+            logger.log(`[${loadingCount}] Admin check result after auth change:`, adminStatus);
+            setIsAdmin(adminStatus);
+          } catch (adminError) {
+            if (!isMounted.current) return;
+            logger.error(`[${loadingCount}] Error checking admin status after auth change:`, adminError);
+            setIsAdmin(false);
+          } finally {
+            if (isMounted.current) {
+              adminCheckInProgress.current = false;
             }
           }
         }
-
-        setLoadingCount(prev => prev + 1);
       }
-    );
 
-    checkInitialSessionAndAdmin();
+      setLoadingCount(prev => prev + 1);
+    }
+  );
 
-    return () => {
-      logger.log(`[${loadingCount}] Cleaning up auth provider effect and subscription`);
-      isMounted.current = false;
-      subscription.unsubscribe();
-    };
-  }, []);
+  checkInitialSessionAndAdmin();
+
+  return () => {
+    logger.log(`[${loadingCount}] Cleaning up auth provider effect and subscription`);
+    isMounted.current = false;
+    subscription.unsubscribe();
+  };
+}, []);
 
   const signIn = async (email: string, password: string) => {
     try {
@@ -246,7 +232,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  logger.log(`[${loadingCount}] AuthProvider rendering. State: isLoading=${isLoading}, user=${!!user}, session=${!!session}, isAdmin=${isAdmin}`);
+  logger.log(`[${loadingCount}] AuthProvider rendering. Initial load complete. State: user=${!!user}, session=${!!session}, isAdmin=${isAdmin}`);
 
   return (
     <AuthContext.Provider 
@@ -254,7 +240,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user, 
         session, 
         isAdmin, 
-        isLoading, 
+        isLoading: false,
         signIn, 
         signOut 
       }}
