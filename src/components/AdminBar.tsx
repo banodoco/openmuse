@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Refresh, Settings } from 'lucide-react';
+import { RefreshCw, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
@@ -37,7 +37,7 @@ const AdminBar: React.FC = () => {
         className="bg-background rounded-full shadow-md flex items-center gap-2"
         onClick={handleRefreshData}
       >
-        <Refresh className="h-4 w-4" />
+        <RefreshCw className="h-4 w-4" />
         <span className="hidden sm:inline">Refresh Data</span>
       </Button>
       
