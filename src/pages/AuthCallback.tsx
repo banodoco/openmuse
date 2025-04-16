@@ -45,6 +45,11 @@ const AuthCallback = () => {
       const returnUrl = searchParams.get('returnUrl') || '/';
       
       logger.log(`AuthCallback: User detected by AuthProvider, navigating to ${returnUrl}`);
+      
+      // Manually clear the hash to prevent Supabase client from re-reading it
+      logger.log('AuthCallback: Clearing window.location.hash');
+      window.location.hash = '';
+      
       queueMicrotask(() => {
          navigate(returnUrl, { replace: true });
       });
