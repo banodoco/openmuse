@@ -43,6 +43,7 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   let error = null; // Initialize error outside try block
 
   try {
+    logger.log(`Starting Supabase query for admin check: ${userId}`);
     // Use a direct query without the table name in the column reference
     const response = await supabase
       .from('user_roles')
@@ -50,7 +51,8 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
       .eq('user_id', userId)
       .eq('role', 'admin')
       .maybeSingle();
-      
+    
+    logger.log(`Received response from Supabase for admin check: ${userId}`);
     data = response.data;
     error = response.error;
 

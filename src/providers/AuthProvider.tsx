@@ -119,16 +119,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setUser(newUser);
             if (newUser) {
               try {
+                logger.log(`[${loadingCount}] Starting admin check for SIGNED_IN user:`, newUser.id);
                 const adminStatus = await checkIsAdmin(newUser.id);
+                logger.log(`[${loadingCount}] Admin check completed for SIGNED_IN user. Status:`, adminStatus);
                 setIsAdmin(adminStatus);
               } catch (adminError) {
                 logger.error(`[${loadingCount}] Error during admin check in initial SIGNED_IN event:`, adminError);
                 setIsAdmin(false);
+              } finally {
+                logger.log(`[${loadingCount}] Admin check process complete, setting isLoading to false`);
+                setIsLoading(false);
               }
             } else {
+              logger.log(`[${loadingCount}] No user in SIGNED_IN event, setting isLoading to false`);
               setIsAdmin(false);
+              setIsLoading(false);
             }
-            setIsLoading(false);
           } else {
             logger.log(`[${loadingCount}] Initial check not complete, ignoring auth state change event: ${event}`);
             return;
