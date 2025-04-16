@@ -1,5 +1,4 @@
-import * as React from 'react';
-const { useState, useCallback, useEffect, useRef, useContext } = React;
+import { useState, useCallback, useEffect, useRef, useContext } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { toast } from 'sonner';
@@ -11,7 +10,7 @@ const logger = new Logger('useVideoManagement');
 
 export const useVideoManagement = () => {
   const [videos, setVideos] = useState<VideoEntry[]>([]);
-  const [videosLoading, setVideosLoading] = useState(true);
+  const [videoIsLoading, setVideoIsLoading] = useState(true);
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
 
@@ -19,14 +18,14 @@ export const useVideoManagement = () => {
   const userId = user?.id || null;
 
   const loadAllVideos = useCallback(async () => {
-    if (!isMounted.current) {
-      logger.log("useVideoManagement: Skipping loadAllVideos - component not mounted");
+    if (!isMounted.current || authIsLoading) {
+      logger.log("useVideoManagement: Skipping loadAllVideos - component not mounted or auth loading");
       return;
     }
 
-    setVideosLoading(true);
+    setVideoIsLoading(true);
     fetchAttempted.current = true;
-    logger.log("useVideoManagement: Loading all videos, user ID for context:", userId);
+    logger.log("useVideoManagement: Loading all videos, user ID:", userId);
     
     try {
       logger.log("useVideoManagement: Getting database from switcher");
@@ -52,23 +51,23 @@ export const useVideoManagement = () => {
       
       if (isMounted.current) {
         setVideos(transformedEntries);
-        setVideosLoading(false);
+        setVideoIsLoading(false);
       }
     } catch (error) {
       logger.error("useVideoManagement: Error loading videos:", error);
       if (isMounted.current) {
         toast.error("Error loading videos. Please try again.");
-        setVideosLoading(false);
+        setVideoIsLoading(false);
       }
     }
-  }, [userId]);
+  }, [userId, authIsLoading]);
 
   useEffect(() => {
     isMounted.current = true;
     fetchAttempted.current = false;
 
-    if (!fetchAttempted.current) {
-      logger.log("useVideoManagement: Component mounted, triggering video load");
+    if (!authIsLoading && !fetchAttempted.current) {
+      logger.log("useVideoManagement: Auth loaded, triggering video load");
       loadAllVideos();
     }
 
@@ -76,17 +75,17 @@ export const useVideoManagement = () => {
       isMounted.current = false;
       logger.log("useVideoManagement unmounting");
     };
-  }, [loadAllVideos]);
+  }, [authIsLoading, userId]);
 
   const refetchVideos = useCallback(async () => {
-    if (isMounted.current) {
+    if (isMounted.current && !authIsLoading) {
       logger.log("useVideoManagement: Refetching videos");
       await loadAllVideos();
       toast.success("Videos refreshed");
     } else {
-      logger.log("useVideoManagement: Skipping refetch - component not mounted");
+      logger.log("useVideoManagement: Skipping refetch - component not mounted or auth loading");
     }
-  }, [loadAllVideos]);
+  }, [loadAllVideos, authIsLoading]);
 
   const deleteVideo = useCallback(async (id: string) => {
     try {
@@ -132,10 +131,11 @@ export const useVideoManagement = () => {
     }
   }, []);
 
+  const combinedIsLoading = authIsLoading || videoIsLoading;
+
   return {
     videos,
-    isLoading: videosLoading,
-    authIsLoading,
+    isLoading: combinedIsLoading,
     userId,
     refetchVideos,
     deleteVideo,
