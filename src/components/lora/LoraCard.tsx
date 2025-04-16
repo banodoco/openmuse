@@ -74,9 +74,16 @@ const LoraCard: React.FC<LoraCardProps> = ({
   };
   
   const getModelDisplay = (): string => {
-    const baseModel = lora.lora_base_model?.toUpperCase() || 'UNKNOWN';
-    const variant = lora.model_variant ? ` (${lora.model_variant})` : '';
-    return `${baseModel}${variant}`;
+    const baseModel = lora.lora_base_model?.toUpperCase();
+    const variant = lora.model_variant;
+    
+    if (!baseModel && !variant) {
+      return '';
+    }
+    
+    const displayBase = baseModel || 'UNKNOWN';
+    const displayVariant = variant ? ` (${variant})` : '';
+    return `${displayBase}${displayVariant}`;
   };
   
   const handleView = () => {
@@ -210,12 +217,14 @@ const LoraCard: React.FC<LoraCardProps> = ({
       <CardContent className="p-3">
         <div className="flex items-center justify-between mb-1">
           <h3 className="font-medium text-sm truncate flex-1">{lora.name}</h3>
-          <Badge 
-            variant="model" 
-            className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(lora.lora_base_model))}
-          >
-            {getModelDisplay()}
-          </Badge>
+          {getModelDisplay() && (
+            <Badge 
+              variant="model" 
+              className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(lora.lora_base_model))}
+            >
+              {getModelDisplay()}
+            </Badge>
+          )}
         </div>
         {getCreatorName() && (
           <p className="text-xs text-muted-foreground">Creator: {getCreatorName()}</p>
