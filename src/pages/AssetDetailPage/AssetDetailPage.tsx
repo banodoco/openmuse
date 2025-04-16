@@ -90,12 +90,6 @@ function AssetDetailPage() {
       <div className="flex flex-col min-h-screen bg-background">
         <Navigation />
         <div className="flex-1 w-full max-w-6xl mx-auto p-4">
-          <div className="mb-6">
-            <Button variant="outline" size="sm" onClick={handleBackClick}>
-              <ArrowLeft className="h-4 w-4 mr-2" />
-              Back to LoRAs
-            </Button>
-          </div>
           <div className="flex justify-center items-center h-64">
             <Skeleton className="h-16 w-16 rounded-full" />
           </div>
@@ -110,18 +104,12 @@ function AssetDetailPage() {
       <Navigation />
       
       <div className="flex-1 w-full max-w-screen-2xl mx-auto p-4">
-        <div className="mb-6">
-          <Button variant="outline" size="sm" onClick={handleBackClick}>
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back to LoRAs
-          </Button>
-        </div>
+        {/* Removed back button */}
         
         {asset && (
           <>
             <AssetHeader 
               asset={asset}
-              handleGoBack={handleBackClick}
             />
             
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
