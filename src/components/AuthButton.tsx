@@ -1,20 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, LogIn, User, Settings } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Logger } from '@/lib/logger';
+import { LogOut, LogIn, User, Settings, Book } from 'lucide-react';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { getCurrentUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Logger } from '@/lib/logger';
 
 const logger = new Logger('AuthButton');
 
@@ -29,7 +21,7 @@ const AuthButton: React.FC = () => {
     if (isLoading) {
       const timer = setTimeout(() => {
         setLoadingTimeout(true);
-      }, 3000); // Set timeout to 3 seconds
+      }, 3000);
       
       return () => clearTimeout(timer);
     } else {
@@ -100,14 +92,24 @@ const AuthButton: React.FC = () => {
   
   if (!user) {
     return (
-      <Button 
-        variant="outline" 
-        onClick={handleSignIn}
-        className="flex items-center gap-2 border-olive/30 text-olive"
-      >
-        <LogIn className="h-4 w-4" />
-        Sign In
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button 
+          variant="link" 
+          onClick={() => navigate('/manifesto')}
+          className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+        >
+          <Book className="h-4 w-4 mr-1" />
+          Manifesto
+        </Button>
+        <Button 
+          variant="outline" 
+          onClick={handleSignIn}
+          className="flex items-center gap-2 border-olive/30 text-olive"
+        >
+          <LogIn className="h-4 w-4" />
+          Sign In
+        </Button>
+      </div>
     );
   }
   
