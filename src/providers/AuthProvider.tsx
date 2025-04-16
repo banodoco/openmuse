@@ -37,11 +37,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         logger.log(`[${loadingCount}] Checking for existing persistent session`);
         const { data, error } = await supabase.auth.getSession();
 
+        if (error) {
+          logger.warn(`[${loadingCount}] getSession() returned an error:`, error);
+        } else {
+          logger.log(`[${loadingCount}] getSession() returned data:`, {
+            hasSession: !!data.session,
+            userId: data.session?.user?.id,
+            tokenExpires: data.session?.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : null,
+          });
+        }
+
         if (!isMounted.current) return;
 
-        if (error) {
-          logger.error(`[${loadingCount}] Error getting initial session:`, error);
-        } else if (data.session) {
+        if (data.session) {
           logger.log(`[${loadingCount}] Persistent session found:`, data.session.user.id);
           setSession(data.session);
           setUser(data.session.user);
