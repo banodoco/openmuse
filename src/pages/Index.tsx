@@ -11,12 +11,16 @@ import { testRLSPermissions } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 const logger = new Logger('Index');
+logger.log('Index page component module loaded');
 
 const Index = () => {
+  logger.log('Index component rendering/mounting');
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, isLoading: authLoading } = useAuth();
+  const { user, isLoading: authLoading, isAdmin } = useAuth(); // Added isAdmin for logging
+  logger.log(`Index: useAuth() state - user: ${user?.id || 'null'}, authLoading: ${authLoading}, isAdmin: ${isAdmin}`);
+
   const [permissionsChecked, setPermissionsChecked] = useState(false);
   const permissionCheckInProgress = useRef(false);
   const dataRefreshInProgress = useRef(false);
@@ -25,68 +29,90 @@ const Index = () => {
   // Get model filter from URL query params
   const queryParams = new URLSearchParams(location.search);
   const modelFilterFromUrl = queryParams.get('model') || 'all';
+  logger.log(`Index: Model filter from URL: ${modelFilterFromUrl}`);
   
   const { 
     loras, 
     isLoading: lorasLoading, 
     refetchLoras
   } = useLoraManagement();
+  logger.log(`Index: useLoraManagement() state - lorasLoading: ${lorasLoading}, loras count: ${loras?.length || 0}`);
   
   // Filter loras based on model if a model filter is active
   const displayLoras = React.useMemo(() => {
+    logger.log('[Memo displayLoras] Calculating...');
     if (!loras || loras.length === 0) {
-      logger.log('No LoRAs available');
+      logger.log('[Memo displayLoras] No LoRAs available, returning empty array.');
       return [];
     }
-    
-    logger.log('Total LoRAs available:', loras.length);
+    logger.log(`[Memo displayLoras] Total LoRAs available: ${loras.length}`);
     
     // Apply model filter if it's not 'all'
     if (modelFilterFromUrl !== 'all') {
-      return loras.filter(lora => 
+      const filtered = loras.filter(lora => 
         lora.lora_base_model && 
         lora.lora_base_model.toLowerCase() === modelFilterFromUrl.toLowerCase()
       );
+      logger.log(`[Memo displayLoras] Applying filter '${modelFilterFromUrl}', count: ${filtered.length}`);
+      return filtered;
     }
     
+    logger.log('[Memo displayLoras] No filter applied, returning all loras.');
     return loras;
   }, [loras, modelFilterFromUrl]);
   
   // Add lifecycle logging
   useEffect(() => {
-    logger.log('Index page mounted');
+    logger.log('[Effect Lifecycle] Index page mounted');
     return () => {
-      logger.log('Index page unmounting'); // This should fire right before unload
+      logger.log('[Effect Lifecycle] Index page unmounting'); // This should fire right before unload
     };
   }, []);
   
   // Only check permissions if user is authenticated and not still loading
   useEffect(() => {
+    logger.log(`[Effect Permissions] Running. State: authLoading=${authLoading}, user=${!!user}, checked=${permissionsChecked}, inProgress=${permissionCheckInProgress.current}`);
     if (authLoading) {
-      // Still determining auth state, wait
+      logger.log('[Effect Permissions] Waiting for auth to load.');
       return;
+    }
+    if (!user) {
+        logger.log('[Effect Permissions] No user logged in, skipping permission check.');
+        // Ensure checked is false if user logs out
+        if (permissionsChecked) setPermissionsChecked(false);
+        return;
+    }
+    if (permissionsChecked || permissionCheckInProgress.current) {
+        logger.log(`[Effect Permissions] Skipping check: Already checked (${permissionsChecked}) or in progress (${permissionCheckInProgress.current}).`);
+        return;
     }
     
     const checkPermissions = async () => {
-      if (user && !permissionsChecked && !permissionCheckInProgress.current) {
-        permissionCheckInProgress.current = true;
+      logger.log('[Effect Permissions] Starting check for user:', user.id);
+      permissionCheckInProgress.current = true;
+      
+      try {
+        logger.log('Checking user permissions for:', user.id);
+        const permissions = await testRLSPermissions();
+        logger.log('[Effect Permissions] RLS check result:', permissions);
+        setPermissionsChecked(true);
         
-        try {
-          logger.log('Checking user permissions for:', user.id);
-          const permissions = await testRLSPermissions();
-          setPermissionsChecked(true);
-          
-          if (!permissions.assetsAccess || !permissions.mediaAccess) {
-            toast.error("Permission issues detected. Some data may not be visible.", {
-              description: "Try refreshing the data or contact an administrator.",
-              duration: 5000
-            });
-          }
-        } catch (err) {
-          logger.error("Error checking permissions:", err);
-        } finally {
-          permissionCheckInProgress.current = false;
+        if (!permissions.assetsAccess || !permissions.mediaAccess) {
+          logger.warn('[Effect Permissions] Permission issues detected!');
+          toast.error("Permission issues detected. Some data may not be visible.", {
+            description: "Try refreshing the data or contact an administrator.",
+            duration: 5000
+          });
+        } else {
+            logger.log('[Effect Permissions] RLS check passed.');
         }
+      } catch (err) {
+        logger.error("[Effect Permissions] Error checking permissions:", err);
+        // Should we mark as checked on error? Maybe not, allow retry later?
+        // setPermissionsChecked(true);
+      } finally {
+        logger.log('[Effect Permissions] Check finished.');
+        permissionCheckInProgress.current = false;
       }
     };
     
@@ -99,66 +125,96 @@ const Index = () => {
   
   // Refresh data when user is authenticated
   useEffect(() => {
+    logger.log(`[Effect Initial Refresh] Running. State: authLoading=${authLoading}, user=${!!user}, lorasLoading=${lorasLoading}, refreshInProgress=${dataRefreshInProgress.current}, initialDone=${initialRefreshDone.current}`);
     if (authLoading) {
-      // Still determining auth state, wait
-      return;
+       logger.log('[Effect Initial Refresh] Waiting for auth.');
+       return;
     }
-    
-    const hasRefreshed = sessionStorage.getItem('initialDataRefreshed') === 'true';
-    
-    if (user && !lorasLoading && !dataRefreshInProgress.current && !hasRefreshed && !initialRefreshDone.current) {
-      logger.log('User is logged in, refreshing LoRAs on mount');
+    if (!user) {
+       logger.log('[Effect Initial Refresh] No user, skipping initial refresh.');
+       // Reset flag if user logs out?
+       // initialRefreshDone.current = false; // Consider if this is needed
+       // sessionStorage.removeItem('initialDataRefreshed'); // Also maybe clear session storage
+       return;
+    }
+
+    const hasRefreshedSession = sessionStorage.getItem('initialDataRefreshed') === 'true';
+    logger.log(`[Effect Initial Refresh] Session storage 'initialDataRefreshed': ${hasRefreshedSession}`);
+
+    if (!lorasLoading && !dataRefreshInProgress.current && !hasRefreshedSession && !initialRefreshDone.current) {
+      logger.log('[Effect Initial Refresh] Conditions met: User logged in, not loading, not in progress, not refreshed yet. Triggering refetchLoras with timeout.');
       dataRefreshInProgress.current = true;
-      initialRefreshDone.current = true;
-      
+      initialRefreshDone.current = true; // Mark as done for this component instance
+
       const timeoutId = setTimeout(() => {
+        logger.log('[Effect Initial Refresh] Timeout executed, calling refetchLoras()');
         refetchLoras().finally(() => {
+          logger.log('[Effect Initial Refresh] refetchLoras() finished. Setting refreshInProgress=false and session storage.');
           dataRefreshInProgress.current = false;
-          sessionStorage.setItem('initialDataRefreshed', 'true');
+          sessionStorage.setItem('initialDataRefreshed', 'true'); // Mark as done in session storage
         });
-      }, 100);
-      
-      return () => clearTimeout(timeoutId);
+      }, 100); // Short delay
+
+      return () => {
+          logger.log('[Effect Initial Refresh] Cleanup: Clearing timeout.');
+          clearTimeout(timeoutId);
+          // Should we reset dataRefreshInProgress here? Probably not, let the finally block handle it.
+      };
+    } else {
+        logger.log('[Effect Initial Refresh] Conditions not met, skipping timed refresh.');
     }
   }, [user, refetchLoras, lorasLoading, authLoading]);
   
   const handleNavigateToUpload = useCallback(() => {
+    logger.log('Index: Navigating to /upload');
     navigate('/upload');
   }, [navigate]);
   
   const handleRefreshData = useCallback(async () => {
+    logger.log('[Manual Refresh] Clicked.');
     if (dataRefreshInProgress.current) {
-      logger.log('Data refresh already in progress, skipping');
+      logger.log('[Manual Refresh] Skipping: Refresh already in progress.');
       return;
     }
-    
+    logger.log('[Manual Refresh] Starting refresh...');
     dataRefreshInProgress.current = true;
     
     try {
       await refetchLoras();
-      logger.log('Data refreshed successfully');
+      logger.log('[Manual Refresh] LoRA refresh successful.');
       
-      if (!permissionCheckInProgress.current) {
+      // Re-check permissions after refresh
+      if (user && !permissionCheckInProgress.current) {
+        logger.log('[Manual Refresh] Starting post-refresh permission check.');
         permissionCheckInProgress.current = true;
         const permissions = await testRLSPermissions();
         setPermissionsChecked(true);
-        
+        logger.log('[Manual Refresh] Post-refresh RLS check result:', permissions);
         if (!permissions.assetsAccess || !permissions.mediaAccess) {
+           logger.warn('[Manual Refresh] Permission issues detected after refresh!');
           toast.error("Permission issues detected. Some data may not be visible.", {
             description: "Try refreshing the data or contact an administrator.",
             duration: 5000
           });
         }
-        
         permissionCheckInProgress.current = false;
+         logger.log('[Manual Refresh] Post-refresh permission check finished.');
+      } else {
+          logger.log('[Manual Refresh] Skipping post-refresh permission check (no user or check already in progress).');
       }
     } catch (error) {
-      logger.error('Error refreshing data:', error);
+      logger.error('[Manual Refresh] Error during refresh:', error);
+      // Assuming refetchLoras shows its own toast on error
     } finally {
+      logger.log('[Manual Refresh] Refresh finished.');
       dataRefreshInProgress.current = false;
     }
-  }, [refetchLoras]);
+  }, [refetchLoras, user]); // Added user dependency
   
+  logger.log(`Index rendering return. lorasLoading=${lorasLoading}, authLoading=${authLoading}, displayLoras count=${displayLoras.length}`);
+  const isPageLoading = lorasLoading; // Only base page loading on loras now
+  const isActionDisabled = lorasLoading || authLoading; // Disable actions if either is loading
+
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navigation />
@@ -171,12 +227,12 @@ const Index = () => {
             buttonText="Propose New LoRA"
             onButtonClick={handleNavigateToUpload}
             buttonSize={isMobile ? "sm" : "default"}
-            buttonDisabled={lorasLoading || authLoading}
+            buttonDisabled={isActionDisabled} // Use combined disabled state
           />
           
           <LoraManager 
             loras={displayLoras} 
-            isLoading={lorasLoading}
+            isLoading={isPageLoading} // Use lora-only loading state
             modelFilter={modelFilterFromUrl}
           />
         </div>

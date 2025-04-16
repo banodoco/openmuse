@@ -7,16 +7,16 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('AuthProvider');
+logger.log('--- AuthProvider Module Initial Load ---'); // Log when the module itself is first processed
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // Log version to help with debugging
-  logger.log('--- AuthProvider Module Execution (Persistent Session v2 with Debug - Robust Loading) ---');
-  
+  logger.log('AuthProvider component mounting');
+
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  // START LOADING TRUE: Assume loading until initial check completes
+  const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [loadingCount, setLoadingCount] = useState(0);
   const userRef = useRef<User | null>(null);
 
   const isMounted = useRef(true);
@@ -25,177 +25,226 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   useEffect(() => {
     userRef.current = user;
+    logger.log('[Ref Update] User state updated in ref:', user?.id || 'null');
   }, [user]);
 
   useEffect(() => {
-    logger.log(`[${loadingCount}] Setting up persistent auth provider effect`);
+    logger.log('[Effect Setup] AuthProvider effect setup starting');
     isMounted.current = true;
-    initialCheckCompleted.current = false;
+    initialCheckCompleted.current = false; // Reset on effect setup
 
     const checkInitialSessionAndAdmin = async () => {
+      logger.log('[Initial Check] START');
       if (initialCheckCompleted.current) {
-          logger.log(`[${loadingCount}] Initial check already completed, skipping.`);
+          logger.log('[Initial Check] Already completed, skipping.');
+          // Still set loading false if it hasn't been set yet
+          if (isLoading) setIsLoading(false);
           return;
       }
-      
+
       try {
-        logger.log(`[${loadingCount}] Checking for existing persistent session`);
+        logger.log('[Initial Check] Calling supabase.auth.getSession()');
+        // Explicitly set loading true here *before* the async call
+        // Although initialized to true, this ensures it's true if the effect re-runs
+        setIsLoading(true);
         const { data, error } = await supabase.auth.getSession();
 
-        if (error) {
-          logger.warn(`[${loadingCount}] getSession() returned an error:`, error);
-        } else {
-          logger.log(`[${loadingCount}] getSession() returned data:`, {
-            hasSession: !!data.session,
-            userId: data.session?.user?.id,
-            tokenExpires: data.session?.expires_at ? new Date(data.session.expires_at * 1000).toISOString() : null,
-          });
+        if (!isMounted.current) {
+          logger.log('[Initial Check] Component unmounted during getSession, aborting.');
+          return;
         }
 
-        if (!isMounted.current) return;
-
-        if (data.session) {
-          logger.log(`[${loadingCount}] Persistent session found:`, data.session.user.id);
+        if (error) {
+          logger.warn('[Initial Check] getSession() error:', error);
+          // Treat error as no session
+          setSession(null);
+          setUser(null);
+          setIsAdmin(false);
+        } else if (data.session) {
+          logger.log(`[Initial Check] Session FOUND - User ID: ${data.session.user.id}`);
           setSession(data.session);
           setUser(data.session.user);
 
           if (!adminCheckInProgress.current) {
             adminCheckInProgress.current = true;
-            logger.log(`[${loadingCount}] Starting admin check for user:`, data.session.user.id);
+            logger.log(`[Initial Check] Starting admin check for user: ${data.session.user.id}`);
             try {
               const adminStatus = await checkIsAdmin(data.session.user.id);
-               if (!isMounted.current) return;
-              logger.log(`[${loadingCount}] Admin check result for ${data.session.user.id}:`, adminStatus);
+               if (!isMounted.current) {
+                 logger.log('[Initial Check] Component unmounted during admin check, aborting status update.');
+                 adminCheckInProgress.current = false; // Reset flag if aborting
+                 return;
+               }
+              logger.log(`[Initial Check] Admin check result for ${data.session.user.id}: ${adminStatus}`);
               setIsAdmin(adminStatus);
             } catch (adminError) {
-              if (!isMounted.current) return;
-              logger.error(`[${loadingCount}] Error checking admin status:`, adminError);
-              setIsAdmin(false);
+              logger.error('[Initial Check] Error checking admin status:', adminError);
+              if (isMounted.current) setIsAdmin(false); // Set admin false on error if still mounted
             } finally {
                if (isMounted.current) {
+                 logger.log('[Initial Check] Admin check finished.');
                  adminCheckInProgress.current = false;
+               } else {
+                 logger.log('[Initial Check] Admin check finished, but component unmounted.');
                }
             }
+          } else {
+            logger.log('[Initial Check] Admin check already in progress, skipping.');
           }
         } else {
-          logger.log(`[${loadingCount}] No persistent session found initially`);
-           setSession(null);
-           setUser(null);
-           setIsAdmin(false);
+          logger.log('[Initial Check] No session found.');
+          setSession(null);
+          setUser(null);
+          setIsAdmin(false);
         }
       } catch (error) {
-        logger.error(`[${loadingCount}] Unexpected error during initial session check:`, error);
+        logger.error('[Initial Check] Unexpected error:', error);
         if (isMounted.current) {
           setSession(null);
           setUser(null);
           setIsAdmin(false);
         }
       } finally {
-        if (isMounted.current && !initialCheckCompleted.current) {
-          logger.log(`[${loadingCount}] Initial session & admin check completed.`);
-          initialCheckCompleted.current = true;
-          setLoadingCount(prev => prev + 1);
+        if (isMounted.current) {
+          logger.log('[Initial Check] FINALLY block executing.');
+          if (!initialCheckCompleted.current) {
+            logger.log('[Initial Check] Marking initial check as COMPLETED.');
+            initialCheckCompleted.current = true;
+          }
+          // Crucially, set loading to false *after* all checks/updates are done
+          logger.log('[Initial Check] Setting isLoading to FALSE.');
+          setIsLoading(false);
+        } else {
+           logger.log('[Initial Check] FINALLY block, component unmounted.');
         }
       }
     };
 
-    logger.log(`[${loadingCount}] Setting up auth state change listener`);
+    logger.log('[Effect Setup] Setting up onAuthStateChange listener');
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
-        if (!initialCheckCompleted.current) {
-          if (event === 'SIGNED_OUT') {
-            logger.log(`[${loadingCount}] Initial check not complete but received SIGNED_OUT, updating state as logged out.`);
-            initialCheckCompleted.current = true;
-            setSession(null);
-            setUser(null);
-            setIsAdmin(false);
-          } else if (event === 'SIGNED_IN') {
-            logger.log(`[${loadingCount}] Initial check not complete but received SIGNED_IN, updating state with new session.`);
-            initialCheckCompleted.current = true;
-            setSession(currentSession);
-            const newUser = currentSession?.user || null;
-            setUser(newUser);
+        logger.log(`[Auth Listener] Event received: ${event}, User: ${currentSession?.user?.id || 'none'}`);
 
-          if (newUser) {
-            try {
-              logger.log(`[${loadingCount}] Starting admin check for SIGNED_IN user:`, newUser.id);
-              const adminStatus = await checkIsAdmin(newUser.id);
-              logger.log(`[${loadingCount}] Admin check completed for SIGNED_IN user. Status:`, adminStatus);
-              setIsAdmin(adminStatus);
-            } catch (adminError) {
-              logger.error(`[${loadingCount}] Error during admin check in initial SIGNED_IN event:`, adminError);
-              setIsAdmin(false);
-            } finally {
-              logger.log(`[${loadingCount}] Admin check process complete.`);
-            }
-          } else {
-            logger.log(`[${loadingCount}] No user in SIGNED_IN event.`);
-            setIsAdmin(false);
-          }
-        } else {
-          logger.log(`[${loadingCount}] Initial check not complete, ignoring auth state change event: ${event}`);
+        // Let initial check run fully before processing listener events fully
+        // However, if the initial check hasn't completed and we get a definitive sign-out,
+        // we can potentially short-circuit and mark as complete & logged out.
+        if (!initialCheckCompleted.current) {
+           if (event === 'SIGNED_OUT' && !session) { // Only if we don't have a session from getSession yet
+             logger.log(`[Auth Listener] Initial check not complete, but definitive SIGNED_OUT received. Updating state.`);
+             if (isMounted.current) {
+               setSession(null);
+               setUser(null);
+               setIsAdmin(false);
+               // Mark initial check complete and set loading false
+               initialCheckCompleted.current = true;
+               setIsLoading(false);
+             }
+             return; // Don't process further in this case
+           } else {
+             logger.log(`[Auth Listener] Initial check not yet complete, deferring full processing of event: ${event}`);
+             // It might be useful to still update the session/user optimistically here if SIGNED_IN
+             // but wait for the initial check to finish before setting isLoading=false or checking admin
+             if (event === 'SIGNED_IN' && currentSession) {
+                logger.log(`[Auth Listener] Optimistically setting session/user for deferred SIGNED_IN.`);
+                setSession(currentSession);
+                setUser(currentSession.user);
+                // DO NOT set isAdmin or isLoading here yet
+             }
+             return; // Wait for initial check to complete fully
+           }
+        }
+
+        // If initial check is complete, process normally
+        logger.log(`[Auth Listener] Processing event ${event} (initial check complete)`);
+
+        if (!isMounted.current) {
+          logger.log('[Auth Listener] Component unmounted, ignoring event.');
           return;
         }
-      }
 
-      logger.log(`[${loadingCount}] Persistent auth state changed: ${event}`, currentSession?.user?.id || 'no user');
-      console.log('[AuthProvider] Raw onAuthStateChange event:', event);
-      console.log('[AuthProvider] Raw onAuthStateChange session object:', currentSession);
+        // --- State Update Logic ---
+        const newUser = currentSession?.user || null;
+        const oldUser = userRef.current; // Get user from ref *before* potential update
 
-      const newUser = currentSession?.user || null;
-      if (newUser && userRef.current && newUser.id === userRef.current.id) {
-        logger.log(`[${loadingCount}] Auth state change: user unchanged, skipping update.`);
-        return;
-      }
+        // Update session and user state
+        // Use functional updates if depending on previous state might be relevant, though direct set is often fine here
+        logger.log(`[Auth Listener] Setting session and user. New User ID: ${newUser?.id || 'null'}`);
+        setSession(currentSession);
+        setUser(newUser); // This triggers the userRef update effect
 
-      if (!isMounted.current) {
-        logger.log(`[${loadingCount}] Component not mounted, ignoring auth state change`);
-        return;
-      }
-
-      setSession(currentSession);
-      setUser(newUser);
-
-      if (!newUser) {
-        logger.log(`[${loadingCount}] Auth state change: No session/user. Resetting admin status.`);
-        setIsAdmin(false);
-      } else {
-        if (!adminCheckInProgress.current) {
-          adminCheckInProgress.current = true;
-          logger.log(`[${loadingCount}] Starting admin check for user after auth change:`, newUser.id);
-          try {
-            const adminStatus = await checkIsAdmin(newUser.id);
-            if (!isMounted.current) return;
-            logger.log(`[${loadingCount}] Admin check result after auth change:`, adminStatus);
-            setIsAdmin(adminStatus);
-          } catch (adminError) {
-            if (!isMounted.current) return;
-            logger.error(`[${loadingCount}] Error checking admin status after auth change:`, adminError);
-            setIsAdmin(false);
-          } finally {
-            if (isMounted.current) {
-              adminCheckInProgress.current = false;
+        // --- Admin Check Logic ---
+        if (!newUser) {
+          logger.log('[Auth Listener] No user in session, resetting admin status.');
+          setIsAdmin(false);
+        } else if (newUser.id !== oldUser?.id) { // Only check admin if the user *actually changed*
+          if (!adminCheckInProgress.current) {
+            adminCheckInProgress.current = true;
+            logger.log(`[Auth Listener] User changed (${oldUser?.id} -> ${newUser.id}). Starting admin check.`);
+            try {
+              const adminStatus = await checkIsAdmin(newUser.id);
+              if (!isMounted.current) {
+                 logger.log('[Auth Listener] Component unmounted during admin check, aborting status update.');
+                 adminCheckInProgress.current = false;
+                 return;
+              }
+              logger.log(`[Auth Listener] Admin check result for ${newUser.id}: ${adminStatus}`);
+              setIsAdmin(adminStatus);
+            } catch (adminError) {
+              logger.error('[Auth Listener] Error checking admin status:', adminError);
+              if (isMounted.current) setIsAdmin(false);
+            } finally {
+               if (isMounted.current) {
+                 logger.log('[Auth Listener] Admin check finished.');
+                 adminCheckInProgress.current = false;
+               } else {
+                 logger.log('[Auth Listener] Admin check finished, but component unmounted.');
+               }
             }
+          } else {
+            logger.log(`[Auth Listener] Admin check already in progress for user ${newUser.id}, skipping new check.`);
           }
+        } else {
+           logger.log(`[Auth Listener] User unchanged (${newUser.id}), skipping admin check.`);
+           // Ensure isAdmin state is still correct if somehow diverged (edge case)
+           if (isAdmin === undefined && !adminCheckInProgress.current) {
+             logger.warn(`[Auth Listener] User unchanged but isAdmin is undefined, attempting re-check.`);
+             // Simplified re-check logic (consider reusing above block if complex)
+             adminCheckInProgress.current = true;
+             checkIsAdmin(newUser.id).then(status => {
+               if(isMounted.current) setIsAdmin(status);
+             }).catch(err => {
+               logger.error('[Auth Listener] Error in admin re-check:', err);
+               if(isMounted.current) setIsAdmin(false);
+             }).finally(() => {
+               if(isMounted.current) adminCheckInProgress.current = false;
+             });
+           }
         }
+        // Ensure loading is false after processing an event post-initial check
+        logger.log('[Auth Listener] Setting isLoading to FALSE after processing event.');
+        setIsLoading(false);
       }
+    );
 
-      setLoadingCount(prev => prev + 1);
-    }
-  );
+    // Initial check invocation
+    logger.log('[Effect Setup] Invoking checkInitialSessionAndAdmin');
+    checkInitialSessionAndAdmin();
 
-  checkInitialSessionAndAdmin();
+    // Cleanup function
+    return () => {
+      logger.log('[Effect Cleanup] Unsubscribing and setting isMounted=false');
+      isMounted.current = false;
+      subscription.unsubscribe();
+      // Cancel any ongoing admin check? Maybe not necessary if checks handle isMounted.current
+    };
+  // IMPORTANT: Minimal dependencies. This effect should run essentially once on mount.
+  // Adding dependencies like `isLoading` can cause infinite loops.
+  }, []);
 
-  return () => {
-    logger.log(`[${loadingCount}] Cleaning up auth provider effect and subscription`);
-    isMounted.current = false;
-    subscription.unsubscribe();
-  };
-}, []);
-
+  // Sign-in function
   const signIn = async (email: string, password: string) => {
+     logger.log(`[Auth Action] signIn: Attempting for email: ${email}`);
     try {
-      logger.log(`[${loadingCount}] Starting sign in process for email: ${email}`);
       toast.loading('Signing in...', { id: 'signin-toast' });
       
       const { data, error } = await supabase.auth.signInWithPassword({ 
@@ -206,43 +255,45 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       toast.dismiss('signin-toast');
 
       if (error) {
-        logger.error(`[${loadingCount}] Sign in error:`, error);
+        logger.error(`[Auth Action] signIn: Error for ${email}:`, error);
         throw error;
       }
       
-      logger.log(`[${loadingCount}] Sign in successful for: ${email}`);
+      logger.log(`[Auth Action] signIn: Successful for ${email}`);
     } catch (error: any) {
       toast.dismiss('signin-toast');
       toast.error(error.message || 'Error signing in');
-      logger.error(`[${loadingCount}] Sign in error:`, error);
+      logger.error(`[Auth Action] signIn: Error for ${email}:`, error);
     }
   };
 
+  // Sign-out function
   const signOut = async () => {
+    logger.log(`[Auth Action] signOut: Attempting sign out`);
     try {
-      logger.log(`[${loadingCount}] Starting sign out process`);
       toast.loading('Signing out...', { id: 'signout-toast' });
       await supabase.auth.signOut();
       toast.dismiss('signout-toast');
-      logger.log(`[${loadingCount}] Sign out successful`);
+      logger.log(`[Auth Action] signOut: Successful`);
     } catch (error: any) {
       toast.dismiss('signout-toast');
       toast.error(error.message || 'Error signing out');
-      logger.error(`[${loadingCount}] Sign out error:`, error);
+      logger.error(`[Auth Action] signOut: Error:`, error);
     }
   };
 
-  logger.log(`[${loadingCount}] AuthProvider rendering. Initial load complete. State: user=${!!user}, session=${!!session}, isAdmin=${isAdmin}`);
+  logger.log(`[Render] AuthProvider rendering. State: isLoading=${isLoading}, user=${user?.id || 'null'}, session=${!!session}, isAdmin=${isAdmin}`);
 
+  // Provide the context value
   return (
-    <AuthContext.Provider 
-      value={{ 
-        user, 
-        session, 
-        isAdmin, 
-        isLoading: false,
-        signIn, 
-        signOut 
+    <AuthContext.Provider
+      value={{
+        user,
+        session,
+        isAdmin,
+        isLoading, // Pass the dynamic loading state
+        signIn,
+        signOut
       }}
     >
       {children}
