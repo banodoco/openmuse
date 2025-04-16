@@ -98,6 +98,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logger.log(`[${loadingCount}] Setting up auth state change listener`);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
+        if (!initialCheckCompleted.current) {
+          logger.log(`[${loadingCount}] Initial check not complete, ignoring auth state change event: ${event}`);
+          return;
+        }
+
         logger.log(`[${loadingCount}] Persistent auth state changed: ${event}`, currentSession?.user?.id || 'no user');
         console.log('[AuthProvider] Raw onAuthStateChange event:', event);
         console.log('[AuthProvider] Raw onAuthStateChange session object:', currentSession);

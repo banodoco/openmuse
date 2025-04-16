@@ -168,11 +168,11 @@ Race Conditions in State / React Strict Mode
     1.  The session *is* correctly stored in `localStorage`.
     2.  `AuthProvider` calls `supabase.auth.getSession()`.
     3.  `getSession()` successfully logs that it found the session data (e.g., `getSession() returned data: { hasSession: true, ... }`).
-    4.  **Immediately after**, the `supabase.auth.onAuthStateChange` listener incorrectly fires a `SIGNED_IN` event.
-    5.  This unexpected event seems correlated with the user being logged out, potentially due to faulty re-initialization logic triggered by the event.
-*   **Cause:** This points to a potential issue within the Supabase client library (`@supabase/supabase-js@2.49.4` used during diagnosis) where its internal state management incorrectly triggers `SIGNED_IN` on refresh, despite correctly reading the session initially. This might be sensitive to initialization timing or interactions with React.
-*   **Check:** Monitor console logs closely during the problematic refresh for this specific sequence: `getSession() returned data: { hasSession: true, ... }` **followed immediately by** `Persistent auth state changed: SIGNED_IN`. Verify the URL hash is empty after login (manual clearing via `window.location.hash = ''` in `AuthCallback` did not resolve this specific issue during testing).
-*   **Next Steps:** Consider searching the `@supabase/supabase-js` GitHub issues for similar behavior. If possible, try upgrading/downgrading the library version slightly. Further investigation into the library's internal initialization might be needed.
+    4.  **Immediately after**, the `supabase.auth.onAuthStateChange` listener incorrectly fires a `SIGNED_IN` event. **Added console logs confirmed the listener receives `event: SIGNED_IN` and a valid `currentSession` object at this point.**
+    5.  This unexpected event seems correlated with the user being logged out, potentially due to faulty re-initialization logic triggered by the event (or subsequent duplicate events causing loops in development builds).
+*   **Cause:** This points to a potential issue within the Supabase client library (`@supabase/supabase-js@2.49.4` used during diagnosis) where its internal state management incorrectly triggers `SIGNED_IN` on refresh, despite correctly reading the session initially. This might be sensitive to initialization timing or interactions with React (especially StrictMode in development).
+*   **Check:** Monitor console logs closely during the problematic refresh for this specific sequence: `getSession() returned data: { hasSession: true, ... }` **followed immediately by** `Persistent auth state changed: SIGNED_IN`. Examine the raw event/session objects logged by `onAuthStateChange`. Verify the URL hash is empty after login (manual clearing via `window.location.hash = ''` in `AuthCallback` did not resolve this specific issue during testing).
+*   **Next Steps:** Consider searching the `@supabase/supabase-js` GitHub issues for similar behavior (unexpected `SIGNED_IN` events on refresh/load). If possible, try upgrading/downgrading the library version slightly. Test in a production build to rule out React StrictMode interference. Further investigation into the library's internal initialization might be needed.
 
 Backend/Supabase Config
 
