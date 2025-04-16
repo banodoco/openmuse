@@ -1,5 +1,5 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { UploadCloud, LayoutDashboard } from 'lucide-react';
@@ -12,9 +12,17 @@ const APP_VERSION = 'v0.1.1'; // Updated version number
 
 const Navigation: React.FC = () => {
   const location = useLocation();
-  const { isAdmin, isLoading } = useAuth();
+  const { isAdmin, isLoading, user } = useAuth();
   const [imageError, setImageError] = useState(false);
   const isMobile = useIsMobile();
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  
+  // Add effect to track authentication state changes
+  useEffect(() => {
+    if (!isLoading) {
+      setIsAuthenticated(!!user);
+    }
+  }, [user, isLoading]);
   
   const isActive = (path: string) => location.pathname === path;
   const isAuthPage = location.pathname === '/auth';
