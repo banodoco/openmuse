@@ -11,6 +11,7 @@ import { Pencil, Save, X } from "lucide-react";
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset } from '@/lib/types';
+import { useAuth } from '@/hooks/useAuth';
 
 const MODEL_VARIANTS = {
   wan: ['1.3b', '14b T2V', '14b I2V'],
@@ -31,13 +32,14 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   isAuthorized,
   onDetailsUpdated
 }) => {
+  const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [details, setDetails] = useState({
     name: asset?.name || '',
     description: asset?.description || '',
     creator: asset?.creator?.includes('@') ? 'someone_else' : 'self',
-    creatorName: asset?.creator || '',
+    creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : '',
     lora_type: asset?.lora_type || 'Concept',
     lora_base_model: asset?.lora_base_model || 'wan',
     model_variant: asset?.model_variant || '',
@@ -49,7 +51,7 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
       name: asset?.name || '',
       description: asset?.description || '',
       creator: asset?.creator?.includes('@') ? 'someone_else' : 'self',
-      creatorName: asset?.creator || '',
+      creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : '',
       lora_type: asset?.lora_type || 'Concept',
       lora_base_model: asset?.lora_base_model || 'wan',
       model_variant: asset?.model_variant || '',
@@ -63,7 +65,7 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   };
 
   const handleSave = async () => {
-    if (!asset) return;
+    if (!asset || !user) return;
     
     setIsSaving(true);
     try {
@@ -72,7 +74,7 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
         .update({
           name: details.name,
           description: details.description,
-          creator: details.creator === 'self' ? details.creatorName : `@${details.creatorName}`,
+          creator: details.creator === 'self' ? user.email : `@${details.creatorName}`,
           lora_type: details.lora_type,
           lora_base_model: details.lora_base_model,
           model_variant: details.model_variant,
