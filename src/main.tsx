@@ -1,7 +1,11 @@
 
 import { createRoot } from 'react-dom/client';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import App from './App.tsx';
 import './index.css';
+
+// Create a client
+const queryClient = new QueryClient();
 
 // Function to render the app with proper error handling
 const renderApp = () => {
@@ -14,7 +18,11 @@ const renderApp = () => {
       return;
     }
     
-    createRoot(rootElement).render(<App />);
+    createRoot(rootElement).render(
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    );
     console.log("Application successfully rendered");
   } catch (error) {
     console.error("Failed to render the application:", error);
