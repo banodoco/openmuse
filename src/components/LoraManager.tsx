@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { LoraAsset } from '@/lib/types';
 import LoraList from './lora/LoraList';
@@ -82,7 +81,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
           description="There are currently no LoRAs in the collection that match your filters. Upload a new LoRA or adjust filters!" 
         />
       ) : (
-        <LoraList loras={filteredLoras} initialModelFilter={currentModelFilter} />
+        <LoraList loras={filteredLoras} />
       )}
     </div>
   );
