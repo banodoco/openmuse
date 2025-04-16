@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -70,7 +71,7 @@ const AuthButton: React.FC = () => {
     }
   };
 
-  const handleSettings = () => {
+  const handleProfileClick = () => {
     navigate('/profile');
   };
   
@@ -114,43 +115,48 @@ const AuthButton: React.FC = () => {
   const displayName = getDisplayName();
   
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button 
-          variant="outline" 
-          className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream pl-2 pr-3"
-        >
-          {userProfile?.avatar_url ? (
-            <Avatar className="h-6 w-6 mr-1">
-              <AvatarImage src={userProfile.avatar_url} alt={displayName} />
-              <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
-            </Avatar>
-          ) : (
-            <User className="h-4 w-4" />
-          )}
-          {isLoadingProfile ? '...' : displayName}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-48 border border-olive/20">
-        <DropdownMenuLabel className="font-heading">My Account</DropdownMenuLabel>
-        <DropdownMenuSeparator className="bg-olive/10" />
-        <DropdownMenuItem 
-          onClick={handleSettings}
-          className="flex items-center cursor-pointer"
-        >
-          <Settings className="h-4 w-4 mr-2" />
-          Profile Settings
-        </DropdownMenuItem>
-        <DropdownMenuItem 
-          onClick={handleSignOut} 
-          className="text-destructive flex items-center cursor-pointer font-medium hover:bg-destructive/10"
-        >
-          <LogOut className="h-4 w-4 mr-2" />
-          Sign Out
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <Button 
+        variant="outline" 
+        className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream pl-2 pr-3"
+        onClick={handleProfileClick}
+      >
+        {userProfile?.avatar_url ? (
+          <Avatar className="h-6 w-6 mr-1">
+            <AvatarImage src={userProfile.avatar_url} alt={displayName} />
+            <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
+          </Avatar>
+        ) : (
+          <User className="h-4 w-4" />
+        )}
+        {isLoadingProfile ? '...' : displayName}
+      </Button>
+      
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Button 
+            variant="ghost" 
+            className="ml-1 p-1 h-auto" 
+            aria-label="Account options"
+          >
+            <LogOut className="h-4 w-4 text-olive" />
+          </Button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end" className="w-48 border border-olive/20">
+          <DropdownMenuLabel className="font-heading">Account Actions</DropdownMenuLabel>
+          <DropdownMenuSeparator className="bg-olive/10" />
+          <DropdownMenuItem 
+            onClick={handleSignOut} 
+            className="text-destructive flex items-center cursor-pointer font-medium hover:bg-destructive/10"
+          >
+            <LogOut className="h-4 w-4 mr-2" />
+            Sign Out
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </>
   );
 };
 
 export default AuthButton;
+
