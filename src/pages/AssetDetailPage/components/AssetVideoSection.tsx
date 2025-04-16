@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
@@ -51,7 +50,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   
   const filteredVideos = videos.filter(video => {
     if (classification === 'all') return true;
-    return video.classification === classification;
+    return video.metadata?.classification === classification;
   });
   
   return (
@@ -110,4 +109,3 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 };
 
 export default AssetVideoSection;
-
