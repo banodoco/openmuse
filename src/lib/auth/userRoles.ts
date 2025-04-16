@@ -39,41 +39,43 @@ export const getUserRoles = async (userId: string): Promise<string[]> => {
 export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   logger.log(`Checking if user ${userId} is admin`);
   
-  let data = null; // Initialize data outside try block
-  let error = null; // Initialize error outside try block
-
   try {
     logger.log(`Starting Supabase query for admin check: ${userId}`);
-    // Use a direct query without the table name in the column reference
-    const response = await supabase
-      .from('user_roles')
-      .select('role') // Only select necessary field
-      .eq('user_id', userId)
-      .eq('role', 'admin')
-      .maybeSingle();
     
-    logger.log(`Received response from Supabase for admin check: ${userId}`);
-    data = response.data;
-    error = response.error;
+    // Create a promise that rejects after 5 seconds
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Admin check timed out after 5 seconds')), 5000);
+    });
 
-    if (error) {
-      // Log the specific error object from Supabase
-      logger.error(`Supabase query error checking admin status for ${userId}:`, error);
-      return false; // Return false on query error
+    // Race between the actual query and the timeout
+    const response = await Promise.race([
+      supabase
+        .from('user_roles')
+        .select('role')
+        .eq('user_id', userId)
+        .eq('role', 'admin')
+        .maybeSingle(),
+      timeoutPromise
+    ]) as any; // Type assertion needed because of the race
+
+    logger.log(`Received response from Supabase for admin check: ${userId}`);
+    
+    if (response.error) {
+      logger.error(`Supabase query error checking admin status for ${userId}:`, response.error);
+      return false;
     }
     
-    // Explicitly log the data received (or lack thereof)
-    if (data) {
+    if (response.data) {
       logger.log(`Admin check successful for ${userId}: Found role data.`);
-      return true; // User has the admin role
+      return true;
     } else {
       logger.log(`Admin check successful for ${userId}: No admin role row found (data is null/empty).`);
-      return false; // User does not have the admin role row
+      return false;
     }
 
-  } catch (catchError) {
-    // Catch unexpected errors during the async operation itself
-    logger.error(`Unexpected error during admin check for ${userId}:`, catchError);
+  } catch (error) {
+    // This will catch both timeout and query errors
+    logger.error(`Error during admin check for ${userId}:`, error);
     return false;
   }
 };

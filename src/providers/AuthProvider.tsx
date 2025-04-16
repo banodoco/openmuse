@@ -117,6 +117,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             setSession(currentSession);
             const newUser = currentSession?.user || null;
             setUser(newUser);
+
+            // Safety timeout to ensure we always complete loading
+            const safetyTimeout = setTimeout(() => {
+              if (isLoading) {
+                logger.warn(`[${loadingCount}] Safety timeout triggered - forcing loading state to complete`);
+                setIsLoading(false);
+              }
+            }, 6000);
+
             if (newUser) {
               try {
                 logger.log(`[${loadingCount}] Starting admin check for SIGNED_IN user:`, newUser.id);
@@ -127,10 +136,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 logger.error(`[${loadingCount}] Error during admin check in initial SIGNED_IN event:`, adminError);
                 setIsAdmin(false);
               } finally {
+                clearTimeout(safetyTimeout);
                 logger.log(`[${loadingCount}] Admin check process complete, setting isLoading to false`);
                 setIsLoading(false);
               }
             } else {
+              clearTimeout(safetyTimeout);
               logger.log(`[${loadingCount}] No user in SIGNED_IN event, setting isLoading to false`);
               setIsAdmin(false);
               setIsLoading(false);
