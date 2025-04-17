@@ -132,7 +132,7 @@ export default function UserProfilePage() {
           <Link 
             key={lora.id} 
             to={`/assets/${lora.id}`}
-            state={{ from: 'profile', displayName }}
+            state={{ from: 'profile', displayName: displayName }}
             className="no-underline"
           >
             <Card className="h-full hover:shadow-md transition-shadow">
