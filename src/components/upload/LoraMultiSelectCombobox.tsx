@@ -50,9 +50,11 @@ export function LoraMultiSelectCombobox({
 
   const handleSelect = (loraId: string) => {
     if (disabled) return;
+    console.log(`handleSelect called with loraId: ${loraId}`);
     const newSelectedIds = selectedIds.includes(loraId)
       ? selectedIds.filter((id) => id !== loraId)
       : [...selectedIds, loraId];
+    console.log(`New selected IDs: ${JSON.stringify(newSelectedIds)}`);
     setSelectedIds(newSelectedIds);
   }
 
@@ -98,8 +100,14 @@ export function LoraMultiSelectCombobox({
                   <CommandItem
                     key={lora.id}
                     value={lora.name}
-                    onSelect={() => handleSelect(lora.id)}
-                    onClick={() => handleSelect(lora.id)}
+                    onSelect={() => {
+                      console.log(`CommandItem onSelect fired for: ${lora.name} (${lora.id})`);
+                      handleSelect(lora.id);
+                    }}
+                    onClick={() => {
+                      console.log(`CommandItem onClick fired for: ${lora.name} (${lora.id})`);
+                      handleSelect(lora.id);
+                    }}
                     disabled={disabled}
                     className="cursor-pointer"
                   >
