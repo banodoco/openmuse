@@ -109,7 +109,10 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   <LoraMultiSelectCombobox
                     loras={availableLoras}
                     selectedIds={associatedLoraIds}
-                    setSelectedIds={(ids) => updateMetadata(videoId, 'associatedLoraIds', ids)}
+                    setSelectedIds={(ids) => {
+                      console.log(`VideoMetadataForm: Calling updateMetadata for video ${videoId} with field 'associatedLoraIds' and value:`, ids);
+                      updateMetadata(videoId, 'associatedLoraIds', ids);
+                    }}
                     disabled={disabled || availableLoras.length === 0}
                     placeholder="Select LoRA(s)..."
                     searchPlaceholder="Search LoRAs..."
