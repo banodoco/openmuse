@@ -1,18 +1,16 @@
 
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Play } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import LoraList from '@/components/lora/LoraList';
-import AddLoRAModal from '@/components/lora/AddLoRAModal';
-import { useVideoHover } from '@/hooks/useVideoHover';
+import VideoPreview from '@/components/VideoPreview';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function UserProfilePage() {
@@ -26,7 +24,6 @@ export default function UserProfilePage() {
   const [canEdit, setCanEdit] = useState(false);
   const [userAssets, setUserAssets] = useState<LoraAsset[]>([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
-  const [hoveredAssetId, setHoveredAssetId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProfileByDisplayName = async () => {
@@ -141,32 +138,8 @@ export default function UserProfilePage() {
       .substring(0, 2);
   };
 
+  // Now use the same approach as LoraCard for displaying videos
   const ProfileLoraList = ({ loras }: { loras: LoraAsset[] }) => {
-    const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
-
-    const handleMouseEnter = (loraId: string) => {
-      setHoveredAssetId(loraId);
-      
-      // Play the video when hovering
-      const videoElement = videoRefs.current[loraId];
-      if (videoElement && !isMobile) {
-        videoElement.currentTime = 0;
-        videoElement.play().catch(err => {
-          console.error('Error playing video on hover:', err);
-        });
-      }
-    };
-
-    const handleMouseLeave = (loraId: string) => {
-      setHoveredAssetId(null);
-      
-      // Pause the video when not hovering
-      const videoElement = videoRefs.current[loraId];
-      if (videoElement) {
-        videoElement.pause();
-      }
-    };
-
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loras.map(lora => (
@@ -175,50 +148,20 @@ export default function UserProfilePage() {
             to={`/assets/${lora.id}`}
             state={{ from: 'profile', displayName: displayName }}
             className="no-underline"
-            onMouseEnter={() => handleMouseEnter(lora.id)}
-            onMouseLeave={() => handleMouseLeave(lora.id)}
           >
             <Card className="h-full hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex flex-col h-full">
                   <div className="aspect-video w-full bg-muted rounded-md overflow-hidden mb-3 relative">
                     {lora.primaryVideo ? (
-                      <div className="relative w-full h-full">
-                        {/* Always visible thumbnail with proper styling and fallback */}
-                        {lora.primaryVideo.video_location && (
-                          <div 
-                            className="w-full h-full bg-center bg-cover absolute inset-0" 
-                            style={{ 
-                              backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl || lora.primaryVideo.video_location})`,
-                              backgroundSize: 'cover',
-                              backgroundPosition: 'center center',
-                            }}
-                          />
-                        )}
-                        
-                        {/* Play button overlay that only appears when not hovering */}
-                        <div 
-                          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${hoveredAssetId === lora.id ? 'opacity-0' : 'opacity-100'}`}
-                        >
-                          <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-                            <Play className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                        
-                        {/* Video that only loads/plays on hover */}
-                        {hoveredAssetId === lora.id && lora.primaryVideo.video_location && (
-                          <video 
-                            ref={el => {
-                              if (el) videoRefs.current[lora.id] = el;
-                            }}
-                            className="absolute inset-0 w-full h-full object-cover"
-                            src={lora.primaryVideo.video_location}
-                            muted
-                            loop
-                            playsInline
-                          />
-                        )}
-                      </div>
+                      <VideoPreview 
+                        url={lora.primaryVideo.video_location} 
+                        className="w-full h-full object-cover"
+                        title={lora.name}
+                        creator={lora.creator || ''}
+                        lazyLoad={true}
+                        thumbnailUrl={lora.primaryVideo.metadata?.thumbnailUrl}
+                      />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-200">
                         <span className="text-slate-500 text-sm">No preview</span>
@@ -288,7 +231,9 @@ export default function UserProfilePage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">Assets</h2>
                 {isOwner && profile?.id && (
-                  <AddLoRAModal userId={profile.id} />
+                  <Link to="/upload" className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md">
+                    Add New LoRA
+                  </Link>
                 )}
               </div>
 
