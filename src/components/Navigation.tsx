@@ -7,7 +7,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
-const APP_VERSION = 'v0.1.6';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -44,7 +43,7 @@ const Navigation: React.FC = () => {
               )}
               onError={handleImageError}
             />
-            <span className="text-xs text-muted-foreground mt-1">{APP_VERSION}</span>
+            {/* Removed version span */}
           </Link>
           
           {!isAuthPage && isAdmin && (
