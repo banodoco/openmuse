@@ -51,6 +51,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [thumbnailLoaded, setThumbnailLoaded] = useState(!!thumbnailUrl);
   const componentId = useRef(`video_preview_${Math.random().toString(36).substring(2, 9)}`);
   const [thumbnailGenerationAttempts, setThumbnailGenerationAttempts] = useState(0);
+  const thumbnailGeneratorMounted = useRef(false);
   
   // Log component mount with ID for tracking
   useEffect(() => {
@@ -59,6 +60,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     
     return () => {
       logger.log(`VideoPreview unmounting [${componentId.current}]`);
+      thumbnailGeneratorMounted.current = false;
     };
   }, []);
   
@@ -110,10 +112,15 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     logger.log(`VideoPreview [${componentId.current}]: Thumbnail generated, current posterUrl: ${posterUrl ? 'exists' : 'none'}`);
     setThumbnailGenerationAttempts(prev => prev + 1);
     
+    // Only update if we don't have a thumbnail yet or if we're forcing regeneration
     if (!posterUrl || forceGenerate) {
       logger.log(`VideoPreview [${componentId.current}]: Setting new thumbnail URL, attempt #${thumbnailGenerationAttempts + 1}`);
       setPosterUrl(thumbnailUrl);
       setThumbnailLoaded(true);
+      // Prevent additional generation attempts after successful generation
+      if (thumbnailGenerationAttempts === 0) {
+        setForceGenerate(false);
+      }
     } else {
       logger.log(`VideoPreview [${componentId.current}]: Ignoring new thumbnail because we already have one`);
     }
@@ -144,7 +151,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  const needsThumbnailGeneration = (!thumbnailUrl || forceGenerate) && thumbnailGenerationAttempts < 2;
+  // Only generate thumbnail if we don't have one yet and haven't reached the max attempts
+  const needsThumbnailGeneration = (!posterUrl || forceGenerate) && thumbnailGenerationAttempts < 2 && !thumbnailGeneratorMounted.current;
+  
+  if (needsThumbnailGeneration) {
+    thumbnailGeneratorMounted.current = true;
+  }
 
   // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
