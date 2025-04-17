@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -34,6 +33,8 @@ export default function UserProfilePage() {
   const [userVideos, setUserVideos] = useState<VideoEntry[]>([]);
   const [isLoadingVideos, setIsLoadingVideos] = useState(true);
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
+  const [generationVideos, setGenerationVideos] = useState<VideoEntry[]>([]);
+  const [artVideos, setArtVideos] = useState<VideoEntry[]>([]);
 
   useEffect(() => {
     setForceLoggedOutView(searchParams.get('loggedOutView') === 'true');
@@ -46,17 +47,14 @@ export default function UserProfilePage() {
       setIsLoading(true);
       
       try {
-        // Decode the URL-encoded displayName
         const decodedDisplayName = decodeURIComponent(displayName);
         
-        // First try to find by display_name
         let { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('display_name', decodedDisplayName)
           .maybeSingle();
         
-        // If not found by display_name, try username (Discord username)
         if (!data && !error) {
           const { data: usernameData, error: usernameError } = await supabase
             .from('profiles')
@@ -112,11 +110,7 @@ export default function UserProfilePage() {
       }
 
       if (assetsData) {
-        console.log('Assets data:', assetsData);
-        
         const processedAssets: LoraAsset[] = assetsData.map(asset => {
-          console.log('Processing asset:', asset.id, 'Primary video:', asset.primaryVideo);
-          
           const videoUrl = asset.primaryVideo?.url || '';
           const thumbnailUrl = asset.primaryVideo?.metadata?.thumbnailUrl || null;
           
@@ -150,7 +144,6 @@ export default function UserProfilePage() {
           };
         });
         
-        console.log('Processed assets:', processedAssets);
         setUserAssets(processedAssets);
       }
     } catch (err) {
@@ -187,10 +180,18 @@ export default function UserProfilePage() {
           metadata: {
             title: video.title,
             description: '',
-            thumbnailUrl: null
+            thumbnailUrl: null,
+            classification: video.classification || 'art'
           }
         }));
         
+        const generations = processedVideos.filter(v => v.metadata?.classification === 'generation');
+        const art = processedVideos.filter(v => 
+          !v.metadata?.classification || v.metadata.classification === 'art'
+        );
+        
+        setGenerationVideos(generations);
+        setArtVideos(art);
         setUserVideos(processedVideos);
       }
     } catch (err) {
@@ -346,12 +347,12 @@ export default function UserProfilePage() {
 
             <Card className="mt-8">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Videos</CardTitle>
+                <CardTitle>Generations</CardTitle>
                 {isOwner && profile?.id && !forceLoggedOutView && (
                   <UploadModal
                     trigger={
-                      <Button> 
-                        Add new Video
+                      <Button>
+                        Add new Generation
                       </Button>
                     }
                     initialUploadType="video"
@@ -362,9 +363,9 @@ export default function UserProfilePage() {
               <CardContent>
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 4} />
-                ) : userVideos.length > 0 ? (
+                ) : generationVideos.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                    {userVideos.map(video => (
+                    {generationVideos.map(video => (
                       <VideoCard 
                         key={video.id} 
                         video={video}
@@ -375,7 +376,44 @@ export default function UserProfilePage() {
                   </div>
                 ) : (
                   <div className="text-center text-muted-foreground py-8">
-                    This user hasn't created any videos yet.
+                    This user hasn't created any generations yet.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-8">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Art</CardTitle>
+                {isOwner && profile?.id && !forceLoggedOutView && (
+                  <UploadModal
+                    trigger={
+                      <Button>
+                        Add new Art
+                      </Button>
+                    }
+                    initialUploadType="video"
+                    onUploadSuccess={() => fetchUserVideos(profile.id)}
+                  />
+                )}
+              </CardHeader>
+              <CardContent>
+                {isLoadingVideos ? (
+                  <LoraGallerySkeleton count={isMobile ? 2 : 4} />
+                ) : artVideos.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {artVideos.map(video => (
+                      <VideoCard 
+                        key={video.id} 
+                        video={video}
+                        isAdmin={isAdmin}
+                        onOpenLightbox={handleOpenLightbox}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    This user hasn't created any art yet.
                   </div>
                 )}
               </CardContent>
