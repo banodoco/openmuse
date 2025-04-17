@@ -8,12 +8,15 @@ import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil } from 'lucide-react';
+import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil, ExternalLink } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import { useSearchParams } from 'react-router-dom';
 
 export default function UserProfileSettings() {
   const { user } = useAuth();
+  const [searchParams] = useSearchParams();
+  const isPreviewMode = searchParams.get('preview') === 'true';
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [displayName, setDisplayName] = useState('');
   const [realName, setRealName] = useState('');
@@ -61,11 +64,7 @@ export default function UserProfileSettings() {
     e.preventDefault();
     
     if (!displayName.trim()) {
-      toast({
-        title: "Error",
-        description: "Display name cannot be empty",
-        variant: "destructive"
-      });
+      setError('Display name cannot be empty');
       return;
     }
     
@@ -91,11 +90,6 @@ export default function UserProfileSettings() {
       }
     } catch (err) {
       console.error('Error updating profile:', err);
-      toast({
-        title: "Error",
-        description: "Failed to update profile",
-        variant: "destructive"
-      });
       setError('Failed to update profile');
     } finally {
       setIsSaving(false);
@@ -111,12 +105,9 @@ export default function UserProfileSettings() {
       
       setLinks([...links, linkToAdd]);
       setNewLink('');
+      setError(null);
     } else {
-      toast({
-        title: "Error",
-        description: "Please enter a valid URL",
-        variant: "destructive"
-      });
+      setError('Please enter a valid URL');
     }
   };
 
@@ -205,12 +196,9 @@ export default function UserProfileSettings() {
       setLinks(newLinks);
       setEditingLinkIndex(null);
       setEditingLinkValue('');
+      setError(null);
     } else {
-      toast({
-        title: "Error",
-        description: "Please enter a valid URL",
-        variant: "destructive"
-      });
+      setError('Please enter a valid URL');
     }
   };
 
@@ -233,11 +221,24 @@ export default function UserProfileSettings() {
 
   return (
     <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <CardTitle>Profile Settings</CardTitle>
-        <CardDescription>
-          Update your profile information
-        </CardDescription>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Profile Settings</CardTitle>
+          <CardDescription>
+            Update your profile information
+          </CardDescription>
+        </div>
+        {!isPreviewMode && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="gap-2"
+            onClick={() => window.open(`${window.location.pathname}?preview=true`, '_blank')}
+          >
+            <ExternalLink className="h-4 w-4" />
+            Preview Profile
+          </Button>
+        )}
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
@@ -246,50 +247,58 @@ export default function UserProfileSettings() {
               <div 
                 className="w-full h-48 bg-cover bg-center rounded-lg cursor-pointer" 
                 style={{ backgroundImage: `url(${backgroundImageUrl})` }}
-                onClick={handleBackgroundImageClick}
+                onClick={!isPreviewMode ? handleBackgroundImageClick : undefined}
               >
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ImageIcon className="h-8 w-8 text-white" />
-                </div>
+                {!isPreviewMode && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <ImageIcon className="h-8 w-8 text-white" />
+                  </div>
+                )}
               </div>
             ) : (
               <div 
-                className="w-full h-48 bg-muted/30 rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={handleBackgroundImageClick}
+                className={`w-full h-48 bg-muted/30 rounded-lg flex items-center justify-center ${!isPreviewMode ? 'cursor-pointer hover:bg-muted/50' : ''} transition-colors`}
+                onClick={!isPreviewMode ? handleBackgroundImageClick : undefined}
               >
                 <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Add Background Image</span>
+                {!isPreviewMode && <span className="ml-2 text-muted-foreground">Add Background Image</span>}
               </div>
             )}
-            <input 
-              type="file" 
-              ref={backgroundFileInputRef} 
-              onChange={handleBackgroundFileChange} 
-              accept="image/*" 
-              className="hidden" 
-            />
+            {!isPreviewMode && (
+              <input 
+                type="file" 
+                ref={backgroundFileInputRef} 
+                onChange={handleBackgroundFileChange} 
+                accept="image/*" 
+                className="hidden" 
+              />
+            )}
           </div>
           <div className="flex justify-center mb-6 -mt-20 relative z-10">
             <div className="relative group">
-              <Avatar className="h-24 w-24 cursor-pointer border-4 border-white shadow-lg -mt-16" onClick={handleAvatarClick}>
+              <Avatar className={`h-24 w-24 ${!isPreviewMode ? 'cursor-pointer' : ''} border-4 border-white shadow-lg -mt-16`} onClick={!isPreviewMode ? handleAvatarClick : undefined}>
                 <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
                 <AvatarFallback>
                   {profile ? getInitials(profile.display_name || profile.username) : '??'}
                 </AvatarFallback>
               </Avatar>
-              <div 
-                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                onClick={handleAvatarClick}
-              >
-                <Camera className="h-6 w-6 text-white" />
-              </div>
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                onChange={handleFileChange} 
-                accept="image/*" 
-                className="hidden" 
-              />
+              {!isPreviewMode && (
+                <>
+                  <div 
+                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                    onClick={handleAvatarClick}
+                  >
+                    <Camera className="h-6 w-6 text-white" />
+                  </div>
+                  <input 
+                    type="file" 
+                    ref={fileInputRef} 
+                    onChange={handleFileChange} 
+                    accept="image/*" 
+                    className="hidden" 
+                  />
+                </>
+              )}
             </div>
           </div>
           
@@ -468,40 +477,42 @@ export default function UserProfileSettings() {
             )}
           </div>
           
-          {error && (
+          {error && !isPreviewMode && (
             <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
               {error}
             </div>
           )}
         </form>
       </CardContent>
-      <CardFooter className="flex flex-col gap-4">
-        <Button 
-          onClick={handleSubmit} 
-          disabled={isSaving || isLoading || !displayName.trim() || (
-            displayName === profile?.display_name && 
-            realName === profile?.real_name && 
-            description === profile?.description && 
-            JSON.stringify(links) === JSON.stringify(profile?.links || []) &&
-            avatarUrl === profile?.avatar_url &&
-            backgroundImageUrl === profile?.background_image_url
-          )}
-          className="w-full"
-          variant={justSaved ? "outline" : "default"}
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-            </>
-          ) : justSaved ? (
-            <>
-              <Check className="mr-2 h-4 w-4" /> Changes Saved
-            </>
-          ) : (
-            'Save Changes'
-          )}
-        </Button>
-      </CardFooter>
+      {!isPreviewMode && (
+        <CardFooter className="flex flex-col gap-4">
+          <Button 
+            onClick={handleSubmit} 
+            disabled={isSaving || isLoading || !displayName.trim() || (
+              displayName === profile?.display_name && 
+              realName === profile?.real_name && 
+              description === profile?.description && 
+              JSON.stringify(links) === JSON.stringify(profile?.links || []) &&
+              avatarUrl === profile?.avatar_url &&
+              backgroundImageUrl === profile?.background_image_url
+            )}
+            className="w-full"
+            variant={justSaved ? "outline" : "default"}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+              </>
+            ) : justSaved ? (
+              <>
+                <Check className="mr-2 h-4 w-4" /> Changes Saved
+              </>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
+        </CardFooter>
+      )}
     </Card>
   );
 }
