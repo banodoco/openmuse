@@ -111,6 +111,10 @@ export function LoraMultiSelectCombobox({
                         console.warn(`Could not find LoRA matching selected value: ${currentValue}`);
                       }
                     }}
+                    onClick={() => {
+                      console.log(`CommandItem onClick fired for: ${lora.name} (${lora.id})`);
+                      handleSelect(lora.id);
+                    }}
                     disabled={disabled}
                     className="cursor-pointer"
                   >

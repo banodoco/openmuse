@@ -192,6 +192,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: string, value: any) => {
+    console.log(`MultipleVideoUploader: updateVideoMetadata called for video ${id}, field: ${field}, value:`, value);
     if (disabled) return;
     
     setVideos(prev => {
