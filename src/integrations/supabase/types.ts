@@ -144,24 +144,30 @@ export type Database = {
         Row: {
           avatar_url: string | null
           created_at: string
+          description: string | null
           display_name: string | null
           id: string
+          links: string[] | null
           username: string
           video_upload_consent: boolean | null
         }
         Insert: {
           avatar_url?: string | null
           created_at?: string
+          description?: string | null
           display_name?: string | null
           id: string
+          links?: string[] | null
           username: string
           video_upload_consent?: boolean | null
         }
         Update: {
           avatar_url?: string | null
           created_at?: string
+          description?: string | null
           display_name?: string | null
           id?: string
+          links?: string[] | null
           username?: string
           video_upload_consent?: boolean | null
         }
