@@ -193,7 +193,9 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
                 <MultipleVideoUploader
                   videos={videos}
                   setVideos={setVideos}
-                  hideIsPrimary={true}
+                  allowPrimarySelection={false}
+                  availableLoras={[]}
+                  uploadContext="lora"
                 />
                 
                 <div className="flex justify-end space-x-2 pt-4">
