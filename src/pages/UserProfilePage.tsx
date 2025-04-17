@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -13,10 +14,11 @@ import { useAuth } from '@/hooks/useAuth';
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { user, isAdmin } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
+  const [canEdit, setCanEdit] = useState(false);
 
   useEffect(() => {
     const fetchProfileByDisplayName = async () => {
@@ -40,7 +42,10 @@ export default function UserProfilePage() {
         if (data) {
           setProfile(data as UserProfile);
           // Check if the current user is the owner of this profile
-          setIsOwner(user?.id === data.id);
+          const ownerStatus = user?.id === data.id;
+          setIsOwner(ownerStatus);
+          // User can edit if they are the owner or an admin
+          setCanEdit(ownerStatus || !!isAdmin);
         } else {
           // If no profile is found with this display name, redirect to home
           navigate('/');
@@ -53,7 +58,7 @@ export default function UserProfilePage() {
     };
     
     fetchProfileByDisplayName();
-  }, [displayName, user, navigate]);
+  }, [displayName, user, navigate, isAdmin]);
 
   // Function to get initials for avatar fallback
   const getInitials = (name: string) => {
@@ -71,7 +76,7 @@ export default function UserProfilePage() {
       <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
         <PageHeader
           title={profile ? `${profile.display_name}'s Profile` : 'Profile'}
-          description={isOwner ? "Manage your profile information" : "View user profile"}
+          description={canEdit ? "Manage your profile information" : "View user profile"}
           buttonText=""
           onButtonClick={() => {}}
         />
@@ -86,8 +91,8 @@ export default function UserProfilePage() {
           </Card>
         ) : (
           <div className="max-w-2xl mx-auto">
-            {isOwner ? (
-              // If user is viewing their own profile, show the settings component
+            {canEdit ? (
+              // If user can edit (owner or admin), show the settings component
               <UserProfileSettings />
             ) : (
               // Otherwise show a read-only view of the profile
