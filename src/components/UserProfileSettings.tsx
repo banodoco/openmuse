@@ -24,6 +24,7 @@ export default function UserProfileSettings() {
   const [editingLinkValue, setEditingLinkValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [justSaved, setJustSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
   const [backgroundImageUrl, setBackgroundImageUrl] = useState('');
@@ -83,10 +84,10 @@ export default function UserProfileSettings() {
       
       if (updatedProfile) {
         setProfile(updatedProfile);
-        toast({
-          title: "Success",
-          description: "Profile updated successfully",
-        });
+        setJustSaved(true);
+        setTimeout(() => {
+          setJustSaved(false);
+        }, 2000);
       }
     } catch (err) {
       console.error('Error updating profile:', err);
@@ -420,37 +421,37 @@ export default function UserProfileSettings() {
                             </div>
                           ) : (
                             <>
-                              <div className="flex items-center justify-center w-8 h-8 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
+                              <div className="flex items-center justify-center w-10 h-10 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
                                 <img 
                                   src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
                                   alt=""
-                                  className="w-4 h-4"
+                                  className="w-6 h-6 object-contain"
                                 />
                               </div>
-                              <div className="flex gap-1 absolute -top-1 -right-1">
+                              <div className="flex gap-1 absolute -top-2 -right-2">
                                 <Button 
                                   type="button"
                                   size="icon"
                                   variant="ghost"
-                                  className="h-4 w-4 rounded-full bg-muted p-0"
+                                  className="h-5 w-5 rounded-full bg-muted p-0"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleEditLink(index);
                                   }}
                                 >
-                                  <Pencil className="h-2 w-2" />
+                                  <Pencil className="h-3 w-3" />
                                 </Button>
                                 <Button 
                                   type="button"
                                   size="icon"
                                   variant="ghost"
-                                  className="h-4 w-4 rounded-full bg-muted p-0"
+                                  className="h-5 w-5 rounded-full bg-muted p-0"
                                   onClick={(e) => {
                                     e.stopPropagation();
                                     handleRemoveLink(index);
                                   }}
                                 >
-                                  <X className="h-2 w-2" />
+                                  <X className="h-3 w-3" />
                                 </Button>
                               </div>
                             </>
@@ -486,10 +487,15 @@ export default function UserProfileSettings() {
             backgroundImageUrl === profile?.background_image_url
           )}
           className="w-full"
+          variant={justSaved ? "outline" : "default"}
         >
           {isSaving ? (
             <>
               <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
+            </>
+          ) : justSaved ? (
+            <>
+              <Check className="mr-2 h-4 w-4" /> Changes Saved
             </>
           ) : (
             'Save Changes'
