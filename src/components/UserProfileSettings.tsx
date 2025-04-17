@@ -210,7 +210,7 @@ export default function UserProfileSettings() {
           <div className="relative group mb-6">
             {backgroundImageUrl ? (
               <div 
-                className="w-full h-32 bg-cover bg-center rounded-lg cursor-pointer" 
+                className="w-full h-48 bg-cover bg-center rounded-lg cursor-pointer"
                 style={{ backgroundImage: `url(${backgroundImageUrl})` }}
                 onClick={handleBackgroundImageClick}
               >
@@ -220,7 +220,7 @@ export default function UserProfileSettings() {
               </div>
             ) : (
               <div 
-                className="w-full h-32 bg-muted/30 rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                className="w-full h-48 bg-muted/30 rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
                 onClick={handleBackgroundImageClick}
               >
                 <ImageIcon className="h-8 w-8 text-muted-foreground" />
@@ -235,9 +235,9 @@ export default function UserProfileSettings() {
               className="hidden" 
             />
           </div>
-          <div className="flex justify-center mb-6 -mt-13 relative z-10">
+          <div className="flex justify-center mb-6 -mt-16 relative z-10">
             <div className="relative group">
-              <Avatar className="h-20 w-20 cursor-pointer border-4 border-white shadow-lg" onClick={handleAvatarClick}>
+              <Avatar className="h-24 w-24 cursor-pointer border-4 border-white shadow-lg" onClick={handleAvatarClick}>
                 <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
                 <AvatarFallback>
                   {profile ? getInitials(profile.display_name || profile.username) : '??'}
