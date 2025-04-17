@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -19,7 +18,7 @@ interface VideoMetadataFormProps {
     isPrimary?: boolean;
   };
   updateMetadata: (id: string, field: string, value: any) => void;
-  canSetPrimary?: boolean;
+  allowPrimarySelection?: boolean;
   disabled?: boolean;
 }
 
@@ -27,7 +26,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   videoId, 
   metadata, 
   updateMetadata, 
-  canSetPrimary = true,
+  allowPrimarySelection = true,
   disabled = false
 }) => {
   const { user } = useAuth();
@@ -129,7 +128,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
             )}
           </div>
           
-          {canSetPrimary && (
+          {allowPrimarySelection && (
             <div className="pt-2">
               <div className="flex items-center space-x-3">
                 <Switch

@@ -26,14 +26,14 @@ interface MultipleVideoUploaderProps {
   videos: VideoItem[];
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
   disabled?: boolean;
-  hideIsPrimary?: boolean;
+  allowPrimarySelection?: boolean;
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
   videos, 
   setVideos,
   disabled = false,
-  hideIsPrimary = false
+  allowPrimarySelection = true
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -313,9 +313,9 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                     <VideoMetadataForm
                       videoId={video.id}
                       metadata={video.metadata}
-                      updateMetadata={updateVideoMetadata}
-                      canSetPrimary={!hideIsPrimary}
+                      updateMetadata={(field, value) => updateVideoMetadata(video.id, field, value)}
                       disabled={disabled}
+                      allowPrimarySelection={allowPrimarySelection}
                     />
                   </div>
                 </CardContent>
