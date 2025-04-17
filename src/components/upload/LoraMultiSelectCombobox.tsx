@@ -1,18 +1,14 @@
 "use client"
 
 import * as React from "react"
-import { Check, ChevronsUpDown, X } from "lucide-react"
+import { Check, ChevronsUpDown } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command"
+import { Input } from "@/components/ui/input"
+import { Checkbox } from "@/components/ui/checkbox"
+import { Label } from "@/components/ui/label"
+import { ScrollArea } from "@/components/ui/scroll-area"
 import {
   Popover,
   PopoverContent,
@@ -47,13 +43,14 @@ export function LoraMultiSelectCombobox({
   disabled = false,
 }: LoraMultiSelectComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [searchTerm, setSearchTerm] = React.useState("");
 
-  const handleSelect = React.useCallback((loraId: string) => {
+  const handleSelect = React.useCallback((loraId: string, checked: boolean) => {
     if (disabled) return;
     
-    const newSelectedIds = selectedIds.includes(loraId)
-      ? selectedIds.filter(id => id !== loraId)
-      : [...selectedIds, loraId];
+    const newSelectedIds = checked
+      ? [...selectedIds, loraId]
+      : selectedIds.filter(id => id !== loraId);
     
     setSelectedIds(newSelectedIds);
   }, [disabled, setSelectedIds, selectedIds]);
@@ -63,6 +60,13 @@ export function LoraMultiSelectCombobox({
       .filter(lora => selectedIds.includes(lora.id))
       .map(lora => lora.name);
   }, [loras, selectedIds]);
+
+  const filteredLoras = React.useMemo(() => {
+    if (!searchTerm) return loras;
+    return loras.filter(lora => 
+      lora.name.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+  }, [loras, searchTerm]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -87,41 +91,53 @@ export function LoraMultiSelectCombobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-        <Command>
-          <CommandInput placeholder={searchPlaceholder} disabled={disabled} />
-          <CommandList>
-            <CommandEmpty>{noResultsText}</CommandEmpty>
-            <CommandGroup>
-              {loras.map((lora) => {
+        <div className="p-2">
+          <Input
+            placeholder={searchPlaceholder}
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            disabled={disabled}
+            className="w-full"
+          />
+        </div>
+        <ScrollArea className="max-h-60">
+          <div className="p-2 space-y-1">
+            {filteredLoras.length > 0 ? (
+              filteredLoras.map((lora) => {
                 const isSelected = selectedIds.includes(lora.id);
                 return (
-                  <CommandItem
-                    key={lora.id}
-                    value={lora.name}
-                    onSelect={(currentValue) => {
-                      const selectedLora = loras.find(l => 
-                        l.name.toLowerCase() === currentValue.toLowerCase()
-                      );
-                      if (selectedLora) {
-                        handleSelect(selectedLora.id);
-                      }
-                    }}
-                    disabled={disabled}
-                    className="cursor-pointer"
+                  <div 
+                    key={lora.id} 
+                    className={cn(
+                      "flex items-center space-x-2 p-2 rounded-md hover:bg-accent hover:text-accent-foreground", 
+                      disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
+                    )}
+                    onClick={() => { if (!disabled) handleSelect(lora.id, !isSelected); }} 
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        isSelected ? "opacity-100" : "opacity-0"
-                      )}
+                    <Checkbox
+                      id={`lora-${lora.id}`}
+                      checked={isSelected}
+                      onCheckedChange={(checked) => {
+                        handleSelect(lora.id, !!checked); 
+                      }}
+                      disabled={disabled}
+                      aria-labelledby={`lora-label-${lora.id}`}
                     />
-                    {lora.name}
-                  </CommandItem>
+                    <Label 
+                      htmlFor={`lora-${lora.id}`} 
+                      id={`lora-label-${lora.id}`}
+                      className={cn("flex-1", disabled ? "cursor-not-allowed" : "cursor-pointer")}
+                    >
+                      {lora.name}
+                    </Label>
+                  </div>
                 );
-              })}
-            </CommandGroup>
-          </CommandList>
-        </Command>
+              })
+            ) : (
+              <p className="p-2 text-sm text-muted-foreground text-center">{noResultsText}</p>
+            )}
+          </div>
+        </ScrollArea>
       </PopoverContent>
     </Popover>
   );
