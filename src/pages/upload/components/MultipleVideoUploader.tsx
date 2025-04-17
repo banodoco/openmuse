@@ -198,6 +198,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       const updated = prev.map(video => {
         if (video.id === id) {
           if (field === 'associatedLoraIds') {
+            console.log(`MultipleVideoUploader: Updating associatedLoraIds for video ${id} to:`, value);
             return {
               ...video,
               associatedLoraIds: value as string[]
@@ -285,66 +286,69 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           </div>
           
           <div className="grid gap-4 md:grid-cols-1">
-            {videos.map((video, index) => (
-              <Card key={video.id} className="relative overflow-hidden">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="absolute top-2 right-2 z-10 bg-background/80 rounded-full"
-                  onClick={() => removeVideo(video.id)}
-                  disabled={disabled}
-                >
-                  <XCircle size={18} />
-                  <span className="sr-only">Remove</span>
-                </Button>
-                
-                <CardContent className="p-4 grid md:grid-cols-2 gap-6">
-                  <div className="flex flex-col space-y-2">
-                    <div className="aspect-video bg-muted rounded-md overflow-hidden">
-                      {video.url ? (
-                        <video
-                          src={video.url}
-                          controls
-                          className="w-full h-full object-contain"
-                          preload="metadata"
-                        />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-muted-foreground">No video selected</span>
+            {videos.map((video, index) => {
+              console.log(`MultipleVideoUploader: Rendering VideoMetadataForm for video ${video.id} with associatedLoraIds:`, video.associatedLoraIds);
+              return (
+                <Card key={video.id} className="relative overflow-hidden">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="absolute top-2 right-2 z-10 bg-background/80 rounded-full"
+                    onClick={() => removeVideo(video.id)}
+                    disabled={disabled}
+                  >
+                    <XCircle size={18} />
+                    <span className="sr-only">Remove</span>
+                  </Button>
+                  
+                  <CardContent className="p-4 grid md:grid-cols-2 gap-6">
+                    <div className="flex flex-col space-y-2">
+                      <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                        {video.url ? (
+                          <video
+                            src={video.url}
+                            controls
+                            className="w-full h-full object-contain"
+                            preload="metadata"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <span className="text-muted-foreground">No video selected</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {!video.url && !video.file && (
+                        <div className="flex justify-center gap-2 mt-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={disabled}
+                          >
+                            <Upload size={16} className="mr-2" />
+                            Upload
+                          </Button>
                         </div>
                       )}
                     </div>
                     
-                    {!video.url && !video.file && (
-                      <div className="flex justify-center gap-2 mt-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => fileInputRef.current?.click()}
-                          disabled={disabled}
-                        >
-                          <Upload size={16} className="mr-2" />
-                          Upload
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                  
-                  <div>
-                    <VideoMetadataForm
-                      videoId={video.id}
-                      metadata={video.metadata}
-                      associatedLoraIds={video.associatedLoraIds || []}
-                      availableLoras={availableLoras}
-                      updateMetadata={(field, value) => updateVideoMetadata(video.id, field, value)}
-                      disabled={disabled}
-                      allowPrimarySelection={allowPrimarySelection}
-                      uploadContext={uploadContext}
-                    />
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div>
+                      <VideoMetadataForm
+                        videoId={video.id}
+                        metadata={video.metadata}
+                        associatedLoraIds={video.associatedLoraIds || []}
+                        availableLoras={availableLoras}
+                        updateMetadata={(field, value) => updateVideoMetadata(video.id, field, value)}
+                        disabled={disabled}
+                        allowPrimarySelection={allowPrimarySelection}
+                        uploadContext={uploadContext}
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
