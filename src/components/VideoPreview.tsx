@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -46,6 +47,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const [internalHoverState, setInternalHoverState] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
+  const [forceGenerate, setForceGenerate] = useState(!thumbnailUrl);
   
   // Combine external and internal hover states
   const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
@@ -119,7 +121,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  const needsThumbnailGeneration = !thumbnailUrl && (file || (url && !isExternalLink && !posterUrl));
+  const needsThumbnailGeneration = !thumbnailUrl || forceGenerate;
 
   // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
@@ -138,6 +140,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           onThumbnailGenerated={handleThumbnailGenerated}
           userId={user?.id}
           saveThumbnail={true}
+          forceGenerate={forceGenerate}
         />
       )}
       

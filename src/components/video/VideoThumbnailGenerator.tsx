@@ -3,6 +3,9 @@ import { useEffect, useRef, useState } from 'react';
 import { getYoutubeVideoId } from '@/lib/utils/videoPreviewUtils';
 import { supabase } from '@/integrations/supabase/client';
 import { v4 as uuidv4 } from 'uuid';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoThumbnailGenerator');
 
 interface VideoThumbnailGeneratorProps {
   file?: File;
@@ -10,6 +13,7 @@ interface VideoThumbnailGeneratorProps {
   onThumbnailGenerated: (thumbnailUrl: string) => void;
   saveThumbnail?: boolean;
   userId?: string;
+  forceGenerate?: boolean;
 }
 
 const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
@@ -17,9 +21,12 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   url,
   onThumbnailGenerated,
   saveThumbnail = false,
-  userId
+  userId,
+  forceGenerate = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const maxRetries = 3;
   
   const saveThumbnailToStorage = async (dataUrl: string) => {
     if (!userId) return null;
@@ -36,7 +43,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         });
 
       if (error) {
-        console.error('Thumbnail upload error:', error);
+        logger.error('Thumbnail upload error:', error);
         return null;
       }
 
@@ -46,7 +53,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
 
       return publicUrl;
     } catch (error) {
-      console.error('Error saving thumbnail:', error);
+      logger.error('Error saving thumbnail:', error);
       return null;
     }
   };
@@ -89,7 +96,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               onThumbnailGenerated(thumbnailUrl);
             }
           } catch (e) {
-            console.error('Error generating thumbnail:', e);
+            logger.error('Error generating thumbnail:', e);
           }
         };
       }
@@ -106,7 +113,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
           onThumbnailGenerated(thumbnailUrl);
         }
       } 
-      else if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('vimeo.com') && url.includes('supabase.co')) {
+      else if (!url.includes('youtube.com') && !url.includes('youtu.be') && !url.includes('vimeo.com') && (url.includes('supabase.co') || forceGenerate)) {
         const tempVideo = document.createElement('video');
         tempVideo.crossOrigin = "anonymous";
         tempVideo.src = url;
@@ -114,7 +121,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         tempVideo.preload = 'metadata';
         
         tempVideo.onloadedmetadata = () => {
-          tempVideo.currentTime = 0.1;
+          tempVideo.currentTime = 0.1; // First frame
         };
         
         tempVideo.onseeked = () => {
@@ -134,18 +141,38 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               tempVideo.load();
             }
           } catch (e) {
-            console.error('Error generating thumbnail:', e);
+            logger.error('Error generating thumbnail:', e);
+            
+            // Retry logic for temporary errors
+            if (retryCount < maxRetries) {
+              logger.log(`Retrying thumbnail generation (${retryCount + 1}/${maxRetries})...`);
+              setRetryCount(prev => prev + 1);
+              // Use a small delay before retrying
+              setTimeout(() => {
+                tempVideo.currentTime = 0.1;
+              }, 500);
+            }
           }
         };
         
         tempVideo.onerror = () => {
-          console.error('Error loading video for thumbnail generation');
+          logger.error('Error loading video for thumbnail generation');
+          
+          // Retry with a slight delay for temporary network issues
+          if (retryCount < maxRetries) {
+            logger.log(`Retrying video load (${retryCount + 1}/${maxRetries})...`);
+            setRetryCount(prev => prev + 1);
+            setTimeout(() => {
+              tempVideo.src = url;
+              tempVideo.load();
+            }, 1000);
+          }
         };
         
         tempVideo.load();
       }
     }
-  }, [file, url, onThumbnailGenerated, saveThumbnail, userId]);
+  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, retryCount, forceGenerate]);
 
   return (
     <video 

@@ -87,7 +87,7 @@ export default function UserProfilePage() {
           
           const videoUrl = asset.primaryVideo?.url || '';
           // Extract thumbnail URL from metadata or use video URL as fallback
-          const thumbnailUrl = asset.primaryVideo?.metadata?.thumbnailUrl || videoUrl;
+          const thumbnailUrl = asset.primaryVideo?.metadata?.thumbnailUrl || null;
           
           return {
             id: asset.id,
@@ -138,7 +138,6 @@ export default function UserProfilePage() {
       .substring(0, 2);
   };
 
-  // Now use the same approach as LoraCard for displaying videos
   const ProfileLoraList = ({ loras }: { loras: LoraAsset[] }) => {
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
