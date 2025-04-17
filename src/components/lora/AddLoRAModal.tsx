@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { LoRADetailsForm } from '@/pages/upload/components';
-import { useMobile } from '@/hooks/use-mobile';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AddLoRAModalProps {
   userId: string;
@@ -14,7 +14,30 @@ interface AddLoRAModalProps {
 
 const AddLoRAModal: React.FC<AddLoRAModalProps> = ({ userId, triggerButtonClassName }) => {
   const [open, setOpen] = useState(false);
-  const isMobile = useMobile();
+  const isMobile = useIsMobile();
+  
+  // Initial LoRA details state
+  const [loraDetails, setLoraDetails] = useState({
+    loraName: '',
+    loraDescription: '',
+    creator: 'self' as 'self' | 'someone_else',
+    creatorName: '',
+    model: 'wan' as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff',
+    modelVariant: '',
+    loraType: 'Concept' as 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other',
+    loraLink: '',
+  });
+
+  const updateLoRADetails = (field: keyof typeof loraDetails, value: string) => {
+    setLoraDetails(prev => ({
+      ...prev,
+      [field]: value
+    }));
+  };
+
+  const handleClose = () => {
+    setOpen(false);
+  };
 
   // Using Sheet for mobile devices and Dialog for desktop
   if (isMobile) {
@@ -30,7 +53,18 @@ const AddLoRAModal: React.FC<AddLoRAModalProps> = ({ userId, triggerButtonClassN
             <SheetTitle>Add New LoRA</SheetTitle>
           </SheetHeader>
           <div className="mt-6">
-            <LoRADetailsForm onCancel={() => setOpen(false)} />
+            <LoRADetailsForm 
+              loraDetails={loraDetails}
+              updateLoRADetails={updateLoRADetails}
+            />
+            <div className="mt-4 flex justify-end">
+              <Button variant="outline" onClick={handleClose} className="mr-2">Cancel</Button>
+              <Button onClick={() => {
+                // Handle submission logic here
+                console.log('Submitting LoRA details:', loraDetails);
+                handleClose();
+              }}>Submit</Button>
+            </div>
           </div>
         </SheetContent>
       </Sheet>
@@ -49,7 +83,18 @@ const AddLoRAModal: React.FC<AddLoRAModalProps> = ({ userId, triggerButtonClassN
           <DialogTitle>Add New LoRA</DialogTitle>
         </DialogHeader>
         <div className="mt-6">
-          <LoRADetailsForm onCancel={() => setOpen(false)} />
+          <LoRADetailsForm 
+            loraDetails={loraDetails}
+            updateLoRADetails={updateLoRADetails}
+          />
+          <div className="mt-4 flex justify-end">
+            <Button variant="outline" onClick={handleClose} className="mr-2">Cancel</Button>
+            <Button onClick={() => {
+              // Handle submission logic here
+              console.log('Submitting LoRA details:', loraDetails);
+              handleClose();
+            }}>Submit</Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
