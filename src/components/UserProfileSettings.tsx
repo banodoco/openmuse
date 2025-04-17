@@ -235,9 +235,9 @@ export default function UserProfileSettings() {
               className="hidden" 
             />
           </div>
-          <div className="flex justify-center mb-6 -mt-16 relative z-10">
+          <div className="flex justify-center mb-6 -mt-20 relative z-10">
             <div className="relative group">
-              <Avatar className="h-24 w-24 cursor-pointer border-4 border-white shadow-lg -mt-13" onClick={handleAvatarClick}>
+              <Avatar className="h-24 w-24 cursor-pointer border-4 border-white shadow-lg -mt-16" onClick={handleAvatarClick}>
                 <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
                 <AvatarFallback>
                   {profile ? getInitials(profile.display_name || profile.username) : '??'}
