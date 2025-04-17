@@ -1,4 +1,3 @@
-// @ts-nocheck
 import * as React from "react";
 import { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
@@ -360,11 +359,6 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
     <div className="relative">
       <div className="space-y-4">
         <div>
-          <h3 className="text-sm font-medium mb-1">Name</h3>
-          <p>{asset?.name || 'No name provided'}</p>
-        </div>
-
-        <div>
           <h3 className="text-sm font-medium mb-1">Description</h3>
           <p className="whitespace-pre-wrap">{asset?.description || 'No description provided'}</p>
         </div>
@@ -429,4 +423,4 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   );
 };
 
-export default EditableLoraDetails; 
+export default EditableLoraDetails;
