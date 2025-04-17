@@ -14,9 +14,10 @@ export const useVideoHover = (
     enabled: boolean;
     resetOnLeave?: boolean;
     delayPlay?: number;
+    preloadOnHover?: boolean;
   }
 ) => {
-  const { enabled, resetOnLeave = true, delayPlay = 0 } = options; // Removed delay for immediate response
+  const { enabled, resetOnLeave = true, delayPlay = 0, preloadOnHover = true } = options;
   const playTimeoutRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
   const lastPlayAttemptRef = useRef<number>(0);
@@ -41,7 +42,12 @@ export const useVideoHover = (
         window.clearTimeout(playTimeoutRef.current);
       }
       
-      // Remove delay to make hover response immediate
+      // Always set preload to auto when hovering to start loading immediately
+      if (preloadOnHover && video.preload !== 'auto') {
+        video.preload = 'auto';
+      }
+      
+      // Start playing after delay (or immediately if delay is 0)
       playTimeoutRef.current = window.setTimeout(() => {
         // Check if we're still hovering (mouse might have left during timeout)
         if (!isHoveringRef.current) return;
@@ -49,11 +55,6 @@ export const useVideoHover = (
         // Ensure video is ready and not already playing
         if (video.paused) {
           logger.log('Attempting to play video on hover');
-          
-          // Force preload if not already loaded
-          if (video.preload !== 'auto') {
-            video.preload = 'auto';
-          }
           
           // Always start from the beginning for a consistent preview
           video.currentTime = 0;
@@ -70,7 +71,7 @@ export const useVideoHover = (
             }
           });
         }
-      }, 0); // No delay for immediate response
+      }, delayPlay);
     };
     
     const handleMouseLeave = () => {
@@ -114,5 +115,6 @@ export const useVideoHover = (
         container.removeEventListener('mouseleave', handleMouseLeave);
       }
     };
-  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay]);
+  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay, preloadOnHover]);
 };
+

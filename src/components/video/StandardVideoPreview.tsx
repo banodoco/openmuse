@@ -21,6 +21,7 @@ interface StandardVideoPreviewProps {
   isRefreshing?: boolean;
   isHovering?: boolean;
   isMobile?: boolean;
+  preventLoadingFlicker?: boolean;
 }
 
 const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
@@ -31,7 +32,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   onRefresh,
   isRefreshing = false,
   isHovering = false,
-  isMobile = false
+  isMobile = false,
+  preventLoadingFlicker = false
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -42,21 +44,32 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   const [isValidUrl, setIsValidUrl] = useState<boolean>(url ? isValidVideoUrl(url) : false);
   const [videoReady, setVideoReady] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
+  const unmountedRef = useRef(false);
   
   // Special case for blob URLs - they're always considered valid for preview
   const isBlobUrl = url?.startsWith('blob:') || false;
+  
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
   
   // Handle poster image loading
   useEffect(() => {
     if (posterUrl) {
       const img = new Image();
       img.onload = () => {
-        setPosterLoaded(true);
-        logger.log('Poster image loaded successfully');
+        if (!unmountedRef.current) {
+          setPosterLoaded(true);
+          logger.log('Poster image loaded successfully');
+        }
       };
       img.onerror = () => {
         logger.error('Failed to load poster image:', posterUrl);
-        setPosterLoaded(false);
+        if (!unmountedRef.current) {
+          setPosterLoaded(false);
+        }
       };
       img.src = posterUrl;
     }
@@ -90,6 +103,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   }, [url]);
   
   const handleError = (msg: string) => {
+    if (unmountedRef.current) return;
+    
     const now = Date.now();
     setLastErrorTime(now);
     setErrorCount(prev => prev + 1);
@@ -110,6 +125,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   };
   
   const handleRetry = () => {
+    if (unmountedRef.current) return;
+    
     logger.log('Retry clicked in error component');
     setErrorCount(0);
     setCurrentError(null);
@@ -123,6 +140,8 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   };
 
   const handleVideoLoaded = () => {
+    if (unmountedRef.current) return;
+    
     logger.log('Video loaded and ready for playback');
     setVideoReady(true);
   };
@@ -164,6 +183,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           isHovering={isHovering}
           onLoadedData={handleVideoLoaded}
           isMobile={isMobile}
+          preventLoadingFlicker={preventLoadingFlicker}
         />
       )}
       

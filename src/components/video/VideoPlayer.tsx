@@ -30,6 +30,7 @@ interface VideoPlayerProps {
   isHovering?: boolean;
   lazyLoad?: boolean;
   isMobile?: boolean;
+  preventLoadingFlicker?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -50,6 +51,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   isHovering = false,
   lazyLoad = true,
   isMobile = false,
+  preventLoadingFlicker = false,
 }) => {
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
@@ -59,6 +61,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [forcedPlay, setForcedPlay] = useState(false);
+  const unmountedRef = useRef(false);
   
   // Use the video loader hook
   const {
@@ -95,15 +98,21 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     forcedPlay
   });
   
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+  
   // Force play for lightbox on mobile
   useEffect(() => {
-    if (externallyControlled && isHovering && isMobile && !playAttempted && !isLoading && videoRef.current) {
+    if (externallyControlled && isHovering && isMobile && !playAttempted && !isLoading && videoRef.current && !unmountedRef.current) {
       logger.log('Forcing play for lightbox on mobile');
       setForcedPlay(true);
       
       const attemptPlay = async () => {
         try {
-          if (videoRef.current) {
+          if (videoRef.current && !unmountedRef.current) {
             await videoRef.current.play();
             logger.log('Successfully forced play on mobile lightbox');
           }
@@ -121,12 +130,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (poster) {
       const img = new Image();
       img.onload = () => {
-        setPosterLoaded(true);
-        logger.log(`Poster image loaded successfully: ${poster.substring(0, 30)}...`);
+        if (!unmountedRef.current) {
+          setPosterLoaded(true);
+          logger.log(`Poster image loaded successfully: ${poster.substring(0, 30)}...`);
+        }
       };
       img.onerror = (e) => {
         logger.error('Failed to load poster image:', poster, e);
-        setPosterLoaded(false);
+        if (!unmountedRef.current) {
+          setPosterLoaded(false);
+        }
       };
       img.src = poster;
     }
@@ -140,25 +153,27 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [isMobile, poster, posterLoaded]);
   
   const loadFullVideo = useCallback(() => {
-    if (!hasInteracted) {
+    if (!hasInteracted && !unmountedRef.current) {
       logger.log('Loading full video on hover');
       setHasInteracted(true);
     }
   }, [hasInteracted]);
 
   const handleMouseEnter = () => {
-    if (!isMobile) {
+    if (!isMobile && !unmountedRef.current) {
       loadFullVideo();
       setIsInternallyHovering(true);
     }
   };
 
   const handleMouseLeave = () => {
-    setIsInternallyHovering(false);
+    if (!unmountedRef.current) {
+      setIsInternallyHovering(false);
+    }
   };
 
   const handleVideoClick = () => {
-    if (isMobile && videoRef.current) {
+    if (isMobile && videoRef.current && !unmountedRef.current) {
       if (videoRef.current.paused) {
         videoRef.current.play().catch(err => {
           logger.error('Error playing video on click:', err);
@@ -169,6 +184,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  // Determine if we should show loading state based on preventLoadingFlicker
+  const shouldShowLoading = isLoading && (!preventLoadingFlicker || !poster || !isHovering);
+
   return (
     <div 
       ref={containerRef} 
@@ -177,7 +195,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onMouseLeave={handleMouseLeave}
       data-is-mobile={isMobile ? "true" : "false"}
     >
-      {isLoading && <VideoLoader posterImage={poster} />}
+      {shouldShowLoading && <VideoLoader posterImage={poster} />}
       
       {error && !onError && (
         <VideoError 
@@ -213,7 +231,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         controls={isMobile ? true : (showPlayButtonOnHover ? controls : false)}
         playsInline
         poster={poster || undefined}
-        preload={hasInteracted || externallyControlled ? "auto" : "metadata"}
+        preload={(hasInteracted || externallyControlled || preventLoadingFlicker) ? "auto" : "metadata"}
         src={src}
         crossOrigin="anonymous"
         onClick={handleVideoClick}

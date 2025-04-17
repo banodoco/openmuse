@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -24,6 +25,7 @@ interface StorageVideoPlayerProps {
   thumbnailUrl?: string;
   forcePreload?: boolean;
   isMobile?: boolean;
+  preventLoadingFlicker?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -42,7 +44,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   onLoadedData,
   thumbnailUrl,
   forcePreload = false,
-  isMobile = false
+  isMobile = false,
+  preventLoadingFlicker = false
 }) => {
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
@@ -54,43 +57,58 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [videoInitialized, setVideoInitialized] = useState(false);
   const [videoLoaded, setVideoLoaded] = useState(false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
+  const [hoverInitiated, setHoverInitiated] = useState(false);
   
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
   const isHoveringRef = useRef(isHoveringExternally || false);
+  const unmountedRef = useRef(false);
   
   const isBlobUrl = videoLocation.startsWith('blob:');
 
   useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+
+  useEffect(() => {
     isHoveringRef.current = isHoveringExternally || false;
-    if (isHoveringExternally !== undefined) {
+    if (isHoveringExternally !== undefined && !unmountedRef.current) {
       logger.log(`StorageVideoPlayer: isHoveringExternally changed to ${isHoveringExternally}`);
       setIsHovering(isHoveringExternally);
+      
+      if (isHoveringExternally) {
+        setHoverInitiated(true);
+      }
     }
   }, [isHoveringExternally]);
 
   useEffect(() => {
-    setShouldLoadVideo(true);
+    if (!unmountedRef.current) {
+      setShouldLoadVideo(true);
+    }
   }, [forcePreload]);
 
   const handleManualHoverStart = () => {
-    if (isHoveringExternally === undefined) {
+    if (isHoveringExternally === undefined && !unmountedRef.current) {
       logger.log('StorageVideoPlayer: Manual hover start');
       setIsHovering(true);
       setShouldLoadVideo(true);
+      setHoverInitiated(true);
     }
   };
 
   const handleManualHoverEnd = () => {
-    if (isHoveringExternally === undefined) {
+    if (isHoveringExternally === undefined && !unmountedRef.current) {
       logger.log('StorageVideoPlayer: Manual hover end');
       setIsHovering(false);
     }
   };
   
   useEffect(() => {
-    if (isHoveringExternally !== undefined) {
+    if (isHoveringExternally !== undefined && !unmountedRef.current) {
       if (isHoveringExternally) {
         logger.log('External hover detected - loading video');
         setShouldLoadVideo(true);
@@ -103,7 +121,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           logger.log('External hover detected - attempting to play video');
           
           setTimeout(() => {
-            if (video.paused) {
+            if (video.paused && !unmountedRef.current) {
               video.play().catch(e => {
                 if (e.name !== 'AbortError') {
                   logger.error('Error playing video on hover:', e);
@@ -125,10 +143,13 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   useEffect(() => {
     let isMounted = true;
     
+    // Preload the video URL immediately to have it ready for hover
     const loadVideo = async () => {
       try {
-        setLoading(true);
-        setError(null);
+        if (!unmountedRef.current) {
+          setLoading(true);
+          setError(null);
+        }
         
         if (!videoLocation) {
           throw new Error('No video location provided');
@@ -147,7 +168,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           throw new Error('Could not resolve video URL');
         }
         
-        if (isMounted) {
+        if (isMounted && !unmountedRef.current) {
           setVideoUrl(url);
           setLoading(false);
           setVideoLoaded(true);
@@ -156,7 +177,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         }
       } catch (error) {
         logger.error('Error loading video:', error);
-        if (isMounted) {
+        if (isMounted && !unmountedRef.current) {
           setError(`Failed to load video: ${error instanceof Error ? error.message : String(error)}`);
           setErrorDetails(String(error));
           setLoading(false);
@@ -174,30 +195,37 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   }, [videoLocation, retryCount, previewMode, isBlobUrl]);
 
   const handleError = (message: string) => {
-    setError(message);
+    if (!unmountedRef.current) {
+      setError(message);
+    }
   };
 
   const handleRetry = () => {
-    setLoading(true);
-    setError(null);
-    setErrorDetails(null);
-    setRetryCount(prev => prev + 1);
-    setShouldLoadVideo(true);
+    if (!unmountedRef.current) {
+      setLoading(true);
+      setError(null);
+      setErrorDetails(null);
+      setRetryCount(prev => prev + 1);
+      setShouldLoadVideo(true);
+    }
   };
   
   const handleVideoLoaded = () => {
-    if (onLoadedData) {
+    if (onLoadedData && !unmountedRef.current) {
       logger.log('StorageVideoPlayer: Video loaded, notifying parent');
       onLoadedData();
     }
   };
 
   React.useEffect(() => {
-    if (thumbnailUrl && isMobile) {
+    if (thumbnailUrl && isMobile && !unmountedRef.current) {
       logger.log(`StorageVideoPlayer: Mobile with thumbnail - ${thumbnailUrl.substring(0, 30)}...`);
       setPosterUrl(thumbnailUrl);
     }
   }, [thumbnailUrl, isMobile]);
+
+  // Determine if we should show loading state based on preventLoadingFlicker
+  const shouldShowLoading = loading && (!preventLoadingFlicker || !posterUrl || !hoverInitiated);
 
   return (
     <div 
@@ -207,13 +235,13 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       ref={containerRef}
       data-is-mobile={isMobile ? "true" : "false"}
     >
-      {loading && posterUrl && (
+      {shouldShowLoading && posterUrl && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
           <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
         </div>
       )}
 
-      {loading && !posterUrl && (
+      {shouldShowLoading && !posterUrl && (
         <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">
           Loading video...
         </div>
@@ -250,6 +278,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           lazyLoad={false}
           onLoadedData={handleVideoLoaded}
           isMobile={isMobile}
+          preventLoadingFlicker={preventLoadingFlicker}
         />
       )}
 

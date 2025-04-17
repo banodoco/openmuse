@@ -52,6 +52,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const componentId = useRef(`video_preview_${Math.random().toString(36).substring(2, 9)}`);
   const [thumbnailGenerationAttempts, setThumbnailGenerationAttempts] = useState(0);
   const thumbnailGeneratorMounted = useRef(false);
+  const unmountedRef = useRef(false);
   
   // Log component mount with ID for tracking
   useEffect(() => {
@@ -60,6 +61,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     
     return () => {
       logger.log(`VideoPreview unmounting [${componentId.current}]`);
+      unmountedRef.current = true;
       thumbnailGeneratorMounted.current = false;
     };
   }, []);
@@ -69,7 +71,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   
   // Force playing state update when hover state changes
   useEffect(() => {
-    if (externalHoverState !== undefined) {
+    if (externalHoverState !== undefined && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: External hover state changed to ${externalHoverState}`);
       setIsHovering(externalHoverState);
       // Only auto-play on hover for desktop - not on mobile
@@ -80,7 +82,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   }, [externalHoverState, isMobile]);
   
   useEffect(() => {
-    if (file) {
+    if (file && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: Creating object URL for file: ${file.name}`);
       const fileUrl = URL.createObjectURL(file);
       setObjectUrl(fileUrl);
@@ -90,25 +92,29 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           URL.revokeObjectURL(fileUrl);
         }
       };
-    } else if (url && !isExternalLink) {
+    } else if (url && !isExternalLink && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: Setting object URL from provided URL: ${url.substring(0, 30)}...`);
       setObjectUrl(url);
     }
   }, [file, url, isExternalLink]);
 
   const handleVideoError = (errorMessage: string) => {
+    if (unmountedRef.current) return;
     logger.error(`VideoPreview [${componentId.current}]: Error: ${errorMessage}`);
     setError(errorMessage);
     setIsPlaying(false);
   };
 
   const handleRetry = () => {
+    if (unmountedRef.current) return;
     logger.log(`VideoPreview [${componentId.current}]: Retry requested`);
     setError(null);
     setIsPlaying(true);
   };
 
   const handleThumbnailGenerated = (thumbnailUrl: string) => {
+    if (unmountedRef.current) return;
+    
     logger.log(`VideoPreview [${componentId.current}]: Thumbnail generated, current posterUrl: ${posterUrl ? 'exists' : 'none'}`);
     setThumbnailGenerationAttempts(prev => prev + 1);
     
@@ -127,7 +133,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   };
 
   const handleMouseEnter = () => {
-    if (externalHoverState === undefined) {
+    if (externalHoverState === undefined && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: Mouse entered`);
       setInternalHoverState(true);
       setIsHovering(true);
@@ -139,7 +145,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   };
 
   const handleMouseLeave = () => {
-    if (externalHoverState === undefined) {
+    if (externalHoverState === undefined && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: Mouse left`);
       setInternalHoverState(false);
       setIsHovering(false);
@@ -158,6 +164,13 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     thumbnailGeneratorMounted.current = true;
   }
 
+  // Prepare video options to prevent flickering on hover
+  const videoOptions = {
+    preloadVideo: true,
+    skipTransitions: true,
+    preventLoadingFlicker: true
+  };
+
   // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
     <div 
@@ -171,17 +184,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       data-thumbnail-loaded={thumbnailLoaded ? "true" : "false"}
     >
       {needsThumbnailGeneration && (
-        <React.Fragment>
-          {/* Fix: Don't render the logger.log call result directly */}
-          <VideoThumbnailGenerator 
-            file={file}
-            url={url}
-            onThumbnailGenerated={handleThumbnailGenerated}
-            userId={user?.id}
-            saveThumbnail={true}
-            forceGenerate={forceGenerate}
-          />
-        </React.Fragment>
+        <VideoThumbnailGenerator 
+          file={file}
+          url={url}
+          onThumbnailGenerated={handleThumbnailGenerated}
+          userId={user?.id}
+          saveThumbnail={true}
+          forceGenerate={forceGenerate}
+        />
       )}
       
       {isExternalLink ? (
@@ -199,6 +209,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           onError={handleVideoError}
           isHovering={effectiveHoverState}
           isMobile={isMobile}
+          preventLoadingFlicker={true}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -213,8 +224,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={!isMobile} 
+          forcePreload={true} 
           isMobile={isMobile}
+          preventLoadingFlicker={true}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -229,8 +241,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isHoveringExternally={effectiveHoverState}
           lazyLoad={false}
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={!isMobile}
+          forcePreload={true}
           isMobile={isMobile}
+          preventLoadingFlicker={true}
         />
       ) : null}
 
