@@ -1,170 +1,250 @@
-
-import React from 'react';
+import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { z } from 'zod';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { Button } from '@/components/ui/button';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { AlertCircle, Loader2 } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/useAuth';
+import { toast } from 'sonner';
+
+const loraFormSchema = z.object({
+  name: z.string().min(3, { message: 'Name must be at least 3 characters' }),
+  description: z.string().min(10, { message: 'Description must be at least 10 characters' }),
+  loraType: z.enum(['character', 'style', 'concept', 'other']),
+  baseModel: z.enum(['SD 1.5', 'SDXL', 'Other']),
+  modelVariant: z.string().optional(),
+  loraLink: z.string().url({ message: 'Please enter a valid URL' }),
+});
+
+type LoraFormValues = z.infer<typeof loraFormSchema>;
 
 interface LoRADetailsFormProps {
-  loraDetails: {
-    loraName: string;
-    loraDescription: string;
-    creator: 'self' | 'someone_else';
-    creatorName: string;
-    model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
-    loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Other';
-    loraLink: string;
-  };
-  updateLoRADetails: (field: string, value: string) => void;
-  disabled?: boolean;
+  onCancel?: () => void;
 }
 
-const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ 
-  loraDetails, 
-  updateLoRADetails, 
-  disabled = false 
-}) => {
+const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ onCancel }) => {
+  const { user } = useAuth();
+  const navigate = useNavigate();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const form = useForm<LoraFormValues>({
+    resolver: zodResolver(loraFormSchema),
+    defaultValues: {
+      name: '',
+      description: '',
+      loraType: 'character',
+      baseModel: 'SD 1.5',
+      modelVariant: '',
+      loraLink: '',
+    },
+  });
+
+  const onSubmit = async (values: LoraFormValues) => {
+    if (!user) {
+      setError('You must be logged in to create a LoRA');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+
+    try {
+      // Insert the LoRA asset into the database
+      const { data, error: insertError } = await supabase
+        .from('assets')
+        .insert([
+          {
+            name: values.name,
+            description: values.description,
+            type: 'lora',
+            user_id: user.id,
+            creator: user.email,
+            lora_type: values.loraType,
+            lora_base_model: values.baseModel,
+            model_variant: values.modelVariant || null,
+            lora_link: values.loraLink,
+          },
+        ])
+        .select();
+
+      if (insertError) {
+        throw insertError;
+      }
+
+      if (data && data.length > 0) {
+        toast.success('LoRA created successfully!');
+        
+        // If onCancel is provided, call it to close the modal
+        if (onCancel) {
+          onCancel();
+        } else {
+          // Otherwise navigate to the asset page
+          navigate(`/assets/loras/${data[0].id}`);
+        }
+      }
+    } catch (err) {
+      console.error('Error creating LoRA:', err);
+      setError('Failed to create LoRA. Please try again.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="space-y-6">
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Basic Information</h3>
-        <div>
-          <Label htmlFor="lora-name" className="text-sm font-medium">
-            LoRA Name <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            type="text"
-            id="lora-name"
-            placeholder="Enter LoRA name"
-            value={loraDetails.loraName}
-            onChange={(e) => updateLoRADetails('loraName', e.target.value)}
-            className="mt-1"
-            required
-            disabled={disabled}
-          />
-        </div>
-        
-        <div>
-          <Label htmlFor="lora-description" className="text-sm font-medium">
-            LoRA Description
-          </Label>
-          <Textarea
-            id="lora-description"
-            placeholder="Enter LoRA description"
-            value={loraDetails.loraDescription}
-            onChange={(e) => updateLoRADetails('loraDescription', e.target.value)}
-            className="mt-1 min-h-[100px]"
-            disabled={disabled}
-          />
-        </div>
-      </div>
-      
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Creator Information</h3>
-        
-        <div>
-          <Label className="text-sm font-medium block mb-2">
-            Who made this LoRA?
-          </Label>
-          <RadioGroup 
-            value={loraDetails.creator}
-            onValueChange={(value: 'self' | 'someone_else') => updateLoRADetails('creator', value)}
-            className="flex flex-col space-y-2"
-            disabled={disabled}
-          >
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="self" id="lora-creator-self" />
-              <Label htmlFor="lora-creator-self" className="cursor-pointer">I made it</Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="someone_else" id="lora-creator-someone" />
-              <Label htmlFor="lora-creator-someone" className="cursor-pointer">Someone else made it</Label>
-            </div>
-          </RadioGroup>
-        </div>
+      {error && (
+        <Alert variant="destructive">
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+      )}
 
-        {loraDetails.creator === 'someone_else' && (
-          <div>
-            <Label htmlFor="creator-name" className="text-sm font-medium">
-              Creator Username <span className="text-destructive">*</span>
-            </Label>
-            <Input
-              type="text"
-              id="creator-name"
-              placeholder="Username of the creator"
-              value={loraDetails.creatorName}
-              onChange={(e) => updateLoRADetails('creatorName', e.target.value)}
-              className="mt-1"
-              required
-              disabled={disabled}
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <FormField
+            control={form.control}
+            name="name"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>LoRA Name</FormLabel>
+                <FormControl>
+                  <Input placeholder="Enter LoRA name" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <FormField
+            control={form.control}
+            name="description"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Description</FormLabel>
+                <FormControl>
+                  <Textarea 
+                    placeholder="Describe what this LoRA does and how to use it" 
+                    className="min-h-[100px]" 
+                    {...field} 
+                  />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <FormField
+              control={form.control}
+              name="loraType"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>LoRA Type</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select type" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="character">Character</SelectItem>
+                      <SelectItem value="style">Style</SelectItem>
+                      <SelectItem value="concept">Concept</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <FormField
+              control={form.control}
+              name="baseModel"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Base Model</FormLabel>
+                  <Select 
+                    onValueChange={field.onChange} 
+                    defaultValue={field.value}
+                  >
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select base model" />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      <SelectItem value="SD 1.5">SD 1.5</SelectItem>
+                      <SelectItem value="SDXL">SDXL</SelectItem>
+                      <SelectItem value="Other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
           </div>
-        )}
-      </div>
-      
-      <div className="space-y-4">
-        <h3 className="text-lg font-semibold">Technical Details</h3>
-        
-        <div>
-          <Label htmlFor="lora-model" className="text-sm font-medium">
-            Which model was this trained on? <span className="text-destructive">*</span>
-          </Label>
-          <Select 
-            value={loraDetails.model} 
-            onValueChange={(value: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff') => updateLoRADetails('model', value)}
-            disabled={disabled}
-          >
-            <SelectTrigger id="lora-model" className="w-full mt-1">
-              <SelectValue placeholder="Select Model" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="wan">Wan</SelectItem>
-              <SelectItem value="hunyuan">Hunyuan</SelectItem>
-              <SelectItem value="ltxv">LTXV</SelectItem>
-              <SelectItem value="cogvideox">CogVideoX</SelectItem>
-              <SelectItem value="animatediff">AnimateDiff</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div>
-          <Label htmlFor="lora-type" className="text-sm font-medium">
-            What type of LoRA is this? <span className="text-destructive">*</span>
-          </Label>
-          <Select 
-            value={loraDetails.loraType} 
-            onValueChange={(value) => updateLoRADetails('loraType', value)}
-            disabled={disabled}
-          >
-            <SelectTrigger id="lora-type" className="w-full mt-1">
-              <SelectValue placeholder="Select LoRA type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Concept">Concept</SelectItem>
-              <SelectItem value="Motion Style">Motion Style</SelectItem>
-              <SelectItem value="Specific Movement">Specific Movement</SelectItem>
-              <SelectItem value="Aesthetic Style">Aesthetic Style</SelectItem>
-              <SelectItem value="Other">Other</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        
-        <div>
-          <Label htmlFor="lora-link" className="text-sm font-medium">
-            LoRA Link (Huggingface, Civit, etc.)
-          </Label>
-          <Input
-            type="url"
-            id="lora-link"
-            placeholder="Enter LoRA link"
-            value={loraDetails.loraLink}
-            onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
-            className="mt-1"
-            disabled={disabled}
+
+          <FormField
+            control={form.control}
+            name="modelVariant"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>Model Variant (optional)</FormLabel>
+                <FormControl>
+                  <Input placeholder="e.g., Realistic, Anime, etc." {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
           />
-        </div>
-      </div>
+
+          <FormField
+            control={form.control}
+            name="loraLink"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>LoRA Link</FormLabel>
+                <FormControl>
+                  <Input placeholder="URL to the LoRA (e.g., Civitai, Hugging Face)" {...field} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="flex justify-end space-x-2 pt-4">
+            {onCancel && (
+              <Button 
+                type="button" 
+                variant="outline" 
+                onClick={onCancel}
+                disabled={isSubmitting}
+              >
+                Cancel
+              </Button>
+            )}
+            <Button 
+              type="submit" 
+              disabled={isSubmitting}
+            >
+              {isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isSubmitting ? 'Creating...' : 'Create LoRA'}
+            </Button>
+          </div>
+        </form>
+      </Form>
     </div>
   );
 };

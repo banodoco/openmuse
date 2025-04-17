@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -6,12 +5,12 @@ import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2, Plus } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import { Button } from '@/components/ui/button';
 import LoraList from '@/components/lora/LoraList';
+import AddLoRAModal from '@/components/lora/AddLoRAModal';
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -48,7 +47,6 @@ export default function UserProfilePage() {
           setIsOwner(ownerStatus);
           setCanEdit(ownerStatus || !!isAdmin);
           
-          // Once we have the profile, fetch the user's assets
           if (data.id) {
             fetchUserAssets(data.id);
           }
@@ -68,7 +66,6 @@ export default function UserProfilePage() {
   const fetchUserAssets = async (userId: string) => {
     setIsLoadingAssets(true);
     try {
-      // Fetch user's LoRA assets
       const { data: assetsData, error: assetsError } = await supabase
         .from('assets')
         .select('*, primaryVideo:primary_media_id(*)')
@@ -81,7 +78,6 @@ export default function UserProfilePage() {
       }
 
       if (assetsData) {
-        // Process the data to match LoraAsset structure
         const processedAssets: LoraAsset[] = assetsData.map(asset => ({
           id: asset.id,
           name: asset.name,
@@ -129,10 +125,6 @@ export default function UserProfilePage() {
       .substring(0, 2);
   };
 
-  const handleAddLoraClick = () => {
-    navigate('/upload');
-  };
-
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -174,14 +166,11 @@ export default function UserProfilePage() {
               )}
             </div>
 
-            {/* User Assets Section */}
             <div className="mt-8">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">Assets</h2>
-                {isOwner && (
-                  <Button onClick={handleAddLoraClick} className="flex items-center gap-2">
-                    <Plus className="h-4 w-4" /> Add LoRA
-                  </Button>
+                {isOwner && profile?.id && (
+                  <AddLoRAModal userId={profile.id} />
                 )}
               </div>
 
