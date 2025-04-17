@@ -112,7 +112,6 @@ export function LoraMultiSelectCombobox({
                       "flex items-center space-x-2 p-2 rounded-md hover:bg-accent hover:text-accent-foreground", 
                       disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
                     )}
-                    onClick={() => { if (!disabled) handleSelect(lora.id, !isSelected); }} 
                   >
                     <Checkbox
                       id={`lora-${lora.id}`}
