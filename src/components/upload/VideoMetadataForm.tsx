@@ -28,6 +28,7 @@ interface VideoMetadataFormProps {
   updateMetadata: (id: string, field: string, value: any) => void;
   allowPrimarySelection?: boolean;
   disabled?: boolean;
+  uploadContext: 'lora' | 'video';
 }
 
 const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ 
@@ -37,7 +38,8 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   availableLoras, 
   updateMetadata, 
   allowPrimarySelection = true,
-  disabled = false
+  disabled = false,
+  uploadContext
 }) => {
   const { user } = useAuth();
   
@@ -98,24 +100,27 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 </RadioGroup>
               </div>
 
-              <div>
-                <Label className="text-sm font-medium mb-2 block">
-                  Which LoRA did you make this with? (Optional)
-                </Label>
-                <LoraMultiSelectCombobox
-                  loras={availableLoras}
-                  selectedIds={associatedLoraIds}
-                  setSelectedIds={(ids) => updateMetadata(videoId, 'associatedLoraIds', ids)}
-                  disabled={disabled || availableLoras.length === 0}
-                  placeholder="Select LoRA(s)..."
-                  searchPlaceholder="Search LoRAs..."
-                  noResultsText="No LoRAs found."
-                  triggerClassName="min-h-[58px]"
-                />
-                {availableLoras.length === 0 && !disabled && (
-                  <p className="text-xs text-muted-foreground mt-1">No LoRAs available to select.</p>
-                )}
-              </div>
+              {/* Conditionally render LoRA Association based on context */}
+              {uploadContext === 'video' && (
+                <div>
+                  <Label className="text-sm font-medium mb-2 block">
+                    Which LoRA did you make this with? (Optional)
+                  </Label>
+                  <LoraMultiSelectCombobox
+                    loras={availableLoras}
+                    selectedIds={associatedLoraIds}
+                    setSelectedIds={(ids) => updateMetadata(videoId, 'associatedLoraIds', ids)}
+                    disabled={disabled || availableLoras.length === 0}
+                    placeholder="Select LoRA(s)..."
+                    searchPlaceholder="Search LoRAs..."
+                    noResultsText="No LoRAs found."
+                    triggerClassName="min-h-[58px]"
+                  />
+                  {availableLoras.length === 0 && !disabled && (
+                    <p className="text-xs text-muted-foreground mt-1">No LoRAs available to select.</p>
+                  )}
+                </div>
+              )}
             </div>
           </div>
           

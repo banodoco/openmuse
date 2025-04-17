@@ -35,6 +35,7 @@ interface MultipleVideoUploaderProps {
   disabled?: boolean;
   allowPrimarySelection?: boolean;
   availableLoras: LoraOption[];
+  uploadContext: 'lora' | 'video';
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
@@ -42,7 +43,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   setVideos,
   disabled = false,
   allowPrimarySelection = true,
-  availableLoras
+  availableLoras,
+  uploadContext
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -337,6 +339,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                       updateMetadata={(field, value) => updateVideoMetadata(video.id, field, value)}
                       disabled={disabled}
                       allowPrimarySelection={allowPrimarySelection}
+                      uploadContext={uploadContext}
                     />
                   </div>
                 </CardContent>

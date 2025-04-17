@@ -99,7 +99,9 @@ export function LoraMultiSelectCombobox({
                     key={lora.id}
                     value={lora.name}
                     onSelect={() => handleSelect(lora.id)}
+                    onClick={() => handleSelect(lora.id)}
                     disabled={disabled}
+                    className="cursor-pointer"
                   >
                     <Check
                       className={cn(

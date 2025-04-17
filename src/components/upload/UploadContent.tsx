@@ -355,6 +355,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
               disabled={!user || isSubmitting}
               allowPrimarySelection={true}
               availableLoras={availableLoras}
+              uploadContext="lora"
             />
             <div className="flex justify-end gap-2">
               {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>}
@@ -373,6 +374,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
               disabled={!user || isSubmitting}
               allowPrimarySelection={false}
               availableLoras={availableLoras}
+              uploadContext="video"
             />
             
             <div className="flex justify-end gap-2">
