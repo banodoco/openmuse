@@ -48,10 +48,13 @@ export function LoraMultiSelectCombobox({
   const handleSelect = React.useCallback((loraId: string, checked: boolean) => {
     if (disabled) return;
     
+    console.log(`[LoraMultiSelectCombobox] handleSelect triggered for LoRA ID: ${loraId}, Checked: ${checked}`);
+
     const newSelectedIds = checked
       ? [...selectedIds, loraId]
       : selectedIds.filter(id => id !== loraId);
     
+    console.log(`[LoraMultiSelectCombobox] Calling setSelectedIds with:`, newSelectedIds);
     setSelectedIds(newSelectedIds);
   }, [disabled, setSelectedIds, selectedIds]);
 

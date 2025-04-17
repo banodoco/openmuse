@@ -110,8 +110,12 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                     loras={availableLoras}
                     selectedIds={associatedLoraIds}
                     setSelectedIds={(ids) => {
-                      console.log(`VideoMetadataForm: Calling updateMetadata for video ${videoId} with field 'associatedLoraIds' and value:`, ids);
+                      console.log(`[VideoMetadataForm] setSelectedIds callback received. Video ID: ${videoId}, New IDs:`, ids);
+                      console.log(`[VideoMetadataForm] Current associatedLoraIds before update:`, associatedLoraIds); 
+                      
                       updateMetadata(videoId, 'associatedLoraIds', ids);
+                      
+                      console.log(`[VideoMetadataForm] Called updateMetadata for 'associatedLoraIds'.`);
                     }}
                     disabled={disabled || availableLoras.length === 0}
                     placeholder="Select LoRA(s)..."
