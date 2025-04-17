@@ -57,9 +57,8 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
             video={video}
             isAdmin={!!isAdmin}
             onOpenLightbox={onOpenLightbox}
-            onDelete={onDelete}
-            onApprove={onApprove}
-            onReject={onReject}
+            onDeleteVideo={onDelete}
+            onApproveVideo={onApprove}
           />
         ))}
       </div>

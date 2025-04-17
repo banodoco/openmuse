@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -142,7 +143,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
     <div 
       ref={cardRef}
       key={video.id} 
-      className="relative rounded-lg overflow-hidden shadow-md group cursor-pointer"
+      className="relative rounded-lg overflow-hidden shadow-md group cursor-pointer h-full flex flex-col"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
@@ -178,7 +179,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         </div>
       </div>
       
-      <div className="p-2 bg-card">
+      <div className="p-2 bg-card flex-grow flex flex-col">
         <div className="mb-1">
           {video.metadata?.title && (
             <h3 className="font-medium text-sm truncate">
