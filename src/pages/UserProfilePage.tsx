@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -127,8 +126,6 @@ export default function UserProfilePage() {
   };
 
   const ProfileLoraList = ({ loras }: { loras: LoraAsset[] }) => {
-    const [hoveredLoraId, setHoveredLoraId] = useState<string | null>(null);
-    
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loras.map(lora => (
@@ -137,28 +134,15 @@ export default function UserProfilePage() {
             to={`/assets/${lora.id}`}
             state={{ from: 'profile', displayName: displayName }}
             className="no-underline"
-            onMouseEnter={() => setHoveredLoraId(lora.id)}
-            onMouseLeave={() => setHoveredLoraId(null)}
           >
             <Card className="h-full hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex flex-col h-full">
                   <div className="aspect-video w-full bg-muted rounded-md overflow-hidden mb-3">
                     {lora.primaryVideo ? (
-                      <div className="relative w-full h-full">
-                        {lora.primaryVideo.metadata?.thumbnailUrl ? (
-                          <div 
-                            className="w-full h-full bg-center bg-cover" 
-                            style={{ 
-                              backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl})` 
-                            }} 
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center bg-slate-200">
-                            <span className="text-slate-500 text-sm">No preview</span>
-                          </div>
-                        )}
-                      </div>
+                      <div className="w-full h-full bg-center bg-cover" style={{ 
+                        backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl || ''})` 
+                      }} />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-200">
                         <span className="text-slate-500 text-sm">No preview</span>
