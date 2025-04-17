@@ -168,7 +168,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   };
 
   // Determine if we should force preload based on context
-  const shouldForcePreload = (externalHoverState && !isMobile) || (!lazyLoad && !previewMode);
+  const shouldForcePreload = (!thumbnailUrl && !isMobile) || (externalHoverState && !isMobile) || (!lazyLoad && !previewMode);
 
   return (
     <div 

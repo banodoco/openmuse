@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from 'react';
 import { Logger } from '@/lib/logger';
 import { getVideoErrorMessage, isValidVideoUrl, getVideoFormat, attemptVideoPlay } from '@/lib/utils/videoUtils';
@@ -38,7 +37,16 @@ export const useVideoLoader = ({
   const [isBlobUrl, setIsBlobUrl] = useState<boolean>(src?.startsWith('blob:') || false);
   const [playAttempted, setPlayAttempted] = useState(false);
   const [loadedDataFired, setLoadedDataFired] = useState(false);
-  
+  const prevSrcRef = useRef<string | null>(null);
+  const unmountedRef = useRef(false);
+
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+    };
+  }, []);
+
   useEffect(() => {
     setIsBlobUrl(src?.startsWith('blob:') || false);
     
@@ -62,25 +70,54 @@ export const useVideoLoader = ({
   }, [src, onError, isBlobUrl]);
   
   useEffect(() => {
-    if (!src) {
-      return;
-    }
-    
-    setError(null);
-    setErrorDetails('');
-    setIsLoading(true);
-    setPlayAttempted(false);
-    setLoadedDataFired(false);
-    
-    logger.log(`Loading video with source: ${src.substring(0, 50)}...`);
-    
     const video = videoRef.current;
-    if (!video) {
-      logger.error('Video element reference not available');
+    if (!src || !video) {
+      if (!src) {
+        logger.error('No source provided to VideoPlayer hook');
+      }
+      if (!video) {
+        logger.error('Video element reference not available in hook');
+      }
       return;
     }
-    
+
+    if (prevSrcRef.current !== src) {
+      logger.log(`Source changed from ${prevSrcRef.current?.substring(0, 30)}... to ${src.substring(0, 30)}... Resetting state.`);
+      setError(null);
+      setErrorDetails('');
+      setIsLoading(true);
+      setPlayAttempted(false);
+      setLoadedDataFired(false);
+      video.pause();
+      try {
+        video.preload = "auto";
+        video.src = src;
+        if (poster) {
+          video.poster = poster;
+        }
+        video.load();
+      } catch (err) {
+        logger.error('Error setting up video src/load:', err);
+        const errorMessage = `Setup error: ${err}`;
+        setError(errorMessage);
+        setIsLoading(false);
+        if (onError) onError(errorMessage);
+        prevSrcRef.current = src;
+        return;
+      }
+    } else {
+      logger.log(`Source is the same (${src.substring(0, 30)}...). Not resetting loading state.`);
+    }
+
+    prevSrcRef.current = src;
+
     const handleLoadedData = () => {
+      if (prevSrcRef.current !== video.currentSrc && !(isBlobUrl && video.currentSrc?.startsWith('blob:'))) {
+         logger.warn(`[${src.substring(0,15)}] handleLoadedData called for old src (${video.currentSrc?.substring(0,15)}). Ignoring.`);
+         return;
+      }
+      if (unmountedRef.current) return;
+
       logger.log(`Video loaded successfully: ${src.substring(0, 30)}...`);
       setIsLoading(false);
       setLoadedDataFired(true);
@@ -109,6 +146,12 @@ export const useVideoLoader = ({
     };
     
     const handleError = () => {
+      if (prevSrcRef.current !== video.src && !(isBlobUrl && video.src?.startsWith('blob:'))) {
+        logger.warn(`[${src.substring(0,15)}] handleError called for old src (${video.src?.substring(0,15)}). Ignoring.`);
+        return;
+      }
+      if (unmountedRef.current) return;
+
       const { message, details } = getVideoErrorMessage(video.error, src);
       const format = getVideoFormat(src);
       
@@ -130,33 +173,16 @@ export const useVideoLoader = ({
       if (onError) onError(message);
     };
     
-    video.addEventListener('loadeddata', handleLoadedData);
-    video.addEventListener('error', handleError);
-    
-    video.pause();
-    
-    try {
-      video.preload = "auto";
-      video.src = src;
-      if (poster) {
-        video.poster = poster;
-      }
-      video.load();
-    } catch (err) {
-      logger.error('Error setting up video:', err);
-      const errorMessage = `Setup error: ${err}`;
-      setError(errorMessage);
-      setIsLoading(false);
-      if (onError) onError(errorMessage);
+    if (prevSrcRef.current === src) {
+       video.addEventListener('loadeddata', handleLoadedData);
+       video.addEventListener('error', handleError);
     }
-    
+
     return () => {
-      video.removeEventListener('loadeddata', handleLoadedData);
-      video.removeEventListener('error', handleError);
-      
-      video.pause();
-      video.src = '';
-      video.load();
+      if (video) {
+         video.removeEventListener('loadeddata', handleLoadedData);
+         video.removeEventListener('error', handleError);
+      }
     };
   }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering, isMobile]);
 
@@ -170,7 +196,8 @@ export const useVideoLoader = ({
     setIsLoading(true);
     setPlayAttempted(false);
     setLoadedDataFired(false);
-    
+    prevSrcRef.current = null;
+
     video.load();
   };
 

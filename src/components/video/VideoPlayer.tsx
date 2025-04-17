@@ -52,6 +52,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   isMobile = false,
   preventLoadingFlicker = true,
 }) => {
+  const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
+  logger.log(`[${componentId}] Rendering. src: ${src?.substring(0,30)}..., poster: ${!!poster}, lazyLoad: ${lazyLoad}, preventLoadingFlicker: ${preventLoadingFlicker}`);
+
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
   const internalContainerRef = useRef<HTMLDivElement>(null);
@@ -92,11 +95,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     loadedDataFired: !isLoading,
     playAttempted,
     setPlayAttempted,
-    forcedPlay
+    forcedPlay,
+    componentId
   });
   
   useEffect(() => {
+    logger.log(`[${componentId}] Mounting effect ran.`);
     return () => {
+      logger.log(`[${componentId}] Unmounting.`);
       unmountedRef.current = true;
     };
   }, []);
@@ -127,16 +133,20 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       img.onload = () => {
         if (!unmountedRef.current) {
           setPosterLoaded(true);
-          logger.log(`Poster image loaded successfully: ${poster.substring(0, 30)}...`);
+          logger.log(`[${componentId}] Poster image loaded successfully: ${poster.substring(0, 30)}...`);
         }
       };
       img.onerror = (e) => {
-        logger.error('Failed to load poster image:', poster, e);
+        logger.error(`[${componentId}] Failed to load poster image:`, poster, e);
         if (!unmountedRef.current) {
           setPosterLoaded(false);
         }
       };
+      logger.log(`[${componentId}] Starting poster load: ${poster.substring(0, 30)}...`);
       img.src = poster;
+    } else {
+      logger.log(`[${componentId}] No poster provided.`);
+      setPosterLoaded(false); // Ensure posterLoaded is false if no poster
     }
   }, [poster]);
   
@@ -179,6 +189,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   };
 
   const shouldShowLoading = isLoading && (!preventLoadingFlicker || !poster);
+  logger.log(`[${componentId}] State: isLoading=${isLoading}, error=${!!error}, hasInteracted=${hasInteracted}, posterLoaded=${posterLoaded}, externallyControlled=${externallyControlled}`);
+  logger.log(`[${componentId}] Visibility: shouldShowLoading=${shouldShowLoading}, videoOpacity=${(lazyLoad && poster && !hasInteracted && !externallyControlled) ? 0 : 1}`);
 
   return (
     <div 
@@ -215,8 +227,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <video
         ref={videoRef}
         className={cn("w-full h-full object-cover", className, {
-          'opacity-0': (lazyLoad && !hasInteracted && !externallyControlled) || 
-                      (isMobile && poster && posterLoaded && !externallyControlled)
+          'opacity-0': (lazyLoad && poster && !hasInteracted && !externallyControlled) 
         })}
         autoPlay={autoPlay && (externallyControlled || (!playOnHover && !isMobile))}
         muted={muted}

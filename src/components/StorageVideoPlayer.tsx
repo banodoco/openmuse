@@ -24,6 +24,7 @@ interface StorageVideoPlayerProps {
   thumbnailUrl?: string;
   forcePreload?: boolean;
   isMobile?: boolean;
+  preventLoadingFlicker?: boolean;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -42,7 +43,11 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   thumbnailUrl,
   forcePreload = false,
   isMobile = false,
+  preventLoadingFlicker = true,
 }) => {
+  const componentId = useRef(`storage_video_${Math.random().toString(36).substring(2, 9)}`).current;
+  logger.log(`[${componentId}] Rendering. Initial props: thumbnailUrl=${!!thumbnailUrl}, forcePreload=${forcePreload}, autoPlay=${autoPlay}`);
+
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [isLoadingVideoUrl, setIsLoadingVideoUrl] = useState<boolean>(false); 
   const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false); 
@@ -52,6 +57,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(autoPlay || forcePreload); 
   const [hasHovered, setHasHovered] = useState(autoPlay || forcePreload);
+
+  logger.log(`[${componentId}] Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}`);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -63,7 +70,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Cleanup on unmount
   useEffect(() => {
+    logger.log(`[${componentId}] Mounting effect ran.`);
     return () => {
+      logger.log(`[${componentId}] Unmounting.`);
       unmountedRef.current = true;
     };
   }, []);
@@ -103,9 +112,10 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     let isMounted = true;
     
     const loadVideo = async () => {
+      logger.log(`[${componentId}] loadVideo called.`);
       if (unmountedRef.current || !videoLocation) return;
 
-      logger.log('Attempting to load video URL for:', videoLocation.substring(0, 50) + '...');
+      logger.log(`[${componentId}] Attempting to load video URL for:`, videoLocation.substring(0, 50) + '...');
       setIsLoadingVideoUrl(true);
       setIsVideoLoaded(false); // Reset video loaded state when fetching new URL
       setError(null);
@@ -126,6 +136,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         
         if (isMounted && !unmountedRef.current) {
           setVideoUrl(url);
+          logger.log(`[${componentId}] videoUrl state set:`, url ? url.substring(0, 50) + '...' : 'null');
           // Loading state (isLoadingVideoUrl) will be set to false in handleVideoLoadedData or finally block
         }
       } catch (error) {
@@ -176,7 +187,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Callback when the actual <video> element has loaded data
   const handleVideoLoadedData = () => {
     if (!unmountedRef.current) {
-      logger.log('Video data loaded by VideoPlayer component.');
+      logger.log(`[${componentId}] Video data loaded callback received from VideoPlayer.`);
       setIsVideoLoaded(true); 
       setIsLoadingVideoUrl(false); // URL and video data are loaded
       if (onLoadedData) {
@@ -188,7 +199,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Determine visibility states
   const showThumbnail = !!thumbnailUrl && (!hasHovered || isLoadingVideoUrl || !isVideoLoaded);
   const showVideo = hasHovered && !!videoUrl && !error;
-  const showLoadingSpinner = hasHovered && !isVideoLoaded && !error && (isLoadingVideoUrl || !videoUrl); 
+  const showLoadingSpinner = !!thumbnailUrl && hasHovered && !isVideoLoaded && !error && (isLoadingVideoUrl || !videoUrl); 
+
+  logger.log(`[${componentId}] Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
 
   return (
     <div 
@@ -225,6 +238,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
              showVideo && isVideoLoaded ? "opacity-0" : "opacity-100" 
            )}
            loading="lazy" // Add lazy loading to thumbnails
+           onLoad={() => logger.log(`[${componentId}] Thumbnail img loaded: ${thumbnailUrl.substring(0,30)}...`)}
+           onError={() => logger.error(`[${componentId}] Thumbnail img failed to load: ${thumbnailUrl.substring(0,30)}...`)}
          />
        )}
 
@@ -238,7 +253,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       {/* Video Player - Rendered when hover starts, but opacity controls visibility */}
       {showVideo && (
         <VideoPlayer
-          key={videoUrl} 
+          key={`${componentId}-${videoUrl}`}
           src={videoUrl}
           className={cn(
             "absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-300",
@@ -256,7 +271,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           videoRef={videoRef} 
           externallyControlled={isHoveringExternally !== undefined} 
           isHovering={isHovering} 
-          poster={thumbnailUrl || videoUrl} // Use the video URL itself as a poster if no thumbnail
+          poster={thumbnailUrl} // Pass thumbnail as poster
           onLoadedData={handleVideoLoadedData} 
           isMobile={isMobile}
         />
