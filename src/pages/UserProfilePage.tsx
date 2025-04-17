@@ -12,6 +12,8 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LoraCard from '@/components/lora/LoraCard';
 import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
+import UploadModal from '@/components/upload/UploadModal';
+import { Button } from '@/components/ui/button';
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -183,9 +185,20 @@ export default function UserProfilePage() {
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-2xl font-semibold">Assets</h2>
                 {isOwner && profile?.id && (
-                  <Link to="/upload" className="bg-primary text-primary-foreground hover:bg-primary/90 px-4 py-2 rounded-md">
-                    Add New LoRA
-                  </Link>
+                  <UploadModal
+                    trigger={
+                      <Button> 
+                        Add New LoRA
+                      </Button>
+                    }
+                    initialUploadType="lora"
+                    onUploadSuccess={() => {
+                      // Refresh assets list on successful upload
+                      if (profile?.id) {
+                        fetchUserAssets(profile.id);
+                      }
+                    }}
+                  />
                 )}
               </div>
 
