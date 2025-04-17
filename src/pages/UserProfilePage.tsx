@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -5,7 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2 } from 'lucide-react';
+import { Loader2, Play } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -22,6 +23,7 @@ export default function UserProfilePage() {
   const [canEdit, setCanEdit] = useState(false);
   const [userAssets, setUserAssets] = useState<LoraAsset[]>([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
+  const [hoveredAssetId, setHoveredAssetId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProfileByDisplayName = async () => {
@@ -134,15 +136,42 @@ export default function UserProfilePage() {
             to={`/assets/${lora.id}`}
             state={{ from: 'profile', displayName: displayName }}
             className="no-underline"
+            onMouseEnter={() => setHoveredAssetId(lora.id)}
+            onMouseLeave={() => setHoveredAssetId(null)}
           >
             <Card className="h-full hover:shadow-md transition-shadow">
               <CardContent className="p-4">
                 <div className="flex flex-col h-full">
-                  <div className="aspect-video w-full bg-muted rounded-md overflow-hidden mb-3">
-                    {lora.primaryVideo ? (
-                      <div className="w-full h-full bg-center bg-cover" style={{ 
-                        backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl || ''})` 
-                      }} />
+                  <div className="aspect-video w-full bg-muted rounded-md overflow-hidden mb-3 relative">
+                    {lora.primaryVideo?.metadata?.thumbnailUrl ? (
+                      <div className="relative w-full h-full">
+                        {/* Always visible thumbnail */}
+                        <div 
+                          className="w-full h-full bg-center bg-cover" 
+                          style={{ backgroundImage: `url(${lora.primaryVideo.metadata.thumbnailUrl})` }}
+                        />
+                        
+                        {/* Play button overlay that only appears when not hovering */}
+                        <div 
+                          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 ${hoveredAssetId === lora.id ? 'opacity-0' : 'opacity-100'}`}
+                        >
+                          <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
+                            <Play className="h-6 w-6 text-white" />
+                          </div>
+                        </div>
+                        
+                        {/* Video that only loads/plays on hover */}
+                        {hoveredAssetId === lora.id && lora.primaryVideo?.video_location && (
+                          <video 
+                            className="absolute inset-0 w-full h-full object-cover"
+                            src={lora.primaryVideo.video_location}
+                            autoPlay 
+                            muted 
+                            loop
+                            playsInline
+                          />
+                        )}
+                      </div>
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-200">
                         <span className="text-slate-500 text-sm">No preview</span>
