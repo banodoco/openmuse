@@ -347,7 +347,10 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                         metadata={video.metadata}
                         associatedLoraIds={video.associatedLoraIds || []}
                         availableLoras={availableLoras}
-                        updateMetadata={updateVideoMetadata}
+                        onMetadataChange={(receivedId, receivedField, receivedValue) => {
+                          console.log(`[MultipleVideoUploader Shim] Received -> id: ${receivedId}, field: ${receivedField}, value:`, receivedValue);
+                          updateVideoMetadata(receivedId, receivedField, receivedValue);
+                        }}
                         disabled={disabled}
                         allowPrimarySelection={allowPrimarySelection}
                         uploadContext={uploadContext}

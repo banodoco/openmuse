@@ -25,7 +25,7 @@ interface VideoMetadataFormProps {
   };
   associatedLoraIds: string[];
   availableLoras: LoraOption[];
-  updateMetadata: (id: string, field: string, value: any) => void;
+  onMetadataChange: (id: string, field: string, value: any) => void;
   allowPrimarySelection?: boolean;
   disabled?: boolean;
   uploadContext: 'lora' | 'video';
@@ -36,7 +36,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   metadata, 
   associatedLoraIds,
   availableLoras, 
-  updateMetadata, 
+  onMetadataChange, 
   allowPrimarySelection = true,
   disabled = false,
   uploadContext
@@ -59,7 +59,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 id={`title-${videoId}`}
                 placeholder="Optional video title"
                 value={metadata.title}
-                onChange={(e) => updateMetadata(videoId, 'title', e.target.value)}
+                onChange={(e) => onMetadataChange(videoId, 'title', e.target.value)}
                 disabled={disabled}
               />
             </div>
@@ -72,7 +72,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 id={`description-${videoId}`}
                 placeholder="Optional video description"
                 value={metadata.description}
-                onChange={(e) => updateMetadata(videoId, 'description', e.target.value)}
+                onChange={(e) => onMetadataChange(videoId, 'description', e.target.value)}
                 disabled={disabled}
                 className="min-h-[80px]"
               />
@@ -85,7 +85,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 <Label className="text-sm font-medium mb-2 block">Video Classification</Label>
                 <RadioGroup 
                   value={metadata.classification}
-                  onValueChange={(value) => updateMetadata(videoId, 'classification', value)}
+                  onValueChange={(value) => onMetadataChange(videoId, 'classification', value)}
                   className="flex flex-col space-y-2"
                   disabled={disabled}
                 >
@@ -113,9 +113,9 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                       console.log(`[VideoMetadataForm] setSelectedIds callback received. Video ID: ${videoId}, New IDs:`, ids);
                       console.log(`[VideoMetadataForm] Current associatedLoraIds before update:`, associatedLoraIds); 
                       
-                      updateMetadata(videoId, 'associatedLoraIds', ids);
+                      onMetadataChange(videoId, 'associatedLoraIds', ids);
                       
-                      console.log(`[VideoMetadataForm] Called updateMetadata for 'associatedLoraIds'.`);
+                      console.log(`[VideoMetadataForm] Called onMetadataChange for 'associatedLoraIds'.`);
                     }}
                     disabled={disabled || availableLoras.length === 0}
                     placeholder="Select LoRA(s)..."
@@ -137,7 +137,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 <Switch
                   id={`is-primary-${videoId}`}
                   checked={metadata.isPrimary}
-                  onCheckedChange={(checked) => updateMetadata(videoId, 'isPrimary', checked)}
+                  onCheckedChange={(checked) => onMetadataChange(videoId, 'isPrimary', checked)}
                   disabled={disabled}
                 />
                 <Label htmlFor={`is-primary-${videoId}`} className="font-medium cursor-pointer">
