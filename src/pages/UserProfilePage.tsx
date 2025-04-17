@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -164,8 +165,9 @@ export default function UserProfilePage() {
     try {
       const { data: videosData, error: videosError } = await supabase
         .from('media')
-        .select('*, metadata')
+        .select('*')
         .eq('user_id', userId)
+        .eq('type', 'video')
         .order('created_at', { ascending: false });
       
       if (videosError) {
@@ -184,8 +186,8 @@ export default function UserProfilePage() {
           user_id: video.user_id,
           metadata: {
             title: video.title,
-            description: video.description,
-            thumbnailUrl: video.metadata?.thumbnailUrl
+            description: '',
+            thumbnailUrl: null
           }
         }));
         
