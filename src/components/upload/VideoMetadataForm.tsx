@@ -143,6 +143,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                     <Button
                       variant="link"
                       size="sm"
+                      type="button"
                       className="mt-2 px-0 h-auto text-muted-foreground hover:text-primary"
                       onClick={() => onApplyLorasToAll(associatedLoraIds)}
                       disabled={disabled}
