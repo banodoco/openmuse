@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -9,6 +9,8 @@ import { Logger } from '@/lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseStorage } from '@/lib/supabaseStorage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Label } from "@/components/ui/label";
+import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
 
 const logger = new Logger('UploadContent');
 
@@ -22,6 +24,11 @@ type LoRADetails = {
   modelVariant: string;
   loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
   loraLink: string;
+};
+
+type LoraOption = { // Type for fetched LoRA options
+  id: string;
+  name: string;
 };
 
 type VideoItem = {
@@ -56,6 +63,11 @@ const UploadContent: React.FC<UploadContentProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadType, setUploadType] = useState<'lora' | 'video'>(initialUploadType);
   
+  // State for LoRA selection in Video tab
+  const [availableLoras, setAvailableLoras] = useState<LoraOption[]>([]);
+  const [selectedLoraIds, setSelectedLoraIds] = useState<string[]>([]);
+  const [isLoadingLoras, setIsLoadingLoras] = useState(false);
+
   const [loraDetails, setLoraDetails] = useState<LoRADetails>({
     loraName: '',
     loraDescription: '',
@@ -75,6 +87,46 @@ const UploadContent: React.FC<UploadContentProps> = ({
   };
   
   const [videos, setVideos] = useState<VideoItem[]>([]);
+  
+  // Fetch available LoRAs when switching to video tab
+  useEffect(() => {
+    const fetchLoras = async () => {
+      if (uploadType === 'video' && user) {
+        setIsLoadingLoras(true);
+        setAvailableLoras([]); // Clear previous options
+        setSelectedLoraIds([]); // Clear selections
+        logger.log('Fetching available LoRAs...');
+        try {
+          const { data, error } = await supabase
+            .from('assets')
+            .select('id, name')
+            .eq('type', 'LoRA') // Only fetch LoRA type assets
+            .order('name', { ascending: true });
+          
+          if (error) throw error;
+          
+          if (data) {
+            setAvailableLoras(data);
+            logger.log(`Fetched ${data.length} LoRAs`);
+          } else {
+            setAvailableLoras([]);
+          }
+        } catch (error: any) {
+          logger.error('Error fetching LoRAs:', error);
+          toast.error('Failed to load available LoRAs.');
+          setAvailableLoras([]);
+        } finally {
+          setIsLoadingLoras(false);
+        }
+      } else {
+        // Clear LoRA state if not on video tab or not logged in
+        setAvailableLoras([]);
+        setSelectedLoraIds([]);
+      }
+    };
+    
+    fetchLoras();
+  }, [uploadType, user]); // Re-run if uploadType or user changes
   
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -146,7 +198,8 @@ const UploadContent: React.FC<UploadContentProps> = ({
       if (uploadType === 'lora') {
         await submitLoraAndVideos(uploadedVideoData, loraDetails, reviewerName, user);
       } else {
-        await submitStandaloneVideos(uploadedVideoData, reviewerName, user);
+        // Pass selected LoRA IDs to the submission function
+        await submitStandaloneVideos(uploadedVideoData, reviewerName, user, selectedLoraIds);
       }
 
       const message = uploadedVideoData.length > 1
@@ -237,24 +290,46 @@ const UploadContent: React.FC<UploadContentProps> = ({
     }
   };
 
-  const submitStandaloneVideos = async (uploadedVideos: any[], reviewerName: string, user: any) => {
+  // Modified to accept and process selectedLoraIds
+  const submitStandaloneVideos = async (
+    uploadedVideos: any[], 
+    reviewerName: string, 
+    user: any, 
+    selectedLoraIds: string[] // Added parameter
+  ) => {
     logger.log("Submitting standalone videos");
     for (const video of uploadedVideos) {
       logger.log(`Processing standalone media: ${video.metadata.title}`);
+      let mediaId: string | null = null;
       try {
         const { data: mediaData, error: mediaError } = await supabase.from('media').insert({
           id: video.id, title: video.metadata.title, url: video.url, type: 'video', // Use 'video' type?
           model_variant: null, classification: video.metadata.classification || 'art',
-          creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
+          // Video creator is always 'self' (logged-in user)
+          creator: reviewerName, 
           user_id: user?.id || null
-        }).select().single();
+        }).select('id').single(); // Only select id
 
         if (mediaError) throw new Error(`Standalone media creation failed: ${mediaError.message}`);
         if (!mediaData) throw new Error('Standalone media creation failed: No data returned');
-        logger.log(`Created standalone media ID: ${mediaData.id}`);
+        mediaId = mediaData.id;
+        logger.log(`Created standalone media ID: ${mediaId}`);
+        
+        // Link video to selected LoRAs
+        if (mediaId && selectedLoraIds.length > 0) {
+          logger.log(`Linking media ${mediaId} to ${selectedLoraIds.length} LoRAs: ${selectedLoraIds.join(', ')}`);
+          const links = selectedLoraIds.map(loraId => ({ asset_id: loraId, media_id: mediaId }));
+          const { error: linkError } = await supabase.from('asset_media').insert(links);
+          if (linkError) {
+            // Log error but don't necessarily fail the whole upload
+            logger.error(`Failed to link media ${mediaId} to some LoRAs: ${linkError.message}`);
+            toast.warning('Could not link video to all selected LoRAs.');
+          }
+        }
 
       } catch (mediaError: any) {
         logger.error(`Error processing standalone video ${video.metadata.title}:`, mediaError);
+        // If media creation fails, we definitely want to throw
         throw mediaError; // Re-throw to be caught by handleSubmit
       }
     }
@@ -299,6 +374,30 @@ const UploadContent: React.FC<UploadContentProps> = ({
               disabled={!user || isSubmitting}
               allowPrimarySelection={false}
             />
+            
+            {/* LoRA Association Section */}  
+            <div className="space-y-4">
+              <Label className="text-lg font-semibold text-foreground">Associate with LoRAs (Optional)</Label>
+              {isLoadingLoras && <p className="text-sm text-muted-foreground">Loading LoRAs...</p>}
+              {!isLoadingLoras && availableLoras.length === 0 && user && (
+                <p className="text-sm text-muted-foreground">No LoRAs found or available to associate with.</p>
+              )}
+              {!isLoadingLoras && availableLoras.length > 0 && (
+                <div>
+                  {/* === Placeholder for Multi-Select Combobox === */}
+                  <LoraMultiSelectCombobox
+                    loras={availableLoras}
+                    selectedIds={selectedLoraIds}
+                    setSelectedIds={setSelectedLoraIds}
+                    disabled={isSubmitting || !user || isLoadingLoras}
+                    placeholder="Select LoRAs to associate..."
+                    searchPlaceholder="Search LoRAs..."
+                    noResultsText="No LoRAs found."
+                  />
+                </div>
+              )}
+            </div>
+            
             <div className="flex justify-end gap-2">
               {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>}
               <Button type="submit" disabled={isSubmitting || !user}>

@@ -188,7 +188,7 @@ export default function UserProfilePage() {
                   <UploadModal
                     trigger={
                       <Button> 
-                        Add New LoRA
+                        Propose New LoRA
                       </Button>
                     }
                     initialUploadType="lora"

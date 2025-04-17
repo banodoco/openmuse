@@ -3,7 +3,6 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
-  DialogTitle,
   DialogTrigger,
   DialogFooter, // Import if needed for separate actions
   DialogClose   // Import if needed for explicit close button
@@ -36,9 +35,8 @@ const UploadModal: React.FC<UploadModalProps> = ({
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
       <DialogTrigger asChild>{trigger}</DialogTrigger>
-      <DialogContent className="sm:max-w-[90vw] md:max-w-[80vw] lg:max-w-[70vw] xl:max-w-[60vw] top-[10vh] translate-y-0">
+      <DialogContent className="sm:max-w-[90vw] md:max-w-[80vw] lg:max-w-[70vw] xl:max-w-[60vw]">
         <DialogHeader>
-          <DialogTitle>Upload {initialUploadType === 'lora' ? 'LoRA' : 'Video'}</DialogTitle>
           {/* Optional: Add DialogDescription here */}
         </DialogHeader>
         <div className="py-4 max-h-[80vh] overflow-y-auto">
