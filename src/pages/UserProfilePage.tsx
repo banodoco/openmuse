@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -352,9 +351,9 @@ export default function UserProfilePage() {
               </CardHeader>
               <CardContent>
                 {isLoadingAssets ? (
-                  <LoraGallerySkeleton count={isMobile ? 2 : 4} />
+                  <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : userAssets.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
                     {userAssets.map(asset => (
                       <LoraCard 
                         key={asset.id} 
@@ -388,9 +387,9 @@ export default function UserProfilePage() {
               </CardHeader>
               <CardContent>
                 {isLoadingVideos ? (
-                  <LoraGallerySkeleton count={isMobile ? 2 : 4} />
+                  <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : generationVideos.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                     {generationVideos.map(video => (
                       <VideoCard 
                         key={video.id} 
@@ -427,7 +426,7 @@ export default function UserProfilePage() {
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 4} />
                 ) : artVideos.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {artVideos.map(video => (
                       <VideoCard 
                         key={video.id} 
