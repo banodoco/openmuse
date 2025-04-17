@@ -188,15 +188,7 @@ export default function UserProfilePage() {
           description=""
         />
         
-        {isLoading ? (
-          <Card className="w-full max-w-2xl mx-auto">
-            <CardContent className="py-8">
-              <div className="flex justify-center">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            </CardContent>
-          </Card>
-        ) : (
+        {!isLoading && (
           <>
             <div className="max-w-2xl mx-auto">
               {canEdit ? (
@@ -211,7 +203,7 @@ export default function UserProfilePage() {
                   )}
                   <CardContent className={`pt-6 pb-4 ${profile?.background_image_url ? '-mt-16 relative z-10' : ''}`}>
                     <div className="flex flex-col items-center space-y-4">
-                      <Avatar className={`h-24 w-24 border-4 border-white ${profile?.background_image_url ? 'shadow-lg' : ''}`}>
+                      <Avatar className={`h-24 w-24 border-4 border-white shadow-lg ${profile?.background_image_url ? '-mt-12' : ''}`}>
                         <AvatarImage src={profile?.avatar_url || ''} alt={profile?.display_name || ''} />
                         <AvatarFallback>{profile ? getInitials(profile.display_name || profile.username) : '??'}</AvatarFallback>
                       </Avatar>
