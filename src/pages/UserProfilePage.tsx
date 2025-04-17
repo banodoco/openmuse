@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -5,7 +6,7 @@ import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
 import { Card, CardContent } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Loader2 } from 'lucide-react';
+import { Loader2, ExternalLink } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -140,6 +141,41 @@ export default function UserProfilePage() {
       .substring(0, 2);
   };
 
+  const renderProfileLinks = () => {
+    if (!profile?.links || profile.links.length === 0) return null;
+    
+    return (
+      <div className="flex flex-wrap gap-2 mt-3 justify-center">
+        {profile.links.map((link, index) => {
+          try {
+            const url = new URL(link);
+            const domain = url.hostname;
+            
+            return (
+              <a 
+                key={index}
+                href={link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1 bg-muted/30 hover:bg-muted/50 transition-colors rounded-md px-3 py-1.5"
+              >
+                <img 
+                  src={`https://www.google.com/s2/favicons?domain=${domain}`} 
+                  alt=""
+                  className="w-4 h-4"
+                />
+                <span className="text-sm">{domain}</span>
+                <ExternalLink className="w-3 h-3 ml-1 opacity-60" />
+              </a>
+            );
+          } catch (e) {
+            return null; // Skip invalid URLs
+          }
+        })}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -164,7 +200,7 @@ export default function UserProfilePage() {
                 <UserProfileSettings />
               ) : (
                 <Card className="w-full">
-                  <CardContent className="pt-6">
+                  <CardContent className="pt-6 pb-4">
                     <div className="flex flex-col items-center space-y-4">
                       <Avatar className="h-24 w-24">
                         <AvatarImage src={profile?.avatar_url || ''} alt={profile?.display_name || ''} />
@@ -174,6 +210,14 @@ export default function UserProfilePage() {
                       <div className="text-center">
                         <h2 className="text-2xl font-bold">{profile?.display_name}</h2>
                         <p className="text-muted-foreground">{profile?.username}</p>
+                        
+                        {profile?.description && (
+                          <div className="mt-4 max-w-md mx-auto">
+                            <p className="text-sm text-foreground/90">{profile.description}</p>
+                          </div>
+                        )}
+                        
+                        {renderProfileLinks()}
                       </div>
                     </div>
                   </CardContent>

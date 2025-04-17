@@ -101,9 +101,26 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
       }
     }
     
+    // Sanitize links to ensure they are valid URLs
+    let sanitizedUpdates = { ...updates };
+    if (updates.links) {
+      sanitizedUpdates.links = updates.links.filter(link => {
+        try {
+          // Make sure link has a protocol
+          if (!/^https?:\/\//i.test(link)) {
+            link = `https://${link}`;
+          }
+          new URL(link);
+          return true;
+        } catch (e) {
+          return false;
+        }
+      });
+    }
+    
     const { data, error } = await supabase
       .from('profiles')
-      .update(updates)
+      .update(sanitizedUpdates)
       .eq('id', userId)
       .select()
       .single();
