@@ -1,5 +1,5 @@
 
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { Play } from 'lucide-react';
@@ -58,6 +58,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [hasInteracted, setHasInteracted] = useState(false);
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
   const [posterLoaded, setPosterLoaded] = useState(false);
+  const [forcedPlay, setForcedPlay] = useState(false);
   
   // Use the video loader hook
   const {
@@ -90,8 +91,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     isMobile,
     loadedDataFired: !isLoading,
     playAttempted,
-    setPlayAttempted
+    setPlayAttempted,
+    forcedPlay
   });
+  
+  // Force play for lightbox on mobile
+  useEffect(() => {
+    if (externallyControlled && isHovering && isMobile && !playAttempted && !isLoading && videoRef.current) {
+      logger.log('Forcing play for lightbox on mobile');
+      setForcedPlay(true);
+      
+      const attemptPlay = async () => {
+        try {
+          if (videoRef.current) {
+            await videoRef.current.play();
+            logger.log('Successfully forced play on mobile lightbox');
+          }
+        } catch (err) {
+          logger.error('Failed to force play on mobile lightbox:', err);
+        }
+      };
+      
+      attemptPlay();
+    }
+  }, [externallyControlled, isHovering, isMobile, playAttempted, isLoading, videoRef]);
   
   // Effect to load poster image
   React.useEffect(() => {
@@ -134,6 +157,18 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     setIsInternallyHovering(false);
   };
 
+  const handleVideoClick = () => {
+    if (isMobile && videoRef.current) {
+      if (videoRef.current.paused) {
+        videoRef.current.play().catch(err => {
+          logger.error('Error playing video on click:', err);
+        });
+      } else {
+        videoRef.current.pause();
+      }
+    }
+  };
+
   return (
     <div 
       ref={containerRef} 
@@ -154,7 +189,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
       
       <VideoOverlay 
-        isMobile={isMobile} 
+        isMobile={isMobile && !externallyControlled} 
         poster={poster} 
         posterLoaded={posterLoaded} 
       />
@@ -162,24 +197,26 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       <LazyPosterImage 
         poster={poster} 
         lazyLoad={lazyLoad} 
-        hasInteracted={hasInteracted}
-        isMobile={isMobile}
+        hasInteracted={hasInteracted || externallyControlled}
+        isMobile={isMobile && !externallyControlled}
       />
       
       <video
         ref={videoRef}
         className={cn("w-full h-full object-cover", className, {
-          'opacity-0': (lazyLoad && !hasInteracted) || (isMobile && poster && posterLoaded)
+          'opacity-0': (lazyLoad && !hasInteracted && !externallyControlled) || 
+                      (isMobile && poster && posterLoaded && !externallyControlled)
         })}
-        autoPlay={autoPlay && !playOnHover && !externallyControlled && !isMobile}
+        autoPlay={autoPlay && (externallyControlled || (!playOnHover && !isMobile))}
         muted={muted}
         loop={loop}
         controls={isMobile ? true : (showPlayButtonOnHover ? controls : false)}
         playsInline
         poster={poster || undefined}
-        preload={hasInteracted && !isMobile ? "auto" : "metadata"}
+        preload={hasInteracted || externallyControlled ? "auto" : "metadata"}
         src={src}
         crossOrigin="anonymous"
+        onClick={handleVideoClick}
       >
         Your browser does not support the video tag.
       </video>

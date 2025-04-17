@@ -1,8 +1,10 @@
+
 import React, { useEffect, useRef, useState } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
 import { X } from 'lucide-react';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { supabase } from '@/integrations/supabase/client';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -25,6 +27,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const isMobile = useIsMobile();
 
   useEffect(() => {
     const fetchCreatorDisplayName = async () => {
@@ -85,6 +88,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               className="w-full rounded-md"
               controls
               autoPlay
+              externallyControlled={true}
+              isHovering={true}
+              isMobile={isMobile}
+              muted={false}
             />
           </div>
           

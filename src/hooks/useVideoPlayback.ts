@@ -14,6 +14,7 @@ interface UseVideoPlaybackProps {
   loadedDataFired: boolean;
   playAttempted: boolean;
   setPlayAttempted: (attempted: boolean) => void;
+  forcedPlay?: boolean;
 }
 
 export const useVideoPlayback = ({
@@ -24,7 +25,8 @@ export const useVideoPlayback = ({
   isMobile,
   loadedDataFired,
   playAttempted,
-  setPlayAttempted
+  setPlayAttempted,
+  forcedPlay = false
 }: UseVideoPlaybackProps) => {
   const isHoveringRef = useRef(isHovering);
 
@@ -34,7 +36,7 @@ export const useVideoPlayback = ({
   
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || isMobile) return;
+    if (!video) return;
     
     if (externallyControlled) {
       logger.log(`External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
@@ -42,12 +44,15 @@ export const useVideoPlayback = ({
       if (isHovering) {
         logger.log('VideoPlayer: External hover detected - playing video');
         
-        if (!playAttempted && video.readyState >= 2) {
+        // For mobile in lightbox, we want to autoplay regardless
+        const shouldAttemptPlay = (forcedPlay && isMobile) || (!playAttempted && video.readyState >= 2);
+        
+        if (shouldAttemptPlay) {
           setTimeout(() => {
             if (video) {
               attemptVideoPlay(video, muted)
-                .then(() => logger.log('Play succeeded on hover'))
-                .catch(e => logger.error('Play failed on hover:', e));
+                .then(() => logger.log('Play succeeded on hover or forced play'))
+                .catch(e => logger.error('Play failed on hover or forced play:', e));
               setPlayAttempted(true);
             }
           }, 100);
@@ -57,5 +62,5 @@ export const useVideoPlayback = ({
         video.pause();
       }
     }
-  }, [isHovering, externallyControlled, videoRef, muted, isMobile, playAttempted, setPlayAttempted]);
+  }, [isHovering, externallyControlled, videoRef, muted, isMobile, playAttempted, setPlayAttempted, forcedPlay]);
 };
