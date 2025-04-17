@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -181,11 +182,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
       </div>
       
       <div className="p-2 bg-card flex-grow flex flex-col">
-        {video.metadata?.title && (
+        {video.metadata?.title ? (
           <h3 className="font-medium text-sm truncate mb-1">
             {video.metadata.title}
           </h3>
-        )}
+        ) : null}
         
         {!isProfilePage && (
           <p className="text-xs text-muted-foreground">By {getCreatorName()}</p>
