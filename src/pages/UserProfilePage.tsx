@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -255,7 +256,7 @@ export default function UserProfilePage() {
                     href={link}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="relative flex items-center justify-center w-10 h-10 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors"
+                    className="relative flex items-center justify-center w-10 h-10 bg-accent/30 hover:bg-accent/50 rounded-full transition-colors shadow-sm hover:shadow-md"
                   >
                     <img 
                       src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
@@ -264,7 +265,7 @@ export default function UserProfilePage() {
                     />
                   </a>
                 </HoverCardTrigger>
-                <HoverCardContent className="p-2 text-sm">
+                <HoverCardContent className="p-2 text-sm glass">
                   {domain}
                 </HoverCardContent>
               </HoverCard>
@@ -357,22 +358,26 @@ export default function UserProfilePage() {
               {isOwner && !forceLoggedOutView ? (
                 <UserProfileSettings />
               ) : (
-                <Card className="w-full">
+                <Card className="w-full overflow-hidden shadow-lg bg-white/10 backdrop-blur-sm border border-white/20 animate-scale-in">
                   {profile?.background_image_url && (
                     <div 
                       className="w-full h-48 bg-cover bg-center rounded-t-lg" 
                       style={{ backgroundImage: `url(${profile.background_image_url})` }}
                     />
                   )}
-                  <CardContent className={`pt-6 pb-4 ${profile?.background_image_url ? '-mt-16 relative z-10' : ''}`}>
+                  <CardContent className={`pt-6 pb-4 ${profile?.background_image_url ? '-mt-16 relative z-10 bg-gradient-to-t from-card to-transparent' : ''}`}>
                     <div className="flex flex-col items-center space-y-4">
-                      <Avatar className={`h-24 w-24 border-4 border-white shadow-lg ${profile?.background_image_url ? '-mt-13' : ''}`}>
+                      <Avatar className={`h-24 w-24 border-4 border-white shadow-xl ${profile?.background_image_url ? '-mt-13' : ''}`}>
                         <AvatarImage src={profile?.avatar_url || ''} alt={profile?.display_name || ''} />
-                        <AvatarFallback>{profile ? getInitials(profile.display_name || profile.username) : '??'}</AvatarFallback>
+                        <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white">
+                          {profile ? getInitials(profile.display_name || profile.username) : '??'}
+                        </AvatarFallback>
                       </Avatar>
                       
                       <div className="text-center">
-                        <h2 className="text-2xl font-bold">{profile?.display_name}</h2>
+                        <h2 className="text-2xl font-bold bg-gradient-to-r from-forest-dark to-olive-dark bg-clip-text text-transparent">
+                          {profile?.display_name}
+                        </h2>
                         
                         {profile?.real_name && (
                           <p className="text-muted-foreground mt-1">{profile.real_name}</p>
@@ -382,7 +387,7 @@ export default function UserProfilePage() {
                         
                         {profile?.description && (
                           <div className="mt-4 max-w-md mx-auto">
-                            <p className="text-sm text-foreground/90">{profile.description}</p>
+                            <p className="text-sm text-foreground/90 bg-muted/20 p-3 rounded-lg">{profile.description}</p>
                           </div>
                         )}
                         
@@ -394,13 +399,13 @@ export default function UserProfilePage() {
               )}
             </div>
 
-            <Card className="mt-8">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>LoRAs</CardTitle>
+            <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-cream-light/70 backdrop-blur-sm border border-cream-dark/20 animate-fade-in">
+              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-forest/10 to-olive/10">
+                <CardTitle className="text-forest-dark">LoRAs</CardTitle>
                 {isOwner && profile?.id && !forceLoggedOutView && (
                   <UploadModal
                     trigger={
-                      <Button> 
+                      <Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300"> 
                         Add new LoRA
                       </Button>
                     }
@@ -409,7 +414,7 @@ export default function UserProfilePage() {
                   />
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 {isLoadingAssets ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : userAssets.length > 0 ? (
@@ -423,20 +428,20 @@ export default function UserProfilePage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
+                  <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg">
                     This user hasn't created any LoRAs yet.
                   </div>
                 )}
               </CardContent>
             </Card>
 
-            <Card className="mt-8">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Generations</CardTitle>
+            <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20 animate-fade-in">
+              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-gold/10 to-cream/10">
+                <CardTitle className="text-gold-dark">Generations</CardTitle>
                 {isOwner && profile?.id && !forceLoggedOutView && (
                   <UploadModal
                     trigger={
-                      <Button>
+                      <Button className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300">
                         Add new Generation
                       </Button>
                     }
@@ -445,7 +450,7 @@ export default function UserProfilePage() {
                   />
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : (
@@ -463,13 +468,13 @@ export default function UserProfilePage() {
               </CardContent>
             </Card>
 
-            <Card className="mt-8">
-              <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Art</CardTitle>
+            <Card className="mt-8 mb-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20 animate-fade-in">
+              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-olive/10 to-cream/10">
+                <CardTitle className="text-olive-dark">Art</CardTitle>
                 {isOwner && profile?.id && !forceLoggedOutView && (
                   <UploadModal
                     trigger={
-                      <Button>
+                      <Button className="bg-gradient-to-r from-olive-dark to-olive hover:opacity-90 transition-all duration-300">
                         Add new Art
                       </Button>
                     }
@@ -478,7 +483,7 @@ export default function UserProfilePage() {
                   />
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="p-6">
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 4} />
                 ) : (

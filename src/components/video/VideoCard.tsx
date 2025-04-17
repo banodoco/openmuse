@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -144,7 +145,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
     <div 
       ref={cardRef}
       key={video.id} 
-      className="relative rounded-lg overflow-hidden shadow-md group cursor-pointer h-full flex flex-col"
+      className="relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer h-full flex flex-col bg-white/5 backdrop-blur-sm border border-white/10"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
@@ -167,12 +168,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
             
             {!isMobile && (
               <div 
-                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-200 pointer-events-none
+                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none
                   ${isHovering ? 'opacity-0' : 'opacity-100'}
                 `}
               >
-                <div className="bg-black/30 rounded-full p-3 backdrop-blur-sm">
-                  <Play className="h-6 w-6 text-white" />
+                <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm shadow-md">
+                  <Play className="h-6 w-6 text-white animate-pulse-opacity" />
                 </div>
               </div>
             )}
@@ -180,7 +181,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         </div>
       </div>
       
-      <div className="bg-card flex-grow flex flex-col">
+      <div className="bg-gradient-to-b from-card to-card/70 flex-grow flex flex-col backdrop-blur-sm">
         {video.metadata?.title ? (
           <h3 className="p-2 font-medium text-sm truncate">
             {video.metadata.title}

@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoCard from './VideoCard';
 import {
@@ -32,7 +32,8 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
   onApprove = () => {},
   onReject = () => {},
 }) => {
-  const [currentPage, setCurrentPage] = React.useState(1);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const totalPages = Math.ceil(videos.length / itemsPerPage);
   
   const paginatedVideos = videos.slice(
@@ -40,16 +41,24 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
     currentPage * itemsPerPage
   );
 
+  const handleHoverChange = (videoId: string, isHovering: boolean) => {
+    if (isHovering) {
+      setHoveredVideoId(videoId);
+    } else if (hoveredVideoId === videoId) {
+      setHoveredVideoId(null);
+    }
+  };
+
   if (videos.length === 0) {
     return (
-      <div className="text-center text-muted-foreground py-8">
+      <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg backdrop-blur-sm animate-fade-in">
         No videos available.
       </div>
     );
   }
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 animate-fade-in">
       <div className={`grid ${gridCols} gap-4`}>
         {paginatedVideos.map((video) => (
           <VideoCard
@@ -59,6 +68,8 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
             onOpenLightbox={onOpenLightbox}
             onDeleteVideo={onDelete}
             onApproveVideo={onApprove}
+            isHovering={hoveredVideoId === video.id}
+            onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
           />
         ))}
       </div>
@@ -69,7 +80,7 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
             <PaginationItem>
               <PaginationPrevious 
                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-muted/50 transition-colors"}
               />
             </PaginationItem>
             
@@ -78,7 +89,7 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
                 <PaginationLink
                   onClick={() => setCurrentPage(page)}
                   isActive={currentPage === page}
-                  className="cursor-pointer"
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
                 >
                   {page}
                 </PaginationLink>
@@ -88,7 +99,7 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
             <PaginationItem>
               <PaginationNext
                 onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer hover:bg-muted/50 transition-colors"}
               />
             </PaginationItem>
           </PaginationContent>
