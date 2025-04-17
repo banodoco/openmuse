@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Trash, Check, X, ExternalLink } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
@@ -36,6 +36,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   isAdmin = false, 
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [isDeleting, setIsDeleting] = useState(false);
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
@@ -178,6 +179,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
     );
   };
   
+  const isOnProfilePage = location.pathname.startsWith('/profile/');
+
   return (
     <Card 
       className="overflow-hidden h-full flex flex-col group cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out" 
@@ -213,12 +216,14 @@ const LoraCard: React.FC<LoraCardProps> = ({
             </Badge>
           )}
         </div>
-        <LoraCreatorInfo 
-          asset={lora} 
-          avatarSize="h-5 w-5" 
-          textSize="text-xs" 
-          className="text-muted-foreground mt-1"
-        />
+        {!isOnProfilePage && (
+          <LoraCreatorInfo 
+            asset={lora} 
+            avatarSize="h-5 w-5" 
+            textSize="text-xs" 
+            className="text-muted-foreground mt-1"
+          />
+        )}
       </CardContent>
       
       {isAdmin && (
