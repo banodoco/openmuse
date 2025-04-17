@@ -154,80 +154,80 @@ export default function UserProfilePage() {
     }
   };
 
-const fetchUserVideos = async (userId: string) => {
-  setIsLoadingVideos(true);
-  try {
-    const { data: videosData, error: videosError } = await supabase
-      .from('media')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('type', 'video')
-      .order('created_at', { ascending: false });
+  const fetchUserVideos = async (userId: string) => {
+    setIsLoadingVideos(true);
+    try {
+      const { data: videosData, error: videosError } = await supabase
+        .from('media')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('type', 'video')
+        .order('created_at', { ascending: false });
     
-    if (videosError) {
-      console.error('Error fetching user videos:', videosError);
-      return;
-    }
+      if (videosError) {
+        console.error('Error fetching user videos:', videosError);
+        return;
+      }
 
-    if (videosData) {
-      console.log('Raw videos data:', videosData.map(video => ({
-        id: video.id,
-        classification: video.classification,
-        title: video.title
-      })));
-
-      const processedVideos: VideoEntry[] = videosData.map(video => {
-        let classification = video.classification || 'generation';
-        if (classification !== 'art' && classification !== 'generation') {
-          console.log(`Defaulting video ${video.id} classification from '${video.classification}' to 'generation'`);
-          classification = 'generation';
-        }
-        
-        const processedVideo: VideoEntry = {
+      if (videosData) {
+        console.log('Raw videos data:', videosData.map(video => ({
           id: video.id,
-          video_location: video.url,
-          reviewer_name: video.creator || '',
-          skipped: false,
-          created_at: video.created_at,
-          admin_approved: video.admin_approved,
-          user_id: video.user_id,
-          metadata: {
-            title: video.title,
-            description: '',
-            creator: 'self',
-            classification: classification,
-            thumbnailUrl: video.metadata?.thumbnailUrl
-          }
-        };
-        
-        return processedVideo;
-      });
-      
-      const generations = processedVideos.filter(v => {
-        const isGeneration = v.metadata?.classification === 'generation';
-        console.log(`Video ${v.id} (${v.metadata?.title || 'Untitled'}): ${isGeneration ? 'Generation ✅' : 'Not Generation ❌'}`);
-        return isGeneration;
-      });
+          classification: video.classification,
+          title: video.title
+        })));
 
-      const art = processedVideos.filter(v => {
-        const isArt = v.metadata?.classification === 'art';
-        console.log(`Video ${v.id} (${v.metadata?.title || 'Untitled'}): ${isArt ? 'Art ✅' : 'Not Art ❌'}`);
-        return isArt;
-      });
-      
-      console.log('Generation Videos:', generations.map(v => v.id));
-      console.log('Art Videos:', art.map(v => v.id));
-      
-      setGenerationVideos(generations);
-      setArtVideos(art);
-      setUserVideos(processedVideos);
+        const processedVideos: VideoEntry[] = videosData.map(video => {
+          let classification = video.classification || 'generation';
+          if (classification !== 'art' && classification !== 'generation') {
+            console.log(`Defaulting video ${video.id} classification from '${video.classification}' to 'generation'`);
+            classification = 'generation';
+          }
+          
+          const processedVideo: VideoEntry = {
+            id: video.id,
+            video_location: video.url,
+            reviewer_name: video.creator || '',
+            skipped: false,
+            created_at: video.created_at,
+            admin_approved: video.admin_approved,
+            user_id: video.user_id,
+            metadata: {
+              title: video.title,
+              description: '',
+              creator: 'self',
+              classification: classification,
+              thumbnailUrl: video.metadata?.thumbnailUrl
+            }
+          };
+          
+          return processedVideo;
+        });
+        
+        const generations = processedVideos.filter(v => {
+          const isGeneration = v.metadata?.classification === 'generation';
+          console.log(`Video ${v.id} (${v.metadata?.title || 'Untitled'}): ${isGeneration ? 'Generation ✅' : 'Not Generation ❌'}`);
+          return isGeneration;
+        });
+
+        const art = processedVideos.filter(v => {
+          const isArt = v.metadata?.classification === 'art';
+          console.log(`Video ${v.id} (${v.metadata?.title || 'Untitled'}): ${isArt ? 'Art ✅' : 'Not Art ❌'}`);
+          return isArt;
+        });
+        
+        console.log('Generation Videos:', generations.map(v => v.id));
+        console.log('Art Videos:', art.map(v => v.id));
+        
+        setGenerationVideos(generations);
+        setArtVideos(art);
+        setUserVideos(processedVideos);
+      }
+    } catch (err) {
+      console.error('Error processing user videos:', err);
+    } finally {
+      setIsLoadingVideos(false);
     }
-  } catch (err) {
-    console.error('Error processing user videos:', err);
-  } finally {
-    setIsLoadingVideos(false);
-  }
-};
+  };
 
   const getInitials = (name: string) => {
     return name
@@ -451,7 +451,7 @@ const fetchUserVideos = async (userId: string) => {
                 ) : (
                   <VideoPaginatedGrid
                     videos={generationVideos}
-                    itemsPerPage={18} // 3 rows × 6 columns
+                    itemsPerPage={12} // 2 rows × 6 columns
                     gridCols="grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
                     isAdmin={isAdmin}
                     onOpenLightbox={handleOpenLightbox}

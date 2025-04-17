@@ -17,9 +17,9 @@ interface VideoPaginatedGridProps {
   gridCols: string;
   isAdmin?: boolean;
   onOpenLightbox: (video: VideoEntry) => void;
-  onDelete: (id: string) => void;
-  onApprove: (id: string) => void;
-  onReject: (id: string) => void;
+  onDelete?: (id: string) => void;
+  onApprove?: (id: string) => void;
+  onReject?: (id: string) => void;
 }
 
 const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
@@ -28,9 +28,9 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
   gridCols,
   isAdmin,
   onOpenLightbox,
-  onDelete,
-  onApprove,
-  onReject,
+  onDelete = () => {},
+  onApprove = () => {},
+  onReject = () => {},
 }) => {
   const [currentPage, setCurrentPage] = React.useState(1);
   const totalPages = Math.ceil(videos.length / itemsPerPage);
@@ -55,7 +55,7 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
           <VideoCard
             key={video.id}
             video={video}
-            isAdmin={isAdmin}
+            isAdmin={!!isAdmin}
             onOpenLightbox={onOpenLightbox}
             onDelete={onDelete}
             onApprove={onApprove}
