@@ -41,11 +41,14 @@ export default function UserProfilePage() {
       setIsLoading(true);
       
       try {
+        // Decode the URL-encoded displayName
+        const decodedDisplayName = decodeURIComponent(displayName);
+        
         // First try to find by display_name
         let { data, error } = await supabase
           .from('profiles')
           .select('*')
-          .eq('display_name', displayName)
+          .eq('display_name', decodedDisplayName)
           .maybeSingle();
         
         // If not found by display_name, try username (Discord username)
@@ -53,7 +56,7 @@ export default function UserProfilePage() {
           const { data: usernameData, error: usernameError } = await supabase
             .from('profiles')
             .select('*')
-            .eq('username', displayName)
+            .eq('username', decodedDisplayName)
             .maybeSingle();
             
           if (usernameError) {

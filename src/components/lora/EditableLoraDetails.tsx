@@ -378,7 +378,7 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
             </div>
           ) : creatorProfile ? (
             <Link 
-              to={`/profile/${encodeURIComponent(creatorProfile.display_name || creatorProfile.username?.replace('#', '%23') || creatorProfile.id)}`}
+              to={`/profile/${encodeURIComponent(creatorProfile.display_name || creatorProfile.username || creatorProfile.id)}`}
               className="flex items-center space-x-2 group hover:underline"
             >
               <Avatar className="h-8 w-8">
