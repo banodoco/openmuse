@@ -160,6 +160,7 @@ export default function UserProfilePage() {
                         creator={lora.creator || ''}
                         lazyLoad={true}
                         thumbnailUrl={lora.primaryVideo.metadata?.thumbnailUrl}
+                        preventLoadingFlicker={true}
                       />
                     ) : (
                       <div className="w-full h-full flex items-center justify-center bg-slate-200">

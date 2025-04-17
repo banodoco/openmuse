@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef, memo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import VideoThumbnailGenerator from './video/VideoThumbnailGenerator';
@@ -20,6 +19,7 @@ interface VideoPreviewProps {
   isHovering?: boolean;
   lazyLoad?: boolean;
   thumbnailUrl?: string;
+  preventLoadingFlicker?: boolean;
 }
 
 /**
@@ -34,7 +34,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   creator,
   isHovering: externalHoverState,
   lazyLoad = true,
-  thumbnailUrl
+  thumbnailUrl,
+  preventLoadingFlicker = true
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -54,7 +55,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const thumbnailGeneratorMounted = useRef(false);
   const unmountedRef = useRef(false);
   
-  // Log component mount with ID for tracking
   useEffect(() => {
     logger.log(`VideoPreview mounting [${componentId.current}] URL: ${url ? url.substring(0, 30) + '...' : 'none'}`);
     logger.log(`Initial state [${componentId.current}]: thumbnailUrl: ${thumbnailUrl ? 'provided' : 'none'}, forceGenerate: ${forceGenerate}`);
@@ -66,15 +66,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     };
   }, []);
   
-  // Combine external and internal hover states
   const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
   
-  // Force playing state update when hover state changes
   useEffect(() => {
     if (externalHoverState !== undefined && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: External hover state changed to ${externalHoverState}`);
       setIsHovering(externalHoverState);
-      // Only auto-play on hover for desktop - not on mobile
       if (!isMobile) {
         setIsPlaying(externalHoverState);
       }
@@ -118,12 +115,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     logger.log(`VideoPreview [${componentId.current}]: Thumbnail generated, current posterUrl: ${posterUrl ? 'exists' : 'none'}`);
     setThumbnailGenerationAttempts(prev => prev + 1);
     
-    // Only update if we don't have a thumbnail yet or if we're forcing regeneration
     if (!posterUrl || forceGenerate) {
       logger.log(`VideoPreview [${componentId.current}]: Setting new thumbnail URL, attempt #${thumbnailGenerationAttempts + 1}`);
       setPosterUrl(thumbnailUrl);
       setThumbnailLoaded(true);
-      // Prevent additional generation attempts after successful generation
       if (thumbnailGenerationAttempts === 0) {
         setForceGenerate(false);
       }
@@ -137,7 +132,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       logger.log(`VideoPreview [${componentId.current}]: Mouse entered`);
       setInternalHoverState(true);
       setIsHovering(true);
-      // Only auto-play on hover for desktop
       if (!isMobile) {
         setIsPlaying(true);
       }
@@ -157,21 +151,18 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  // Only generate thumbnail if we don't have one yet and haven't reached the max attempts
   const needsThumbnailGeneration = (!posterUrl || forceGenerate) && thumbnailGenerationAttempts < 2 && !thumbnailGeneratorMounted.current;
   
   if (needsThumbnailGeneration) {
     thumbnailGeneratorMounted.current = true;
   }
 
-  // Prepare video options to prevent flickering on hover
   const videoOptions = {
     preloadVideo: true,
     skipTransitions: true,
     preventLoadingFlicker: true
   };
 
-  // Important: Use pointer-events-none for the thumbnail if hovering to allow events to pass through
   return (
     <div 
       ref={previewRef}
@@ -209,7 +200,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           onError={handleVideoError}
           isHovering={effectiveHoverState}
           isMobile={isMobile}
-          preventLoadingFlicker={true}
+          preventLoadingFlicker={preventLoadingFlicker}
         />
       ) : isBlobUrl ? (
         <StorageVideoPlayer
@@ -226,7 +217,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={true} 
           isMobile={isMobile}
-          preventLoadingFlicker={true}
+          preventLoadingFlicker={preventLoadingFlicker}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -243,7 +234,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={true}
           isMobile={isMobile}
-          preventLoadingFlicker={true}
+          preventLoadingFlicker={preventLoadingFlicker}
         />
       ) : null}
 
