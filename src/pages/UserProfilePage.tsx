@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -88,6 +88,10 @@ export default function UserProfilePage() {
         const processedAssets: LoraAsset[] = assetsData.map(asset => {
           console.log('Processing asset:', asset.id, 'Primary video:', asset.primaryVideo);
           
+          const videoUrl = asset.primaryVideo?.url || '';
+          // Extract thumbnail URL from metadata or use video URL as fallback
+          const thumbnailUrl = asset.primaryVideo?.metadata?.thumbnailUrl || videoUrl;
+          
           return {
             id: asset.id,
             name: asset.name,
@@ -112,7 +116,7 @@ export default function UserProfilePage() {
               user_id: asset.primaryVideo.user_id,
               metadata: {
                 title: asset.primaryVideo.title,
-                thumbnailUrl: asset.primaryVideo.url
+                thumbnailUrl: thumbnailUrl
               }
             } : undefined
           };
@@ -138,7 +142,7 @@ export default function UserProfilePage() {
   };
 
   const ProfileLoraList = ({ loras }: { loras: LoraAsset[] }) => {
-    const videoRefs = React.useRef<{ [key: string]: HTMLVideoElement }>({});
+    const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
 
     const handleMouseEnter = (loraId: string) => {
       setHoveredAssetId(loraId);
@@ -180,11 +184,17 @@ export default function UserProfilePage() {
                   <div className="aspect-video w-full bg-muted rounded-md overflow-hidden mb-3 relative">
                     {lora.primaryVideo ? (
                       <div className="relative w-full h-full">
-                        {/* Always visible thumbnail */}
-                        <div 
-                          className="w-full h-full bg-center bg-cover" 
-                          style={{ backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl || lora.primaryVideo.video_location})` }}
-                        />
+                        {/* Always visible thumbnail with proper styling and fallback */}
+                        {lora.primaryVideo.video_location && (
+                          <div 
+                            className="w-full h-full bg-center bg-cover absolute inset-0" 
+                            style={{ 
+                              backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl || lora.primaryVideo.video_location})`,
+                              backgroundSize: 'cover',
+                              backgroundPosition: 'center center',
+                            }}
+                          />
+                        )}
                         
                         {/* Play button overlay that only appears when not hovering */}
                         <div 
