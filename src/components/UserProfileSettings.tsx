@@ -205,7 +205,7 @@ export default function UserProfileSettings() {
           Update your profile information
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="relative -mt-16 z-10">
         <form onSubmit={handleSubmit} className="space-y-6">
           <div className="relative group mb-6">
             {backgroundImageUrl ? (
@@ -235,7 +235,7 @@ export default function UserProfileSettings() {
               className="hidden" 
             />
           </div>
-          <div className="flex justify-center mb-6 -mt-24 relative z-10">
+          <div className="flex justify-center mb-6 -mt-13 relative z-10">
             <div className="relative group">
               <Avatar className="h-24 w-24 cursor-pointer border-4 border-white shadow-lg" onClick={handleAvatarClick}>
                 <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
