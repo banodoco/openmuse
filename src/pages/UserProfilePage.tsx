@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, UserProfile } from '@/lib/types';
+import { LoraAsset, UserProfile, VideoEntry } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LoraCard from '@/components/lora/LoraCard';
@@ -15,6 +15,7 @@ import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
 import UploadModal from '@/components/upload/UploadModal';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
+import VideoCard from '@/components/video/VideoCard';
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -29,6 +30,9 @@ export default function UserProfilePage() {
   const [userAssets, setUserAssets] = useState<LoraAsset[]>([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
   const [forceLoggedOutView, setForceLoggedOutView] = useState(false);
+  const [userVideos, setUserVideos] = useState<VideoEntry[]>([]);
+  const [isLoadingVideos, setIsLoadingVideos] = useState(true);
+  const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
 
   useEffect(() => {
     setForceLoggedOutView(searchParams.get('loggedOutView') === 'true');
@@ -77,6 +81,7 @@ export default function UserProfilePage() {
           
           if (data.id) {
             fetchUserAssets(data.id);
+            fetchUserVideos(data.id);
           }
         } else {
           navigate('/');
@@ -154,6 +159,45 @@ export default function UserProfilePage() {
     }
   };
 
+  const fetchUserVideos = async (userId: string) => {
+    setIsLoadingVideos(true);
+    try {
+      const { data: videosData, error: videosError } = await supabase
+        .from('media')
+        .select('*, metadata')
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
+      
+      if (videosError) {
+        console.error('Error fetching user videos:', videosError);
+        return;
+      }
+
+      if (videosData) {
+        const processedVideos: VideoEntry[] = videosData.map(video => ({
+          id: video.id,
+          video_location: video.url,
+          reviewer_name: video.creator || '',
+          skipped: false,
+          created_at: video.created_at,
+          admin_approved: video.admin_approved,
+          user_id: video.user_id,
+          metadata: {
+            title: video.title,
+            description: video.description,
+            thumbnailUrl: video.metadata?.thumbnailUrl
+          }
+        }));
+        
+        setUserVideos(processedVideos);
+      }
+    } catch (err) {
+      console.error('Error processing user videos:', err);
+    } finally {
+      setIsLoadingVideos(false);
+    }
+  };
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -200,6 +244,14 @@ export default function UserProfilePage() {
         })}
       </div>
     );
+  };
+
+  const handleOpenLightbox = (video: VideoEntry) => {
+    setLightboxVideo(video);
+  };
+
+  const handleCloseLightbox = () => {
+    setLightboxVideo(null);
   };
 
   return (
@@ -256,7 +308,7 @@ export default function UserProfilePage() {
 
             <Card className="mt-8">
               <CardHeader className="flex flex-row items-center justify-between">
-                <CardTitle>Assets</CardTitle>
+                <CardTitle>LoRAs</CardTitle>
                 {isOwner && profile?.id && !forceLoggedOutView && (
                   <UploadModal
                     trigger={
@@ -284,7 +336,44 @@ export default function UserProfilePage() {
                   </div>
                 ) : (
                   <div className="text-center text-muted-foreground py-8">
-                    This user hasn't created any assets yet.
+                    This user hasn't created any LoRAs yet.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card className="mt-8">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Videos</CardTitle>
+                {isOwner && profile?.id && !forceLoggedOutView && (
+                  <UploadModal
+                    trigger={
+                      <Button> 
+                        Add new Video
+                      </Button>
+                    }
+                    initialUploadType="video"
+                    onUploadSuccess={() => fetchUserVideos(profile.id)}
+                  />
+                )}
+              </CardHeader>
+              <CardContent>
+                {isLoadingVideos ? (
+                  <LoraGallerySkeleton count={isMobile ? 2 : 4} />
+                ) : userVideos.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {userVideos.map(video => (
+                      <VideoCard 
+                        key={video.id} 
+                        video={video}
+                        isAdmin={isAdmin}
+                        onOpenLightbox={handleOpenLightbox}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center text-muted-foreground py-8">
+                    This user hasn't created any videos yet.
                   </div>
                 )}
               </CardContent>
