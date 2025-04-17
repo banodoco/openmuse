@@ -238,6 +238,24 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     });
   };
   
+  // New function to apply selected LoRAs to all videos
+  const applyLorasToAllVideos = (loraIdsToApply: string[]) => {
+    console.log(`[MultipleVideoUploader] Applying LoRA IDs to all videos:`, loraIdsToApply);
+    if (disabled) return;
+
+    setVideos(prevVideos => 
+      prevVideos.map(video => ({
+        ...video,
+        associatedLoraIds: [...loraIdsToApply] // Ensure a new array reference
+      }))
+    );
+
+    toast({
+      title: "LoRAs Applied to All",
+      description: "The selected LoRA(s) have been applied to all videos.",
+    });
+  };
+
   const removeVideo = (id: string) => {
     if (disabled) return;
     
@@ -354,6 +372,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                         disabled={disabled}
                         allowPrimarySelection={allowPrimarySelection}
                         uploadContext={uploadContext}
+                        totalVideoCount={videos.length}
+                        onApplyLorasToAll={applyLorasToAllVideos}
                       />
                     </div>
                   </CardContent>

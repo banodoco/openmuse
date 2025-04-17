@@ -7,6 +7,8 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
 import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
+import { Button } from '@/components/ui/button';
+import { Link } from 'lucide-react';
 
 type LoraOption = {
   id: string;
@@ -29,6 +31,8 @@ interface VideoMetadataFormProps {
   allowPrimarySelection?: boolean;
   disabled?: boolean;
   uploadContext: 'lora' | 'video';
+  totalVideoCount: number;
+  onApplyLorasToAll?: (loraIds: string[]) => void;
 }
 
 const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ 
@@ -39,9 +43,17 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   onMetadataChange, 
   allowPrimarySelection = true,
   disabled = false,
-  uploadContext
+  uploadContext,
+  totalVideoCount,
+  onApplyLorasToAll,
 }) => {
   const { user } = useAuth();
+  
+  const showApplyToAll = 
+    uploadContext === 'video' &&
+    totalVideoCount > 1 && 
+    associatedLoraIds.length > 0 && 
+    typeof onApplyLorasToAll === 'function';
   
   return (
     <Card>
@@ -125,6 +137,19 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   />
                   {availableLoras.length === 0 && !disabled && (
                     <p className="text-xs text-muted-foreground mt-1">No LoRAs available to select.</p>
+                  )}
+
+                  {showApplyToAll && (
+                    <Button
+                      variant="link"
+                      size="sm"
+                      className="mt-2 px-0 h-auto text-muted-foreground hover:text-primary"
+                      onClick={() => onApplyLorasToAll(associatedLoraIds)}
+                      disabled={disabled}
+                    >
+                      <Link size={14} className="mr-1.5" />
+                      Apply selected LoRA(s) to all {totalVideoCount} videos
+                    </Button>
                   )}
                 </div>
               )}
