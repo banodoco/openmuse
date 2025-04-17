@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -9,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, X, Plus, Camera } from 'lucide-react';
+import { Loader2, X, Plus, Camera, Image as ImageIcon } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
@@ -25,7 +24,10 @@ export default function UserProfileSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState('');
+  const [backgroundImageUrl, setBackgroundImageUrl] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const avatarFileInputRef = useRef<HTMLInputElement>(null);
+  const backgroundFileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -39,6 +41,7 @@ export default function UserProfileSettings() {
           setDescription(userProfile?.description || '');
           setLinks(userProfile?.links || []);
           setAvatarUrl(userProfile?.avatar_url || '');
+          setBackgroundImageUrl(userProfile?.background_image_url || '');
         } catch (err) {
           console.error('Error loading profile:', err);
           setError('Failed to load profile information');
@@ -72,7 +75,8 @@ export default function UserProfileSettings() {
         real_name: realName.trim(),
         description: description.trim(),
         links: links,
-        avatar_url: avatarUrl
+        avatar_url: avatarUrl,
+        background_image_url: backgroundImageUrl
       });
       
       if (updatedProfile) {
@@ -167,6 +171,25 @@ export default function UserProfileSettings() {
     }
   };
 
+  const handleBackgroundFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setBackgroundImageUrl(reader.result);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBackgroundImageClick = () => {
+    if (backgroundFileInputRef.current) {
+      backgroundFileInputRef.current.click();
+    }
+  };
+
   if (isLoading) {
     return (
       <Card className="w-full max-w-md mx-auto">
@@ -189,6 +212,35 @@ export default function UserProfileSettings() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Background Image Upload */}
+          <div className="relative group mb-6">
+            {backgroundImageUrl ? (
+              <div 
+                className="w-full h-32 bg-cover bg-center rounded-lg cursor-pointer" 
+                style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+                onClick={handleBackgroundImageClick}
+              >
+                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <ImageIcon className="h-8 w-8 text-white" />
+                </div>
+              </div>
+            ) : (
+              <div 
+                className="w-full h-32 bg-muted/30 rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
+                onClick={handleBackgroundImageClick}
+              >
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                <span className="ml-2 text-muted-foreground">Add Background Image</span>
+              </div>
+            )}
+            <input 
+              type="file" 
+              ref={backgroundFileInputRef} 
+              onChange={handleBackgroundFileChange} 
+              accept="image/*" 
+              className="hidden" 
+            />
+          </div>
           <div className="flex justify-center mb-6">
             <div className="relative group">
               <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
@@ -351,7 +403,8 @@ export default function UserProfileSettings() {
             realName === profile?.real_name && 
             description === profile?.description && 
             JSON.stringify(links) === JSON.stringify(profile?.links || []) &&
-            avatarUrl === profile?.avatar_url
+            avatarUrl === profile?.avatar_url &&
+            backgroundImageUrl === profile?.background_image_url
           )}
           className="w-full"
         >

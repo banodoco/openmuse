@@ -1,4 +1,3 @@
-
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -55,6 +54,7 @@ export interface UserProfile {
   video_upload_consent?: boolean;
   description?: string;
   links?: string[];
+  background_image_url?: string;
 }
 
 export interface LoraAsset {

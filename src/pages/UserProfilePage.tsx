@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -90,7 +89,6 @@ export default function UserProfilePage() {
           console.log('Processing asset:', asset.id, 'Primary video:', asset.primaryVideo);
           
           const videoUrl = asset.primaryVideo?.url || '';
-          // Extract thumbnail URL from metadata or use video URL as fallback
           const thumbnailUrl = asset.primaryVideo?.metadata?.thumbnailUrl || null;
           
           return {
@@ -205,9 +203,15 @@ export default function UserProfilePage() {
                 <UserProfileSettings />
               ) : (
                 <Card className="w-full">
-                  <CardContent className="pt-6 pb-4">
+                  {profile?.background_image_url && (
+                    <div 
+                      className="w-full h-48 bg-cover bg-center rounded-t-lg" 
+                      style={{ backgroundImage: `url(${profile.background_image_url})` }}
+                    />
+                  )}
+                  <CardContent className={`pt-6 pb-4 ${profile?.background_image_url ? '-mt-16 relative z-10' : ''}`}>
                     <div className="flex flex-col items-center space-y-4">
-                      <Avatar className="h-24 w-24">
+                      <Avatar className={`h-24 w-24 border-4 border-white ${profile?.background_image_url ? 'shadow-lg' : ''}`}>
                         <AvatarImage src={profile?.avatar_url || ''} alt={profile?.display_name || ''} />
                         <AvatarFallback>{profile ? getInitials(profile.display_name || profile.username) : '??'}</AvatarFallback>
                       </Avatar>
@@ -247,7 +251,6 @@ export default function UserProfilePage() {
                     }
                     initialUploadType="lora"
                     onUploadSuccess={() => {
-                      // Refresh assets list on successful upload
                       if (profile?.id) {
                         fetchUserAssets(profile.id);
                       }
