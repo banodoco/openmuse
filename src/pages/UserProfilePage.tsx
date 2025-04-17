@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
@@ -125,6 +125,48 @@ export default function UserProfilePage() {
       .substring(0, 2);
   };
 
+  const ProfileLoraList = ({ loras }: { loras: LoraAsset[] }) => {
+    return (
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {loras.map(lora => (
+          <Link 
+            key={lora.id} 
+            to={`/assets/${lora.id}`}
+            state={{ from: 'profile', displayName }}
+            className="no-underline"
+          >
+            <Card className="h-full hover:shadow-md transition-shadow">
+              <CardContent className="p-4">
+                <div className="flex flex-col h-full">
+                  <div className="aspect-video w-full bg-muted rounded-md overflow-hidden mb-3">
+                    {lora.primaryVideo ? (
+                      <div className="w-full h-full bg-center bg-cover" style={{ 
+                        backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl || ''})` 
+                      }} />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center bg-slate-200">
+                        <span className="text-slate-500 text-sm">No preview</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <h3 className="text-lg font-semibold mb-1">{lora.name}</h3>
+                  <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{lora.description || 'No description'}</p>
+                  
+                  <div className="mt-auto">
+                    <div className="text-xs text-muted-foreground flex items-center gap-2">
+                      <span>LoRA Type: {lora.lora_type || 'Unknown'}</span>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -183,7 +225,15 @@ export default function UserProfilePage() {
                   </CardContent>
                 </Card>
               ) : (
-                <LoraList loras={userAssets} />
+                userAssets.length > 0 ? (
+                  <ProfileLoraList loras={userAssets} />
+                ) : (
+                  <Card className="w-full">
+                    <CardContent className="py-8 text-center">
+                      <p className="text-muted-foreground">No assets found</p>
+                    </CardContent>
+                  </Card>
+                )
               )}
             </div>
           </>
