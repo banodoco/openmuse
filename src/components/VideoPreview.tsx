@@ -160,7 +160,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     >
       {needsThumbnailGeneration && (
         <React.Fragment>
-          {logger.log(`VideoPreview [${componentId.current}]: Rendering thumbnail generator, attempt #${thumbnailGenerationAttempts}`)}
+          {/* Fix: Don't render the logger.log call result directly */}
           <VideoThumbnailGenerator 
             file={file}
             url={url}
