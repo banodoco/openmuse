@@ -64,12 +64,16 @@ const AuthButton: React.FC = () => {
   };
 
   const handleProfileClick = () => {
-    if (userProfile?.display_name) {
-      navigate(`/profile/${encodeURIComponent(userProfile.display_name)}`);
-    } else if (userProfile?.username) {
-      navigate(`/profile/${encodeURIComponent(userProfile.username)}`);
-    } else {
-      navigate('/profile');
+    // If user is logged in and has a profile, navigate to their profile
+    if (user) {
+      const displayName = userProfile?.display_name || userProfile?.username || user.user_metadata.preferred_username;
+      
+      if (displayName) {
+        navigate(`/profile/${encodeURIComponent(displayName)}`);
+      } else {
+        // Fallback to a generic profile route if no display name is available
+        navigate('/profile');
+      }
     }
   };
   
