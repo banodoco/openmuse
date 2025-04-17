@@ -173,7 +173,13 @@ export default function UserProfilePage() {
         console.log('Raw videos data:', videosData);
 
         const processedVideos: VideoEntry[] = videosData.map(video => {
-          const processedVideo = {
+          // Default to 'generation' if classification is neither 'art' nor 'generation'
+          let classification = video.classification || 'generation';
+          if (classification !== 'art' && classification !== 'generation') {
+            classification = 'generation';
+          }
+          
+          const processedVideo: VideoEntry = {
             id: video.id,
             video_location: video.url,
             reviewer_name: video.creator || '',
@@ -185,7 +191,7 @@ export default function UserProfilePage() {
               title: video.title,
               description: '',
               creator: 'self',
-              classification: video.classification || 'art',
+              classification: classification,
               thumbnailUrl: video.metadata?.thumbnailUrl
             }
           };
@@ -202,7 +208,7 @@ export default function UserProfilePage() {
         });
 
         const art = processedVideos.filter(v => {
-          const isArt = v.metadata?.classification === 'art' || !v.metadata?.classification;
+          const isArt = v.metadata?.classification === 'art';
           console.log(`Is ${v.id} an art video?`, isArt);
           return isArt;
         });
