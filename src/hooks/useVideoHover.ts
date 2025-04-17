@@ -15,12 +15,14 @@ export const useVideoHover = (
     resetOnLeave?: boolean;
     delayPlay?: number;
     preloadOnHover?: boolean;
+    preventLoadingUI?: boolean;
   }
 ) => {
-  const { enabled, resetOnLeave = true, delayPlay = 0, preloadOnHover = true } = options;
+  const { enabled, resetOnLeave = true, delayPlay = 0, preloadOnHover = true, preventLoadingUI = true } = options;
   const playTimeoutRef = useRef<number | null>(null);
   const isHoveringRef = useRef<boolean>(false);
   const lastPlayAttemptRef = useRef<number>(0);
+  const videoReadyRef = useRef<boolean>(false);
 
   useEffect(() => {
     if (!enabled) return;
@@ -33,18 +35,24 @@ export const useVideoHover = (
       return;
     }
     
+    // Track when the video is loaded and ready to play
+    const handleCanPlay = () => {
+      videoReadyRef.current = true;
+      logger.log('Video is loaded and ready to play on hover');
+    };
+    
     const handleMouseEnter = () => {
       logger.log('Mouse entered video container');
       isHoveringRef.current = true;
       
+      // Always ensure video is ready to play by setting preload to auto
+      if (preloadOnHover && video.preload !== 'auto') {
+        video.preload = 'auto';
+      }
+      
       // Clear any existing timeout
       if (playTimeoutRef.current) {
         window.clearTimeout(playTimeoutRef.current);
-      }
-      
-      // Always set preload to auto when hovering to start loading immediately
-      if (preloadOnHover && video.preload !== 'auto') {
-        video.preload = 'auto';
       }
       
       // Start playing after delay (or immediately if delay is 0)
@@ -52,7 +60,7 @@ export const useVideoHover = (
         // Check if we're still hovering (mouse might have left during timeout)
         if (!isHoveringRef.current) return;
         
-        // Ensure video is ready and not already playing
+        // Only attempt to play if video is paused
         if (video.paused) {
           logger.log('Attempting to play video on hover');
           
@@ -63,7 +71,7 @@ export const useVideoHover = (
           const now = Date.now();
           lastPlayAttemptRef.current = now;
           
-          // Use a more direct play approach without delay
+          // Use a more direct play approach
           video.play().catch(e => {
             // Only log errors that aren't abort errors (which happen when quickly hovering in/out)
             if (e.name !== 'AbortError') {
@@ -95,6 +103,9 @@ export const useVideoHover = (
       }
     };
     
+    // Add canplay event to track when the video is ready
+    video.addEventListener('canplay', handleCanPlay);
+    
     // Remove any existing listeners before adding new ones
     container.removeEventListener('mouseenter', handleMouseEnter);
     container.removeEventListener('mouseleave', handleMouseLeave);
@@ -110,11 +121,19 @@ export const useVideoHover = (
       }
       
       // Clean up event listeners
+      if (video) {
+        video.removeEventListener('canplay', handleCanPlay);
+      }
+      
       if (container) {
         container.removeEventListener('mouseenter', handleMouseEnter);
         container.removeEventListener('mouseleave', handleMouseLeave);
       }
     };
-  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay, preloadOnHover]);
+  }, [containerRef, videoRef, enabled, resetOnLeave, delayPlay, preloadOnHover, preventLoadingUI]);
+  
+  return {
+    isHovering: isHoveringRef.current,
+    videoReady: videoReadyRef.current
+  };
 };
-

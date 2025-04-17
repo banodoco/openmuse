@@ -184,8 +184,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  // Determine if we should show loading state based on preventLoadingFlicker
-  const shouldShowLoading = isLoading && (!preventLoadingFlicker || !poster || !isHovering);
+  // Determine if we should show loading state based on preventLoadingFlicker AND poster availability
+  const shouldShowLoading = isLoading && (!preventLoadingFlicker || !poster);
 
   return (
     <div 
@@ -195,7 +195,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onMouseLeave={handleMouseLeave}
       data-is-mobile={isMobile ? "true" : "false"}
     >
-      {shouldShowLoading && <VideoLoader posterImage={poster} />}
+      {shouldShowLoading && !poster && <VideoLoader posterImage={poster} />}
       
       {error && !onError && (
         <VideoError 
@@ -238,6 +238,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       >
         Your browser does not support the video tag.
       </video>
+      
+      {/* Play button overlay that shows when hovering */}
+      {(!isLoading || (isLoading && poster && posterLoaded)) && !error && showPlayButtonOnHover && !isMobile && isInternallyHovering && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity duration-300 opacity-0 hover:opacity-100 pointer-events-none">
+          <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm">
+            <Play className="h-8 w-8 text-white" fill="white" />
+          </div>
+        </div>
+      )}
     </div>
   );
 };

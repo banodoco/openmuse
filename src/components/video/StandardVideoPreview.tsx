@@ -33,7 +33,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
   isRefreshing = false,
   isHovering = false,
   isMobile = false,
-  preventLoadingFlicker = false
+  preventLoadingFlicker = true // Set default to true to prevent flickering
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [lastErrorTime, setLastErrorTime] = useState<number | null>(null);
@@ -157,7 +157,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       {isMobile && posterUrl && !currentError && (
         <div 
           className="absolute inset-0 bg-cover bg-center z-10"
-          style={{ backgroundImage: `url(${posterUrl})` }}
+          style={{ backgroundImage: `url(${posterUrl})` }} 
         />
       )}
       
