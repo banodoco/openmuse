@@ -16,6 +16,7 @@ import UploadModal from '@/components/upload/UploadModal';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import VideoCard from '@/components/video/VideoCard';
+import VideoPaginatedGrid from '@/components/video/VideoPaginatedGrid';
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -284,6 +285,63 @@ const fetchUserVideos = async (userId: string) => {
     setLightboxVideo(null);
   };
 
+  const deleteVideo = async (id: string) => {
+    try {
+      await supabase
+        .from('media')
+        .delete()
+        .eq('id', id);
+      
+      setGenerationVideos(prev => prev.filter(video => video.id !== id));
+      setArtVideos(prev => prev.filter(video => video.id !== id));
+      setUserVideos(prev => prev.filter(video => video.id !== id));
+    } catch (error) {
+      console.error('Error deleting video:', error);
+    }
+  };
+
+  const approveVideo = async (id: string) => {
+    try {
+      await supabase
+        .from('media')
+        .update({ admin_approved: 'Curated' })
+        .eq('id', id);
+      
+      setGenerationVideos(prev => prev.map(video =>
+        video.id === id ? { ...video, admin_approved: 'Curated' } : video
+      ));
+      setArtVideos(prev => prev.map(video =>
+        video.id === id ? { ...video, admin_approved: 'Curated' } : video
+      ));
+      setUserVideos(prev => prev.map(video =>
+        video.id === id ? { ...video, admin_approved: 'Curated' } : video
+      ));
+    } catch (error) {
+      console.error('Error approving video:', error);
+    }
+  };
+
+  const rejectVideo = async (id: string) => {
+    try {
+      await supabase
+        .from('media')
+        .update({ admin_approved: 'Rejected' })
+        .eq('id', id);
+      
+      setGenerationVideos(prev => prev.map(video =>
+        video.id === id ? { ...video, admin_approved: 'Rejected' } : video
+      ));
+      setArtVideos(prev => prev.map(video =>
+        video.id === id ? { ...video, admin_approved: 'Rejected' } : video
+      ));
+      setUserVideos(prev => prev.map(video =>
+        video.id === id ? { ...video, admin_approved: 'Rejected' } : video
+      ));
+    } catch (error) {
+      console.error('Error rejecting video:', error);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -390,21 +448,17 @@ const fetchUserVideos = async (userId: string) => {
               <CardContent>
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
-                ) : generationVideos.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                    {generationVideos.map(video => (
-                      <VideoCard 
-                        key={video.id} 
-                        video={video}
-                        isAdmin={isAdmin}
-                        onOpenLightbox={handleOpenLightbox}
-                      />
-                    ))}
-                  </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    This user hasn't created any generations yet.
-                  </div>
+                  <VideoPaginatedGrid
+                    videos={generationVideos}
+                    itemsPerPage={18} // 3 rows × 6 columns
+                    gridCols="grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
+                    isAdmin={isAdmin}
+                    onOpenLightbox={handleOpenLightbox}
+                    onDelete={deleteVideo}
+                    onApprove={approveVideo}
+                    onReject={rejectVideo}
+                  />
                 )}
               </CardContent>
             </Card>
@@ -427,21 +481,17 @@ const fetchUserVideos = async (userId: string) => {
               <CardContent>
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 4} />
-                ) : artVideos.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {artVideos.map(video => (
-                      <VideoCard 
-                        key={video.id} 
-                        video={video}
-                        isAdmin={isAdmin}
-                        onOpenLightbox={handleOpenLightbox}
-                      />
-                    ))}
-                  </div>
                 ) : (
-                  <div className="text-center text-muted-foreground py-8">
-                    This user hasn't created any art yet.
-                  </div>
+                  <VideoPaginatedGrid
+                    videos={artVideos}
+                    itemsPerPage={6} // 3 rows × 2 columns
+                    gridCols="grid-cols-1 sm:grid-cols-2"
+                    isAdmin={isAdmin}
+                    onOpenLightbox={handleOpenLightbox}
+                    onDelete={deleteVideo}
+                    onApprove={approveVideo}
+                    onReject={rejectVideo}
+                  />
                 )}
               </CardContent>
             </Card>
