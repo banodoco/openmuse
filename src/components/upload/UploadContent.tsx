@@ -10,6 +10,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabaseStorage } from '@/lib/supabaseStorage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
+import { thumbnailService } from '@/lib/services/thumbnailService';
 
 // Import LoraOption type locally here
 type LoraOption = {
@@ -315,13 +316,21 @@ const UploadContent: React.FC<UploadContentProps> = ({
       let mediaId: string | null = null;
       const associatedLoraIds = video.associatedLoraIds || []; // Get IDs from video item
       try {
+        // Generate thumbnail for video
+        logger.log('Generating thumbnail for video');
+        const thumbnailUrl = await thumbnailService.generateThumbnail(video.url);
+
         const { data: mediaData, error: mediaError } = await supabase.from('media').insert({
-          id: video.id, title: video.metadata.title, url: video.url, type: 'video', // Use 'video' type?
-          model_variant: null, classification: video.metadata.classification || 'art',
-          // Video creator is always 'self' (logged-in user)
-          creator: reviewerName, 
-          user_id: user?.id || null
-        }).select('id').single(); // Only select id
+          id: video.id, 
+          title: video.metadata.title, 
+          url: video.url, 
+          type: 'video',
+          model_variant: null, 
+          classification: video.metadata.classification || 'art',
+          creator: reviewerName,
+          user_id: user?.id || null,
+          placeholder_image: thumbnailUrl
+        }).select('id').single();
 
         if (mediaError) throw new Error(`Standalone media creation failed: ${mediaError.message}`);
         if (!mediaData) throw new Error('Standalone media creation failed: No data returned');

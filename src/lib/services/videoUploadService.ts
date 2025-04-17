@@ -2,6 +2,7 @@ import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
 import { Logger } from '../logger';
+import { thumbnailService } from './thumbnailService';
 
 const logger = new Logger('VideoUploadService');
 
@@ -45,6 +46,10 @@ class VideoUploadService {
       
       const videoUrl = publicUrlData.publicUrl;
 
+      // Generate thumbnail
+      logger.log('Generating thumbnail for video');
+      const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
+      
       const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : 'Untitled Video';
 
       const { data: mediaData, error: mediaError } = await supabase
@@ -56,7 +61,8 @@ class VideoUploadService {
           classification: videoFile.metadata?.classification || 'art',
           creator: videoFile.metadata?.creatorName || reviewerName,
           user_id: userId || this.currentUserId,
-          admin_approved: 'Listed'
+          admin_approved: 'Listed',
+          placeholder_image: thumbnailUrl
         })
         .select()
         .single();
