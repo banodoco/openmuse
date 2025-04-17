@@ -243,248 +243,316 @@ export default function UserProfileSettings() {
         )}
       </CardHeader>
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="relative group mb-6">
-            {backgroundImageUrl ? (
-              <div 
-                className="w-full h-48 bg-cover bg-center rounded-lg cursor-pointer" 
-                style={{ backgroundImage: `url(${backgroundImageUrl})` }}
-                onClick={!isPreviewMode ? handleBackgroundImageClick : undefined}
-              >
-                {!isPreviewMode && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <ImageIcon className="h-8 w-8 text-white" />
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div 
-                className={`w-full h-48 bg-muted/30 rounded-lg flex items-center justify-center ${!isPreviewMode ? 'cursor-pointer hover:bg-muted/50' : ''} transition-colors`}
-                onClick={!isPreviewMode ? handleBackgroundImageClick : undefined}
-              >
-                <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                {!isPreviewMode && <span className="ml-2 text-muted-foreground">Add Background Image</span>}
+        {isPreviewMode ? (
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <h3 className="font-medium">Username</h3>
+              <p>{profile?.username || ''}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <h3 className="font-medium">Display Name</h3>
+              <p>{profile?.display_name || profile?.username || ''}</p>
+            </div>
+            
+            {profile?.real_name && (
+              <div className="space-y-2">
+                <h3 className="font-medium">Real Name</h3>
+                <p>{profile.real_name}</p>
               </div>
             )}
-            {!isPreviewMode && (
-              <input 
-                type="file" 
-                ref={backgroundFileInputRef} 
-                onChange={handleBackgroundFileChange} 
-                accept="image/*" 
-                className="hidden" 
-              />
+            
+            {profile?.description && (
+              <div className="space-y-2">
+                <h3 className="font-medium">About Me</h3>
+                <p className="whitespace-pre-wrap">{profile.description}</p>
+              </div>
+            )}
+            
+            {(profile?.links || []).length > 0 && (
+              <div className="space-y-2">
+                <h3 className="font-medium">Links</h3>
+                <div className="flex flex-wrap gap-2">
+                  {(profile?.links || []).map((link, index) => {
+                    let domain;
+                    try {
+                      domain = new URL(link).hostname;
+                    } catch (e) {
+                      domain = link;
+                    }
+                    
+                    return (
+                      <HoverCard key={index}>
+                        <HoverCardTrigger asChild>
+                          <a 
+                            href={link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="block"
+                          >
+                            <div className="flex items-center justify-center w-10 h-10 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
+                              <img 
+                                src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                alt=""
+                                className="w-6 h-6 object-contain"
+                              />
+                            </div>
+                          </a>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="p-2 text-xs">
+                          {domain}
+                        </HoverCardContent>
+                      </HoverCard>
+                    );
+                  })}
+                </div>
+              </div>
             )}
           </div>
-          <div className="flex justify-center mb-6 -mt-20 relative z-10">
-            <div className="relative group">
-              <Avatar className={`h-24 w-24 ${!isPreviewMode ? 'cursor-pointer' : ''} border-4 border-white shadow-lg -mt-16`} onClick={!isPreviewMode ? handleAvatarClick : undefined}>
-                <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
-                <AvatarFallback>
-                  {profile ? getInitials(profile.display_name || profile.username) : '??'}
-                </AvatarFallback>
-              </Avatar>
+        ) : (
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="relative group mb-6">
+              {backgroundImageUrl ? (
+                <div 
+                  className="w-full h-48 bg-cover bg-center rounded-lg cursor-pointer" 
+                  style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+                  onClick={!isPreviewMode ? handleBackgroundImageClick : undefined}
+                >
+                  {!isPreviewMode && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <ImageIcon className="h-8 w-8 text-white" />
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div 
+                  className={`w-full h-48 bg-muted/30 rounded-lg flex items-center justify-center ${!isPreviewMode ? 'cursor-pointer hover:bg-muted/50' : ''} transition-colors`}
+                  onClick={!isPreviewMode ? handleBackgroundImageClick : undefined}
+                >
+                  <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                  {!isPreviewMode && <span className="ml-2 text-muted-foreground">Add Background Image</span>}
+                </div>
+              )}
               {!isPreviewMode && (
-                <>
-                  <div 
-                    className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
-                    onClick={handleAvatarClick}
-                  >
-                    <Camera className="h-6 w-6 text-white" />
-                  </div>
-                  <input 
-                    type="file" 
-                    ref={fileInputRef} 
-                    onChange={handleFileChange} 
-                    accept="image/*" 
-                    className="hidden" 
-                  />
-                </>
+                <input 
+                  type="file" 
+                  ref={backgroundFileInputRef} 
+                  onChange={handleBackgroundFileChange} 
+                  accept="image/*" 
+                  className="hidden" 
+                />
               )}
             </div>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="username">Username (From Discord)</Label>
-            <Input 
-              id="username"
-              value={profile?.username || ''}
-              disabled
-              className="bg-muted/50"
-            />
-            <p className="text-xs text-muted-foreground">
-              This is your Discord username and cannot be changed
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="displayName">Display Name</Label>
-            <Input 
-              id="displayName"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Enter your preferred display name"
-            />
-            <p className="text-xs text-muted-foreground">
-              This is the name that will be displayed to other users. It must be unique.
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="realName">Real Name (Optional)</Label>
-            <Input 
-              id="realName"
-              value={realName}
-              onChange={(e) => setRealName(e.target.value)}
-              placeholder="Enter your real name (optional)"
-            />
-            <p className="text-xs text-muted-foreground">
-              This will be displayed on your profile if provided
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="description">About Me</Label>
-            <Textarea 
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Tell others about yourself"
-              className="min-h-[100px] resize-y"
-            />
-            <p className="text-xs text-muted-foreground">
-              A brief description that will appear on your profile page
-            </p>
-          </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="links">Links</Label>
-            <div className="flex space-x-2">
-              <Input 
-                id="links"
-                value={newLink}
-                onChange={(e) => setNewLink(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Add website link (e.g., github.com)"
-                className="flex-grow"
-              />
-              <Button 
-                type="button" 
-                onClick={handleAddLink}
-                size="icon"
-                variant="outline"
-                className="shrink-0"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
+            <div className="flex justify-center mb-6 -mt-20 relative z-10">
+              <div className="relative group">
+                <Avatar className={`h-24 w-24 ${!isPreviewMode ? 'cursor-pointer' : ''} border-4 border-white shadow-lg -mt-16`} onClick={!isPreviewMode ? handleAvatarClick : undefined}>
+                  <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
+                  <AvatarFallback>
+                    {profile ? getInitials(profile.display_name || profile.username) : '??'}
+                  </AvatarFallback>
+                </Avatar>
+                {!isPreviewMode && (
+                  <>
+                    <div 
+                      className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+                      onClick={handleAvatarClick}
+                    >
+                      <Camera className="h-6 w-6 text-white" />
+                    </div>
+                    <input 
+                      type="file" 
+                      ref={fileInputRef} 
+                      onChange={handleFileChange} 
+                      accept="image/*" 
+                      className="hidden" 
+                    />
+                  </>
+                )}
+              </div>
             </div>
-            <p className="text-xs text-muted-foreground">
-              Add links to your website, social media, or other profiles
-            </p>
             
-            {links.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {links.map((link, index) => {
-                  let domain;
-                  try {
-                    domain = new URL(link).hostname;
-                  } catch (e) {
-                    domain = link;
-                  }
-                  
-                  return (
-                    <HoverCard key={index}>
-                      <HoverCardTrigger>
-                        <div className="relative flex items-center justify-center">
-                          {editingLinkIndex === index ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                value={editingLinkValue}
-                                onChange={(e) => setEditingLinkValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleSaveEditedLink(index);
-                                  } else if (e.key === 'Escape') {
-                                    handleCancelEdit();
-                                  }
-                                }}
-                                className="w-48 h-8 text-xs"
-                                autoFocus
-                              />
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8"
-                                onClick={() => handleSaveEditedLink(index)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8"
-                                onClick={handleCancelEdit}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center justify-center w-10 h-10 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
-                                <img 
-                                  src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                                  alt=""
-                                  className="w-6 h-6 object-contain"
+            <div className="space-y-2">
+              <Label htmlFor="username">Username (From Discord)</Label>
+              <Input 
+                id="username"
+                value={profile?.username || ''}
+                disabled
+                className="bg-muted/50"
+              />
+              <p className="text-xs text-muted-foreground">
+                This is your Discord username and cannot be changed
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="displayName">Display Name</Label>
+              <Input 
+                id="displayName"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Enter your preferred display name"
+              />
+              <p className="text-xs text-muted-foreground">
+                This is the name that will be displayed to other users. It must be unique.
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="realName">Real Name (Optional)</Label>
+              <Input 
+                id="realName"
+                value={realName}
+                onChange={(e) => setRealName(e.target.value)}
+                placeholder="Enter your real name (optional)"
+              />
+              <p className="text-xs text-muted-foreground">
+                This will be displayed on your profile if provided
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="description">About Me</Label>
+              <Textarea 
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell others about yourself"
+                className="min-h-[100px] resize-y"
+              />
+              <p className="text-xs text-muted-foreground">
+                A brief description that will appear on your profile page
+              </p>
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="links">Links</Label>
+              <div className="flex space-x-2">
+                <Input 
+                  id="links"
+                  value={newLink}
+                  onChange={(e) => setNewLink(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder="Add website link (e.g., github.com)"
+                  className="flex-grow"
+                />
+                <Button 
+                  type="button" 
+                  onClick={handleAddLink}
+                  size="icon"
+                  variant="outline"
+                  className="shrink-0"
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                Add links to your website, social media, or other profiles
+              </p>
+              
+              {links.length > 0 && (
+                <div className="flex flex-wrap gap-2 mt-2">
+                  {links.map((link, index) => {
+                    let domain;
+                    try {
+                      domain = new URL(link).hostname;
+                    } catch (e) {
+                      domain = link;
+                    }
+                    
+                    return (
+                      <HoverCard key={index}>
+                        <HoverCardTrigger>
+                          <div className="relative flex items-center justify-center">
+                            {editingLinkIndex === index ? (
+                              <div className="flex items-center gap-2">
+                                <Input
+                                  value={editingLinkValue}
+                                  onChange={(e) => setEditingLinkValue(e.target.value)}
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      handleSaveEditedLink(index);
+                                    } else if (e.key === 'Escape') {
+                                      handleCancelEdit();
+                                    }
+                                  }}
+                                  className="w-48 h-8 text-xs"
+                                  autoFocus
                                 />
-                              </div>
-                              <div className="flex gap-1 absolute -top-2 -right-2">
-                                <Button 
+                                <Button
                                   type="button"
                                   size="icon"
                                   variant="ghost"
-                                  className="h-5 w-5 rounded-full bg-muted p-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditLink(index);
-                                  }}
+                                  className="h-8 w-8"
+                                  onClick={() => handleSaveEditedLink(index)}
                                 >
-                                  <Pencil className="h-3 w-3" />
+                                  <Check className="h-4 w-4" />
                                 </Button>
-                                <Button 
+                                <Button
                                   type="button"
                                   size="icon"
                                   variant="ghost"
-                                  className="h-5 w-5 rounded-full bg-muted p-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveLink(index);
-                                  }}
+                                  className="h-8 w-8"
+                                  onClick={handleCancelEdit}
                                 >
-                                  <X className="h-3 w-3" />
+                                  <X className="h-4 w-4" />
                                 </Button>
                               </div>
-                            </>
-                          )}
-                        </div>
-                      </HoverCardTrigger>
-                      <HoverCardContent className="p-2 text-xs">
-                        {editingLinkIndex === index ? editingLinkValue : domain}
-                      </HoverCardContent>
-                    </HoverCard>
-                  );
-                })}
+                            ) : (
+                              <>
+                                <div className="flex items-center justify-center w-10 h-10 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
+                                  <img 
+                                    src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                    alt=""
+                                    className="w-6 h-6 object-contain"
+                                  />
+                                </div>
+                                <div className="flex gap-1 absolute -top-2 -right-2">
+                                  <Button 
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-5 w-5 rounded-full bg-muted p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleEditLink(index);
+                                    }}
+                                  >
+                                    <Pencil className="h-3 w-3" />
+                                  </Button>
+                                  <Button 
+                                    type="button"
+                                    size="icon"
+                                    variant="ghost"
+                                    className="h-5 w-5 rounded-full bg-muted p-0"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveLink(index);
+                                    }}
+                                  >
+                                    <X className="h-3 w-3" />
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </HoverCardTrigger>
+                        <HoverCardContent className="p-2 text-xs">
+                          {editingLinkIndex === index ? editingLinkValue : domain}
+                        </HoverCardContent>
+                      </HoverCard>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            {error && !isPreviewMode && (
+              <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
+                {error}
               </div>
             )}
-          </div>
-          
-          {error && !isPreviewMode && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
-              {error}
-            </div>
-          )}
-        </form>
+          </form>
+        )}
       </CardContent>
       {!isPreviewMode && (
         <CardFooter className="flex flex-col gap-4">
