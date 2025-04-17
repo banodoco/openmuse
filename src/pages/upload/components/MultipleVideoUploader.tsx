@@ -8,6 +8,12 @@ import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
+// Define LoraOption locally
+type LoraOption = {
+  id: string;
+  name: string;
+};
+
 interface VideoItem {
   file: File | null;
   url: string | null;
@@ -20,6 +26,7 @@ interface VideoItem {
     isPrimary?: boolean;
   };
   id: string;
+  associatedLoraIds?: string[];
 }
 
 interface MultipleVideoUploaderProps {
@@ -27,13 +34,15 @@ interface MultipleVideoUploaderProps {
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
   disabled?: boolean;
   allowPrimarySelection?: boolean;
+  availableLoras: LoraOption[];
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
   videos, 
   setVideos,
   disabled = false,
-  allowPrimarySelection = true
+  allowPrimarySelection = true,
+  availableLoras
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -46,12 +55,13 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     metadata: {
       title: '',
       description: '',
-      classification: 'art',
+      classification: 'gen',
       creator: 'self',
       creatorName: user?.email || '',
       isPrimary: videos.length === 0
     },
-    id: uuidv4()
+    id: uuidv4(),
+    associatedLoraIds: [],
   });
   
   const handleFileDrop = (acceptedFiles: File[]) => {
@@ -78,12 +88,13 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'art' as 'art' | 'gen',
+            classification: 'gen' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst
           },
-          id: uuidv4()
+          id: uuidv4(),
+          associatedLoraIds: [],
         } as VideoItem;
       });
       
@@ -114,12 +125,13 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         metadata: {
           title: '',
           description: '',
-          classification: 'art' as 'art' | 'gen',
+          classification: 'gen' as 'art' | 'gen',
           creator: 'self' as 'self' | 'someone_else',
           creatorName: user?.email || '',
           isPrimary: isFirst
         },
-        id: uuidv4()
+        id: uuidv4(),
+        associatedLoraIds: [],
       }
     ]);
     
@@ -153,12 +165,13 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'art' as 'art' | 'gen',
+            classification: 'gen' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst
           },
-          id: uuidv4()
+          id: uuidv4(),
+          associatedLoraIds: [],
         }
       ]);
       
@@ -182,6 +195,12 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     setVideos(prev => {
       const updated = prev.map(video => {
         if (video.id === id) {
+          if (field === 'associatedLoraIds') {
+            return {
+              ...video,
+              associatedLoraIds: value as string[]
+            };
+          }
           return {
             ...video,
             metadata: {
@@ -313,6 +332,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                     <VideoMetadataForm
                       videoId={video.id}
                       metadata={video.metadata}
+                      associatedLoraIds={video.associatedLoraIds || []}
+                      availableLoras={availableLoras}
                       updateMetadata={(field, value) => updateVideoMetadata(video.id, field, value)}
                       disabled={disabled}
                       allowPrimarySelection={allowPrimarySelection}

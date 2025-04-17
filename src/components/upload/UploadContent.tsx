@@ -10,7 +10,12 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabaseStorage } from '@/lib/supabaseStorage';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Label } from "@/components/ui/label";
-import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
+
+// Import LoraOption type locally here
+type LoraOption = {
+  id: string;
+  name: string;
+};
 
 const logger = new Logger('UploadContent');
 
@@ -26,11 +31,6 @@ type LoRADetails = {
   loraLink: string;
 };
 
-type LoraOption = { // Type for fetched LoRA options
-  id: string;
-  name: string;
-};
-
 type VideoItem = {
   id: string;
   file: File | null;
@@ -43,6 +43,7 @@ type VideoItem = {
     creatorName: string;
     isPrimary?: boolean;
   };
+  associatedLoraIds?: string[];
 };
 
 // --- Props Interface ---
@@ -63,9 +64,8 @@ const UploadContent: React.FC<UploadContentProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [uploadType, setUploadType] = useState<'lora' | 'video'>(initialUploadType);
   
-  // State for LoRA selection in Video tab
+  // Restore state for availableLoras (but not selected IDs)
   const [availableLoras, setAvailableLoras] = useState<LoraOption[]>([]);
-  const [selectedLoraIds, setSelectedLoraIds] = useState<string[]>([]);
   const [isLoadingLoras, setIsLoadingLoras] = useState(false);
 
   const [loraDetails, setLoraDetails] = useState<LoRADetails>({
@@ -88,13 +88,13 @@ const UploadContent: React.FC<UploadContentProps> = ({
   
   const [videos, setVideos] = useState<VideoItem[]>([]);
   
-  // Fetch available LoRAs when switching to video tab
+  // Restore useEffect hook for fetching LoRAs
   useEffect(() => {
     const fetchLoras = async () => {
-      if (uploadType === 'video' && user) {
+      // Fetch LoRAs regardless of tab, but only if logged in
+      if (user) { 
         setIsLoadingLoras(true);
         setAvailableLoras([]); // Clear previous options
-        setSelectedLoraIds([]); // Clear selections
         logger.log('Fetching available LoRAs...');
         try {
           const { data, error } = await supabase
@@ -119,14 +119,13 @@ const UploadContent: React.FC<UploadContentProps> = ({
           setIsLoadingLoras(false);
         }
       } else {
-        // Clear LoRA state if not on video tab or not logged in
+        // Clear LoRA state if not logged in
         setAvailableLoras([]);
-        setSelectedLoraIds([]);
       }
     };
     
     fetchLoras();
-  }, [uploadType, user]); // Re-run if uploadType or user changes
+  }, [user]); // Re-run only if user changes
   
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -198,8 +197,8 @@ const UploadContent: React.FC<UploadContentProps> = ({
       if (uploadType === 'lora') {
         await submitLoraAndVideos(uploadedVideoData, loraDetails, reviewerName, user);
       } else {
-        // Pass selected LoRA IDs to the submission function
-        await submitStandaloneVideos(uploadedVideoData, reviewerName, user, selectedLoraIds);
+        // Pass uploaded video data which now contains associatedLoraIds per video
+        await submitStandaloneVideos(uploadedVideoData, reviewerName, user);
       }
 
       const message = uploadedVideoData.length > 1
@@ -290,17 +289,16 @@ const UploadContent: React.FC<UploadContentProps> = ({
     }
   };
 
-  // Modified to accept and process selectedLoraIds
   const submitStandaloneVideos = async (
     uploadedVideos: any[], 
     reviewerName: string, 
     user: any, 
-    selectedLoraIds: string[] // Added parameter
   ) => {
     logger.log("Submitting standalone videos");
     for (const video of uploadedVideos) {
       logger.log(`Processing standalone media: ${video.metadata.title}`);
       let mediaId: string | null = null;
+      const associatedLoraIds = video.associatedLoraIds || []; // Get IDs from video item
       try {
         const { data: mediaData, error: mediaError } = await supabase.from('media').insert({
           id: video.id, title: video.metadata.title, url: video.url, type: 'video', // Use 'video' type?
@@ -315,10 +313,10 @@ const UploadContent: React.FC<UploadContentProps> = ({
         mediaId = mediaData.id;
         logger.log(`Created standalone media ID: ${mediaId}`);
         
-        // Link video to selected LoRAs
-        if (mediaId && selectedLoraIds.length > 0) {
-          logger.log(`Linking media ${mediaId} to ${selectedLoraIds.length} LoRAs: ${selectedLoraIds.join(', ')}`);
-          const links = selectedLoraIds.map(loraId => ({ asset_id: loraId, media_id: mediaId }));
+        // Link video to selected LoRAs (using video.associatedLoraIds)
+        if (mediaId && associatedLoraIds.length > 0) {
+          logger.log(`Linking media ${mediaId} to ${associatedLoraIds.length} LoRAs: ${associatedLoraIds.join(', ')}`);
+          const links = associatedLoraIds.map(loraId => ({ asset_id: loraId, media_id: mediaId }));
           const { error: linkError } = await supabase.from('asset_media').insert(links);
           if (linkError) {
             // Log error but don't necessarily fail the whole upload
@@ -356,6 +354,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
               setVideos={setVideos} 
               disabled={!user || isSubmitting}
               allowPrimarySelection={true}
+              availableLoras={availableLoras}
             />
             <div className="flex justify-end gap-2">
               {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>}
@@ -373,30 +372,8 @@ const UploadContent: React.FC<UploadContentProps> = ({
               setVideos={setVideos} 
               disabled={!user || isSubmitting}
               allowPrimarySelection={false}
+              availableLoras={availableLoras}
             />
-            
-            {/* LoRA Association Section */}  
-            <div className="space-y-4">
-              <Label className="text-lg font-semibold text-foreground">Associate with LoRAs (Optional)</Label>
-              {isLoadingLoras && <p className="text-sm text-muted-foreground">Loading LoRAs...</p>}
-              {!isLoadingLoras && availableLoras.length === 0 && user && (
-                <p className="text-sm text-muted-foreground">No LoRAs found or available to associate with.</p>
-              )}
-              {!isLoadingLoras && availableLoras.length > 0 && (
-                <div>
-                  {/* === Placeholder for Multi-Select Combobox === */}
-                  <LoraMultiSelectCombobox
-                    loras={availableLoras}
-                    selectedIds={selectedLoraIds}
-                    setSelectedIds={setSelectedLoraIds}
-                    disabled={isSubmitting || !user || isLoadingLoras}
-                    placeholder="Select LoRAs to associate..."
-                    searchPlaceholder="Search LoRAs..."
-                    noResultsText="No LoRAs found."
-                  />
-                </div>
-              )}
-            </div>
             
             <div className="flex justify-end gap-2">
               {onCancel && <Button type="button" variant="outline" onClick={onCancel} disabled={isSubmitting}>Cancel</Button>}

@@ -6,6 +6,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
+import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
+
+type LoraOption = {
+  id: string;
+  name: string;
+};
 
 interface VideoMetadataFormProps {
   videoId: string;
@@ -17,6 +23,8 @@ interface VideoMetadataFormProps {
     creatorName: string;
     isPrimary?: boolean;
   };
+  associatedLoraIds: string[];
+  availableLoras: LoraOption[];
   updateMetadata: (id: string, field: string, value: any) => void;
   allowPrimarySelection?: boolean;
   disabled?: boolean;
@@ -25,6 +33,8 @@ interface VideoMetadataFormProps {
 const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ 
   videoId, 
   metadata, 
+  associatedLoraIds,
+  availableLoras, 
   updateMetadata, 
   allowPrimarySelection = true,
   disabled = false
@@ -68,9 +78,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
           </div>
           
           <div className="space-y-4">
-            <h3 className="text-lg font-semibold text-foreground">Classification</h3>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
               <div>
                 <Label className="text-sm font-medium mb-2 block">Video Classification</Label>
                 <RadioGroup 
@@ -88,6 +96,25 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                     <Label htmlFor={`classification-art-${videoId}`} className="cursor-pointer">Artwork</Label>
                   </div>
                 </RadioGroup>
+              </div>
+
+              <div>
+                <Label className="text-sm font-medium mb-2 block">
+                  Which LoRA did you make this with? (Optional)
+                </Label>
+                <LoraMultiSelectCombobox
+                  loras={availableLoras}
+                  selectedIds={associatedLoraIds}
+                  setSelectedIds={(ids) => updateMetadata(videoId, 'associatedLoraIds', ids)}
+                  disabled={disabled || availableLoras.length === 0}
+                  placeholder="Select LoRA(s)..."
+                  searchPlaceholder="Search LoRAs..."
+                  noResultsText="No LoRAs found."
+                  triggerClassName="min-h-[58px]"
+                />
+                {availableLoras.length === 0 && !disabled && (
+                  <p className="text-xs text-muted-foreground mt-1">No LoRAs available to select.</p>
+                )}
               </div>
             </div>
           </div>
