@@ -214,7 +214,7 @@ export default function UserProfilePage() {
         {!isLoading && (
           <>
             <div className="max-w-2xl mx-auto">
-              {canEdit && !forceLoggedOutView ? (
+              {isOwner && !forceLoggedOutView ? (
                 <UserProfileSettings />
               ) : (
                 <Card className="w-full">
