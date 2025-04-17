@@ -15,6 +15,7 @@ import { getCurrentUserProfile } from '@/lib/auth/userProfile';
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from 'react-router-dom';
 import { Skeleton } from "@/components/ui/skeleton";
+import LoraCreatorInfo from './LoraCreatorInfo';
 
 const MODEL_VARIANTS = {
   wan: ['1.3b', '14b T2V', '14b I2V'],
@@ -67,40 +68,6 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
     };
     loadUserProfile();
   }, [user]);
-
-  // Fetch creator profile if user_id exists
-  useEffect(() => {
-    const fetchCreatorProfile = async () => {
-      if (asset?.user_id) {
-        setIsLoadingProfile(true);
-        setCreatorProfile(null); // Reset previous profile
-        try {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('id, username, display_name, avatar_url')
-            .eq('id', asset.user_id)
-            .single();
-
-          if (error) {
-            // Don't throw an error, just log it. It might be a non-user creator.
-            console.warn('Error fetching creator profile:', error.message);
-          } else if (data) {
-            setCreatorProfile(data as UserProfile);
-          }
-        } catch (err) {
-          console.error('Unexpected error fetching creator profile:', err);
-        } finally {
-          setIsLoadingProfile(false);
-        }
-      } else {
-        // If there's no user_id, clear the profile state
-        setCreatorProfile(null);
-        setIsLoadingProfile(false);
-      }
-    };
-
-    fetchCreatorProfile();
-  }, [asset?.user_id]); // Depend on asset.user_id
 
   const handleEdit = () => {
     setDetails({
@@ -356,69 +323,44 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   }
 
   return (
-    <div className="relative">
-      <div className="space-y-4">
-        <div>
-          <h3 className="text-sm font-medium mb-1">Description</h3>
-          <p className="whitespace-pre-wrap">{asset?.description || 'No description provided'}</p>
-        </div>
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h4 className="text-lg font-semibold">{asset?.name}</h4>
+        {isAuthorized && (
+          <Button variant="ghost" size="sm" onClick={handleEdit} className="h-7 px-2 py-1.5">
+            <Pencil className="h-4 w-4" />
+          </Button>
+        )}
+      </div>
 
-        <div>
-          <h3 className="text-sm font-medium mb-1">Creator</h3>
-          {isLoadingProfile ? (
-            <div className="flex items-center space-x-2">
-              <Skeleton className="h-8 w-8 rounded-full" />
-              <Skeleton className="h-4 w-24" />
-            </div>
-          ) : creatorProfile ? (
-            <Link 
-              to={`/profile/${encodeURIComponent(creatorProfile.display_name || creatorProfile.username || creatorProfile.id)}`}
-              className="flex items-center space-x-2 group hover:underline"
-            >
-              <Avatar className="h-8 w-8">
-                <AvatarImage src={creatorProfile.avatar_url || undefined} alt={creatorProfile.display_name || creatorProfile.username || 'User avatar'} />
-                <AvatarFallback>
-                  {(creatorProfile.display_name || creatorProfile.username || 'U').charAt(0).toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
-              <span className="text-sm font-medium group-hover:text-primary">
-                {creatorProfile.display_name || creatorProfile.username || 'Unknown User'}
-              </span>
-            </Link>
-          ) : (
-            <p>{asset?.creator || 'Unknown'}</p>
-          )}
-        </div>
+      <div className="space-y-1">
+        <Label className="text-xs text-muted-foreground">Creator</Label>
+        <LoraCreatorInfo asset={asset} avatarSize="h-6 w-6" textSize="text-sm" />
+      </div>
 
-        <div>
-          <h3 className="text-sm font-medium mb-1">Type</h3>
-          <p>{asset?.lora_type || 'Not specified'}</p>
+      {asset?.description && (
+         <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Description</Label>
+          <p className="text-sm whitespace-pre-wrap">{asset.description}</p>
         </div>
-
-        <div>
-          <h3 className="text-sm font-medium mb-1">Base Model</h3>
-          <p className="uppercase">{asset?.lora_base_model || 'Not specified'}</p>
+      )}
+      
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Type</Label>
+          <p className="text-sm font-medium">{asset?.lora_type || 'N/A'}</p>
         </div>
-
+        <div className="space-y-1">
+          <Label className="text-xs text-muted-foreground">Base Model</Label>
+          <p className="text-sm font-medium">{asset?.lora_base_model || 'N/A'}</p>
+        </div>
         {asset?.model_variant && (
-          <div>
-            <h3 className="text-sm font-medium mb-1">Model Variant</h3>
-            <p>{asset.model_variant}</p>
+          <div className="space-y-1">
+            <Label className="text-xs text-muted-foreground">Variant</Label>
+            <p className="text-sm font-medium">{asset.model_variant}</p>
           </div>
         )}
       </div>
-      
-      {isAuthorized && (
-        <Button
-          variant="ghost"
-          size="sm"
-          className="absolute top-0 right-0 h-7 w-7 p-0"
-          onClick={handleEdit}
-        >
-          <Pencil className="h-4 w-4" />
-          <span className="sr-only">Edit details</span>
-        </Button>
-      )}
     </div>
   );
 };

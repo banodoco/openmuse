@@ -22,6 +22,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Logger } from '@/lib/logger';
+import LoraCreatorInfo from './LoraCreatorInfo';
 
 const logger = new Logger('LoraCard');
 
@@ -42,19 +43,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
   
   const videoUrl = lora.primaryVideo?.video_location;
   const thumbnailUrl = lora.primaryVideo?.metadata?.thumbnailUrl;
-  
-  const getCreatorName = () => {
-    if (lora.creatorDisplayName) return lora.creatorDisplayName;
-    
-    const creator = lora.creator;
-    if (!creator) return "Unknown";
-    
-    if (creator.includes('@')) {
-      return creator.split('@')[0];
-    }
-    
-    return creator;
-  };
   
   const getModelColor = (modelType?: string): string => {
     switch (modelType?.toLowerCase()) {
@@ -192,7 +180,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   
   return (
     <Card 
-      className="overflow-hidden h-full flex flex-col cursor-pointer hover:shadow-md" 
+      className="overflow-hidden h-full flex flex-col group cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out" 
       onClick={handleView}
     >
       <div 
@@ -201,9 +189,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
         {videoUrl ? (
           <VideoPreview 
             url={videoUrl} 
-            className="w-full h-full object-cover" 
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out" 
             title={lora.name}
-            creator={getCreatorName()}
             lazyLoad={true}
             thumbnailUrl={thumbnailUrl}
           />
@@ -214,9 +201,9 @@ const LoraCard: React.FC<LoraCardProps> = ({
         )}
       </div>
       
-      <CardContent className="p-3">
+      <CardContent className="p-3 flex-grow">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-medium text-sm truncate flex-1">{lora.name}</h3>
+          <h3 className="font-medium text-sm truncate flex-1 group-hover:text-primary transition-colors">{lora.name}</h3>
           {getModelDisplay() && (
             <Badge 
               variant="model" 
@@ -226,9 +213,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
             </Badge>
           )}
         </div>
-        {getCreatorName() && (
-          <p className="text-xs text-muted-foreground">Creator: {getCreatorName()}</p>
-        )}
+        <LoraCreatorInfo 
+          asset={lora} 
+          avatarSize="h-5 w-5" 
+          textSize="text-xs" 
+          className="text-muted-foreground mt-1"
+        />
       </CardContent>
       
       {isAdmin && (
