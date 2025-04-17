@@ -41,14 +41,28 @@ export default function UserProfilePage() {
       setIsLoading(true);
       
       try {
-        const { data, error } = await supabase
+        // First try to find by display_name
+        let { data, error } = await supabase
           .from('profiles')
           .select('*')
           .eq('display_name', displayName)
           .maybeSingle();
         
-        if (error) {
-          console.error('Error fetching profile:', error);
+        // If not found by display_name, try username (Discord username)
+        if (!data && !error) {
+          const { data: usernameData, error: usernameError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('username', displayName)
+            .maybeSingle();
+            
+          if (usernameError) {
+            console.error('Error fetching profile by username:', usernameError);
+          } else {
+            data = usernameData;
+          }
+        } else if (error) {
+          console.error('Error fetching profile by display name:', error);
           return;
         }
         
