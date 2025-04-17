@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, X, Plus, Camera, Image as ImageIcon } from 'lucide-react';
+import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 
@@ -20,6 +20,8 @@ export default function UserProfileSettings() {
   const [description, setDescription] = useState('');
   const [links, setLinks] = useState<string[]>([]);
   const [newLink, setNewLink] = useState('');
+  const [editingLinkIndex, setEditingLinkIndex] = useState<number | null>(null);
+  const [editingLinkValue, setEditingLinkValue] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -183,6 +185,37 @@ export default function UserProfileSettings() {
     if (backgroundFileInputRef.current) {
       backgroundFileInputRef.current.click();
     }
+  };
+
+  const handleEditLink = (index: number) => {
+    setEditingLinkIndex(index);
+    setEditingLinkValue(links[index]);
+  };
+
+  const handleSaveEditedLink = (index: number) => {
+    if (editingLinkValue && isValidUrl(editingLinkValue)) {
+      let linkToSave = editingLinkValue;
+      if (!/^https?:\/\//i.test(linkToSave)) {
+        linkToSave = `https://${linkToSave}`;
+      }
+      
+      const newLinks = [...links];
+      newLinks[index] = linkToSave;
+      setLinks(newLinks);
+      setEditingLinkIndex(null);
+      setEditingLinkValue('');
+    } else {
+      toast({
+        title: "Error",
+        description: "Please enter a valid URL",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleCancelEdit = () => {
+    setEditingLinkIndex(null);
+    setEditingLinkValue('');
   };
 
   if (isLoading) {
@@ -351,29 +384,81 @@ export default function UserProfileSettings() {
                     <HoverCard key={index}>
                       <HoverCardTrigger>
                         <div className="relative flex items-center justify-center">
-                          <div className="flex items-center justify-center w-8 h-8 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
-                            <img 
-                              src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                              alt=""
-                              className="w-4 h-4"
-                            />
-                          </div>
-                          <Button 
-                            type="button"
-                            size="icon"
-                            variant="ghost"
-                            className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-muted p-0"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRemoveLink(index);
-                            }}
-                          >
-                            <X className="h-2 w-2" />
-                          </Button>
+                          {editingLinkIndex === index ? (
+                            <div className="flex items-center gap-2">
+                              <Input
+                                value={editingLinkValue}
+                                onChange={(e) => setEditingLinkValue(e.target.value)}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Enter') {
+                                    handleSaveEditedLink(index);
+                                  } else if (e.key === 'Escape') {
+                                    handleCancelEdit();
+                                  }
+                                }}
+                                className="w-48 h-8 text-xs"
+                                autoFocus
+                              />
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={() => handleSaveEditedLink(index)}
+                              >
+                                <Check className="h-4 w-4" />
+                              </Button>
+                              <Button
+                                type="button"
+                                size="icon"
+                                variant="ghost"
+                                className="h-8 w-8"
+                                onClick={handleCancelEdit}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center justify-center w-8 h-8 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
+                                <img 
+                                  src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+                                  alt=""
+                                  className="w-4 h-4"
+                                />
+                              </div>
+                              <div className="flex gap-1 absolute -top-1 -right-1">
+                                <Button 
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-4 w-4 rounded-full bg-muted p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleEditLink(index);
+                                  }}
+                                >
+                                  <Pencil className="h-2 w-2" />
+                                </Button>
+                                <Button 
+                                  type="button"
+                                  size="icon"
+                                  variant="ghost"
+                                  className="h-4 w-4 rounded-full bg-muted p-0"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    handleRemoveLink(index);
+                                  }}
+                                >
+                                  <X className="h-2 w-2" />
+                                </Button>
+                              </div>
+                            </>
+                          )}
                         </div>
                       </HoverCardTrigger>
                       <HoverCardContent className="p-2 text-xs">
-                        {domain}
+                        {editingLinkIndex === index ? editingLinkValue : domain}
                       </HoverCardContent>
                     </HoverCard>
                   );
