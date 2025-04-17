@@ -98,10 +98,13 @@ export function LoraMultiSelectCombobox({
                   <CommandItem
                     key={lora.id}
                     value={lora.name}
-                    onSelect={() => {
-                      handleSelect(lora.id);
-                      // Don't close the popover on selection for multi-select
-                      // setOpen(false);
+                    onSelect={(currentValue) => {
+                      const selectedLora = loras.find(l => 
+                        l.name.toLowerCase() === currentValue.toLowerCase()
+                      );
+                      if (selectedLora) {
+                        handleSelect(selectedLora.id);
+                      }
                     }}
                     disabled={disabled}
                     className="cursor-pointer"
