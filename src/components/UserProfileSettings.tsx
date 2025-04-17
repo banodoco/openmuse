@@ -16,8 +16,8 @@ import { useSearchParams } from 'react-router-dom';
 export default function UserProfileSettings() {
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
-  const isPreviewMode = searchParams.get('preview') === 'true';
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const isPreviewMode = searchParams.get('preview') === 'true' || !user || (profile && user.id !== profile.id);
   const [displayName, setDisplayName] = useState('');
   const [realName, setRealName] = useState('');
   const [description, setDescription] = useState('');
@@ -42,12 +42,14 @@ export default function UserProfileSettings() {
           setIsLoading(true);
           const userProfile = await getCurrentUserProfile();
           setProfile(userProfile);
-          setDisplayName(userProfile?.display_name || userProfile?.username || '');
-          setRealName(userProfile?.real_name || '');
-          setDescription(userProfile?.description || '');
-          setLinks(userProfile?.links || []);
-          setAvatarUrl(userProfile?.avatar_url || '');
-          setBackgroundImageUrl(userProfile?.background_image_url || '');
+          if (userProfile && user.id === userProfile.id && searchParams.get('preview') !== 'true') {
+            setDisplayName(userProfile.display_name || userProfile.username || '');
+            setRealName(userProfile.real_name || '');
+            setDescription(userProfile.description || '');
+            setLinks(userProfile.links || []);
+            setAvatarUrl(userProfile.avatar_url || '');
+            setBackgroundImageUrl(userProfile.background_image_url || '');
+          }
         } catch (err) {
           console.error('Error loading profile:', err);
           setError('Failed to load profile information');
@@ -58,7 +60,7 @@ export default function UserProfileSettings() {
     }
     
     loadProfile();
-  }, [user]);
+  }, [user, searchParams]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
