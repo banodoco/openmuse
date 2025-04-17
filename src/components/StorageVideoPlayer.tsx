@@ -55,8 +55,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(autoPlay || forcePreload); 
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
   const [hasHovered, setHasHovered] = useState(autoPlay || forcePreload);
+  const prevVideoLocationRef = useRef<string | null>(null);
 
   logger.log(`[${componentId}] Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}`);
 
@@ -115,10 +116,20 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       logger.log(`[${componentId}] loadVideo called.`);
       if (unmountedRef.current || !videoLocation) return;
 
+      const isNewVideo = prevVideoLocationRef.current !== videoLocation;
+      prevVideoLocationRef.current = videoLocation;
+
+      if (isNewVideo) {
+        logger.log(`[${componentId}] Video location changed. Resetting states and loading new video.`);
+        setIsLoadingVideoUrl(true);
+        setIsVideoLoaded(false);
+        setError(null);
+      } else if (videoUrl) {
+        logger.log(`[${componentId}] Video location unchanged and URL exists. Skipping load.`);
+        return;
+      }
+
       logger.log(`[${componentId}] Attempting to load video URL for:`, videoLocation.substring(0, 50) + '...');
-      setIsLoadingVideoUrl(true);
-      setIsVideoLoaded(false); // Reset video loaded state when fetching new URL
-      setError(null);
       
       try {
         let url;
@@ -137,7 +148,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         if (isMounted && !unmountedRef.current) {
           setVideoUrl(url);
           logger.log(`[${componentId}] videoUrl state set:`, url ? url.substring(0, 50) + '...' : 'null');
-          // Loading state (isLoadingVideoUrl) will be set to false in handleVideoLoadedData or finally block
+          // Loading state (isLoadingVideoUrl) will be set to false in handleVideoLoadedData
         }
       } catch (error) {
         logger.error('Error loading video URL:', error);
@@ -146,21 +157,20 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           setErrorDetails(String(error));
           setIsLoadingVideoUrl(false); 
         }
-      } 
-      // We don't set loading false in a finally here, because the video element itself needs to load
+      }
     };
     
     if (shouldLoadVideo && !videoUrl && videoLocation && !error) {
       loadVideo();
     } else if (videoUrl) {
-        // If we already have the URL (e.g., from preload), ensure loading state is false
-        setIsLoadingVideoUrl(false);
+      // If we already have the URL (e.g., from preload), ensure loading state is false
+      setIsLoadingVideoUrl(false);
     }
     
     return () => {
       isMounted = false;
     };
-  }, [videoLocation, retryCount, previewMode, isBlobUrl, shouldLoadVideo, videoUrl, error]); 
+  }, [videoLocation, retryCount, previewMode, isBlobUrl, shouldLoadVideo, videoUrl, error]);
 
   const handleVideoError = (message: string) => {
     if (!unmountedRef.current) {
@@ -180,6 +190,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       setVideoUrl(''); 
       setIsVideoLoaded(false);
       setShouldLoadVideo(true); 
+      prevVideoLocationRef.current = null; // Reset the previous video location to force a reload
       setRetryCount(prev => prev + 1);
     }
   };
