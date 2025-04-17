@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
-import { UploadCloud, LayoutDashboard } from 'lucide-react';
+import { LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
-const APP_VERSION = 'v0.1.6'; // Incremented version number
+const APP_VERSION = 'v0.1.6';
 
 const Navigation: React.FC = () => {
   const location = useLocation();
@@ -47,18 +47,12 @@ const Navigation: React.FC = () => {
             <span className="text-xs text-muted-foreground mt-1">{APP_VERSION}</span>
           </Link>
           
-          {!isAuthPage && (
+          {!isAuthPage && isAdmin && (
             <div className="flex space-x-2 relative right-[15px] top-[2px]">
-              <NavLink to="/upload" active={isActive('/upload')}>
-                <UploadCloud className="w-4 h-4 mr-2" />
-                Propose
+              <NavLink to="/admin" active={isActive('/admin')}>
+                <LayoutDashboard className="w-4 h-4 mr-2" />
+                Admin
               </NavLink>
-              {isAdmin && (
-                <NavLink to="/admin" active={isActive('/admin')}>
-                  <LayoutDashboard className="w-4 h-4 mr-2" />
-                  Admin
-                </NavLink>
-              )}
             </div>
           )}
         </div>
