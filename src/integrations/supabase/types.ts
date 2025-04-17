@@ -148,6 +148,7 @@ export type Database = {
           display_name: string | null
           id: string
           links: string[] | null
+          real_name: string | null
           username: string
           video_upload_consent: boolean | null
         }
@@ -158,6 +159,7 @@ export type Database = {
           display_name?: string | null
           id: string
           links?: string[] | null
+          real_name?: string | null
           username: string
           video_upload_consent?: boolean | null
         }
@@ -168,6 +170,7 @@ export type Database = {
           display_name?: string | null
           id?: string
           links?: string[] | null
+          real_name?: string | null
           username?: string
           video_upload_consent?: boolean | null
         }

@@ -186,7 +186,7 @@ export default function UserProfilePage() {
       <Navigation />
       <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
         <PageHeader
-          title={profile ? `${profile.display_name}'s Profile` : 'Profile'}
+          title=""
           description=""
         />
         
