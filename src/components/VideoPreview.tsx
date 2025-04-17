@@ -7,6 +7,8 @@ import StandardVideoPreview from './video/StandardVideoPreview';
 import StorageVideoPlayer from './StorageVideoPlayer';
 import { Logger } from '@/lib/logger';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { cn } from '@/lib/utils';
+import VideoPlayer from './video/VideoPlayer';
 
 const logger = new Logger('VideoPreview');
 
@@ -20,6 +22,7 @@ interface VideoPreviewProps {
   lazyLoad?: boolean;
   thumbnailUrl?: string;
   preventLoadingFlicker?: boolean;
+  previewMode?: boolean;
 }
 
 /**
@@ -35,7 +38,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   isHovering: externalHoverState,
   lazyLoad = true,
   thumbnailUrl,
-  preventLoadingFlicker = true
+  preventLoadingFlicker = true,
+  previewMode = false
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -163,6 +167,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     preventLoadingFlicker: true
   };
 
+  // Determine if we should force preload based on context
+  const shouldForcePreload = (externalHoverState && !isMobile) || (!lazyLoad && !previewMode);
+
   return (
     <div 
       ref={previewRef}
@@ -213,9 +220,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           showPlayButtonOnHover={!isMobile}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
-          lazyLoad={false} 
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={true} 
+          forcePreload={shouldForcePreload}
           isMobile={isMobile}
           preventLoadingFlicker={preventLoadingFlicker}
         />
@@ -226,13 +232,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           muted={true}
           className="w-full h-full object-cover"
           playOnHover={!isMobile}
-          previewMode={false}
+          previewMode={previewMode}
           showPlayButtonOnHover={!isMobile}
           autoPlay={!isMobile && effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
-          lazyLoad={false}
           thumbnailUrl={thumbnailUrl || posterUrl}
-          forcePreload={true}
+          forcePreload={shouldForcePreload}
           isMobile={isMobile}
           preventLoadingFlicker={preventLoadingFlicker}
         />
