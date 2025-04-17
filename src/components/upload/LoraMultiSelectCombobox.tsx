@@ -46,25 +46,23 @@ export function LoraMultiSelectCombobox({
   triggerClassName,
   disabled = false,
 }: LoraMultiSelectComboboxProps) {
-  const [open, setOpen] = React.useState(false)
+  const [open, setOpen] = React.useState(false);
 
-  const handleSelect = (loraId: string) => {
+  const handleSelect = React.useCallback((loraId: string) => {
     if (disabled) return;
-    console.log(`handleSelect called with loraId: ${loraId}`);
+    
     const newSelectedIds = selectedIds.includes(loraId)
-      ? selectedIds.filter((id) => id !== loraId)
+      ? selectedIds.filter(id => id !== loraId)
       : [...selectedIds, loraId];
-    console.log(`New selected IDs: ${JSON.stringify(newSelectedIds)}`);
+    
     setSelectedIds(newSelectedIds);
-  }
+  }, [disabled, setSelectedIds, selectedIds]);
 
-  const getSelectedLoraNames = () => {
+  const selectedNames = React.useMemo(() => {
     return loras
       .filter(lora => selectedIds.includes(lora.id))
       .map(lora => lora.name);
-  }
-
-  const selectedNames = getSelectedLoraNames();
+  }, [loras, selectedIds]);
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -100,20 +98,10 @@ export function LoraMultiSelectCombobox({
                   <CommandItem
                     key={lora.id}
                     value={lora.name}
-                    onSelect={(currentValue) => {
-                      const selectedLora = loras.find(l => 
-                        l.name.toLowerCase() === currentValue.toLowerCase()
-                      );
-                      if (selectedLora) {
-                        console.log(`CommandItem onSelect fired for: ${selectedLora.name} (${selectedLora.id})`);
-                        handleSelect(selectedLora.id);
-                      } else {
-                        console.warn(`Could not find LoRA matching selected value: ${currentValue}`);
-                      }
-                    }}
-                    onClick={() => {
-                      console.log(`CommandItem onClick fired for: ${lora.name} (${lora.id})`);
+                    onSelect={() => {
                       handleSelect(lora.id);
+                      // Don't close the popover on selection for multi-select
+                      // setOpen(false);
                     }}
                     disabled={disabled}
                     className="cursor-pointer"
@@ -133,5 +121,5 @@ export function LoraMultiSelectCombobox({
         </Command>
       </PopoverContent>
     </Popover>
-  )
+  );
 } 

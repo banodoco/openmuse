@@ -192,34 +192,40 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: string, value: any) => {
-    console.log(`MultipleVideoUploader: updateVideoMetadata called for video ${id}, field: ${field}, value:`, value);
+    console.log(`MultipleVideoUploader: updateVideoMetadata called with:`, { id, field, value });
     if (disabled) return;
     
     setVideos(prev => {
       const updated = prev.map(video => {
         if (video.id === id) {
+          // Handle associatedLoraIds separately from metadata fields
           if (field === 'associatedLoraIds') {
-            console.log(`MultipleVideoUploader: Updating associatedLoraIds for video ${id} to:`, value);
             return {
               ...video,
-              associatedLoraIds: value as string[]
+              associatedLoraIds: value
             };
           }
+          
+          // Handle metadata fields
           return {
             ...video,
             metadata: {
               ...video.metadata,
-              [field]: value
+              [field]: value,
+              // Special case for isPrimary - if this video becomes primary, others should not be
+              ...(field === 'isPrimary' && value === true ? { isPrimary: true } : {})
             }
           };
         }
         
+        // If this video is not being updated but we're setting a new primary,
+        // ensure this video is not primary
         if (field === 'isPrimary' && value === true) {
           return {
             ...video,
             metadata: {
               ...video.metadata,
-              isPrimary: video.id === id
+              isPrimary: false
             }
           };
         }
