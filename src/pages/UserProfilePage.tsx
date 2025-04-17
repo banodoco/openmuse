@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -11,11 +12,14 @@ import { LoraAsset, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import LoraList from '@/components/lora/LoraList';
 import AddLoRAModal from '@/components/lora/AddLoRAModal';
+import { useVideoHover } from '@/hooks/useVideoHover';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
+  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isOwner, setIsOwner] = useState(false);
@@ -134,6 +138,31 @@ export default function UserProfilePage() {
   };
 
   const ProfileLoraList = ({ loras }: { loras: LoraAsset[] }) => {
+    const videoRefs = React.useRef<{ [key: string]: HTMLVideoElement }>({});
+
+    const handleMouseEnter = (loraId: string) => {
+      setHoveredAssetId(loraId);
+      
+      // Play the video when hovering
+      const videoElement = videoRefs.current[loraId];
+      if (videoElement && !isMobile) {
+        videoElement.currentTime = 0;
+        videoElement.play().catch(err => {
+          console.error('Error playing video on hover:', err);
+        });
+      }
+    };
+
+    const handleMouseLeave = (loraId: string) => {
+      setHoveredAssetId(null);
+      
+      // Pause the video when not hovering
+      const videoElement = videoRefs.current[loraId];
+      if (videoElement) {
+        videoElement.pause();
+      }
+    };
+
     return (
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {loras.map(lora => (
@@ -142,8 +171,8 @@ export default function UserProfilePage() {
             to={`/assets/${lora.id}`}
             state={{ from: 'profile', displayName: displayName }}
             className="no-underline"
-            onMouseEnter={() => setHoveredAssetId(lora.id)}
-            onMouseLeave={() => setHoveredAssetId(null)}
+            onMouseEnter={() => handleMouseEnter(lora.id)}
+            onMouseLeave={() => handleMouseLeave(lora.id)}
           >
             <Card className="h-full hover:shadow-md transition-shadow">
               <CardContent className="p-4">
@@ -169,10 +198,12 @@ export default function UserProfilePage() {
                         {/* Video that only loads/plays on hover */}
                         {hoveredAssetId === lora.id && lora.primaryVideo.video_location && (
                           <video 
+                            ref={el => {
+                              if (el) videoRefs.current[lora.id] = el;
+                            }}
                             className="absolute inset-0 w-full h-full object-cover"
                             src={lora.primaryVideo.video_location}
-                            autoPlay 
-                            muted 
+                            muted
                             loop
                             playsInline
                           />
