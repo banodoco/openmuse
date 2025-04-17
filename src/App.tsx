@@ -1,4 +1,3 @@
-
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -30,7 +29,6 @@ function App() {
             <Route path="/videos/:id" element={<VideoPage />} />
             <Route path="/assets/:id" element={<AssetDetailPage />} />
             <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
-            <Route path="/profile" element={<ProfilePage />} />
             <Route path="/profile/:displayName" element={<UserProfilePage />} />
             <Route path="/upload" element={<UploadPage />} />
 
