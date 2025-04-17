@@ -192,7 +192,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: string, value: any) => {
-    console.log(`MultipleVideoUploader: updateVideoMetadata called with:`, { id, field, value });
+    // Log arguments individually for clarity
+    console.log(`MultipleVideoUploader: updateVideoMetadata received -> id: ${id}, field: ${field}, value:`, value);
     if (disabled) return;
     
     setVideos(prev => {
@@ -346,7 +347,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                         metadata={video.metadata}
                         associatedLoraIds={video.associatedLoraIds || []}
                         availableLoras={availableLoras}
-                        updateMetadata={(field, value) => updateVideoMetadata(video.id, field, value)}
+                        updateMetadata={updateVideoMetadata}
                         disabled={disabled}
                         allowPrimarySelection={allowPrimarySelection}
                         uploadContext={uploadContext}
