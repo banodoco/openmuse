@@ -2,8 +2,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
-import { toast } from 'sonner';
-import { signOut } from './authMethods';
+import { toast } from '@/hooks/use-toast';
 import { userProfileCache, PROFILE_CACHE_TTL } from './cache';
 
 const logger = new Logger('UserProfile');
@@ -73,7 +72,11 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
     if (sessionError || !session) {
-      toast.error('You must be logged in to update your profile');
+      toast({
+        title: "Error",
+        description: "You must be logged in to update your profile",
+        variant: "destructive"
+      });
       return null;
     }
     
@@ -91,12 +94,20 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
       
       if (checkError) {
         logger.error('Error checking display name uniqueness:', checkError);
-        toast.error('Failed to check if display name is available');
+        toast({
+          title: "Error",
+          description: "Failed to check if display name is available",
+          variant: "destructive"
+        });
         return null;
       }
       
       if (existingUser && existingUser.length > 0) {
-        toast.error('This display name is already taken. Please choose another one.');
+        toast({
+          title: "Error",
+          description: "This display name is already taken. Please choose another one.",
+          variant: "destructive"
+        });
         return null;
       }
     }
@@ -127,18 +138,29 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
     
     if (error) {
       logger.error('Error updating user profile:', error);
-      toast.error('Failed to update profile');
+      toast({
+        title: "Error",
+        description: "Failed to update profile",
+        variant: "destructive"
+      });
       return null;
     }
     
     // Clear cache
     userProfileCache.delete(userId);
     
-    toast.success('Profile updated successfully');
+    toast({
+      title: "Success",
+      description: "Profile updated successfully",
+    });
     return data as UserProfile;
   } catch (error) {
     logger.error('Error in updateUserProfile:', error);
-    toast.error('An error occurred while updating your profile');
+    toast({
+      title: "Error",
+      description: "An error occurred while updating your profile",
+      variant: "destructive"
+    });
     return null;
   }
 };

@@ -1,3 +1,4 @@
+
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -49,6 +50,7 @@ export interface UserProfile {
   id: string;
   username: string;
   display_name?: string;
+  real_name?: string;
   avatar_url?: string;
   video_upload_consent?: boolean;
   description?: string;
