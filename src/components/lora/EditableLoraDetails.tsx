@@ -7,12 +7,15 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Pencil, Save, X } from "lucide-react";
+import { Pencil, Save, X, User as UserIcon } from "lucide-react";
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { getCurrentUserProfile } from '@/lib/auth/userProfile';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Link } from 'react-router-dom';
+import { Skeleton } from "@/components/ui/skeleton";
 
 const MODEL_VARIANTS = {
   wan: ['1.3b', '14b T2V', '14b I2V'],
@@ -37,6 +40,8 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
+  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // Helper function to determine if the current user owns the asset
   const isOwnedByCurrentUser = () => {
@@ -63,6 +68,40 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
     };
     loadUserProfile();
   }, [user]);
+
+  // Fetch creator profile if user_id exists
+  useEffect(() => {
+    const fetchCreatorProfile = async () => {
+      if (asset?.user_id) {
+        setIsLoadingProfile(true);
+        setCreatorProfile(null); // Reset previous profile
+        try {
+          const { data, error } = await supabase
+            .from('profiles')
+            .select('id, username, display_name, avatar_url')
+            .eq('id', asset.user_id)
+            .single();
+
+          if (error) {
+            // Don't throw an error, just log it. It might be a non-user creator.
+            console.warn('Error fetching creator profile:', error.message);
+          } else if (data) {
+            setCreatorProfile(data as UserProfile);
+          }
+        } catch (err) {
+          console.error('Unexpected error fetching creator profile:', err);
+        } finally {
+          setIsLoadingProfile(false);
+        }
+      } else {
+        // If there's no user_id, clear the profile state
+        setCreatorProfile(null);
+        setIsLoadingProfile(false);
+      }
+    };
+
+    fetchCreatorProfile();
+  }, [asset?.user_id]); // Depend on asset.user_id
 
   const handleEdit = () => {
     setDetails({
@@ -332,7 +371,29 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
 
         <div>
           <h3 className="text-sm font-medium mb-1">Creator</h3>
-          <p>{asset?.creator || 'Unknown'}</p>
+          {isLoadingProfile ? (
+            <div className="flex items-center space-x-2">
+              <Skeleton className="h-8 w-8 rounded-full" />
+              <Skeleton className="h-4 w-24" />
+            </div>
+          ) : creatorProfile ? (
+            <Link 
+              to={`/profile/${creatorProfile.username || creatorProfile.id}`}
+              className="flex items-center space-x-2 group hover:underline"
+            >
+              <Avatar className="h-8 w-8">
+                <AvatarImage src={creatorProfile.avatar_url || undefined} alt={creatorProfile.display_name || creatorProfile.username || 'User avatar'} />
+                <AvatarFallback>
+                  {(creatorProfile.display_name || creatorProfile.username || 'U').charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-sm font-medium group-hover:text-primary">
+                {creatorProfile.display_name || creatorProfile.username || 'Unknown User'}
+              </span>
+            </Link>
+          ) : (
+            <p>{asset?.creator || 'Unknown'}</p>
+          )}
         </div>
 
         <div>
