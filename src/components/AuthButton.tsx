@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -105,7 +104,7 @@ const AuthButton: React.FC = () => {
         <Button 
           variant="outline" 
           onClick={handleSignIn}
-          className="flex items-center gap-2 border-olive/30 text-olive"
+          className="flex items-center gap-2 border-olive/30 text-olive h-12"
         >
           <LogIn className="h-4 w-4" />
           Sign In
@@ -120,11 +119,11 @@ const AuthButton: React.FC = () => {
     <div className="flex flex-col items-stretch gap-2">
       <Button 
         variant="outline" 
-        className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream pl-2 pr-3"
+        className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream pl-2 pr-3 h-16"
         onClick={handleProfileClick}
       >
         {userProfile?.avatar_url ? (
-          <Avatar className="h-6 w-6 mr-1">
+          <Avatar className="h-8 w-8 mr-1">
             <AvatarImage src={userProfile.avatar_url} alt={displayName} />
             <AvatarFallback>{getInitials(displayName)}</AvatarFallback>
           </Avatar>
@@ -136,7 +135,7 @@ const AuthButton: React.FC = () => {
       
       <Button 
         variant="ghost" 
-        className="w-full flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-cream/50 text-xs" // Added text-xs to make text smaller
+        className="w-full flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-cream/50 text-xs"
         onClick={handleSignOut}
       >
         <LogOut className="h-4 w-4 mr-2" />
