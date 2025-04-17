@@ -170,26 +170,45 @@ export default function UserProfilePage() {
       }
 
       if (videosData) {
-        const processedVideos: VideoEntry[] = videosData.map(video => ({
-          id: video.id,
-          video_location: video.url,
-          reviewer_name: video.creator || '',
-          skipped: false,
-          created_at: video.created_at,
-          admin_approved: video.admin_approved,
-          user_id: video.user_id,
-          metadata: {
-            title: video.title,
-            description: '',
-            classification: video.classification || 'art'
-          }
-        }));
+        console.log('Raw videos data:', videosData);
+
+        const processedVideos: VideoEntry[] = videosData.map(video => {
+          const processedVideo = {
+            id: video.id,
+            video_location: video.url,
+            reviewer_name: video.creator || '',
+            skipped: false,
+            created_at: video.created_at,
+            admin_approved: video.admin_approved,
+            user_id: video.user_id,
+            metadata: {
+              title: video.title,
+              description: '',
+              creator: 'self',
+              classification: video.classification || 'art',
+              thumbnailUrl: video.metadata?.thumbnailUrl
+            }
+          };
+          
+          console.log(`Video ${video.id} classification:`, processedVideo.metadata.classification);
+          return processedVideo;
+        });
         
         // Filter videos based on classification
-        const generations = processedVideos.filter(v => v.metadata?.classification === 'generation');
-        const art = processedVideos.filter(v => 
-          v.metadata?.classification === 'art' || !v.metadata?.classification
-        );
+        const generations = processedVideos.filter(v => {
+          const isGeneration = v.metadata?.classification === 'generation';
+          console.log(`Is ${v.id} a generation video?`, isGeneration);
+          return isGeneration;
+        });
+
+        const art = processedVideos.filter(v => {
+          const isArt = v.metadata?.classification === 'art' || !v.metadata?.classification;
+          console.log(`Is ${v.id} an art video?`, isArt);
+          return isArt;
+        });
+        
+        console.log('Generation videos:', generations);
+        console.log('Art videos:', art);
         
         setGenerationVideos(generations);
         setArtVideos(art);
