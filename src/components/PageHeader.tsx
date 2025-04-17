@@ -5,8 +5,8 @@ import { Button } from "@/components/ui/button";
 interface PageHeaderProps {
   title: string;
   description: string;
-  buttonText: string;
-  onButtonClick: () => void;
+  buttonText?: string;
+  onButtonClick?: () => void;
   buttonDisabled?: boolean;
   buttonSize?: "default" | "sm" | "lg" | "icon" | null;
 }
@@ -26,14 +26,16 @@ const PageHeader: React.FC<PageHeaderProps> = memo(({
         <p className="text-muted-foreground mt-1 font-body">{description}</p>
       </div>
       
-      <Button 
-        onClick={onButtonClick}
-        size={buttonSize}
-        disabled={buttonDisabled}
-        className="bg-olive hover:bg-olive-dark text-cream-light"
-      >
-        {buttonText}
-      </Button>
+      {buttonText && onButtonClick && (
+        <Button 
+          onClick={onButtonClick}
+          size={buttonSize}
+          disabled={buttonDisabled}
+          className="bg-olive hover:bg-olive-dark text-cream-light"
+        >
+          {buttonText}
+        </Button>
+      )}
     </div>
   );
 });
