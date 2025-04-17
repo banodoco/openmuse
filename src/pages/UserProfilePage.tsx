@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
@@ -19,6 +19,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { user, isAdmin } = useAuth();
   const isMobile = useIsMobile();
   const [profile, setProfile] = useState<UserProfile | null>(null);
@@ -27,6 +28,11 @@ export default function UserProfilePage() {
   const [canEdit, setCanEdit] = useState(false);
   const [userAssets, setUserAssets] = useState<LoraAsset[]>([]);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
+  const [forceLoggedOutView, setForceLoggedOutView] = useState(false);
+
+  useEffect(() => {
+    setForceLoggedOutView(searchParams.get('loggedOutView') === 'true');
+  }, [searchParams]);
 
   useEffect(() => {
     const fetchProfileByDisplayName = async () => {
@@ -191,7 +197,7 @@ export default function UserProfilePage() {
         {!isLoading && (
           <>
             <div className="max-w-2xl mx-auto">
-              {canEdit ? (
+              {canEdit && !forceLoggedOutView ? (
                 <UserProfileSettings />
               ) : (
                 <Card className="w-full">
