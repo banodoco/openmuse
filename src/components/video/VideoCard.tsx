@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -137,6 +136,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
     if (onDeleteVideo) onDeleteVideo(video.id);
   };
   
+  const isProfilePage = location.pathname.includes('/profile/');
+  
   logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
   
   return (
@@ -180,14 +181,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
       </div>
       
       <div className="p-2 bg-card flex-grow flex flex-col">
-        <div className="mb-1">
-          {video.metadata?.title && (
-            <h3 className="font-medium text-sm truncate">
-              {video.metadata.title}
-            </h3>
-          )}
-        </div>
-        {!location.pathname.includes('/profile/') && (
+        {video.metadata?.title && (
+          <h3 className="font-medium text-sm truncate mb-1">
+            {video.metadata.title}
+          </h3>
+        )}
+        
+        {!isProfilePage && (
           <p className="text-xs text-muted-foreground">By {getCreatorName()}</p>
         )}
       </div>
