@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
 import { AuthContext } from '@/contexts/AuthContext';
 import { checkIsAdmin } from '@/lib/auth';
+import { userProfileCache } from '@/lib/auth/cache';
 
 const logger = new Logger('AuthProvider');
 logger.log('--- AuthProvider Module Initial Load ---'); // Log when the module itself is first processed
@@ -156,6 +157,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         // If initial check is complete, process normally
         logger.log(`[Auth Listener] Processing event ${event} (initial check complete)`);
+
+        // --- Username Sync Check ---
+        if (currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+          const userId = currentSession.user.id;
+          // Assuming 'preferred_username' based on common Discord provider setup and AuthButton usage
+          const discordUsername = currentSession.user.user_metadata?.preferred_username;
+
+          if (discordUsername) {
+            logger.log(`[Auth Listener] Checking Discord username sync for user ${userId}`);
+            try {
+              // Fetch current profile directly from DB to bypass cache
+              const { data: profileData, error: profileError } = await supabase
+                .from('profiles')
+                .select('username')
+                .eq('id', userId)
+                .maybeSingle();
+
+              if (profileError) {
+                logger.error(`[Auth Listener] Error fetching profile for username sync for user ${userId}:`, profileError);
+              } else if (profileData && profileData.username !== discordUsername) {
+                logger.log(`[Auth Listener] Discord username mismatch for ${userId}. Stored: "${profileData.username}", Discord: "${discordUsername}". Updating profile.`);
+
+                const { error: updateError } = await supabase
+                  .from('profiles')
+                  .update({ username: discordUsername })
+                  .eq('id', userId);
+
+                if (updateError) {
+                  logger.error(`[Auth Listener] Error updating username in profile for ${userId}:`, updateError);
+                } else {
+                  logger.log(`[Auth Listener] Successfully updated username for ${userId}. Clearing profile cache.`);
+                  userProfileCache.delete(userId); // Invalidate cache
+                }
+              } else if (!profileData) {
+                // This might happen if profile creation is delayed or failed after signup
+                logger.warn(`[Auth Listener] Profile not found for user ${userId} during username sync check.`);
+              } else {
+                logger.log(`[Auth Listener] Username for ${userId} ('${profileData.username}') is already in sync with Discord ('${discordUsername}').`);
+              }
+            } catch (syncError) {
+              logger.error(`[Auth Listener] Unexpected error during username sync check for ${userId}:`, syncError);
+            }
+          } else {
+            logger.log(`[Auth Listener] No Discord username (preferred_username) found in metadata for ${userId}, skipping sync check.`);
+          }
+        }
+        // --- End Username Sync Check ---
 
         if (!isMounted.current) {
           logger.log('[Auth Listener] Component unmounted, ignoring event.');

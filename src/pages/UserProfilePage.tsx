@@ -3,7 +3,7 @@ import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import UserProfileSettings from '@/components/UserProfileSettings';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
@@ -237,48 +237,41 @@ export default function UserProfilePage() {
               )}
             </div>
 
-            <div className="mt-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-2xl font-semibold">Assets</h2>
-                {isOwner && profile?.id && (
+            <Card className="mt-8">
+              <CardHeader className="flex flex-row items-center justify-between">
+                <CardTitle>Assets</CardTitle>
+                {isOwner && profile?.id && !forceLoggedOutView && (
                   <UploadModal
                     trigger={
                       <Button> 
-                        Propose New LoRA
+                        Add new LoRA
                       </Button>
                     }
                     initialUploadType="lora"
-                    onUploadSuccess={() => {
-                      if (profile?.id) {
-                        fetchUserAssets(profile.id);
-                      }
-                    }}
+                    onUploadSuccess={() => fetchUserAssets(profile.id)}
                   />
                 )}
-              </div>
-
-              {isLoadingAssets ? (
-                <LoraGallerySkeleton count={3} />
-              ) : (
-                userAssets.length > 0 ? (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              </CardHeader>
+              <CardContent>
+                {isLoadingAssets ? (
+                  <LoraGallerySkeleton count={isMobile ? 2 : 4} />
+                ) : userAssets.length > 0 ? (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {userAssets.map(asset => (
                       <LoraCard 
                         key={asset.id} 
-                        lora={asset} 
-                        isAdmin={isAdmin} 
+                        lora={asset}
+                        isAdmin={isAdmin}
                       />
                     ))}
                   </div>
                 ) : (
-                  <Card className="w-full">
-                    <CardContent className="py-8 text-center">
-                      <p className="text-muted-foreground">No assets found</p>
-                    </CardContent>
-                  </Card>
-                )
-              )}
-            </div>
+                  <div className="text-center text-muted-foreground py-8">
+                    This user hasn't created any assets yet.
+                  </div>
+                )}
+              </CardContent>
+            </Card>
           </>
         )}
       </main>

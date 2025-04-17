@@ -93,25 +93,6 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
           
           <div className="space-y-4">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Video Classification</Label>
-                <RadioGroup 
-                  value={metadata.classification}
-                  onValueChange={(value) => onMetadataChange(videoId, 'classification', value)}
-                  className="flex flex-col space-y-2"
-                  disabled={disabled}
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
-                    <Label htmlFor={`classification-gen-${videoId}`} className="cursor-pointer">Generation</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="art" id={`classification-art-${videoId}`} />
-                    <Label htmlFor={`classification-art-${videoId}`} className="cursor-pointer">Artwork</Label>
-                  </div>
-                </RadioGroup>
-              </div>
-
               {/* Conditionally render LoRA Association based on context */}
               {uploadContext === 'video' && (
                 <div>
@@ -154,6 +135,25 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   )}
                 </div>
               )}
+
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Video Classification</Label>
+                <RadioGroup 
+                  value={metadata.classification}
+                  onValueChange={(value) => onMetadataChange(videoId, 'classification', value)}
+                  className="flex flex-col space-y-2"
+                  disabled={disabled}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
+                    <Label htmlFor={`classification-gen-${videoId}`} className="cursor-pointer">Generation</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="art" id={`classification-art-${videoId}`} />
+                    <Label htmlFor={`classification-art-${videoId}`} className="cursor-pointer">Artwork</Label>
+                  </div>
+                </RadioGroup>
+              </div>
             </div>
           </div>
           
