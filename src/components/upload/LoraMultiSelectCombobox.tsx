@@ -130,6 +130,11 @@ export function LoraMultiSelectCombobox({
                       htmlFor={`lora-${lora.id}`} 
                       id={`lora-label-${lora.id}`}
                       className={cn("flex-1", disabled ? "cursor-not-allowed" : "cursor-pointer")}
+                      onClick={(e) => {
+                        if (!disabled) {
+                          e.preventDefault(); 
+                        }
+                      }}
                     >
                       {lora.name}
                     </Label>
