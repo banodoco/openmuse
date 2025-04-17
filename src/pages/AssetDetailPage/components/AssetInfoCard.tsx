@@ -17,7 +17,7 @@ import {
   Info,
   ExternalLink
 } from 'lucide-react';
-import { Button } from "@/components/ui/button";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LoraAsset } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
@@ -89,34 +89,24 @@ const AssetInfoCard = ({
             isAuthorized={isAuthorizedToEdit}
             onDetailsUpdated={() => window.location.reload()}
           />
-          
-          <div className="flex flex-wrap gap-2">
-            {asset?.lora_type && (
-              <div>
-                <div className={cn(badgeVariants({ variant: "outline" }))}>
-                  Type: {asset.lora_type}
-                </div>
-              </div>
-            )}
-            
-            {asset?.lora_base_model && (
-              <div>
-                <div className={cn(badgeVariants({ variant: "default" }), getModelColor(asset.lora_base_model))}>
-                  {asset.lora_base_model.toUpperCase()}
-                </div>
-              </div>
-            )}
-            
-            <div>
-              <div className={cn(badgeVariants({ variant: "default" }), getStatusColor(asset.admin_approved))}>
-                {asset.admin_approved || 'Pending'}
-              </div>
-            </div>
-          </div>
         </CardContent>
         
+        {asset?.lora_link && (
+          <CardFooter className="pt-0 border-t">
+            <a 
+              href={asset.lora_link}
+              target="_blank"
+              rel="noopener noreferrer"
+              className={cn(buttonVariants(), "w-full mt-4")}
+            > 
+              <ExternalLink className="h-4 w-4 mr-2" />
+              View External Link
+            </a>
+          </CardFooter>
+        )}
+
         {isAdmin && (
-          <CardFooter className="flex flex-col gap-2">
+          <CardFooter className="flex flex-col gap-2 border-t pt-4">
             <Button
               onClick={handleCurateAsset}
               className="w-full gap-2"

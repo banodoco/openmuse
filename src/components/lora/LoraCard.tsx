@@ -59,17 +59,17 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const getModelColor = (modelType?: string): string => {
     switch (modelType?.toLowerCase()) {
       case 'wan':
-        return "bg-blue-500 text-white";
+        return "bg-blue-200 text-blue-800";
       case 'hunyuan':
-        return "bg-purple-500 text-white";
+        return "bg-purple-200 text-purple-800";
       case 'ltxv':
-        return "bg-amber-500 text-white";
+        return "bg-yellow-200 text-yellow-800";
       case 'cogvideox':
-        return "bg-emerald-500 text-white";
+        return "bg-emerald-200 text-emerald-800";
       case 'animatediff':
-        return "bg-pink-500 text-white";
+        return "bg-pink-200 text-pink-800";
       default:
-        return "bg-gray-500 text-white";
+        return "bg-gray-200 text-gray-800";
     }
   };
   

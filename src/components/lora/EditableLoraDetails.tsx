@@ -351,20 +351,6 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
             <p>{asset.model_variant}</p>
           </div>
         )}
-
-        {asset?.lora_link && (
-          <div>
-            <h3 className="text-sm font-medium mb-1">External Link</h3>
-            <a 
-              href={asset.lora_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline flex items-center gap-1"
-            >
-              View on external site
-            </a>
-          </div>
-        )}
       </div>
       
       {isAuthorized && (
