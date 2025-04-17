@@ -1,3 +1,4 @@
+
 import React, { Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
@@ -12,7 +13,6 @@ const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
 const AdminPage = lazy(() => import('./pages/Admin'));
 const AuthPage = lazy(() => import('./pages/Auth'));
 const VideoPage = lazy(() => import('./pages/VideoPage'));
-const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const UserProfilePage = lazy(() => import('./pages/UserProfilePage'));
 const ManifestoPage = lazy(() => import('./pages/Manifesto'));
 
