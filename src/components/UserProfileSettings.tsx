@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -235,9 +236,9 @@ export default function UserProfileSettings() {
               className="hidden" 
             />
           </div>
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-6 -mt-13 relative z-10">
             <div className="relative group">
-              <Avatar className="h-20 w-20 cursor-pointer" onClick={handleAvatarClick}>
+              <Avatar className="h-20 w-20 cursor-pointer border-4 border-white shadow-lg" onClick={handleAvatarClick}>
                 <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
                 <AvatarFallback>
                   {profile ? getInitials(profile.display_name || profile.username) : '??'}
