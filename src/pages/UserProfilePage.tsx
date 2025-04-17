@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -27,7 +26,6 @@ export default function UserProfilePage() {
       setIsLoading(true);
       
       try {
-        // Query the profiles table to find the user with the matching display name
         const { data, error } = await supabase
           .from('profiles')
           .select('*')
@@ -41,13 +39,10 @@ export default function UserProfilePage() {
         
         if (data) {
           setProfile(data as UserProfile);
-          // Check if the current user is the owner of this profile
           const ownerStatus = user?.id === data.id;
           setIsOwner(ownerStatus);
-          // User can edit if they are the owner or an admin
           setCanEdit(ownerStatus || !!isAdmin);
         } else {
-          // If no profile is found with this display name, redirect to home
           navigate('/');
         }
       } catch (err) {
@@ -60,7 +55,6 @@ export default function UserProfilePage() {
     fetchProfileByDisplayName();
   }, [displayName, user, navigate, isAdmin]);
 
-  // Function to get initials for avatar fallback
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -77,8 +71,6 @@ export default function UserProfilePage() {
         <PageHeader
           title={profile ? `${profile.display_name}'s Profile` : 'Profile'}
           description={canEdit ? "Manage your profile information" : "View user profile"}
-          buttonText=""
-          onButtonClick={() => {}}
         />
         
         {isLoading ? (
@@ -92,10 +84,8 @@ export default function UserProfilePage() {
         ) : (
           <div className="max-w-2xl mx-auto">
             {canEdit ? (
-              // If user can edit (owner or admin), show the settings component
               <UserProfileSettings />
             ) : (
-              // Otherwise show a read-only view of the profile
               <Card className="w-full">
                 <CardContent className="pt-6">
                   <div className="flex flex-col items-center space-y-4">
