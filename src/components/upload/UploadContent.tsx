@@ -173,7 +173,15 @@ const UploadContent: React.FC<UploadContentProps> = ({
     try {
       logger.log(`Starting ${uploadType} submission process`);
       
-      const uploadedVideoData: { id: string; url: string; metadata: VideoItem['metadata']; model?: string; modelVariant?: string }[] = [];
+      const uploadedVideoData: {
+        id: string;
+        url: string;
+        metadata: VideoItem['metadata'];
+        model?: string;
+        modelVariant?: string;
+        associatedLoraIds?: string[];
+      }[] = [];
+
       for (const video of videos) {
         let videoId = video.id || uuidv4();
         let videoUrl = video.url;
@@ -188,7 +196,14 @@ const UploadContent: React.FC<UploadContentProps> = ({
         }
 
         if (videoUrl) {
-            uploadedVideoData.push({ id: videoId, url: videoUrl, metadata: video.metadata, model, modelVariant });
+            uploadedVideoData.push({
+              id: videoId, 
+              url: videoUrl, 
+              metadata: video.metadata, 
+              model, 
+              modelVariant, 
+              associatedLoraIds: video.associatedLoraIds || []
+            });
         } else {
             logger.warn(`Skipping video due to missing URL: ${video.metadata.title || video.id}`);
         }
