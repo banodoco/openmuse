@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -62,6 +63,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [forcedPlay, setForcedPlay] = useState(false);
   const unmountedRef = useRef(false);
   
+  // Use the video loader hook
   const {
     error,
     isLoading,
@@ -83,6 +85,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     isMobile
   });
   
+  // Use the video playback hook
   useVideoPlayback({
     videoRef,
     externallyControlled,
@@ -101,6 +104,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     };
   }, []);
   
+  // Force play for lightbox on mobile
   useEffect(() => {
     if (externallyControlled && isHovering && isMobile && !playAttempted && !isLoading && videoRef.current && !unmountedRef.current) {
       logger.log('Forcing play for lightbox on mobile');
@@ -121,6 +125,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [externallyControlled, isHovering, isMobile, playAttempted, isLoading, videoRef]);
   
+  // Effect to load poster image
   React.useEffect(() => {
     if (poster) {
       const img = new Image();
@@ -140,6 +145,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [poster]);
   
+  // Add additional logging for mobile detection
   React.useEffect(() => {
     logger.log(`VideoPlayer isMobile state: ${isMobile}`);
     logger.log(`VideoPlayer poster: ${poster ? 'exists' : 'missing'}`);
@@ -178,6 +184,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
+  // Determine if we should show loading state based on preventLoadingFlicker AND poster availability
   const shouldShowLoading = isLoading && (!preventLoadingFlicker || !poster);
 
   return (
@@ -188,12 +195,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       onMouseLeave={handleMouseLeave}
       data-is-mobile={isMobile ? "true" : "false"}
     >
-      {shouldShowLoading && poster && (
-        <div 
-          className="absolute inset-0 bg-cover bg-center z-10" 
-          style={{ backgroundImage: `url(${poster})` }} 
-        />
-      )}
+      {shouldShowLoading && !poster && <VideoLoader posterImage={poster} />}
       
       {error && !onError && (
         <VideoError 
@@ -237,6 +239,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         Your browser does not support the video tag.
       </video>
       
+      {/* Play button overlay that shows when hovering */}
       {(!isLoading || (isLoading && poster && posterLoaded)) && !error && showPlayButtonOnHover && !isMobile && isInternallyHovering && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 transition-opacity duration-300 opacity-0 hover:opacity-100 pointer-events-none">
           <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm">

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef, memo } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
@@ -223,6 +224,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   }, [thumbnailUrl, isMobile]);
 
+  // Determine if we should show loading state based on preventLoadingFlicker
+  const shouldShowLoading = loading && (!preventLoadingFlicker || !posterUrl || !hoverInitiated);
+
   return (
     <div 
       className="relative w-full h-full"
@@ -231,6 +235,18 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       ref={containerRef}
       data-is-mobile={isMobile ? "true" : "false"}
     >
+      {shouldShowLoading && posterUrl && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-10">
+          <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+        </div>
+      )}
+
+      {shouldShowLoading && !posterUrl && (
+        <div className="flex items-center justify-center h-full bg-secondary/30 rounded-lg">
+          Loading video...
+        </div>
+      )}
+
       {error && (
         <div className="relative h-full w-full bg-secondary/30 rounded-lg">
           <VideoPreviewError 
@@ -262,7 +278,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           lazyLoad={false}
           onLoadedData={handleVideoLoaded}
           isMobile={isMobile}
-          preventLoadingFlicker={true}
+          preventLoadingFlicker={preventLoadingFlicker}
         />
       )}
 
@@ -279,6 +295,14 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           alt="Video thumbnail" 
           className="w-full h-full object-cover absolute inset-0 z-0 pointer-events-none"
         />
+      )}
+
+      {posterUrl && !isHovering && showPlayButtonOnHover && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+          <div className="rounded-full bg-black/40 p-3">
+            <Play className="h-6 w-6 text-white" />
+          </div>
+        </div>
       )}
     </div>
   );
