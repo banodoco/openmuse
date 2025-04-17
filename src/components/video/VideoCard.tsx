@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
@@ -10,6 +9,8 @@ import { supabase } from '@/integrations/supabase/client';
 import VideoPreview from '../VideoPreview';
 import { Logger } from '@/lib/logger';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Link } from 'react-router-dom';
 
 const logger = new Logger('VideoCard');
 
@@ -36,6 +37,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const [creatorUsername, setCreatorUsername] = useState<string | null>(null);
+  const [creatorAvatar, setCreatorAvatar] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(isHovering);
@@ -51,12 +54,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
         try {
           const { data: profile, error } = await supabase
             .from('profiles')
-            .select('display_name, username')
+            .select('display_name, username, avatar_url')
             .eq('id', video.user_id)
             .maybeSingle();
             
           if (profile && !error) {
             setCreatorDisplayName(profile.display_name || profile.username);
+            setCreatorUsername(profile.username);
+            setCreatorAvatar(profile.avatar_url);
           }
         } catch (error) {
           console.error('Error fetching creator profile:', error);
@@ -183,13 +188,29 @@ const VideoCard: React.FC<VideoCardProps> = ({
       
       <div className="bg-gradient-to-b from-card to-card/70 flex-grow flex flex-col backdrop-blur-sm">
         {video.metadata?.title ? (
-          <h3 className="p-2 font-medium text-sm truncate">
+          <h3 className="px-2 pt-2 font-medium text-sm truncate">
             {video.metadata.title}
           </h3>
         ) : null}
         
-        {!isProfilePage && (
-          <p className="px-2 pb-2 text-xs text-muted-foreground">By {getCreatorName()}</p>
+        {!isProfilePage && video.user_id && (
+          <div className="px-2 pb-2 flex items-center gap-2">
+            <Link 
+              to={`/profile/${creatorUsername}`}
+              onClick={(e) => {
+                e.stopPropagation();
+              }}
+              className="flex items-center gap-2 hover:opacity-80 transition-opacity"
+            >
+              <Avatar className="h-5 w-5">
+                <AvatarImage src={creatorAvatar || undefined} />
+                <AvatarFallback className="text-xs">
+                  {getCreatorName().charAt(0).toUpperCase()}
+                </AvatarFallback>
+              </Avatar>
+              <span className="text-xs text-muted-foreground">{getCreatorName()}</span>
+            </Link>
+          </div>
         )}
       </div>
       
