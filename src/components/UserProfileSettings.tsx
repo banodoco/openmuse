@@ -101,7 +101,6 @@ export default function UserProfileSettings() {
 
   const handleAddLink = () => {
     if (newLink && isValidUrl(newLink)) {
-      // Make sure link has a protocol
       let linkToAdd = newLink;
       if (!/^https?:\/\//i.test(linkToAdd)) {
         linkToAdd = `https://${linkToAdd}`;
@@ -122,10 +121,8 @@ export default function UserProfileSettings() {
     setLinks(links.filter((_, index) => index !== indexToRemove));
   };
 
-  // Check if a URL is valid
   const isValidUrl = (url: string) => {
     try {
-      // If URL doesn't have a protocol, add https:// temporarily for validation
       const urlToCheck = /^https?:\/\//i.test(url) ? url : `https://${url}`;
       new URL(urlToCheck);
       return true;
@@ -159,8 +156,6 @@ export default function UserProfileSettings() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      // Here you would normally upload this file to your storage
-      // For now, we'll just create a local URL for preview
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
@@ -192,7 +187,7 @@ export default function UserProfileSettings() {
 
   if (isLoading) {
     return (
-      <Card className="w-full max-w-md mx-auto">
+      <Card className="w-full max-w-2xl mx-auto">
         <CardContent className="py-8">
           <div className="flex justify-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -203,7 +198,7 @@ export default function UserProfileSettings() {
   }
 
   return (
-    <Card className="w-full max-w-md mx-auto">
+    <Card className="w-full max-w-2xl mx-auto">
       <CardHeader>
         <CardTitle>Profile Settings</CardTitle>
         <CardDescription>
@@ -212,7 +207,6 @@ export default function UserProfileSettings() {
       </CardHeader>
       <CardContent>
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Background Image Upload */}
           <div className="relative group mb-6">
             {backgroundImageUrl ? (
               <div 
