@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -180,14 +181,14 @@ export default function UserProfilePage() {
           metadata: {
             title: video.title,
             description: '',
-            thumbnailUrl: null,
             classification: video.classification || 'art'
           }
         }));
         
+        // Filter videos based on classification
         const generations = processedVideos.filter(v => v.metadata?.classification === 'generation');
         const art = processedVideos.filter(v => 
-          !v.metadata?.classification || v.metadata.classification === 'art'
+          v.metadata?.classification === 'art' || !v.metadata?.classification
         );
         
         setGenerationVideos(generations);
