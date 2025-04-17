@@ -11,6 +11,7 @@ import { LoraAsset, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LoraCard from '@/components/lora/LoraCard';
+import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -189,13 +190,7 @@ export default function UserProfilePage() {
               </div>
 
               {isLoadingAssets ? (
-                <Card className="w-full">
-                  <CardContent className="py-8">
-                    <div className="flex justify-center">
-                      <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                    </div>
-                  </CardContent>
-                </Card>
+                <LoraGallerySkeleton count={3} />
               ) : (
                 userAssets.length > 0 ? (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
