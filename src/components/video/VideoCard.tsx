@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Check, X, Play } from 'lucide-react';
@@ -30,6 +31,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   isHovering = false,
   onHoverChange
 }) => {
+  const location = useLocation();
   const { user } = useAuth();
   const isMobile = useIsMobile();
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
@@ -184,7 +186,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </h3>
           )}
         </div>
-        <p className="text-xs text-muted-foreground">By {getCreatorName()}</p>
+        {!location.pathname.includes('/profile/') && (
+          <p className="text-xs text-muted-foreground">By {getCreatorName()}</p>
+        )}
       </div>
       
       {isAdmin && (
