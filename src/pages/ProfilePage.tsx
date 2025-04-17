@@ -1,31 +1,40 @@
 
-import React from 'react';
-import Navigation, { Footer } from '@/components/Navigation';
-import PageHeader from '@/components/PageHeader';
-import UserProfileSettings from '@/components/UserProfileSettings';
+import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { getCurrentUserProfile } from '@/lib/auth';
 import RequireAuth from '@/components/RequireAuth';
+import LoadingState from '@/components/LoadingState';
 
 export default function ProfilePage() {
-  // Provide a no-op function for onButtonClick
-  const handleButtonClick = () => {};
+  const navigate = useNavigate();
+  const { user } = useAuth();
+
+  useEffect(() => {
+    const redirectToUserProfile = async () => {
+      if (user) {
+        try {
+          const profile = await getCurrentUserProfile();
+          
+          if (profile?.display_name) {
+            // Redirect to the user's profile page using their display name
+            navigate(`/profile/${encodeURIComponent(profile.display_name)}`);
+          } else {
+            // If no display name is set, use the username
+            navigate(`/profile/${encodeURIComponent(profile?.username || 'user')}`);
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error);
+        }
+      }
+    };
+    
+    redirectToUserProfile();
+  }, [user, navigate]);
 
   return (
     <RequireAuth>
-      <div className="min-h-screen flex flex-col bg-background">
-        <Navigation />
-        <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
-          <PageHeader
-            title="Profile Settings"
-            description="Manage your profile information"
-            buttonText=""  // Empty string as we don't want a visible button
-            onButtonClick={handleButtonClick}
-          />
-          <div className="max-w-2xl mx-auto">
-            <UserProfileSettings />
-          </div>
-        </main>
-        <Footer />
-      </div>
+      <LoadingState />
     </RequireAuth>
   );
 }

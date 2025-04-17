@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { LogOut, LogIn, User, Settings, Book } from 'lucide-react';
+import { LogOut, LogIn, User, Book } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { getCurrentUserProfile } from '@/lib/auth';
@@ -63,14 +64,20 @@ const AuthButton: React.FC = () => {
   };
 
   const handleProfileClick = () => {
-    navigate('/profile');
+    if (userProfile?.display_name) {
+      navigate(`/profile/${encodeURIComponent(userProfile.display_name)}`);
+    } else if (userProfile?.username) {
+      navigate(`/profile/${encodeURIComponent(userProfile.username)}`);
+    } else {
+      navigate('/profile');
+    }
   };
   
   const getDisplayName = () => {
     if (userProfile) {
       return userProfile.display_name || userProfile.username;
     }
-    return user?.user_metadata.preferred_username || user?.email || 'User';
+    return user?.user_metadata.preferred_username || 'User';
   };
   
   const getInitials = (name: string) => {
