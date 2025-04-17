@@ -256,7 +256,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           videoRef={videoRef} 
           externallyControlled={isHoveringExternally !== undefined} 
           isHovering={isHovering} 
-          poster={thumbnailUrl} // Pass thumbnail as poster
+          poster={thumbnailUrl || videoUrl} // Use the video URL itself as a poster if no thumbnail
           onLoadedData={handleVideoLoadedData} 
           isMobile={isMobile}
         />
