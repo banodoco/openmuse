@@ -100,13 +100,16 @@ export function LoraMultiSelectCombobox({
                   <CommandItem
                     key={lora.id}
                     value={lora.name}
-                    onSelect={() => {
-                      console.log(`CommandItem onSelect fired for: ${lora.name} (${lora.id})`);
-                      handleSelect(lora.id);
-                    }}
-                    onClick={() => {
-                      console.log(`CommandItem onClick fired for: ${lora.name} (${lora.id})`);
-                      handleSelect(lora.id);
+                    onSelect={(currentValue) => {
+                      const selectedLora = loras.find(l => 
+                        l.name.toLowerCase() === currentValue.toLowerCase()
+                      );
+                      if (selectedLora) {
+                        console.log(`CommandItem onSelect fired for: ${selectedLora.name} (${selectedLora.id})`);
+                        handleSelect(selectedLora.id);
+                      } else {
+                        console.warn(`Could not find LoRA matching selected value: ${currentValue}`);
+                      }
                     }}
                     disabled={disabled}
                     className="cursor-pointer"
