@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -203,7 +204,7 @@ export default function UserProfilePage() {
                   )}
                   <CardContent className={`pt-6 pb-4 ${profile?.background_image_url ? '-mt-16 relative z-10' : ''}`}>
                     <div className="flex flex-col items-center space-y-4">
-                      <Avatar className={`h-24 w-24 border-4 border-white shadow-lg ${profile?.background_image_url ? '-mt-16' : ''}`}>
+                      <Avatar className={`h-24 w-24 border-4 border-white shadow-lg ${profile?.background_image_url ? '-mt-14' : ''}`}>
                         <AvatarImage src={profile?.avatar_url || ''} alt={profile?.display_name || ''} />
                         <AvatarFallback>{profile ? getInitials(profile.display_name || profile.username) : '??'}</AvatarFallback>
                       </Avatar>
