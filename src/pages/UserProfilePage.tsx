@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -80,35 +79,42 @@ export default function UserProfilePage() {
       }
 
       if (assetsData) {
-        const processedAssets: LoraAsset[] = assetsData.map(asset => ({
-          id: asset.id,
-          name: asset.name,
-          description: asset.description,
-          creator: asset.creator,
-          type: asset.type,
-          created_at: asset.created_at,
-          user_id: asset.user_id,
-          primary_media_id: asset.primary_media_id,
-          admin_approved: asset.admin_approved,
-          lora_type: asset.lora_type,
-          lora_base_model: asset.lora_base_model,
-          model_variant: asset.model_variant,
-          lora_link: asset.lora_link,
-          primaryVideo: asset.primaryVideo ? {
-            id: asset.primaryVideo.id,
-            video_location: asset.primaryVideo.url,
-            reviewer_name: asset.primaryVideo.creator || '',
-            skipped: false,
-            created_at: asset.primaryVideo.created_at,
-            admin_approved: asset.primaryVideo.admin_approved,
-            user_id: asset.primaryVideo.user_id,
-            metadata: {
-              title: asset.primaryVideo.title,
-              thumbnailUrl: asset.primaryVideo.url
-            }
-          } : undefined
-        }));
+        console.log('Assets data:', assetsData);
         
+        const processedAssets: LoraAsset[] = assetsData.map(asset => {
+          console.log('Processing asset:', asset.id, 'Primary video:', asset.primaryVideo);
+          
+          return {
+            id: asset.id,
+            name: asset.name,
+            description: asset.description,
+            creator: asset.creator,
+            type: asset.type,
+            created_at: asset.created_at,
+            user_id: asset.user_id,
+            primary_media_id: asset.primary_media_id,
+            admin_approved: asset.admin_approved,
+            lora_type: asset.lora_type,
+            lora_base_model: asset.lora_base_model,
+            model_variant: asset.model_variant,
+            lora_link: asset.lora_link,
+            primaryVideo: asset.primaryVideo ? {
+              id: asset.primaryVideo.id,
+              video_location: asset.primaryVideo.url,
+              reviewer_name: asset.primaryVideo.creator || '',
+              skipped: false,
+              created_at: asset.primaryVideo.created_at,
+              admin_approved: asset.primaryVideo.admin_approved,
+              user_id: asset.primaryVideo.user_id,
+              metadata: {
+                title: asset.primaryVideo.title,
+                thumbnailUrl: asset.primaryVideo.url
+              }
+            } : undefined
+          };
+        });
+        
+        console.log('Processed assets:', processedAssets);
         setUserAssets(processedAssets);
       }
     } catch (err) {
@@ -143,12 +149,12 @@ export default function UserProfilePage() {
               <CardContent className="p-4">
                 <div className="flex flex-col h-full">
                   <div className="aspect-video w-full bg-muted rounded-md overflow-hidden mb-3 relative">
-                    {lora.primaryVideo?.metadata?.thumbnailUrl ? (
+                    {lora.primaryVideo ? (
                       <div className="relative w-full h-full">
                         {/* Always visible thumbnail */}
                         <div 
                           className="w-full h-full bg-center bg-cover" 
-                          style={{ backgroundImage: `url(${lora.primaryVideo.metadata.thumbnailUrl})` }}
+                          style={{ backgroundImage: `url(${lora.primaryVideo.metadata?.thumbnailUrl || lora.primaryVideo.video_location})` }}
                         />
                         
                         {/* Play button overlay that only appears when not hovering */}
@@ -161,7 +167,7 @@ export default function UserProfilePage() {
                         </div>
                         
                         {/* Video that only loads/plays on hover */}
-                        {hoveredAssetId === lora.id && lora.primaryVideo?.video_location && (
+                        {hoveredAssetId === lora.id && lora.primaryVideo.video_location && (
                           <video 
                             className="absolute inset-0 w-full h-full object-cover"
                             src={lora.primaryVideo.video_location}
