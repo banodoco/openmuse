@@ -1,3 +1,4 @@
+
 import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
@@ -110,7 +111,11 @@ class VideoUploadService {
         }
       };
     
-    return entry;
+      return entry;
+    } catch (error) {
+      logger.error('Error in uploadVideo:', error);
+      throw error;
+    }
   }
   
   public async uploadVideoToExistingAsset(
@@ -306,7 +311,7 @@ class VideoUploadService {
     }
   }
   
-  public async addEntry(entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status'>>): Promise<VideoEntry> {
+  public async addEntry(entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status'>): Promise<VideoEntry> {
     try {
       logger.log(`Adding new entry: ${JSON.stringify(entryData)}`);
       
