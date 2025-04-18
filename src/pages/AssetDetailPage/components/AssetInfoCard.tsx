@@ -38,6 +38,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { logger } from "@/lib/logger";
 
 interface AssetInfoCardProps {
   asset: LoraAsset | null;
@@ -98,8 +99,24 @@ const AssetInfoCard = ({
   };
 
   const onDeleteConfirm = async () => {
+    logger.log(`[AssetInfoCard] onDeleteConfirm triggered for asset ID: ${asset?.id}`);
+    if (!handleDeleteAsset) {
+      logger.warn(`[AssetInfoCard] handleDeleteAsset prop is missing for asset ID: ${asset?.id}`);
+      toast.error("Delete function is unavailable."); 
+      setIsDeleting(false);
+      return;
+    }
+    
+    logger.log(`[AssetInfoCard] Calling handleDeleteAsset prop for asset ID: ${asset?.id}`);
     setIsDeleting(true);
-    await handleDeleteAsset();
+    try {
+      await handleDeleteAsset();
+      logger.log(`[AssetInfoCard] handleDeleteAsset prop finished successfully for asset ID: ${asset?.id}`);
+    } catch (error) {
+      logger.error(`[AssetInfoCard] Error executing handleDeleteAsset prop for asset ID ${asset?.id}:`, error);
+      setIsDeleting(false); 
+    } 
+    logger.log(`[AssetInfoCard] onDeleteConfirm finished for asset ID: ${asset?.id}`);
   };
 
   return (

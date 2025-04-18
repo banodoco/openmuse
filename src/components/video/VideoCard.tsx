@@ -167,14 +167,21 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleDeleteConfirm = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!onDeleteVideo) return;
+    logger.log(`[VideoCard] handleDeleteConfirm triggered for video ID: ${video.id}`);
+    if (!onDeleteVideo) {
+      logger.warn(`[VideoCard] onDeleteVideo prop is missing for video ID: ${video.id}`);
+      return;
+    }
     
+    logger.log(`[VideoCard] Calling onDeleteVideo prop for video ID: ${video.id}`);
     setIsDeleting(true);
     try {
       await onDeleteVideo(video.id);
+      logger.log(`[VideoCard] onDeleteVideo prop finished successfully for video ID: ${video.id}`);
     } catch (error) { 
-      logger.error('Error during video delete confirmation:', error);
+      logger.error(`[VideoCard] Error executing onDeleteVideo prop for video ID ${video.id}:`, error);
     } finally {
+      logger.log(`[VideoCard] handleDeleteConfirm finished, setting isDeleting=false for video ID: ${video.id}`);
       setIsDeleting(false); 
     }
   };
