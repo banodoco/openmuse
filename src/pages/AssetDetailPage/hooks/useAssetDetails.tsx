@@ -142,7 +142,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
               admin_approved: pVideo.admin_approved,
               user_id: pVideo.user_id,
               metadata: {
-                  title: pVideo.title || assetData.name,
+                  title: pVideo.title || '',
                   placeholder_image: pVideo.placeholder_image || null,
                   description: pVideo.description,
                   creator: pVideo.creator ? 'self' : undefined,
@@ -175,7 +175,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
               admin_approved: media.admin_approved || 'Listed',
               user_id: media.user_id,
               metadata: {
-                title: media.title || processedAsset.name,
+                title: media.title || '',
                 description: media.description || '',
                 placeholder_image: media.placeholder_image || null,
                 classification: media.classification,

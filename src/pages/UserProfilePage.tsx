@@ -281,7 +281,7 @@ export default function UserProfilePage() {
           user_id: video.user_id,
           // Ensure metadata has all necessary fields used by VideoCard/Lightbox
           metadata: {
-            title: video.title || 'Untitled Video', // Provide default title
+            title: video.title || '', // <-- Changed fallback to empty string
             description: video.description || '', // Ensure description exists
             creator: 'self', // Assuming videos on user page are by the user
             classification: classification as 'art' | 'generation', // Assert type
@@ -289,7 +289,7 @@ export default function UserProfilePage() {
           },
           // Add top-level fields if needed by VideoCard/Lightbox props directly
           thumbnailUrl: video.placeholder_image,
-          title: video.title || 'Untitled Video',
+          title: video.title || '', // <-- Changed fallback to empty string
           description: video.description || ''
         };
         

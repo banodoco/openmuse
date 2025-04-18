@@ -36,7 +36,7 @@ interface VideoLightboxProps {
   creator?: string | null;
   thumbnailUrl?: string;
   creatorId?: string;
-  onVideoUpdate?: () => void;
+  onVideoUpdate?: () => Promise<void> | void;
 }
 
 interface LoraOption {
@@ -200,7 +200,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   const handleSaveEdit = async () => {
     console.log('[VideoLightboxDebug] handleSaveEdit: videoId *before* check:', videoId);
-    console.log(`[VideoLightboxDebug] Checking save conditions: canEdit=${canEdit}, videoId=${videoId}`); 
+    console.log(`[VideoLightboxDebug] Checking save conditions: canEdit=${canEdit}, videoId=${videoId}`);
     if (!canEdit || !videoId) return;
     setIsSaving(true);
     console.log('[VideoLightboxDebug] handleSaveEdit: Starting save process...');
@@ -212,9 +212,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       // Step 1: Update media title and description
       const { error: mediaUpdateError } = await supabase
         .from('media')
-        .update({ 
-          title: editableTitle, 
-          description: editableDescription 
+        .update({
+          title: editableTitle,
+          description: editableDescription
         })
         .eq('id', videoId);
 
@@ -243,9 +243,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
         console.log(`[VideoLightboxDebug] handleSaveEdit: Attempting to insert new asset_media link: mediaId=${videoId}, assetId=${newAssetId}`);
         const { error: insertError } = await supabase
           .from('asset_media')
-          .insert({ 
-            asset_id: newAssetId, 
-            media_id: videoId 
+          .insert({
+            asset_id: newAssetId,
+            media_id: videoId
           });
 
         if (insertError) {
@@ -267,13 +267,16 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
         title: "Video updated successfully!",
       });
       console.log('[VideoLightboxDebug] handleSaveEdit: Update successful, toast shown.');
-      setIsEditing(false);
       
-      // Trigger potential refetch in parent component
+      // Trigger potential refetch in parent component AND WAIT FOR IT
       if (onVideoUpdate) {
-        console.log('[VideoLightboxDebug] handleSaveEdit: Calling onVideoUpdate...');
-        onVideoUpdate(); 
+        console.log('[VideoLightboxDebug] handleSaveEdit: Calling and awaiting onVideoUpdate...');
+        await onVideoUpdate();
+        console.log('[VideoLightboxDebug] handleSaveEdit: onVideoUpdate completed.');
       }
+      
+      // Now exit edit mode *after* parent refetch (hopefully) completed
+      setIsEditing(false); 
 
     } catch (error: any) {
       console.error('[VideoLightboxDebug] handleSaveEdit: Error during update process:', error);
