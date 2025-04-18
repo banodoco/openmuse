@@ -880,6 +880,7 @@ export default function UserProfilePage() {
           isOpen={!!lightboxVideo}
           onClose={handleCloseLightbox}
           videoUrl={lightboxVideo.url}
+          videoId={lightboxVideo.id}
           title={lightboxVideo.metadata?.title}
           creator={lightboxVideo.user_id || lightboxVideo.metadata?.creatorName}
           thumbnailUrl={lightboxVideo.metadata?.placeholder_image}
