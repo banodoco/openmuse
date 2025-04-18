@@ -922,9 +922,19 @@ export default function UserProfilePage() {
           videoUrl={lightboxVideo.url}
           videoId={lightboxVideo.id}
           title={lightboxVideo.metadata?.title}
+          description={lightboxVideo.metadata?.description}
+          initialAssetId={lightboxVideo.associatedAssetId ?? undefined}
           creator={lightboxVideo.user_id || lightboxVideo.metadata?.creatorName}
-          thumbnailUrl={lightboxVideo.metadata?.placeholder_image}
+          thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
+          onVideoUpdate={() => {
+            if (profile?.id) {
+              console.log('[UserProfilePage] Lightbox update triggered. Refetching videos for user:', profile.id);
+              fetchUserVideos(profile.id);
+            } else {
+              console.warn('[UserProfilePage] Cannot refresh videos via lightbox: Profile ID missing.');
+            }
+          }}
         />
       )}
 
