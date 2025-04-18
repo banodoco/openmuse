@@ -55,7 +55,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
-          .select('*')
+          .select('*, lora_identifier')
           .in('id', mediaIds);
           
         if (mediaError) {
@@ -79,7 +79,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
-          .select('*')
+          .select('*, lora_identifier')
           .in('id', mediaIds);
           
         if (mediaError) {
@@ -91,7 +91,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
       } else {
         const { data: videoData, error: videoError } = await supabase
           .from('media')
-          .select('*')
+          .select('*, lora_identifier')
           .eq('type', 'video');
 
         if (videoError) {
@@ -166,6 +166,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
             return {
               id: media.id,
               url: videoUrl,
+              lora_identifier: media.lora_identifier,
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
               created_at: media.created_at,

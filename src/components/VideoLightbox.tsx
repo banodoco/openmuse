@@ -292,7 +292,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               <X size={24} />
             </button>
             
-            <div className="p-4 flex-shrink overflow-hidden max-h-[60vh]">
+            <div className="p-4 flex-shrink max-h-[60vh]">
               <VideoPlayer
                 src={videoUrl}
                 poster={thumbnailUrl}
