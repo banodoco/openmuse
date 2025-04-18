@@ -17,7 +17,8 @@ import {
   Info,
   ExternalLink,
   Edit,
-  Trash
+  Trash,
+  EyeOff
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -129,25 +130,49 @@ const AssetInfoCard = ({
             </a>
           )}
 
-          {/* Edit Button - Visible to authorized users */}
-          {isAuthorizedToEdit && (
-            <Button
-              variant="secondary"
-              className="w-full gap-2"
-              disabled
-            >
-              <Edit className="h-4 w-4" />
-              Edit Details (via fields above)
-            </Button>
+          {/* Admin Moderation Buttons */}
+          {isAdmin && (
+            <>
+              <Button
+                onClick={handleCurateAsset}
+                className="w-full gap-2"
+                disabled={isApproving || asset?.admin_approved === 'Curated'}
+              >
+                <Check className="h-4 w-4" />
+                Curate
+              </Button>
+              <Button
+                onClick={handleListAsset}
+                variant="secondary"
+                className="w-full gap-2"
+                disabled={isApproving || asset?.admin_approved === 'Listed'}
+              >
+                <Check className="h-4 w-4" />
+                List
+              </Button>
+              <Button
+                onClick={handleRejectAsset}
+                variant="outline"
+                className={cn(
+                  "w-full gap-2",
+                  "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
+                  (isApproving || asset?.admin_approved === 'Rejected') && "bg-orange-100 opacity-70 cursor-not-allowed"
+                )}
+                disabled={isApproving || asset?.admin_approved === 'Rejected'}
+              >
+                <EyeOff className="h-4 w-4" />
+                Hide
+              </Button>
+            </>
           )}
 
-          {/* Delete LoRA Button - Visible to authorized users */}
+          {/* Delete LoRA Button - Moved to the bottom, visible to authorized users */}
           {isAuthorizedToEdit && (
              <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button
                     variant="destructive"
-                    className="w-full gap-2"
+                    className="w-full gap-2 mt-4"
                     disabled={isDeleting}
                   >
                     <Trash className="h-4 w-4" />
@@ -175,38 +200,7 @@ const AssetInfoCard = ({
                 </AlertDialogContent>
               </AlertDialog>
           )}
-
-          {/* Admin Moderation Buttons */}
-          {isAdmin && (
-            <>
-              <Button
-                onClick={handleCurateAsset}
-                className="w-full gap-2"
-                disabled={isApproving || asset?.admin_approved === 'Curated'}
-              >
-                <Check className="h-4 w-4" />
-                Curate
-              </Button>
-              <Button
-                onClick={handleListAsset}
-                variant="secondary"
-                className="w-full gap-2"
-                disabled={isApproving || asset?.admin_approved === 'Listed'}
-              >
-                <Check className="h-4 w-4" />
-                List
-              </Button>
-              <Button
-                onClick={handleRejectAsset}
-                variant="destructive"
-                className="w-full gap-2"
-                disabled={isApproving || asset?.admin_approved === 'Rejected'}
-              >
-                <X className="h-4 w-4" />
-                Reject
-              </Button>
-            </>
-          )}
+          
         </CardFooter>
       </Card>
     </div>

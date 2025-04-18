@@ -92,15 +92,17 @@ function AssetDetailPage() {
 
   // New function to actually delete a video
   const handleDeleteVideo = async (videoId: string) => {
+    logger.log(`[handleDeleteVideo] Initiated for video ID: ${videoId}`);
     if (!isAdmin) {
+      logger.warn(`[handleDeleteVideo] Permission denied: User is not admin. Video ID: ${videoId}`);
       toast.error("You don't have permission to delete this video.");
       return;
     }
     
+    logger.log(`[handleDeleteVideo] User authorized as admin. Proceeding with deletion for video ID: ${videoId}`);
     // --- Start Deletion Process ---
     try {
-      logger.log(`Attempting to delete video and associated files for ID: ${videoId}`);
-
+      logger.log(`[handleDeleteVideo] Attempting to fetch media record for ID: ${videoId}`);
       // 1. Fetch the media record to get file paths
       const { data: mediaRecord, error: fetchError } = await supabase
         .from('media')
@@ -109,185 +111,205 @@ function AssetDetailPage() {
         .single();
 
       if (fetchError || !mediaRecord) {
-        logger.error(`Failed to fetch media record ${videoId} for deletion:`, fetchError);
-        // Decide if we should still try to delete the DB record? For now, let's error out.
-        throw new Error(`Could not fetch media record ${videoId} for deletion.`);
+        logger.error(`[handleDeleteVideo] Failed to fetch media record ${videoId}:`, fetchError);
+        throw new Error(`Could not fetch media record ${videoId}.`);
       }
+      logger.log(`[handleDeleteVideo] Successfully fetched media record for ID: ${videoId}`, mediaRecord);
       
       const videoPath = mediaRecord.video_location;
-      const thumbnailPath = mediaRecord.metadata?.thumbnailUrl; // Access nested property
+      const thumbnailPath = mediaRecord.metadata?.thumbnailUrl;
+      logger.log(`[handleDeleteVideo] Video path: ${videoPath || 'N/A'}, Thumbnail path: ${thumbnailPath || 'N/A'} for ID: ${videoId}`);
 
       // 2. Attempt to delete video file from storage
       if (videoPath) {
+        logger.log(`[handleDeleteVideo] Attempting to delete video file from 'videos' bucket: ${videoPath}`);
         try {
-          logger.log(`Attempting to delete video file from storage: ${videoPath}`);
-          const { error: storageVideoError } = await supabase.storage
-            .from('videos') // Use the 'videos' bucket
+          const { data: deleteData, error: storageVideoError } = await supabase.storage
+            .from('videos')
             .remove([videoPath]);
           if (storageVideoError) {
-            // Log error but don't block DB deletion
-            logger.error(`Failed to delete video file '${videoPath}' from storage:`, storageVideoError);
-            toast.warning(`Could not delete video file from storage. DB record will still be removed.`);
+            logger.warn(`[handleDeleteVideo] Failed to delete video file '${videoPath}' from storage (non-blocking):`, storageVideoError);
+            toast.warning(`Could not delete video file from storage.`);
           } else {
-             logger.log(`Successfully deleted video file '${videoPath}' from storage.`);
+             logger.log(`[handleDeleteVideo] Successfully deleted video file '${videoPath}' from storage.`, deleteData);
           }
         } catch (storageError) {
-           logger.error(`Error during video file storage deletion for '${videoPath}':`, storageError);
-           toast.warning(`Error deleting video file. DB record will still be removed.`);
+           logger.warn(`[handleDeleteVideo] Exception during video file storage deletion for '${videoPath}' (non-blocking):`, storageError);
+           toast.warning(`Error occurred during video file deletion.`);
         }
       } else {
-         logger.warn(`No video_location found for media record ${videoId}. Skipping storage deletion.`);
+         logger.log(`[handleDeleteVideo] No video_location found for media record ${videoId}. Skipping video storage deletion.`);
       }
       
       // 3. Attempt to delete thumbnail file from storage
       if (thumbnailPath) {
+        logger.log(`[handleDeleteVideo] Attempting to delete thumbnail file from 'thumbnails' bucket: ${thumbnailPath}`);
          try {
-            logger.log(`Attempting to delete thumbnail file from storage: ${thumbnailPath}`);
-            const { error: storageThumbnailError } = await supabase.storage
-              .from('thumbnails') // Use the 'thumbnails' bucket
+            const { data: deleteData, error: storageThumbnailError } = await supabase.storage
+              .from('thumbnails')
               .remove([thumbnailPath]);
             if (storageThumbnailError) {
-              // Log error but don't block DB deletion
-              logger.error(`Failed to delete thumbnail file '${thumbnailPath}' from storage:`, storageThumbnailError);
-              toast.warning(`Could not delete thumbnail file from storage. DB record will still be removed.`);
+              logger.warn(`[handleDeleteVideo] Failed to delete thumbnail file '${thumbnailPath}' from storage (non-blocking):`, storageThumbnailError);
+              toast.warning(`Could not delete thumbnail file from storage.`);
             } else {
-               logger.log(`Successfully deleted thumbnail file '${thumbnailPath}' from storage.`);
+               logger.log(`[handleDeleteVideo] Successfully deleted thumbnail file '${thumbnailPath}' from storage.`, deleteData);
             }
          } catch (storageError) {
-            logger.error(`Error during thumbnail file storage deletion for '${thumbnailPath}':`, storageError);
-            toast.warning(`Error deleting thumbnail file. DB record will still be removed.`);
+            logger.warn(`[handleDeleteVideo] Exception during thumbnail file storage deletion for '${thumbnailPath}' (non-blocking):`, storageError);
+            toast.warning(`Error occurred during thumbnail file deletion.`);
          }
       } else {
-          logger.warn(`No metadata.thumbnailUrl found for media record ${videoId}. Skipping thumbnail storage deletion.`);
+          logger.log(`[handleDeleteVideo] No metadata.thumbnailUrl found for media record ${videoId}. Skipping thumbnail storage deletion.`);
       }
 
       // 4. Delete the media record itself from the database
-      logger.log(`Attempting to delete media record from database: ${videoId}`);
+      logger.log(`[handleDeleteVideo] Attempting to delete media record from database for ID: ${videoId}`);
       const { error: dbError } = await supabase
         .from('media')
         .delete()
         .eq('id', videoId);
 
       if (dbError) {
-        // If DB deletion fails, throw error to be caught below
-        throw dbError;
+        logger.error(`[handleDeleteVideo] Failed to delete media record ${videoId} from database:`, dbError);
+        throw dbError; // Throw error to be caught by the outer catch block
       }
+      logger.log(`[handleDeleteVideo] Successfully deleted media record from database for ID: ${videoId}`);
 
       toast.success('Video deleted successfully');
-      await fetchAssetDetails(); // Refresh the video list
+      logger.log(`[handleDeleteVideo] Deletion successful for ID: ${videoId}. Refreshing asset details.`);
+      await fetchAssetDetails();
 
     } catch (error) {
-      logger.error('Error deleting video:', error);
-      toast.error(`Failed to delete video: ${error.message || error}`);
-      // Optionally re-fetch details even on error?
-      // await fetchAssetDetails(); 
+      logger.error(`[handleDeleteVideo] Error during deletion process for video ID ${videoId}:`, error);
+      toast.error(`Failed to delete video: ${error.message || 'Unknown error'}`);
     }
+    logger.log(`[handleDeleteVideo] Finished for video ID: ${videoId}`);
   };
 
   // New function to delete the entire asset
   const handleDeleteAsset = async () => {
+    logger.log(`[handleDeleteAsset] Initiated.`);
     if (!isAuthorized) {
+        logger.warn(`[handleDeleteAsset] Permission denied: User is not owner or admin.`);
         toast.error("You don't have permission to delete this asset.");
         return;
     }
     if (!asset) {
+      logger.warn(`[handleDeleteAsset] Aborted: Asset data not available.`);
       toast.error("Asset data not available.");
       return;
     }
 
     const assetId = asset.id;
-    logger.log(`Attempting to delete asset ${assetId} and associated data.`);
+    logger.log(`[handleDeleteAsset] User authorized. Proceeding with deletion for asset ID: ${assetId}`);
 
     try {
-      // 1. Fetch associated media records to get file paths
+      // 1. Fetch associated media records
+      logger.log(`[handleDeleteAsset] Fetching associated media for asset ID: ${assetId}`);
       const { data: associatedMedia, error: fetchMediaError } = await supabase
         .from('media')
         .select('id, video_location, metadata')
-        .eq('asset_id', assetId); // Assuming 'asset_id' column links media to assets
+        .eq('asset_id', assetId);
 
       if (fetchMediaError) {
-        logger.error(`Failed to fetch associated media for asset ${assetId}:`, fetchMediaError);
-        throw new Error(`Could not fetch associated media for asset ${assetId}. Deletion aborted.`);
+        logger.error(`[handleDeleteAsset] Failed to fetch associated media for asset ${assetId}:`, fetchMediaError);
+        throw new Error(`Could not fetch associated media for asset ${assetId}.`);
       }
 
-      logger.log(`Found ${associatedMedia?.length || 0} associated media records for asset ${assetId}.`);
+      logger.log(`[handleDeleteAsset] Found ${associatedMedia?.length || 0} associated media records for asset ${assetId}.`);
 
       if (associatedMedia && associatedMedia.length > 0) {
         const videoPaths: string[] = [];
         const thumbnailPaths: string[] = [];
         const mediaIds: string[] = associatedMedia.map(media => {
-            if (media.video_location) videoPaths.push(media.video_location);
-            if (media.metadata?.thumbnailUrl) thumbnailPaths.push(media.metadata.thumbnailUrl);
+            const videoPath = media.video_location;
+            const thumbPath = media.metadata?.thumbnailUrl;
+            if (videoPath) videoPaths.push(videoPath);
+            if (thumbPath) thumbnailPaths.push(thumbPath);
             return media.id;
         });
+        logger.log(`[handleDeleteAsset] Media IDs to delete: [${mediaIds.join(', ')}]`);
+        logger.log(`[handleDeleteAsset] Video paths to delete: [${videoPaths.join(', ')}]`);
+        logger.log(`[handleDeleteAsset] Thumbnail paths to delete: [${thumbnailPaths.join(', ')}]`);
 
         // 2. Attempt to delete associated video files from storage
         if (videoPaths.length > 0) {
-          logger.log(`Attempting to delete ${videoPaths.length} video files from storage bucket 'videos'.`);
-          const { data: deletedVideos, error: storageVideoError } = await supabase.storage
-            .from('videos')
-            .remove(videoPaths);
-          
-          if (storageVideoError) {
-            logger.error('Error deleting video files from storage:', storageVideoError);
-            toast.warning('Some video files could not be deleted from storage. Associated DB records will still be removed.');
-          } else {
-            logger.log(`Successfully deleted ${deletedVideos?.length || 0} video files.`);
+          logger.log(`[handleDeleteAsset] Attempting to delete ${videoPaths.length} video files from 'videos' bucket.`);
+          try {
+            const { data: deletedVideos, error: storageVideoError } = await supabase.storage
+              .from('videos')
+              .remove(videoPaths);
+            
+            if (storageVideoError) {
+              logger.warn('[handleDeleteAsset] Error deleting video files from storage (non-blocking):', storageVideoError);
+              toast.warning('Some video files could not be deleted from storage.');
+            } else {
+              logger.log(`[handleDeleteAsset] Successfully deleted ${deletedVideos?.length || 0} video files from storage.`);
+            }
+          } catch (storageError) {
+              logger.warn('[handleDeleteAsset] Exception during bulk video file storage deletion (non-blocking):', storageError);
+              toast.warning('Error occurred during video file deletion.');
           }
         }
         
         // 3. Attempt to delete associated thumbnail files from storage
         if (thumbnailPaths.length > 0) {
-           logger.log(`Attempting to delete ${thumbnailPaths.length} thumbnail files from storage bucket 'thumbnails'.`);
-           const { data: deletedThumbnails, error: storageThumbnailError } = await supabase.storage
-             .from('thumbnails')
-             .remove(thumbnailPaths);
-           
-           if (storageThumbnailError) {
-             logger.error('Error deleting thumbnail files from storage:', storageThumbnailError);
-             toast.warning('Some thumbnail files could not be deleted from storage. Associated DB records will still be removed.');
-           } else {
-             logger.log(`Successfully deleted ${deletedThumbnails?.length || 0} thumbnail files.`);
+           logger.log(`[handleDeleteAsset] Attempting to delete ${thumbnailPaths.length} thumbnail files from 'thumbnails' bucket.`);
+           try {
+             const { data: deletedThumbnails, error: storageThumbnailError } = await supabase.storage
+               .from('thumbnails')
+               .remove(thumbnailPaths);
+             
+             if (storageThumbnailError) {
+               logger.warn('[handleDeleteAsset] Error deleting thumbnail files from storage (non-blocking):', storageThumbnailError);
+               toast.warning('Some thumbnail files could not be deleted from storage.');
+             } else {
+               logger.log(`[handleDeleteAsset] Successfully deleted ${deletedThumbnails?.length || 0} thumbnail files from storage.`);
+             }
+           } catch (storageError) {
+              logger.warn('[handleDeleteAsset] Exception during bulk thumbnail file storage deletion (non-blocking):', storageError);
+              toast.warning('Error occurred during thumbnail file deletion.');
            }
          }
 
         // 4. Delete associated media records from the database
         if (mediaIds.length > 0) {
-          logger.log(`Attempting to delete ${mediaIds.length} associated media records from database.`);
+          logger.log(`[handleDeleteAsset] Attempting to delete ${mediaIds.length} associated media records from database.`);
           const { error: mediaDbError } = await supabase
             .from('media')
             .delete()
-            .in('id', mediaIds); // Use .in() for multiple IDs
+            .in('id', mediaIds);
 
           if (mediaDbError) {
-            logger.error('Error deleting associated media records from database:', mediaDbError);
-            // If deleting media records fails, we should probably stop before deleting the asset
+            logger.error('[handleDeleteAsset] Error deleting associated media records from database:', mediaDbError);
             throw new Error(`Failed to delete associated media records: ${mediaDbError.message}`);
           }
-           logger.log('Successfully deleted associated media records.');
+           logger.log('[handleDeleteAsset] Successfully deleted associated media records from database.');
         }
       }
 
       // 5. Delete the asset record itself
-      logger.log(`Attempting to delete asset record ${assetId} from database.`);
+      logger.log(`[handleDeleteAsset] Attempting to delete asset record ${assetId} from database.`);
       const { error: assetDbError } = await supabase
         .from('assets')
         .delete()
         .eq('id', assetId);
 
       if (assetDbError) {
-        // If asset deletion fails
+        logger.error(`[handleDeleteAsset] Failed to delete asset record ${assetId} from database:`, assetDbError);
         throw assetDbError;
       }
+      logger.log(`[handleDeleteAsset] Successfully deleted asset record ${assetId} from database.`);
 
       toast.success('LoRA Asset and associated data deleted successfully');
-      navigate('/'); // Navigate away after successful deletion
+      logger.log(`[handleDeleteAsset] Deletion successful for asset ID: ${assetId}. Navigating away.`);
+      navigate('/');
 
     } catch (error) {
-      logger.error(`Error during asset deletion process for ${assetId}:`, error);
-      toast.error(`Failed to delete asset: ${error.message || error}`);
-      // Consider if UI state needs resetting or refetching on failure
+      logger.error(`[handleDeleteAsset] Error during deletion process for asset ID ${assetId}:`, error);
+      toast.error(`Failed to delete asset: ${error.message || 'Unknown error'}`);
     }
+    logger.log(`[handleDeleteAsset] Finished for asset ID: ${assetId}`);
   };
   
   if (isLoading) {
