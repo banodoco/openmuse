@@ -368,7 +368,7 @@ function AssetDetailPage() {
       </div>
       
       {lightboxOpen && currentVideo && (() => {
-        console.log('[AssetDetailPageDebug] Rendering Lightbox. currentVideo:', currentVideo);
+        console.log('[VideoLightboxDebug] Rendering Lightbox. currentVideo:', currentVideo);
         return (
           <VideoLightbox
             isOpen={lightboxOpen}

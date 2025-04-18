@@ -23,7 +23,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
     }
 
     try {
-      console.log('AssetDetailPage - Fetching asset details for ID:', assetId);
+      console.log('[VideoLightboxDebug] Fetching asset details for ID:', assetId);
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
         .select('*, primaryVideo:primary_media_id(*)')
@@ -31,12 +31,12 @@ export const useAssetDetails = (assetId: string | undefined) => {
         .maybeSingle();
 
       if (assetError) {
-        console.error('AssetDetailPage - Error fetching asset:', assetError);
+        console.error('[VideoLightboxDebug] Error fetching asset:', assetError);
         throw assetError;
       }
 
       if (!assetData) {
-        console.error('AssetDetailPage - No asset found with ID:', assetId);
+        console.error('[VideoLightboxDebug] No asset found with ID:', assetId);
         setIsLoading(false);
         setDataFetchAttempted(true);
         return;
@@ -75,7 +75,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
       
       if (assetMediaRelationships && Array.isArray(assetMediaRelationships) && assetMediaRelationships.length > 0) {
         const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
-        console.log('AssetDetailPage - Fetching media with IDs:', mediaIds);
+        console.log('[VideoLightboxDebug] Fetching media with IDs:', mediaIds);
         
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
@@ -83,12 +83,12 @@ export const useAssetDetails = (assetId: string | undefined) => {
           .in('id', mediaIds);
           
         if (mediaError) {
-          console.error('AssetDetailPage - Error fetching related media:', mediaError);
+          console.error('[VideoLightboxDebug] Error fetching related media:', mediaError);
         } else {
           assetVideos = mediaData || [];
-          console.log('AssetDetailPage - Related media fetched:', assetVideos.length);
+          console.log('[VideoLightboxDebug] Related media fetched:', assetVideos.length);
           // Debug log for raw media data
-          console.log('[useAssetDetailsDebug] Raw mediaData:', mediaData); 
+          console.log('[VideoLightboxDebug] Raw mediaData:', mediaData); 
         }
       } else {
         const { data: videoData, error: videoError } = await supabase
@@ -97,22 +97,22 @@ export const useAssetDetails = (assetId: string | undefined) => {
           .eq('type', 'video');
 
         if (videoError) {
-          console.error('AssetDetailPage - Error fetching videos:', videoError);
+          console.error('[VideoLightboxDebug] Error fetching videos:', videoError);
           throw videoError;
         }
 
-        console.log('AssetDetailPage - All videos retrieved:', videoData?.length || 0);
+        console.log('[VideoLightboxDebug] All videos retrieved:', videoData?.length || 0);
 
         assetVideos = videoData?.filter(video => 
           video.title?.includes(assetData.name) || 
           video.id === assetData.primary_media_id
         ) || [];
         
-        console.log('AssetDetailPage - Videos for this asset (filtered by name):', assetVideos?.length || 0);
+        console.log('[VideoLightboxDebug] Videos for this asset (filtered by name):]', assetVideos?.length || 0);
       }
 
       const pVideo = assetData.primaryVideo;
-      logger.log(`[useAssetDetails] Processing asset: ${assetData.id}, Fetched Primary Video Data (pVideo):`, {
+      logger.log(`[VideoLightboxDebug] Processing asset: ${assetData.id}, Fetched Primary Video Data (pVideo):`, {
           exists: !!pVideo,
           id: pVideo?.id,
           url: pVideo?.url,
@@ -162,6 +162,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
       const convertedVideos: VideoEntry[] = await Promise.all(
         assetVideos.map(async (media: any) => {
+          console.log('[VideoLightboxDebug] Processing media item:', media?.id, media);
           try {
             const videoUrl = await videoUrlService.getVideoUrl(media.url);
             
@@ -191,18 +192,18 @@ export const useAssetDetails = (assetId: string | undefined) => {
               }
             };
           } catch (error) {
-            console.error(`Error processing video ${media.id}:`, error);
+            console.error(`[VideoLightboxDebug] Error processing video ${media.id}:`, error);
             return null;
           }
         })
       );
 
       setVideos(convertedVideos.filter(v => v !== null) as VideoEntry[]);
-      console.log('AssetDetailPage - Final processed related videos:', convertedVideos.filter(v => v !== null).length);
+      console.log('[VideoLightboxDebug] Final processed related videos:', convertedVideos.filter(v => v !== null).length);
       // Debug log for converted videos
-      console.log('[useAssetDetailsDebug] Converted videos state:', convertedVideos.filter(v => v !== null)); 
+      console.log('[VideoLightboxDebug] Converted videos state:', convertedVideos.filter(v => v !== null)); 
     } catch (error) {
-      console.error('Error fetching asset details:', error);
+      console.error('[VideoLightboxDebug] Error fetching asset details:', error);
       toast.error('Failed to load asset details');
     } finally {
       setIsLoading(false);
@@ -225,7 +226,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
           .eq('id', asset.user_id)
           .maybeSingle();
         
-        console.log('Asset User Profile:', {
+        console.log('[VideoLightboxDebug] Asset User Profile:', {
           user_id: asset.user_id,
           creator: asset.creator,
           profile: profile,

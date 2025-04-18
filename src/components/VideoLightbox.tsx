@@ -213,7 +213,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
     try {
       const { error } = await supabase
-        .from('videos')
+        .from('media')
         .update(updates)
         .eq('id', videoId);
 
@@ -250,7 +250,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
     try {
       const { error } = await supabase
-        .from('videos')
+        .from('media')
         .delete()
         .eq('id', videoId);
 
