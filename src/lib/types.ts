@@ -27,7 +27,26 @@ export interface VideoEntry {
   created_at: string;
   admin_approved: string | null;
   user_id?: string;
-  metadata?: VideoMetadata;
+  metadata: {
+    title: string;
+    description?: string;
+    creator?: 'self' | 'someone_else';
+    creatorName?: string;
+    classification?: string;
+    isPrimary?: boolean;
+    loraName?: string;
+    loraDescription?: string;
+    assetId?: string;
+    loraType?: string;
+    loraLink?: string;
+    model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';  // This is the base model
+    modelVariant?: string;  // New field for model variant
+    baseModel?: string;
+    placeholder_image?: string;
+    trainingSteps?: string | number;
+    resolution?: string;
+    trainingDataset?: string;
+  };
   lora_identifier?: string | null;
   placeholder_image?: string | null;
 }
