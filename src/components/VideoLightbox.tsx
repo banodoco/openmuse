@@ -110,7 +110,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   useEffect(() => {
     const fetchLoras = async () => {
-      if (isEditing && canEdit && availableLoras.length === 0 && !isFetchingLoras) {
+      if (isOpen && canEdit && availableLoras.length === 0 && !isFetchingLoras) {
         setIsFetchingLoras(true);
         try {
           const { data, error } = await supabase
@@ -148,7 +148,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     };
 
     fetchLoras();
-  }, [isEditing, canEdit, availableLoras.length, isFetchingLoras, toast]);
+  }, [isOpen, canEdit, availableLoras.length, isFetchingLoras, toast]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -284,7 +284,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               <X size={24} />
             </button>
             
-            <div className="p-4 flex-shrink overflow-hidden">
+            <div className="p-4 flex-shrink overflow-hidden max-h-[60vh]">
               <VideoPlayer
                 src={videoUrl}
                 poster={thumbnailUrl}
