@@ -256,7 +256,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     }
   };
 
-  const displayTitle = isEditing ? '' : (initialTitle || (creatorDisplayName && `By ${creatorDisplayName}`) || 'Video');
+  const displayTitle = isEditing ? '' : (initialTitle || '');
   const displayCreator = creatorDisplayName ? `By ${creatorDisplayName}` : '';
 
   const loraDisplayText = initialLoraIdentifier
@@ -284,21 +284,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               <X size={24} />
             </button>
             
-            {canEdit && !isEditing && (
-               <button
-                  onClick={handleToggleEdit}
-                  className="absolute top-2 right-14 z-30 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
-                  aria-label="Edit"
-              >
-                  <Pencil size={20} />
-              </button>
-            )}
-            
-            <div className="p-4 pb-2 flex-shrink-0">
+            <div className="p-4 flex-shrink overflow-hidden">
               <VideoPlayer
                 src={videoUrl}
                 poster={thumbnailUrl}
-                className="rounded-md w-full h-auto object-contain"
+                className="rounded-md w-full h-auto max-h-full object-contain"
                 controls
                 autoPlay
                 externallyControlled={true}
@@ -308,7 +298,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               />
             </div>
             
-            <div className="p-4 pt-0 flex-shrink-0 flex-grow overflow-y-auto">
+            <div className="p-4 pt-0 flex-grow overflow-y-auto min-h-0">
               {isEditing ? (
                 <div className="space-y-3">
                   <div>
@@ -369,9 +359,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               ) : (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between gap-2">
-                    <h2 className="text-xl font-semibold truncate flex-1">
-                       {displayTitle}
-                    </h2>
+                    {displayTitle ? (
+                      <h2 className="text-xl font-semibold truncate flex-1">
+                         {displayTitle}
+                      </h2>
+                    ) : (
+                      <div className="flex-1" />
+                    )}
                     {canEdit && (
                       <div className="flex items-center space-x-1 flex-shrink-0">
                           <Button 
