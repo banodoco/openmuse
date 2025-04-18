@@ -24,7 +24,9 @@ interface VideoPreviewProps {
   preventLoadingFlicker?: boolean;
   previewMode?: boolean;
   onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
-  onThumbnailSavedToDb?: (thumbnailUrl: string) => void;
+  onThumbnailSuccess?: (thumbnailUrl: string) => void;
+  onThumbnailFailure?: () => void;
+  forceGenerate?: boolean;
 }
 
 /**
@@ -43,7 +45,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   preventLoadingFlicker = true,
   previewMode = false,
   onLoadedData,
-  onThumbnailSavedToDb
+  onThumbnailSuccess,
+  onThumbnailFailure,
+  forceGenerate
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -56,9 +60,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [isHovering, setIsHovering] = useState(externalHoverState || false);
   const [internalHoverState, setInternalHoverState] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
-  const [forceGenerate, setForceGenerate] = useState(!thumbnailUrl);
-  const [thumbnailLoaded, setThumbnailLoaded] = useState(!!thumbnailUrl);
-  const [thumbnailCreationFailed, setThumbnailCreationFailed] = useState(false);
+  const [thumbnailLoaded, setThumbnailLoaded] = useState(!!(thumbnailUrl && !thumbnailUrl.includes('FAILED')));
+  const [thumbnailCreationFailed, setThumbnailCreationFailed] = useState(thumbnailUrl === 'FAILED_GENERATION');
   const componentId = useRef(`video_preview_${Math.random().toString(36).substring(2, 9)}`);
   const [thumbnailGenerationAttempts, setThumbnailGenerationAttempts] = useState(0);
   const thumbnailGeneratorMounted = useRef(false);
@@ -118,31 +121,27 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     setIsPlaying(true);
   };
 
-  const handleThumbnailGenerated = (thumbnailUrl: string) => {
+  const handleThumbnailSuccess = (generatedThumbnailUrl: string) => {
     if (unmountedRef.current) return;
     
-    logger.log(`VideoPreview [${componentId.current}]: Thumbnail generated, current posterUrl: ${posterUrl ? 'exists' : 'none'}`);
+    logger.log(`VideoPreview [${componentId.current}]: Thumbnail generation successful`);
     setThumbnailGenerationAttempts(prev => prev + 1);
     
-    if (!posterUrl || forceGenerate) {
-      logger.log(`VideoPreview [${componentId.current}]: Setting new thumbnail URL, attempt #${thumbnailGenerationAttempts + 1}`);
-      setPosterUrl(thumbnailUrl);
-      setThumbnailLoaded(true);
-      if (thumbnailGenerationAttempts === 0) {
-        setForceGenerate(false);
-      }
-      onThumbnailSavedToDb?.(thumbnailUrl);
-    } else {
-      logger.log(`VideoPreview [${componentId.current}]: Ignoring new thumbnail because we already have one or generation was not forced`);
-    }
+    setPosterUrl(generatedThumbnailUrl);
+    setThumbnailLoaded(true);
+    setThumbnailCreationFailed(false);
+    
+    onThumbnailSuccess?.(generatedThumbnailUrl);
   };
 
-  const handleThumbnailGenerationFailed = () => {
+  const handleThumbnailFailure = () => {
     if (unmountedRef.current) return;
     logger.warn(`VideoPreview [${componentId.current}]: Thumbnail generation failed.`);
     setThumbnailCreationFailed(true);
     setPosterUrl(null);
     setThumbnailLoaded(false);
+
+    onThumbnailFailure?.();
   };
 
   const handleMouseEnter = () => {
@@ -169,7 +168,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  const needsThumbnailGeneration = (!posterUrl || forceGenerate) && thumbnailGenerationAttempts < 2 && !thumbnailGeneratorMounted.current && !thumbnailCreationFailed;
+  const needsThumbnailGeneration = forceGenerate && !thumbnailGeneratorMounted.current;
   
   if (needsThumbnailGeneration) {
     thumbnailGeneratorMounted.current = true;
@@ -200,11 +199,11 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
         <VideoThumbnailGenerator 
           file={file}
           url={url}
-          onThumbnailGenerated={handleThumbnailGenerated}
+          onSuccess={handleThumbnailSuccess}
+          onFailure={handleThumbnailFailure}
           userId={user?.id}
           saveThumbnail={true}
           forceGenerate={forceGenerate}
-          onThumbnailGenerationFailed={handleThumbnailGenerationFailed}
         />
       )}
       

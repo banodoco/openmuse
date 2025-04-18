@@ -9,21 +9,21 @@ const logger = new Logger('VideoThumbnailGenerator');
 interface VideoThumbnailGeneratorProps {
   file?: File;
   url?: string;
-  onThumbnailGenerated: (thumbnailUrl: string) => void;
+  onSuccess: (thumbnailUrl: string) => void;
   saveThumbnail?: boolean;
   userId?: string;
   forceGenerate?: boolean;
-  onThumbnailGenerationFailed?: () => void;
+  onFailure?: () => void;
 }
 
 const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   file,
   url,
-  onThumbnailGenerated,
+  onSuccess,
   saveThumbnail = false,
   userId,
   forceGenerate = false,
-  onThumbnailGenerationFailed
+  onFailure
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -49,7 +49,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
 
       if (error) {
         logger.error('Thumbnail upload error:', error);
-        onThumbnailGenerationFailed?.();
+        onFailure?.();
         return null;
       }
 
@@ -61,7 +61,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
       return publicUrl;
     } catch (error) {
       logger.error('Error saving thumbnail:', error);
-      onThumbnailGenerationFailed?.();
+      onFailure?.();
       return null;
     }
   };
@@ -146,7 +146,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             if (!unmountedRef.current) {
               logger.log('File thumbnail generated successfully');
               setHasGeneratedThumbnail(true);
-              onThumbnailGenerated(thumbnailUrl);
+              onSuccess(thumbnailUrl);
             }
           }
           
@@ -154,7 +154,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         } catch (e) {
           logger.error('Error generating thumbnail:', e);
           URL.revokeObjectURL(fileUrl);
-          onThumbnailGenerationFailed?.();
+          onFailure?.();
         }
       };
       
@@ -176,7 +176,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
           
           if (!unmountedRef.current) {
             setHasGeneratedThumbnail(true);
-            onThumbnailGenerated(thumbnailUrl);
+            onSuccess(thumbnailUrl);
           }
           return;
         }
@@ -235,7 +235,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               if (!unmountedRef.current) {
                 logger.log('URL thumbnail generated successfully');
                 setHasGeneratedThumbnail(true);
-                onThumbnailGenerated(dataUrl);
+                onSuccess(dataUrl);
               }
               
               tempVideo.pause();
@@ -247,14 +247,14 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             tempVideo.pause();
             tempVideo.src = '';
             tempVideo.load();
-            onThumbnailGenerationFailed?.();
+            onFailure?.();
           }
         };
         
         tempVideo.onerror = (e) => {
           logger.error('Error loading video for URL thumbnail generation:', e);
           if (!unmountedRef.current) {
-            onThumbnailGenerationFailed?.();
+            onFailure?.();
           }
         };
         
@@ -273,7 +273,7 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
       logger.log('Thumbnail generator effect cleanup');
       unmountedRef.current = true;
     };
-  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, retryCount, forceGenerate, hasGeneratedThumbnail, onThumbnailGenerationFailed]);
+  }, [file, url, onSuccess, saveThumbnail, userId, retryCount, forceGenerate, hasGeneratedThumbnail, onFailure]);
 
   return (
     <video 

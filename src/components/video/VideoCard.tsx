@@ -40,6 +40,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(isHovering);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const [shouldAttemptGeneration, setShouldAttemptGeneration] = useState(false);
   
   useEffect(() => {
     isHoveringRef.current = isHovering;
@@ -66,19 +67,31 @@ const VideoCard: React.FC<VideoCardProps> = ({
     };
     
     if (video.metadata?.thumbnailUrl) {
-      setThumbnailUrl(video.metadata.thumbnailUrl);
+      const initialUrl = video.metadata.thumbnailUrl;
+      setThumbnailUrl(initialUrl);
+      if (initialUrl === 'FAILED_GENERATION') {
+        setShouldAttemptGeneration(true);
+        logger.log(`VideoCard: Initial state for ${video.id} is FAILED_GENERATION, will attempt generation.`);
+      } else {
+        setShouldAttemptGeneration(false);
+      }
+    } else {
+      setThumbnailUrl(null);
+      setShouldAttemptGeneration(false);
+      logger.log(`VideoCard: Initial state for ${video.id} has no thumbnailUrl, generation will not be attempted.`);
     }
     
     fetchCreatorProfile();
-  }, [video.user_id, video.metadata]);
+  }, [video.id, video.user_id, video.metadata]);
   
-  const updateThumbnailInDatabase = async (newThumbnailUrl: string) => {
+  const handleThumbnailUpdate = async (result: { success: true; url: string } | { success: false }) => {
     if (!video.id) {
       logger.error('VideoCard: Cannot update thumbnail, video ID is missing.');
       return;
     }
 
-    logger.log(`VideoCard: Attempting to update thumbnail URL in DB for video ${video.id}`);
+    const valueToSave = result.success ? result.url : 'FAILED_GENERATION';
+    logger.log(`VideoCard: Handling thumbnail update for video ${video.id}. Result: ${result.success ? 'Success' : 'Failure'}. Value to save: ${valueToSave}`);
 
     try {
       const { data: currentMedia, error: fetchError } = await supabase
@@ -93,9 +106,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
 
       const currentMetadata = currentMedia?.metadata || {};
+      if (currentMetadata.thumbnailUrl === valueToSave) {
+        logger.log(`VideoCard: Thumbnail URL for video ${video.id} is already ${valueToSave}. Skipping DB update.`);
+        return;
+      }
+
       const newMetadata = {
         ...currentMetadata,
-        thumbnailUrl: newThumbnailUrl
+        thumbnailUrl: valueToSave
       };
 
       const { error: updateError } = await supabase
@@ -106,8 +124,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
       if (updateError) {
         logger.error(`VideoCard: Error updating thumbnail URL in DB for video ${video.id}:`, updateError);
       } else {
-        logger.log(`VideoCard: Successfully updated thumbnail URL in DB for video ${video.id}`);
-        setThumbnailUrl(newThumbnailUrl);
+        logger.log(`VideoCard: Successfully updated thumbnail URL in DB for video ${video.id} to ${valueToSave}`);
+        setThumbnailUrl(valueToSave);
+        if (!result.success) {
+          setShouldAttemptGeneration(false);
+        }
       }
     } catch (error) {
       logger.error(`VideoCard: Unexpected error updating thumbnail in DB for video ${video.id}:`, error);
@@ -219,9 +240,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
             className="w-full h-full object-cover"
             isHovering={isHovering}
             lazyLoad={false}
-            thumbnailUrl={thumbnailUrl}
+            thumbnailUrl={thumbnailUrl === 'FAILED_GENERATION' ? null : thumbnailUrl}
+            forceGenerate={shouldAttemptGeneration}
             onLoadedData={handleVideoLoad}
-            onThumbnailSavedToDb={updateThumbnailInDatabase}
+            onThumbnailSuccess={(url) => handleThumbnailUpdate({ success: true, url })}
+            onThumbnailFailure={() => handleThumbnailUpdate({ success: false })}
           />
           
           {!isMobile && (
