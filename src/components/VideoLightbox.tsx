@@ -184,11 +184,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const handleToggleEdit = () => {
     console.log(`[VideoLightboxDebug] handleToggleEdit called. Current isEditing: ${isEditing}`);
     if (!isEditing) { 
-      console.log(`[VideoLightboxDebug] Entering edit mode. Initial LoRA: ${initialLoraIdentifier}`);
+      console.log(`[VideoLightboxDebug] Entering edit mode. Initial LoRA from props: '${initialLoraIdentifier}'`);
       setEditableTitle(initialTitle || '');
       setEditableDescription(initialDescription || '');
       setEditableLoraIdentifier(initialLoraIdentifier || '');
-      console.log(`[VideoLightboxDebug] Set editableLoraIdentifier to: ${initialLoraIdentifier || ''}`);
+      console.log(`[VideoLightboxDebug] Set editableLoraIdentifier state to: '${initialLoraIdentifier || ''}'`);
     } else {
       console.log('[VideoLightboxDebug] Leaving edit mode.');
     } 
@@ -294,8 +294,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             </button>
             
             <div className={cn(
-              "p-4 flex-shrink max-h-[75vh]",
-              isEditing && "max-h-[50vh]"
+              "p-4 flex-shrink max-h-[75vh]"
             )}>
               <VideoPlayer
                 src={videoUrl}
@@ -312,7 +311,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             
             <div className="p-4 pt-0 flex-grow overflow-y-auto min-h-0">
               {isEditing ? (() => { 
-                  console.log(`[VideoLightboxDebug] Rendering Edit Form. editableLoraIdentifier: ${editableLoraIdentifier}`);
+                  console.log(`[VideoLightboxDebug] Rendering Edit Form. Current editableLoraIdentifier state: '${editableLoraIdentifier}'`);
+                  const selectValue = editableLoraIdentifier || "";
+                  console.log(`[VideoLightboxDebug] Rendering Select component with value: '${selectValue}'`);
                   return (
                     <div className="space-y-3">
                       <div>
@@ -342,7 +343,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                             <Skeleton className="h-10 w-full" />
                          ) : (
                            <Select
-                             value={editableLoraIdentifier || ""}
+                             value={selectValue}
                              onValueChange={(value) => setEditableLoraIdentifier(value === "__NONE__" ? "" : value)}
                              disabled={isSaving}
                              name="videoLora"
