@@ -1,4 +1,3 @@
-
 import { supabase } from '../supabase';
 import { VideoEntry } from '../types';
 import { Logger } from '../logger';
@@ -76,14 +75,14 @@ export class VideoEntryService {
   
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
     try {
-      // Update media table instead of video_entries
       const { data, error } = await supabase
         .from('media')
         .update({
           title: update.metadata?.title,
           classification: update.metadata?.classification,
           creator: update.metadata?.creatorName || update.reviewer_name,
-          admin_approved: update.admin_approved
+          admin_approved: update.admin_approved,
+          description: update.metadata?.description
         })
         .eq('id', id)
         .select('*, assets!asset_media(id, name, description, type, creator, primary_media_id)')

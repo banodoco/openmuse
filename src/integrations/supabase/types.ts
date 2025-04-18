@@ -107,8 +107,10 @@ export type Database = {
           classification: string | null
           created_at: string
           creator: string | null
+          description: string | null
           id: string
           model_variant: string | null
+          placeholder_image: string | null
           title: string
           type: string
           url: string
@@ -119,8 +121,10 @@ export type Database = {
           classification?: string | null
           created_at?: string
           creator?: string | null
+          description?: string | null
           id?: string
           model_variant?: string | null
+          placeholder_image?: string | null
           title: string
           type: string
           url: string
@@ -131,8 +135,10 @@ export type Database = {
           classification?: string | null
           created_at?: string
           creator?: string | null
+          description?: string | null
           id?: string
           model_variant?: string | null
+          placeholder_image?: string | null
           title?: string
           type?: string
           url?: string

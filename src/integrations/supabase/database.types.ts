@@ -1,4 +1,3 @@
-
 // This is a simplified type definition for the Database
 // It can be expanded as needed for specific table types
 
@@ -24,6 +23,7 @@ export interface Database {
           user_id?: string | null
           created_at: string
           admin_approved?: string | null
+          description?: string | null
         }
       }
       assets: {
