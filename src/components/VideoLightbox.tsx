@@ -205,23 +205,48 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setIsSaving(true);
     console.log('[VideoLightboxDebug] handleSaveEdit: Starting save process...');
 
-    const updates = {
-      title: editableTitle,
-      description: editableDescription,
-      lora_identifier: editableLoraIdentifier === "" ? null : editableLoraIdentifier,
-    };
-    console.log('[VideoLightboxDebug] handleSaveEdit: Prepared updates:', updates);
-    console.log(`[VideoLightboxDebug] handleSaveEdit: Attempting update for videoId: ${videoId}`);
-
     try {
-      const { error } = await supabase
+      // 1. Fetch the current media record to get existing metadata
+      console.log(`[VideoLightboxDebug] handleSaveEdit: Fetching current media for videoId: ${videoId}`);
+      const { data: currentMedia, error: fetchError } = await supabase
+        .from('media')
+        .select('metadata')
+        .eq('id', videoId)
+        .single();
+
+      if (fetchError) {
+        console.error('[VideoLightboxDebug] handleSaveEdit: Error fetching current media:', fetchError);
+        throw new Error(`Failed to fetch current video data: ${fetchError.message}`);
+      }
+
+      console.log('[VideoLightboxDebug] handleSaveEdit: Current media fetched:', currentMedia);
+      const currentMetadata = currentMedia?.metadata || {};
+
+      // 2. Prepare the updates, modifying the metadata object
+      const updatedMetadata = {
+        ...currentMetadata,
+        description: editableDescription, // Update description within metadata
+        // Preserve other metadata fields like placeholder_image etc.
+      };
+
+      const updates = {
+        title: editableTitle, // Update title directly
+        metadata: updatedMetadata, // Update the whole metadata object
+        lora_identifier: editableLoraIdentifier === "" ? null : editableLoraIdentifier, // Update LoRA identifier directly
+      };
+
+      console.log('[VideoLightboxDebug] handleSaveEdit: Prepared updates with metadata:', updates);
+      console.log(`[VideoLightboxDebug] handleSaveEdit: Attempting update for videoId: ${videoId}`);
+
+      // 3. Update the record in the database
+      const { error: updateError } = await supabase
         .from('media')
         .update(updates)
         .eq('id', videoId);
 
-      console.log('[VideoLightboxDebug] handleSaveEdit: Supabase update result:', { error });
+      console.log('[VideoLightboxDebug] handleSaveEdit: Supabase update result:', { error: updateError });
 
-      if (error) throw error;
+      if (updateError) throw updateError;
 
       toast({
         title: "Video updated successfully!",
