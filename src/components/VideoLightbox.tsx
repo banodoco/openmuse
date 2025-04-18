@@ -374,7 +374,15 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                     </h2>
                     {canEdit && (
                       <div className="flex items-center space-x-1 flex-shrink-0">
-                          <Button variant="ghost" size="icon" onClick={handleToggleEdit} className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                          <Button 
+                            variant="ghost" 
+                            size="icon" 
+                            onClick={(e) => { 
+                              e.stopPropagation(); // Prevent event bubbling
+                              handleToggleEdit(); 
+                            }} 
+                            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                          >
                              <Pencil size={16} />
                              <span className="sr-only">Edit</span>
                           </Button>
