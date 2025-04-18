@@ -209,7 +209,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     const updates = {
       title: editableTitle,
       description: editableDescription, // Update description directly
-      lora_identifier: editableLoraIdentifier === "" ? null : editableLoraIdentifier,
+      asset_id: editableLoraIdentifier === "" ? null : editableLoraIdentifier, // Use asset_id instead of lora_identifier
     };
     console.log('[VideoLightboxDebug] handleSaveEdit: Prepared updates:', updates);
     console.log(`[VideoLightboxDebug] handleSaveEdit: Attempting update for videoId: ${videoId}`);
