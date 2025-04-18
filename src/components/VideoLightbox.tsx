@@ -277,6 +277,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       
       // Now exit edit mode *after* parent refetch (hopefully) completed
       setIsEditing(false); 
+      
+      // Close the lightbox after successful save and refetch
+      onClose();
 
     } catch (error: any) {
       console.error('[VideoLightboxDebug] handleSaveEdit: Error during update process:', error);
