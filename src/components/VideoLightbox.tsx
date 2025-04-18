@@ -198,6 +198,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   };
 
   const handleSaveEdit = async () => {
+    console.log('[VideoLightboxDebug] Entered handleSaveEdit function.'); // Simple entry log
     if (!canEdit || !videoId) return;
     setIsSaving(true);
     console.log('[VideoLightboxDebug] handleSaveEdit: Starting save process...');
