@@ -295,7 +295,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             
             <div className={cn(
               "p-4 flex-shrink",
-              isEditing ? "max-h-[85vh]" : "max-h-[75vh]"
+              isEditing ? "max-h-[50vh]" : "max-h-[75vh]"
             )}>
               <VideoPlayer
                 src={videoUrl}
@@ -315,6 +315,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   console.log(`[VideoLightboxDebug] Rendering Edit Form. Current editableLoraIdentifier state: '${editableLoraIdentifier}'`);
                   const selectValue = editableLoraIdentifier || "";
                   console.log(`[VideoLightboxDebug] Rendering Select component with value: '${selectValue}'`);
+                  console.log('[VideoLightboxDebug] availableLoras:', availableLoras);
                   return (
                     <div className="space-y-3">
                       <div>
@@ -345,7 +346,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                          ) : (
                            <Select
                              value={selectValue}
-                             onValueChange={(value) => setEditableLoraIdentifier(value === "__NONE__" ? "" : value)}
+                             onValueChange={(value) => {
+                               console.log(`[VideoLightboxDebug] LoRA Select onValueChange: new value selected: '${value}'`);
+                               setEditableLoraIdentifier(value === "__NONE__" ? "" : value);
+                             }}
                              disabled={isSaving}
                              name="videoLora"
                            >
