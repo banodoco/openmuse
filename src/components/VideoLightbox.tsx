@@ -1,33 +1,76 @@
-
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X } from 'lucide-react';
+import { X, Pencil, Save, XCircle } from 'lucide-react';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { AuthContext } from '@/contexts/AuthContext';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/components/ui/use-toast';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Skeleton } from "@/components/ui/skeleton";
+import { Label } from "@/components/ui/label";
 
 interface VideoLightboxProps {
   isOpen: boolean;
   onClose: () => void;
   videoUrl: string;
+  videoId: string;
   title?: string;
+  description?: string;
+  loraIdentifier?: string;
   creator?: string | null;
   thumbnailUrl?: string;
   creatorId?: string;
+  onVideoUpdate?: () => void;
+}
+
+interface LoraOption {
+  identifier: string;
+  name: string;
 }
 
 const VideoLightbox: React.FC<VideoLightboxProps> = ({
   isOpen,
   onClose,
   videoUrl,
-  title,
+  videoId,
+  title: initialTitle,
+  description: initialDescription,
+  loraIdentifier: initialLoraIdentifier,
   creator,
   thumbnailUrl,
-  creatorId
+  creatorId,
+  onVideoUpdate
 }) => {
+  const authContext = useContext(AuthContext);
+  const user = authContext?.user;
+  const isAdmin = authContext?.isAdmin ?? false;
+
+  const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const isMobile = useIsMobile();
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editableTitle, setEditableTitle] = useState(initialTitle || '');
+  const [editableDescription, setEditableDescription] = useState(initialDescription || '');
+  const [editableLoraIdentifier, setEditableLoraIdentifier] = useState(initialLoraIdentifier || '');
+  const [isSaving, setIsSaving] = useState(false);
+
+  const [availableLoras, setAvailableLoras] = useState<LoraOption[]>([]);
+  const [isFetchingLoras, setIsFetchingLoras] = useState(false);
+
+  const canEdit = isAdmin || (user?.id && user.id === creatorId);
+
+  useEffect(() => {
+    setEditableTitle(initialTitle || '');
+    setEditableDescription(initialDescription || '');
+    setEditableLoraIdentifier(initialLoraIdentifier || '');
+    setIsEditing(false);
+  }, [videoId, initialTitle, initialDescription, initialLoraIdentifier]);
 
   useEffect(() => {
     const fetchCreatorDisplayName = async () => {
@@ -54,9 +97,56 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   }, [creatorId, isOpen]);
 
   useEffect(() => {
+    const fetchLoras = async () => {
+      if (isEditing && canEdit && availableLoras.length === 0 && !isFetchingLoras) {
+        setIsFetchingLoras(true);
+        try {
+          const { data, error } = await supabase
+            .from('loras')
+            .select('identifier, name')
+            .order('name', { ascending: true });
+
+          if (error) throw error;
+
+          if (data) {
+            const formattedLoras: LoraOption[] = data.map((item: any) => ({
+              identifier: item.identifier,
+              name: item.name
+            }));
+            setAvailableLoras(formattedLoras);
+          }
+        } catch (error: any) {
+          console.error("Error fetching LoRAs:", error);
+          toast({
+            title: "Could not load LoRAs",
+            description: error.message || "Failed to fetch LoRA list for selection.",
+            variant: "destructive",
+          });
+          setAvailableLoras([]);
+        } finally {
+          setIsFetchingLoras(false);
+        }
+      }
+    };
+
+    fetchLoras();
+  }, [isEditing, canEdit, availableLoras.length, isFetchingLoras, toast]);
+
+  const handleCancelEdit = useCallback(() => {
+    setIsEditing(false);
+    setEditableTitle(initialTitle || '');
+    setEditableDescription(initialDescription || '');
+    setEditableLoraIdentifier(initialLoraIdentifier || '');
+  }, [initialTitle, initialDescription, initialLoraIdentifier]);
+
+  useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
-        onClose();
+        if (isEditing) {
+          handleCancelEdit();
+        } else {
+          onClose();
+        }
       }
     };
 
@@ -67,25 +157,97 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     return () => {
       document.removeEventListener('keydown', handleEsc);
     };
-  }, [isOpen, onClose]);
+  }, [isOpen, onClose, isEditing, handleCancelEdit]);
+
+  const handleToggleEdit = () => {
+    setIsEditing(!isEditing);
+    if (!isEditing) {
+      setEditableTitle(initialTitle || '');
+      setEditableDescription(initialDescription || '');
+      setEditableLoraIdentifier(initialLoraIdentifier || '');
+    }
+  };
+
+  const handleSaveEdit = async () => {
+    if (!canEdit || !videoId) return;
+    setIsSaving(true);
+
+    const updates = {
+      title: editableTitle,
+      description: editableDescription,
+      lora_identifier: editableLoraIdentifier === "" ? null : editableLoraIdentifier,
+    };
+
+    try {
+      const { error } = await supabase
+        .from('videos')
+        .update(updates)
+        .eq('id', videoId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Video updated successfully!",
+      });
+      setIsEditing(false);
+      if (onVideoUpdate) {
+        onVideoUpdate();
+      }
+
+    } catch (error: any) {
+      console.error('Error updating video:', error);
+      toast({
+        title: "Error updating video",
+        description: error.message || "Could not save changes.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const displayTitle = isEditing ? '' : (initialTitle || (creatorDisplayName && `By ${creatorDisplayName}`) || 'Video');
+  const displayCreator = creatorDisplayName ? `By ${creatorDisplayName}` : '';
+
+  const loraDisplayText = initialLoraIdentifier
+    ? availableLoras.find(l => l.identifier === initialLoraIdentifier)?.name ?? initialLoraIdentifier
+    : null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-5xl p-0 bg-background">
-        <div className="relative">
+    <Dialog open={isOpen} onOpenChange={(open) => {
+        if (!open) {
+            if (isEditing) handleCancelEdit();
+            onClose();
+        }
+    }}>
+      <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 overflow-y-auto [&>button.absolute.right-4.top-4]:hidden">
+        <div className="relative flex flex-col h-full">
           <button
-            onClick={onClose}
-            className="absolute top-4 right-4 z-10 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
+            onClick={() => {
+                if (isEditing) handleCancelEdit();
+                onClose();
+            }}
+            className="absolute top-4 right-4 z-20 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
             aria-label="Close"
           >
             <X size={24} />
           </button>
           
-          <div className="p-4 pt-0">
+          {canEdit && !isEditing && (
+             <button
+                onClick={handleToggleEdit}
+                className="absolute top-4 right-16 z-20 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
+                aria-label="Edit"
+            >
+                <Pencil size={20} />
+            </button>
+          )}
+          
+          <div className="p-4 pb-2 flex-shrink-0">
             <VideoPlayer
               src={videoUrl}
               poster={thumbnailUrl}
-              className="w-full rounded-md"
+              className="rounded-md max-h-[calc(90vh-12rem)]"
               controls
               autoPlay
               externallyControlled={true}
@@ -95,12 +257,76 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             />
           </div>
           
-          <div className="p-4 pt-0">
-            {title || creatorDisplayName ? (
-              <div className="text-xl font-semibold">
-                {title || (creatorDisplayName && `By ${creatorDisplayName}`)}
+          <div className="p-4 pt-0 flex-shrink-0 flex-grow overflow-y-auto">
+            {isEditing ? (
+              <div className="space-y-3">
+                <div>
+                    <label htmlFor="videoTitle" className="text-sm font-medium text-muted-foreground">Title</label>
+                    <Input
+                        id="videoTitle"
+                        value={editableTitle}
+                        onChange={(e) => setEditableTitle(e.target.value)}
+                        placeholder="Video Title"
+                        disabled={isSaving}
+                    />
+                </div>
+                 <div>
+                    <label htmlFor="videoDesc" className="text-sm font-medium text-muted-foreground">Description</label>
+                    <Textarea
+                        id="videoDesc"
+                        value={editableDescription}
+                        onChange={(e) => setEditableDescription(e.target.value)}
+                        placeholder="Video Description"
+                        rows={3}
+                        disabled={isSaving}
+                    />
+                </div>
+                 <div>
+                   <Label htmlFor="videoLora" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA Identifier (Optional)</Label>
+                   {isFetchingLoras ? (
+                      <Skeleton className="h-10 w-full" />
+                   ) : (
+                     <Select
+                       value={editableLoraIdentifier || ""}
+                       onValueChange={(value) => setEditableLoraIdentifier(value === "" ? "" : value)}
+                       disabled={isSaving}
+                       name="videoLora"
+                     >
+                       <SelectTrigger id="videoLora">
+                         <SelectValue placeholder="Select a LoRA..." />
+                       </SelectTrigger>
+                       <SelectContent>
+                         <SelectItem value="">-- None --</SelectItem>
+                         {availableLoras.map((lora) => (
+                           <SelectItem key={lora.identifier} value={lora.identifier}>
+                             {lora.name} ({lora.identifier})
+                           </SelectItem>
+                         ))}
+                       </SelectContent>
+                     </Select>
+                   )}
+                 </div>
+                <div className="flex justify-end space-x-2 pt-2">
+                   <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                       <XCircle className="mr-2 h-4 w-4" /> Cancel
+                   </Button>
+                   <Button onClick={handleSaveEdit} disabled={isSaving}>
+                       <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
+                   </Button>
+                </div>
               </div>
-            ) : null}
+            ) : (
+              <div className="space-y-2">
+                <div className="text-xl font-semibold">{displayTitle}</div>
+                {initialDescription && <p className="text-sm text-muted-foreground">{initialDescription}</p>}
+                {loraDisplayText && (
+                  <p className="text-xs text-muted-foreground italic">
+                    LoRA: {loraDisplayText}
+                  </p>
+                )}
+                <div className="text-sm text-muted-foreground">{displayCreator}</div>
+              </div>
+            )}
           </div>
         </div>
       </DialogContent>
