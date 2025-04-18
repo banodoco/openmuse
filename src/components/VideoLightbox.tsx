@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, Pencil, Save, XCircle } from 'lucide-react';
+import { X, Pencil, Save, XCircle, Trash } from 'lucide-react';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -12,6 +12,17 @@ import { useToast } from '@/components/ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -28,7 +39,7 @@ interface VideoLightboxProps {
 }
 
 interface LoraOption {
-  identifier: string;
+  id: string;
   name: string;
 }
 
@@ -59,6 +70,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [editableDescription, setEditableDescription] = useState(initialDescription || '');
   const [editableLoraIdentifier, setEditableLoraIdentifier] = useState(initialLoraIdentifier || '');
   const [isSaving, setIsSaving] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [availableLoras, setAvailableLoras] = useState<LoraOption[]>([]);
   const [isFetchingLoras, setIsFetchingLoras] = useState(false);
@@ -102,18 +114,24 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
         setIsFetchingLoras(true);
         try {
           const { data, error } = await supabase
-            .from('loras')
-            .select('identifier, name')
+            .from('assets')
+            .select('id, name')
+            .eq('type', 'LoRA')
             .order('name', { ascending: true });
 
-          if (error) throw error;
+          if (error) {
+             console.error("Supabase error fetching LoRAs:", error);
+             throw new Error(error.message);
+          }
 
           if (data) {
             const formattedLoras: LoraOption[] = data.map((item: any) => ({
-              identifier: item.identifier,
+              id: item.id,
               name: item.name
             }));
             setAvailableLoras(formattedLoras);
+          } else {
+            setAvailableLoras([]);
           }
         } catch (error: any) {
           console.error("Error fetching LoRAs:", error);
@@ -206,131 +224,203 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     }
   };
 
+  const handleDeleteVideo = async () => {
+    if (!canEdit || !videoId) return;
+    setIsDeleting(true);
+
+    try {
+      const { error } = await supabase
+        .from('videos')
+        .delete()
+        .eq('id', videoId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Video deleted successfully!",
+      });
+      onClose();
+      if (onVideoUpdate) {
+        onVideoUpdate();
+      }
+
+    } catch (error: any) {
+      console.error("Error deleting video:", error);
+      toast({
+        title: "Error deleting video",
+        description: error.message || "Could not delete the video.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   const displayTitle = isEditing ? '' : (initialTitle || (creatorDisplayName && `By ${creatorDisplayName}`) || 'Video');
   const displayCreator = creatorDisplayName ? `By ${creatorDisplayName}` : '';
 
   const loraDisplayText = initialLoraIdentifier
-    ? availableLoras.find(l => l.identifier === initialLoraIdentifier)?.name ?? initialLoraIdentifier
+    ? availableLoras.find(l => l.id === initialLoraIdentifier)?.name ?? initialLoraIdentifier
     : null;
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => {
-        if (!open) {
-            if (isEditing) handleCancelEdit();
-            onClose();
-        }
-    }}>
-      <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 overflow-y-auto [&>button.absolute.right-4.top-4]:hidden">
-        <div className="relative flex flex-col h-full">
-          <button
-            onClick={() => {
-                if (isEditing) handleCancelEdit();
-                onClose();
-            }}
-            className="absolute top-4 right-4 z-20 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
-            aria-label="Close"
-          >
-            <X size={24} />
-          </button>
-          
-          {canEdit && !isEditing && (
-             <button
-                onClick={handleToggleEdit}
-                className="absolute top-4 right-16 z-20 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
-                aria-label="Edit"
+    <AlertDialog>
+      <Dialog open={isOpen} onOpenChange={(open) => {
+          if (!open) {
+              if (isEditing) handleCancelEdit();
+              onClose();
+          }
+      }}>
+        <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 [&>button.absolute.right-4.top-4]:hidden flex flex-col">
+          <div className="relative flex flex-col h-full overflow-hidden">
+            <button
+              onClick={() => {
+                  if (isEditing) handleCancelEdit();
+                  onClose();
+              }}
+              className="absolute top-2 right-2 z-30 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
+              aria-label="Close"
             >
-                <Pencil size={20} />
+              <X size={24} />
             </button>
-          )}
-          
-          <div className="p-4 pb-2 flex-shrink-0">
-            <VideoPlayer
-              src={videoUrl}
-              poster={thumbnailUrl}
-              className="rounded-md max-h-[calc(90vh-12rem)]"
-              controls
-              autoPlay
-              externallyControlled={true}
-              isHovering={true}
-              isMobile={isMobile}
-              muted={false}
-            />
-          </div>
-          
-          <div className="p-4 pt-0 flex-shrink-0 flex-grow overflow-y-auto">
-            {isEditing ? (
-              <div className="space-y-3">
-                <div>
-                    <label htmlFor="videoTitle" className="text-sm font-medium text-muted-foreground">Title</label>
-                    <Input
-                        id="videoTitle"
-                        value={editableTitle}
-                        onChange={(e) => setEditableTitle(e.target.value)}
-                        placeholder="Video Title"
-                        disabled={isSaving}
-                    />
-                </div>
-                 <div>
-                    <label htmlFor="videoDesc" className="text-sm font-medium text-muted-foreground">Description</label>
-                    <Textarea
-                        id="videoDesc"
-                        value={editableDescription}
-                        onChange={(e) => setEditableDescription(e.target.value)}
-                        placeholder="Video Description"
-                        rows={3}
-                        disabled={isSaving}
-                    />
-                </div>
-                 <div>
-                   <Label htmlFor="videoLora" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA Identifier (Optional)</Label>
-                   {isFetchingLoras ? (
-                      <Skeleton className="h-10 w-full" />
-                   ) : (
-                     <Select
-                       value={editableLoraIdentifier || ""}
-                       onValueChange={(value) => setEditableLoraIdentifier(value === "" ? "" : value)}
-                       disabled={isSaving}
-                       name="videoLora"
-                     >
-                       <SelectTrigger id="videoLora">
-                         <SelectValue placeholder="Select a LoRA..." />
-                       </SelectTrigger>
-                       <SelectContent>
-                         <SelectItem value="">-- None --</SelectItem>
-                         {availableLoras.map((lora) => (
-                           <SelectItem key={lora.identifier} value={lora.identifier}>
-                             {lora.name} ({lora.identifier})
-                           </SelectItem>
-                         ))}
-                       </SelectContent>
-                     </Select>
-                   )}
-                 </div>
-                <div className="flex justify-end space-x-2 pt-2">
-                   <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                       <XCircle className="mr-2 h-4 w-4" /> Cancel
-                   </Button>
-                   <Button onClick={handleSaveEdit} disabled={isSaving}>
-                       <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
-                   </Button>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <div className="text-xl font-semibold">{displayTitle}</div>
-                {initialDescription && <p className="text-sm text-muted-foreground">{initialDescription}</p>}
-                {loraDisplayText && (
-                  <p className="text-xs text-muted-foreground italic">
-                    LoRA: {loraDisplayText}
-                  </p>
-                )}
-                <div className="text-sm text-muted-foreground">{displayCreator}</div>
-              </div>
+            
+            {canEdit && !isEditing && (
+               <button
+                  onClick={handleToggleEdit}
+                  className="absolute top-2 right-14 z-30 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
+                  aria-label="Edit"
+              >
+                  <Pencil size={20} />
+              </button>
             )}
+            
+            <div className="p-4 pb-2 flex-shrink-0">
+              <VideoPlayer
+                src={videoUrl}
+                poster={thumbnailUrl}
+                className="rounded-md w-full h-auto object-contain"
+                controls
+                autoPlay
+                externallyControlled={true}
+                isHovering={true}
+                isMobile={isMobile}
+                muted={false}
+              />
+            </div>
+            
+            <div className="p-4 pt-0 flex-shrink-0 flex-grow overflow-y-auto">
+              {isEditing ? (
+                <div className="space-y-3">
+                  <div>
+                      <label htmlFor="videoTitle" className="text-sm font-medium text-muted-foreground">Title</label>
+                      <Input
+                          id="videoTitle"
+                          value={editableTitle}
+                          onChange={(e) => setEditableTitle(e.target.value)}
+                          placeholder="Video Title"
+                          disabled={isSaving}
+                      />
+                  </div>
+                   <div>
+                      <label htmlFor="videoDesc" className="text-sm font-medium text-muted-foreground">Description</label>
+                      <Textarea
+                          id="videoDesc"
+                          value={editableDescription}
+                          onChange={(e) => setEditableDescription(e.target.value)}
+                          placeholder="Video Description"
+                          rows={3}
+                          disabled={isSaving}
+                      />
+                  </div>
+                   <div>
+                     <Label htmlFor="videoLora" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA (Optional)</Label>
+                     {isFetchingLoras ? (
+                        <Skeleton className="h-10 w-full" />
+                     ) : (
+                       <Select
+                         value={editableLoraIdentifier || ""}
+                         onValueChange={(value) => setEditableLoraIdentifier(value === "" ? "" : value)}
+                         disabled={isSaving}
+                         name="videoLora"
+                       >
+                         <SelectTrigger id="videoLora">
+                           <SelectValue placeholder="Select a LoRA..." />
+                         </SelectTrigger>
+                         <SelectContent>
+                           <SelectItem value="">-- None --</SelectItem>
+                           {availableLoras.map((lora) => (
+                             <SelectItem key={lora.id} value={lora.id}>
+                               {lora.name}
+                             </SelectItem>
+                           ))}
+                         </SelectContent>
+                       </Select>
+                     )}
+                   </div>
+                  <div className="flex justify-end space-x-2 pt-2">
+                     <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                         <XCircle className="mr-2 h-4 w-4" /> Cancel
+                     </Button>
+                     <Button onClick={handleSaveEdit} disabled={isSaving}>
+                         <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
+                     </Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between gap-2">
+                    <h2 className="text-xl font-semibold truncate flex-1">
+                       {displayTitle}
+                    </h2>
+                    {canEdit && (
+                      <div className="flex items-center space-x-1 flex-shrink-0">
+                          <Button variant="ghost" size="icon" onClick={handleToggleEdit} className="h-7 w-7 text-muted-foreground hover:text-foreground">
+                             <Pencil size={16} />
+                             <span className="sr-only">Edit</span>
+                          </Button>
+                          <AlertDialogTrigger asChild>
+                              <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10">
+                                 <Trash size={16} />
+                                 <span className="sr-only">Delete</span>
+                              </Button>
+                           </AlertDialogTrigger>
+                      </div>
+                    )}
+                  </div>
+                  {initialDescription && <p className="text-sm text-muted-foreground">{initialDescription}</p>}
+                  {loraDisplayText && (
+                    <p className="text-xs text-muted-foreground italic">
+                      LoRA: {loraDisplayText}
+                    </p>
+                  )}
+                  <div className="text-sm text-muted-foreground">{displayCreator}</div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-      </DialogContent>
-    </Dialog>
+        </DialogContent>
+
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the video data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+                onClick={handleDeleteVideo}
+                disabled={isDeleting}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+             >
+              {isDeleting ? 'Deleting...' : 'Yes, delete video'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+
+      </Dialog>
+     </AlertDialog>
   );
 };
 
