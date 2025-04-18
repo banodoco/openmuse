@@ -13,7 +13,7 @@ export interface VideoMetadata {
   model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';  // This is the base model
   modelVariant?: string;  // New field for model variant
   baseModel?: string;
-  thumbnailUrl?: string;
+  placeholder_image?: string;
   trainingSteps?: string | number;
   resolution?: string;
   trainingDataset?: string;
@@ -21,7 +21,7 @@ export interface VideoMetadata {
 
 export interface VideoEntry {
   id: string;
-  video_location: string;
+  url: string;
   reviewer_name: string;
   skipped: boolean;
   created_at: string;

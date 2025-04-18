@@ -106,7 +106,7 @@ function AssetDetailPage() {
       // 1. Fetch the media record to get file paths
       const { data: mediaRecord, error: fetchError } = await supabase
         .from('media')
-        .select('video_location, metadata')
+        .select('url, placeholder_image')
         .eq('id', videoId)
         .single();
 
@@ -116,9 +116,9 @@ function AssetDetailPage() {
       }
       logger.log(`[handleDeleteVideo] Successfully fetched media record for ID: ${videoId}`, mediaRecord);
       
-      const videoPath = mediaRecord.video_location;
-      const thumbnailPath = mediaRecord.metadata?.thumbnailUrl;
-      logger.log(`[handleDeleteVideo] Video path: ${videoPath || 'N/A'}, Thumbnail path: ${thumbnailPath || 'N/A'} for ID: ${videoId}`);
+      const videoPath = mediaRecord.url;
+      const thumbnailPath = mediaRecord.placeholder_image;
+      logger.log(`[handleDeleteVideo] Video URL: ${videoPath || 'N/A'}, Thumbnail path: ${thumbnailPath || 'N/A'} for ID: ${videoId}`);
 
       // 2. Attempt to delete video file from storage
       if (videoPath) {
@@ -138,7 +138,7 @@ function AssetDetailPage() {
            toast.warning(`Error occurred during video file deletion.`);
         }
       } else {
-         logger.log(`[handleDeleteVideo] No video_location found for media record ${videoId}. Skipping video storage deletion.`);
+         logger.log(`[handleDeleteVideo] No url found for media record ${videoId}. Skipping video storage deletion.`);
       }
       
       // 3. Attempt to delete thumbnail file from storage
@@ -159,7 +159,7 @@ function AssetDetailPage() {
             toast.warning(`Error occurred during thumbnail file deletion.`);
          }
       } else {
-          logger.log(`[handleDeleteVideo] No metadata.thumbnailUrl found for media record ${videoId}. Skipping thumbnail storage deletion.`);
+          logger.log(`[handleDeleteVideo] No placeholder_image found for media record ${videoId}. Skipping thumbnail storage deletion.`);
       }
 
       // 4. Delete the media record itself from the database
@@ -208,7 +208,7 @@ function AssetDetailPage() {
       logger.log(`[handleDeleteAsset] Fetching associated media for asset ID: ${assetId}`);
       const { data: associatedMedia, error: fetchMediaError } = await supabase
         .from('media')
-        .select('id, video_location, metadata')
+        .select('id, url, placeholder_image')
         .eq('asset_id', assetId);
 
       if (fetchMediaError) {
@@ -222,8 +222,8 @@ function AssetDetailPage() {
         const videoPaths: string[] = [];
         const thumbnailPaths: string[] = [];
         const mediaIds: string[] = associatedMedia.map(media => {
-            const videoPath = media.video_location;
-            const thumbPath = media.metadata?.thumbnailUrl;
+            const videoPath = media.url;
+            const thumbPath = media.placeholder_image;
             if (videoPath) videoPaths.push(videoPath);
             if (thumbPath) thumbnailPaths.push(thumbPath);
             return media.id;
@@ -371,10 +371,10 @@ function AssetDetailPage() {
         <VideoLightbox
           isOpen={lightboxOpen}
           onClose={handleCloseLightbox}
-          videoUrl={currentVideo.video_location}
+          videoUrl={currentVideo.url}
           title={currentVideo.metadata?.title}
           creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
-          thumbnailUrl={currentVideo.metadata?.thumbnailUrl}
+          thumbnailUrl={currentVideo.metadata?.placeholder_image}
           creatorId={currentVideo.user_id}
         />
       )}
