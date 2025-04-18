@@ -326,6 +326,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
           url: video.url, 
           type: 'video',
           model_variant: null, 
+          description: video.metadata.description || null,
           classification: video.metadata.classification || 'art',
           creator: reviewerName,
           user_id: user?.id || null,
