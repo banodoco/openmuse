@@ -58,7 +58,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   onVideoUpdate
 }) => {
   console.log('[VideoLightboxDebug] Component Rendered. Initial videoId prop:', videoId);
-  console.log('[VideoLightboxDebug] Component Version: 2024-07-29_17:48'); // Simple version log
+  console.log('[VideoLightboxDebug] Component Version: 2024-07-30_10:00'); // Updated version log
 
   const authContext = useContext(AuthContext);
   const user = authContext?.user;
