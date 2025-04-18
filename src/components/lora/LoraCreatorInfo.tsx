@@ -83,20 +83,24 @@ const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
 
   if (creatorProfile) {
     // Display linked avatar and name if profile exists
+    const displayName = creatorProfile.display_name || creatorProfile.username;
+    const fallbackChar = displayName[0].toUpperCase();
+    const profilePath = `/profile/${encodeURIComponent(displayName)}`;
+
     return (
       <Link
-        to={`/profile/${creatorProfile.display_name}`}
+        to={profilePath}
         className={`flex items-center space-x-2 group ${className}`}
         onClick={(e) => e.stopPropagation()} // Prevent card click-through
       >
         <Avatar className={`${avatarSize} group-hover:ring-2 group-hover:ring-primary transition-all`}>
-          <AvatarImage src={creatorProfile.avatar_url ?? undefined} alt={creatorProfile.display_name ?? 'Creator'} />
+          <AvatarImage src={creatorProfile.avatar_url ?? undefined} alt={displayName} />
           <AvatarFallback>
-            {creatorProfile.display_name ? creatorProfile.display_name[0].toUpperCase() : <UserIcon className={iconSizeClass} />}
+            {fallbackChar || <UserIcon className={iconSizeClass} />}
           </AvatarFallback>
         </Avatar>
         <span className={`font-medium group-hover:text-primary transition-colors ${textSize}`}>
-          {creatorProfile.display_name}
+          {displayName}
         </span>
       </Link>
     );

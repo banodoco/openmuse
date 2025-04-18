@@ -323,9 +323,8 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
   }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h4 className="text-lg font-semibold">{asset?.name}</h4>
+    <div>
+      <div className="flex justify-end">
         {isAuthorized && (
           <Button variant="ghost" size="sm" onClick={handleEdit} className="h-7 px-2 py-1.5">
             <Pencil className="h-4 w-4" />
@@ -339,13 +338,13 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
       </div>
 
       {asset?.description && (
-         <div className="space-y-1">
+         <div className="space-y-1 mt-3">
           <Label className="text-xs text-muted-foreground">Description</Label>
           <p className="text-sm whitespace-pre-wrap">{asset.description}</p>
         </div>
       )}
       
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Type</Label>
           <p className="text-sm font-medium">{asset?.lora_type || 'N/A'}</p>

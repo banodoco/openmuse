@@ -19,9 +19,31 @@ interface VideoPlayerProps {
   loop?: boolean;
   className?: string;
   controls?: boolean;
-  onLoadedData?: () => void;
-  videoRef?: React.RefObject<HTMLVideoElement>;
+  onClick?: (event: React.MouseEvent<HTMLVideoElement>) => void;
+  onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onTimeUpdate?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onEnded?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   onError?: (message: string) => void;
+  onLoadStart?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onPause?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onPlay?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onPlaying?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onProgress?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onSeeked?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onSeeking?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onWaiting?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onDurationChange?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onVolumeChange?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onLoadedMetadata?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onAbort?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onCanPlay?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onCanPlayThrough?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onEmptied?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onEncrypted?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onStalled?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onSuspend?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onRateChange?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  videoRef?: React.RefObject<HTMLVideoElement>;
   poster?: string;
   playOnHover?: boolean;
   containerRef?: React.RefObject<HTMLDivElement>;
@@ -42,9 +64,31 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   loop = false,
   className = '',
   controls = true,
+  onClick,
   onLoadedData,
-  videoRef: externalVideoRef,
+  onTimeUpdate,
+  onEnded,
   onError,
+  onLoadStart,
+  onPause,
+  onPlay,
+  onPlaying,
+  onProgress,
+  onSeeked,
+  onSeeking,
+  onWaiting,
+  onDurationChange,
+  onVolumeChange,
+  onLoadedMetadata,
+  onAbort,
+  onCanPlay,
+  onCanPlayThrough,
+  onEmptied,
+  onEncrypted,
+  onStalled,
+  onSuspend,
+  onRateChange,
+  videoRef: externalVideoRef,
   poster,
   playOnHover = false,
   containerRef: externalContainerRef,
@@ -93,17 +137,39 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     if (isMobile && videoRef.current && !autoPlay) {
       const video = videoRef.current;
       
-      const handleLoadedData = () => {
+      const handleLoadedData = (nativeEvent: Event) => {
         if (!unmountedRef.current) {
           video.pause();
           video.currentTime = 0;
+          if (onLoadedData) {
+            // Create a synthetic event from the native event
+            const syntheticEvent = {
+              nativeEvent,
+              currentTarget: nativeEvent.currentTarget,
+              target: nativeEvent.target,
+              bubbles: nativeEvent.bubbles,
+              cancelable: nativeEvent.cancelable,
+              defaultPrevented: nativeEvent.defaultPrevented,
+              eventPhase: nativeEvent.eventPhase,
+              isTrusted: nativeEvent.isTrusted,
+              preventDefault: nativeEvent.preventDefault.bind(nativeEvent),
+              stopPropagation: nativeEvent.stopPropagation.bind(nativeEvent),
+              isPropagationStopped: () => false,
+              isDefaultPrevented: () => nativeEvent.defaultPrevented,
+              persist: () => {},
+              timeStamp: nativeEvent.timeStamp,
+              type: nativeEvent.type,
+            } as React.SyntheticEvent<HTMLVideoElement>;
+            
+            onLoadedData(syntheticEvent);
+          }
         }
       };
       
       video.addEventListener('loadeddata', handleLoadedData);
       return () => video.removeEventListener('loadeddata', handleLoadedData);
     }
-  }, [isMobile, autoPlay]);
+  }, [isMobile, autoPlay, onLoadedData]);
   
   useEffect(() => {
     if (triggerPlay && videoRef.current && videoRef.current.paused && !unmountedRef.current) {

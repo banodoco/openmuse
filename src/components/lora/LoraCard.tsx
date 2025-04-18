@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink } from 'lucide-react';
+import { Trash, Check, X, ExternalLink, ArrowUpRight } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -41,6 +41,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isApproving, setIsApproving] = useState(false);
   const [isRejecting, setIsRejecting] = useState(false);
   const { user } = useAuth();
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   
   const videoUrl = lora.primaryVideo?.video_location;
   const thumbnailUrl = lora.primaryVideo?.metadata?.thumbnailUrl;
@@ -180,6 +181,13 @@ const LoraCard: React.FC<LoraCardProps> = ({
   };
   
   const isOnProfilePage = location.pathname.startsWith('/profile/');
+  
+  const handleVideoLoad = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const video = event.target as HTMLVideoElement;
+    if (video.videoWidth && video.videoHeight) {
+      setAspectRatio(video.videoWidth / video.videoHeight);
+    }
+  };
 
   return (
     <Card 
@@ -187,18 +195,37 @@ const LoraCard: React.FC<LoraCardProps> = ({
       onClick={handleView}
     >
       <div 
-        className="aspect-video w-full overflow-hidden bg-muted relative"
+        className="w-full overflow-hidden bg-muted relative"
+        style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16/9' }}
       >
         {videoUrl ? (
-          <VideoPreview 
-            url={videoUrl} 
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out" 
-            title={lora.name}
-            lazyLoad={true}
-            thumbnailUrl={thumbnailUrl}
-          />
+          <>
+            <div className="absolute inset-0">
+              <VideoPreview 
+                url={videoUrl} 
+                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out" 
+                title={lora.name}
+                lazyLoad={true}
+                thumbnailUrl={thumbnailUrl}
+                onLoadedData={handleVideoLoad}
+              />
+            </div>
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
+            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg group-hover:animate-subtle-pulse">
+                <ArrowUpRight className="h-4 w-4 text-primary" />
+              </div>
+            </div>
+            {lora.lora_type && (
+              <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm shadow-lg">
+                  {lora.lora_type}
+                </Badge>
+              </div>
+            )}
+          </>
         ) : (
-          <div className="w-full h-full flex items-center justify-center">
+          <div className="absolute inset-0 flex items-center justify-center">
             <p className="text-muted-foreground text-sm">No preview available</p>
           </div>
         )}

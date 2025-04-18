@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
@@ -17,7 +16,20 @@ import UploadModal from '@/components/upload/UploadModal';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import VideoCard from '@/components/video/VideoCard';
-import VideoPaginatedGrid from '@/components/video/VideoPaginatedGrid';
+import VideoLightbox from '@/components/VideoLightbox';
+import Masonry from 'react-masonry-css';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { DummyCard, generateDummyItems } from '@/components/common/DummyCard';
+
+const ITEMS_PER_PAGE = 12; // Define items per page
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -37,6 +49,11 @@ export default function UserProfilePage() {
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
   const [generationVideos, setGenerationVideos] = useState<VideoEntry[]>([]);
   const [artVideos, setArtVideos] = useState<VideoEntry[]>([]);
+  const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+
+  // Pagination State
+  const [generationPage, setGenerationPage] = useState(1);
+  const [artPage, setArtPage] = useState(1);
 
   useEffect(() => {
     setForceLoggedOutView(searchParams.get('loggedOutView') === 'true');
@@ -96,6 +113,12 @@ export default function UserProfilePage() {
     
     fetchProfileByDisplayName();
   }, [displayName, user, navigate, isAdmin]);
+
+  // Reset pagination when profile/videos change
+  useEffect(() => {
+    setGenerationPage(1);
+    setArtPage(1);
+  }, [profile?.id]);
 
   const fetchUserAssets = async (userId: string) => {
     setIsLoadingAssets(true);
@@ -230,6 +253,68 @@ export default function UserProfilePage() {
     }
   };
 
+  // Pagination Logic
+  const getPaginatedItems = <T,>(items: T[], page: number): T[] => {
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return items.slice(startIndex, endIndex);
+  };
+
+  const getTotalPages = (totalItems: number): number => {
+    return Math.ceil(totalItems / ITEMS_PER_PAGE);
+  };
+
+  const currentGenerationVideos = getPaginatedItems(generationVideos, generationPage);
+  const currentArtVideos = getPaginatedItems(artVideos, artPage);
+
+  const totalGenerationPages = getTotalPages(generationVideos.length);
+  const totalArtPages = getTotalPages(artVideos.length);
+
+  const handleGenerationPageChange = (newPage: number) => {
+    setGenerationPage(newPage);
+  };
+
+  const handleArtPageChange = (newPage: number) => {
+    setArtPage(newPage);
+  };
+
+  // --- Prepare items for Masonry, including dummies ---
+  
+  // Type guard to check if item is a real video
+  const isVideoEntry = (item: VideoEntry | { type: 'dummy' }): item is VideoEntry => {
+    return !('type' in item && item.type === 'dummy');
+  }
+
+  // --- Restore function to get items for a specific page, including dummies ---
+  const getItemsForPage = (
+    allItems: VideoEntry[], 
+    page: number
+  ): Array<VideoEntry | { type: 'dummy'; id: string; colorClass: string }> => {
+    const startIndex = (page - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    const pageItems = allItems.slice(startIndex, endIndex);
+    
+    // Only add dummy items if the total number of real items is > 4
+    if (allItems.length > 4) {
+      const dummyItems = generateDummyItems(6, pageItems.length);
+      // Combine real items for the page with the 6 dummy items
+      return [...pageItems, ...dummyItems]; 
+    } else {
+      // Otherwise, just return the real items for the page
+      return pageItems;
+    }
+  };
+  // --- End Restore ---
+
+  // --- Restore combined item calculation ---
+  const generationItemsForPage = getItemsForPage(generationVideos, generationPage);
+  const artItemsForPage = getItemsForPage(artVideos, artPage);
+  // --- End Restore ---
+
+  // --- Remove independent dummy generation ---
+  // const dummyItemsToRender = generateDummyItems(6, 0); 
+  // --- End Remove ---
+
   const getInitials = (name: string) => {
     return name
       .split(' ')
@@ -343,6 +428,89 @@ export default function UserProfilePage() {
     }
   };
 
+  const handleHoverChange = (videoId: string, isHovering: boolean) => {
+    if (isHovering) {
+      setHoveredVideoId(videoId);
+    } else if (hoveredVideoId === videoId) {
+      setHoveredVideoId(null);
+    }
+  };
+
+  // Masonry breakpoint configuration
+  const breakpointColumnsObj = {
+    default: 4,
+    1100: 3,
+    700: 2,
+    500: 1
+  };
+
+  // Helper to render Pagination controls
+  const renderPaginationControls = (
+    currentPage: number,
+    totalPages: number,
+    onPageChange: (page: number) => void
+  ) => {
+    if (totalPages <= 1) return null;
+
+    return (
+      <Pagination className="mt-6">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                if (currentPage > 1) {
+                  onPageChange(currentPage - 1);
+                }
+              }}
+              aria-disabled={currentPage === 1}
+              className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
+            />
+          </PaginationItem>
+          {[...Array(totalPages)].map((_, i) => {
+            const page = i + 1;
+            // Basic pagination display - show first, last, current, and neighbors
+            // A more complex implementation could show ellipsis
+            if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) {
+              return (
+                <PaginationItem key={page}>
+                  <PaginationLink
+                    href="#"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      onPageChange(page);
+                    }}
+                    isActive={page === currentPage}
+                  >
+                    {page}
+                  </PaginationLink>
+                </PaginationItem>
+              );
+            } else if (Math.abs(page - currentPage) === 2) {
+              // Show ellipsis if the page is 2 away from current
+              return <PaginationEllipsis key={`ellipsis-${page}`} />;
+            }
+            return null;
+          })}
+          <PaginationItem>
+            <PaginationNext
+              href="#"
+              onClick={(e) => {
+                e.preventDefault();
+                if (currentPage < totalPages) {
+                  onPageChange(currentPage + 1);
+                }
+              }}
+              aria-disabled={currentPage === totalPages}
+              className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
+            />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
+  };
+
   return (
     <div className="min-h-screen flex flex-col bg-background">
       <Navigation />
@@ -414,7 +582,7 @@ export default function UserProfilePage() {
                   />
                 )}
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent>
                 {isLoadingAssets ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : userAssets.length > 0 ? (
@@ -450,20 +618,57 @@ export default function UserProfilePage() {
                   />
                 )}
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent>
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
+                ) : generationVideos.length > 0 ? ( // Render if there are ANY generation videos
+                  <>
+                    {/* Container holds only Masonry now */}
+                    <div className="relative masonry-fade-container pt-6">
+                      {/* Masonry renders combined real videos AND dummies */}
+                      <Masonry
+                        breakpointCols={breakpointColumnsObj}
+                        className="my-masonry-grid"
+                        columnClassName="my-masonry-grid_column"
+                      >
+                        {/* Map over the combined list */}
+                        {generationItemsForPage.map((item) => {
+                          if (isVideoEntry(item)) {
+                            // Render VideoCard
+                            return (
+                              <VideoCard
+                                key={item.id}
+                                video={item}
+                                isAdmin={!!isAdmin && canEdit}
+                                onOpenLightbox={handleOpenLightbox}
+                                onApproveVideo={approveVideo}
+                                onDeleteVideo={rejectVideo}
+                                isHovering={hoveredVideoId === item.id}
+                                onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
+                              />
+                            );
+                          } else {
+                            // Render DummyCard
+                            return (
+                              <DummyCard 
+                                key={item.id} 
+                                id={item.id} 
+                                colorClass={item.colorClass} 
+                              />
+                            );
+                          }
+                        })}
+                      </Masonry>
+                      {/* Add the dedicated fade overlay element *after* Masonry */}
+                      <div className="fade-overlay-element"></div>
+                    </div>
+                    {/* Only show pagination if there are multiple pages of REAL videos */}
+                    {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)}
+                  </>
                 ) : (
-                  <VideoPaginatedGrid
-                    videos={generationVideos}
-                    itemsPerPage={12} // 2 rows × 6 columns
-                    gridCols="grid-cols-1 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6"
-                    isAdmin={isAdmin}
-                    onOpenLightbox={handleOpenLightbox}
-                    onDelete={deleteVideo}
-                    onApprove={approveVideo}
-                    onReject={rejectVideo}
-                  />
+                  <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg">
+                    This user hasn't generated any videos yet.
+                  </div>
                 )}
               </CardContent>
             </Card>
@@ -483,26 +688,76 @@ export default function UserProfilePage() {
                   />
                 )}
               </CardHeader>
-              <CardContent className="p-6">
+              <CardContent>
                 {isLoadingVideos ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 4} />
+                ) : artVideos.length > 0 ? ( // Render if there are ANY art videos
+                  <>
+                     {/* Container holds only Masonry now */}
+                    <div className="relative masonry-fade-container pt-6">
+                       {/* Masonry renders combined real videos AND dummies */}
+                      <Masonry
+                        breakpointCols={breakpointColumnsObj}
+                        className="my-masonry-grid"
+                        columnClassName="my-masonry-grid_column"
+                      >
+                         {/* Map over the combined list */}
+                        {artItemsForPage.map((item) => {
+                           if (isVideoEntry(item)) {
+                            // Render VideoCard
+                            return (
+                              <VideoCard
+                                key={item.id}
+                                video={item}
+                                isAdmin={!!isAdmin && canEdit}
+                                onOpenLightbox={handleOpenLightbox}
+                                onApproveVideo={approveVideo}
+                                onDeleteVideo={rejectVideo}
+                                isHovering={hoveredVideoId === item.id}
+                                onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
+                              />
+                            );
+                          } else {
+                            // Render DummyCard
+                            return (
+                              <DummyCard 
+                                key={item.id} 
+                                id={item.id} 
+                                colorClass={item.colorClass} 
+                              />
+                            );
+                          }
+                        })}
+                      </Masonry>
+                      {/* Add the dedicated fade overlay element *after* Masonry */}
+                      <div className="fade-overlay-element"></div>
+                    </div>
+                     {/* Only show pagination if there are multiple pages of REAL videos */}
+                    {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)}
+                  </>
                 ) : (
-                  <VideoPaginatedGrid
-                    videos={artVideos}
-                    itemsPerPage={6} // 3 rows × 2 columns
-                    gridCols="grid-cols-1 sm:grid-cols-2"
-                    isAdmin={isAdmin}
-                    onOpenLightbox={handleOpenLightbox}
-                    onDelete={deleteVideo}
-                    onApprove={approveVideo}
-                    onReject={rejectVideo}
-                  />
+                  <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg">
+                    This user hasn't added any art videos yet.
+                  </div>
                 )}
               </CardContent>
             </Card>
           </>
         )}
       </main>
+
+      {lightboxVideo && (
+        <VideoLightbox
+          isOpen={!!lightboxVideo}
+          onClose={handleCloseLightbox}
+          videoUrl={lightboxVideo.video_location}
+          title={lightboxVideo.metadata?.title}
+          creator={lightboxVideo.user_id}
+          thumbnailUrl={lightboxVideo.metadata?.thumbnailUrl}
+          creatorId={lightboxVideo.user_id}
+        />
+      )}
+
       <Footer />
     </div>
   );

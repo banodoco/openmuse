@@ -39,6 +39,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(isHovering);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   
   useEffect(() => {
     isHoveringRef.current = isHovering;
@@ -70,6 +71,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
     
     fetchCreatorProfile();
   }, [video.user_id, video.metadata]);
+  
+  const handleVideoLoad = (event: React.SyntheticEvent<HTMLVideoElement>) => {
+    const videoElement = event.target as HTMLVideoElement;
+    if (videoElement.videoWidth && videoElement.videoHeight) {
+      setAspectRatio(videoElement.videoWidth / videoElement.videoHeight);
+    } else {
+      if (!aspectRatio) { 
+        setAspectRatio(16/9);
+      }
+    }
+  };
   
   const handleMouseEnter = () => {
     logger.log(`VideoCard: Mouse entered for ${video.id}`);
@@ -145,39 +157,41 @@ const VideoCard: React.FC<VideoCardProps> = ({
     <div 
       ref={cardRef}
       key={video.id} 
-      className="relative rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer h-full flex flex-col bg-white/5 backdrop-blur-sm border border-white/10"
+      className="relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
       data-hovering={isHovering ? "true" : "false"}
       data-video-id={video.id}
     >
-      <div className="aspect-video">
-        <div className="w-full h-full">
-          <div className="w-full h-full relative">
-            <VideoPreview
-              key={`video-${video.id}`}
-              url={video.video_location}
-              title={video.metadata?.title || `Video by ${getCreatorName()}`}
-              creator={getCreatorName()}
-              className="w-full h-full object-cover"
-              isHovering={isHovering}
-              lazyLoad={false}
-              thumbnailUrl={thumbnailUrl}
-            />
-            
-            {!isMobile && (
-              <div 
-                className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none
-                  ${isHovering ? 'opacity-0' : 'opacity-100'}
-                `}
-              >
-                <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm shadow-md">
-                  <Play className="h-6 w-6 text-white animate-pulse-opacity" />
-                </div>
+      <div 
+        className="w-full overflow-hidden bg-muted relative max-h-[75vh]"
+        style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16/9' }}
+      >
+        <div className="absolute inset-0 w-full h-full">
+          <VideoPreview
+            key={`video-${video.id}`}
+            url={video.video_location}
+            title={video.metadata?.title || `Video by ${getCreatorName()}`}
+            creator={getCreatorName()}
+            className="w-full h-full object-cover"
+            isHovering={isHovering}
+            lazyLoad={false}
+            thumbnailUrl={thumbnailUrl}
+            onLoadedData={handleVideoLoad}
+          />
+          
+          {!isMobile && (
+            <div 
+              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none
+                ${isHovering ? 'opacity-0' : 'opacity-100'}
+              `}
+            >
+              <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm shadow-md">
+                <Play className="h-6 w-6 text-white animate-pulse-opacity" />
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
       

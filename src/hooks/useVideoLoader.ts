@@ -9,7 +9,7 @@ interface UseVideoLoaderProps {
   poster?: string;
   videoRef: React.RefObject<HTMLVideoElement>;
   onError?: (message: string) => void;
-  onLoadedData?: () => void;
+  onLoadedData?: (event: Event) => void;
   autoPlay?: boolean;
   muted?: boolean;
   playOnHover?: boolean;
@@ -124,7 +124,7 @@ export const useVideoLoader = ({
       
       if (onLoadedData) {
         logger.log('Firing onLoadedData callback');
-        onLoadedData();
+        onLoadedData(event);
       }
       
       if (autoPlay && !playOnHover && !externallyControlled && !isMobile) {

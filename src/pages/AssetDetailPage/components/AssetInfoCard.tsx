@@ -15,37 +15,89 @@ import {
   Check, 
   X, 
   Info,
-  ExternalLink
+  ExternalLink,
+  Edit
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LoraAsset } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import EditableLoraDetails from '@/components/lora/EditableLoraDetails';
+import { useState } from 'react';
+import { toast } from 'sonner';
+import { supabase } from '@/integrations/supabase/client';
 
 interface AssetInfoCardProps {
   asset: LoraAsset | null;
-  creatorDisplayName: string | null;
-  isAdmin: boolean | undefined;
-  isApproving: boolean;
-  handleCurateAsset: () => Promise<void>;
-  handleListAsset: () => Promise<void>;
-  handleRejectAsset: () => Promise<void>;
-  getCreatorName: () => string;
+  isAuthorizedToEdit: boolean;
 }
 
 const AssetInfoCard = ({
   asset,
-  creatorDisplayName,
-  isAdmin,
-  isApproving,
-  handleCurateAsset,
-  handleListAsset,
-  handleRejectAsset,
-  getCreatorName
+  isAuthorizedToEdit,
 }: AssetInfoCardProps) => {
-  const { user } = useAuth();
-  const isAuthorizedToEdit = isAdmin || user?.id === asset?.user_id;
+  const { isAdmin, user } = useAuth();
+  const [isApproving, setIsApproving] = useState(false);
+
+  const handleCurateAsset = async () => {
+    if (!asset || !isAdmin) return;
+    setIsApproving(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ admin_approved: 'Curated' })
+        .eq('id', asset.id);
+      
+      if (error) throw error;
+      toast.success('Asset curated successfully');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error curating asset:', error);
+      toast.error('Failed to curate asset');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleListAsset = async () => {
+    if (!asset || !isAdmin) return;
+    setIsApproving(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ admin_approved: 'Listed' })
+        .eq('id', asset.id);
+      
+      if (error) throw error;
+      toast.success('Asset listed successfully');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error listing asset:', error);
+      toast.error('Failed to list asset');
+    } finally {
+      setIsApproving(false);
+    }
+  };
+
+  const handleRejectAsset = async () => {
+    if (!asset || !isAdmin) return;
+    setIsApproving(true);
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({ admin_approved: 'Rejected' })
+        .eq('id', asset.id);
+      
+      if (error) throw error;
+      toast.success('Asset rejected successfully');
+      window.location.reload();
+    } catch (error) {
+      console.error('Error rejecting asset:', error);
+      toast.error('Failed to reject asset');
+    } finally {
+      setIsApproving(false);
+    }
+  };
 
   const getModelColor = (modelType?: string): string => {
     switch (modelType?.toLowerCase()) {
@@ -91,50 +143,64 @@ const AssetInfoCard = ({
           />
         </CardContent>
         
-        {asset?.lora_link && (
-          <CardFooter className="pt-0 border-t">
+        <CardFooter className="flex flex-col gap-2 border-t pt-4">
+          {/* External Link Button - Always visible if link exists */}
+          {asset?.lora_link && (
             <a 
               href={asset.lora_link}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn(buttonVariants(), "w-full mt-4")}
+              className={cn(buttonVariants(), "w-full gap-2")}
             > 
-              <ExternalLink className="h-4 w-4 mr-2" />
+              <ExternalLink className="h-4 w-4" />
               View External Link
             </a>
-          </CardFooter>
-        )}
+          )}
 
-        {isAdmin && (
-          <CardFooter className="flex flex-col gap-2 border-t pt-4">
+          {/* Edit Button - Visible to authorized users */}
+          {isAuthorizedToEdit && (
             <Button
-              onClick={handleCurateAsset}
-              className="w-full gap-2"
-              disabled={isApproving || asset?.admin_approved === 'Curated'}
-            >
-              <Check className="h-4 w-4" />
-              Curate
-            </Button>
-            <Button
-              onClick={handleListAsset}
+              onClick={() => {/* Add edit handler */}}
               variant="secondary"
               className="w-full gap-2"
-              disabled={isApproving || asset?.admin_approved === 'Listed'}
             >
-              <Check className="h-4 w-4" />
-              List
+              <Edit className="h-4 w-4" />
+              Edit Details
             </Button>
-            <Button
-              onClick={handleRejectAsset}
-              variant="destructive"
-              className="w-full gap-2"
-              disabled={isApproving || asset?.admin_approved === 'Rejected'}
-            >
-              <X className="h-4 w-4" />
-              Reject
-            </Button>
-          </CardFooter>
-        )}
+          )}
+
+          {/* Admin Moderation Buttons */}
+          {isAdmin && (
+            <>
+              <Button
+                onClick={handleCurateAsset}
+                className="w-full gap-2"
+                disabled={isApproving || asset?.admin_approved === 'Curated'}
+              >
+                <Check className="h-4 w-4" />
+                Curate
+              </Button>
+              <Button
+                onClick={handleListAsset}
+                variant="secondary"
+                className="w-full gap-2"
+                disabled={isApproving || asset?.admin_approved === 'Listed'}
+              >
+                <Check className="h-4 w-4" />
+                List
+              </Button>
+              <Button
+                onClick={handleRejectAsset}
+                variant="destructive"
+                className="w-full gap-2"
+                disabled={isApproving || asset?.admin_approved === 'Rejected'}
+              >
+                <X className="h-4 w-4" />
+                Reject
+              </Button>
+            </>
+          )}
+        </CardFooter>
       </Card>
     </div>
   );

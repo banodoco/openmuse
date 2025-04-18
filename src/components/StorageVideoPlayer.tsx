@@ -20,7 +20,7 @@ interface StorageVideoPlayerProps {
   showPlayButtonOnHover?: boolean;
   isHoveringExternally?: boolean;
   videoRef?: React.RefObject<HTMLVideoElement>;
-  onLoadedData?: () => void;
+  onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   thumbnailUrl?: string;
   forcePreload?: boolean;
   isMobile?: boolean;
@@ -88,9 +88,16 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       if (isHoveringExternally) {
         setHasHovered(true); 
         setShouldLoadVideo(true);
+        // Update shouldPlay when hovering starts
+        if (!isMobile) {
+          setShouldPlay(true);
+        }
+      } else {
+        // Stop playing when hover ends
+        setShouldPlay(false);
       }
     }
-  }, [isHoveringExternally]);
+  }, [isHoveringExternally, isMobile]);
 
   // Effect to handle mobile state – only auto–load if `forcePreload` is set.
   useEffect(() => {
@@ -107,6 +114,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       setIsHovering(true);
       setHasHovered(true);
       setShouldLoadVideo(true);
+      if (!isMobile) {
+        setShouldPlay(true);
+      }
     }
   };
 
@@ -114,6 +124,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     if (isHoveringExternally === undefined && !unmountedRef.current) {
       logger.log('StorageVideoPlayer: Manual hover end');
       setIsHovering(false);
+      setShouldPlay(false);
     }
   };
   
@@ -205,13 +216,13 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   };
   
   // Callback when the actual <video> element has loaded data
-  const handleVideoLoadedData = () => {
+  const handleVideoLoadedData = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     if (!unmountedRef.current) {
-      logger.log(`[${componentId}] Video data loaded callback received from VideoPlayer.`);
-      setIsVideoLoaded(true); 
-      setIsLoadingVideoUrl(false); // URL and video data are loaded
+      logger.log(`[${componentId}] Video loaded data`);
+      setIsVideoLoaded(true);
+      setIsLoadingVideoUrl(false);
       if (onLoadedData) {
-        onLoadedData();
+        onLoadedData(event);
       }
     }
   };
@@ -234,90 +245,103 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   return (
     <div 
-      className={cn("relative w-full h-full bg-muted overflow-hidden", className)}
-      onMouseEnter={handleManualHoverStart}
-      onMouseLeave={handleManualHoverEnd}
-      onClick={handleMobileTap}
+      className={cn(
+        "relative w-full h-full bg-muted overflow-hidden",
+        className
+      )}
       ref={containerRef}
       data-is-mobile={isMobile ? "true" : "false"}
       data-is-hovering={isHovering ? "true" : "false"}
       data-video-loaded={isVideoLoaded ? "true" : "false"}
       data-has-hovered={hasHovered ? "true" : "false"}
+      style={{ pointerEvents: 'none' }}
     >
-      {/* Error Display */}
-      {error && (
-        <div className="absolute inset-0 z-30">
-          <VideoPreviewError 
-            error={error} 
-            details={errorDetails || undefined}
-            onRetry={handleRetry} 
-            videoSource={videoUrl || videoLocation}
-            canRecover={!previewMode}
+      {/* Hover detection layer - only handles hover events */}
+      <div
+        className="absolute inset-0 z-50"
+        onMouseEnter={handleManualHoverStart}
+        onMouseLeave={handleManualHoverEnd}
+        style={{ 
+          pointerEvents: previewMode ? 'auto' : 'none',
+          cursor: 'pointer'
+        }}
+      />
+
+      {/* Content wrapper - allows clicks to pass through to parent */}
+      <div className="relative w-full h-full" style={{ pointerEvents: 'none' }}>
+        {/* Error Display */}
+        {error && (
+          <div className="absolute inset-0 z-30">
+            <VideoPreviewError 
+              error={error} 
+              details={errorDetails || undefined}
+              onRetry={handleRetry} 
+              videoSource={videoUrl || videoLocation}
+              canRecover={!previewMode}
+            />
+          </div>
+        )}
+
+        {/* Thumbnail Image */}
+        {thumbnailUrl && (
+           <img 
+             src={thumbnailUrl} 
+             alt="Video thumbnail" 
+             className={cn(
+               "absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-10 pointer-events-none",
+               isVideoLoaded ? "opacity-0" : "opacity-100"
+             )}
+             loading="lazy"
+             onLoad={() => logger.log(`[${componentId}] Thumbnail img loaded: ${thumbnailUrl.substring(0,30)}...`)}
+             onError={() => logger.error(`[${componentId}] Thumbnail img failed to load: ${thumbnailUrl.substring(0,30)}...`)}
+           />
+         )}
+
+        {/* Loading Spinner */}
+        {showLoadingSpinner && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
+            <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
+          </div>
+        )}
+
+        {/* Video Player */}
+        {showVideo && (
+          <VideoPlayer
+            key={`${componentId}-${videoUrl}`}
+            src={videoUrl}
+            className={cn(
+              "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
+              isVideoLoaded ? "opacity-100" : "opacity-0",
+              "pointer-events-none"
+            )}
+            controls={controls && !previewMode} 
+            autoPlay={false}
+            triggerPlay={shouldPlay}
+            muted={muted}
+            loop={(playOnHover && isHovering) || loop}
+            playOnHover={playOnHover && !isMobile}
+            onError={handleVideoError}
+            showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}
+            containerRef={containerRef} 
+            videoRef={videoRef} 
+            externallyControlled={isHoveringExternally !== undefined} 
+            isHovering={isHovering} 
+            poster={thumbnailUrl}
+            onLoadedData={handleVideoLoadedData} 
+            isMobile={isMobile}
+            preload="auto"
           />
-        </div>
-      )}
+        )}
 
-      {/* Thumbnail Image */}
-      {thumbnailUrl && (
-         <img 
-           src={thumbnailUrl} 
-           alt="Video thumbnail" 
-           className={cn(
-             "absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-10 pointer-events-none",
-             // Hide thumbnail smoothly when video is loaded and ready to play
-             isVideoLoaded ? "opacity-0" : "opacity-100"
-           )}
-           loading="lazy"
-           onLoad={() => logger.log(`[${componentId}] Thumbnail img loaded: ${thumbnailUrl.substring(0,30)}...`)}
-           onError={() => logger.error(`[${componentId}] Thumbnail img failed to load: ${thumbnailUrl.substring(0,30)}...`)}
-         />
-       )}
-
-      {/* Loading Spinner */}
-      {showLoadingSpinner && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 z-20">
-          <div className="animate-spin w-8 h-8 border-4 border-white border-t-transparent rounded-full" />
-        </div>
-      )}
-
-      {/* Video Player - Rendered when hover starts, but opacity controls visibility */}
-      {showVideo && (
-        <VideoPlayer
-          key={`${componentId}-${videoUrl}`}
-          src={videoUrl}
-          className={cn(
-            "absolute inset-0 w-full h-full object-cover z-0 transition-opacity duration-300",
-            // Video fades in only when its data is loaded
-            isVideoLoaded ? "opacity-100" : "opacity-0" 
-          )}
-          controls={controls && !previewMode} 
-          autoPlay={false}
-          triggerPlay={shouldPlay}
-          muted={muted}
-          loop={loop}
-          playOnHover={playOnHover && !isMobile}
-          onError={handleVideoError}
-          showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}
-          containerRef={containerRef} 
-          videoRef={videoRef} 
-          externallyControlled={isHoveringExternally !== undefined} 
-          isHovering={isHovering} 
-          poster={thumbnailUrl} // Pass thumbnail as poster
-          onLoadedData={handleVideoLoadedData} 
-          isMobile={isMobile}
-          // Always preload for first frame, but don't autoplay
-          preload="auto"
-        />
-      )}
-
-       {/* Play Button Overlay - Show over thumbnail when not hovering */}
-       {thumbnailUrl && !isHovering && showPlayButtonOnHover && !isMobile && !error && (
-         <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 bg-black/10">
-           <div className="rounded-full bg-black/40 p-3 backdrop-blur-sm">
-             <Play className="h-6 w-6 text-white" fill="white" />
+         {/* Play Button Overlay */}
+         {thumbnailUrl && !isHovering && showPlayButtonOnHover && !isMobile && !error && (
+           <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10 bg-black/10">
+             <div className="rounded-full bg-black/40 p-3 backdrop-blur-sm">
+               <Play className="h-6 w-6 text-white" fill="white" />
+             </div>
            </div>
-         </div>
-       )}
+         )}
+      </div>
     </div>
   );
 });
