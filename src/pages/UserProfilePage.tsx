@@ -203,7 +203,11 @@ export default function UserProfilePage() {
 
   const fetchUserVideos = async (userId: string) => {
     setIsLoadingVideos(true);
+    setGenerationVideos([]); // Clear previous results
+    setArtVideos([]); // Clear previous results
+
     try {
+      // Step 1: Fetch user's videos from media table
       const { data: videosData, error: videosError } = await supabase
         .from('media')
         .select('*')
@@ -213,64 +217,100 @@ export default function UserProfilePage() {
     
       if (videosError) {
         console.error('Error fetching user videos:', videosError);
+        toast.error("Failed to load user's videos.");
         return;
       }
 
-      if (videosData) {
-        console.log('Raw videos data:', videosData.map(video => ({
-          id: video.id,
-          classification: video.classification,
-          title: video.title
-        })));
-
-        const processedVideos: VideoEntry[] = videosData.map(video => {
-          let classification = video.classification || 'generation';
-          if (classification !== 'art' && classification !== 'generation') {
-            console.log(`Defaulting video ${video.id} classification from '${video.classification}' to 'generation'`);
-            classification = 'generation';
-          }
-          
-          const processedVideo: VideoEntry = {
-            id: video.id,
-            url: video.url,
-            reviewer_name: video.creator || '',
-            skipped: false,
-            created_at: video.created_at,
-            admin_approved: video.admin_approved,
-            user_id: video.user_id,
-            metadata: {
-              title: video.title,
-              description: '',
-              creator: 'self',
-              classification: classification,
-              placeholder_image: video.placeholder_image
-            }
-          };
-          
-          return processedVideo;
-        });
-        
-        const generations = processedVideos.filter(v => {
-          const isGeneration = v.metadata?.classification === 'generation';
-          console.log(`Video ${v.id} (${v.metadata?.title || 'Untitled'}): ${isGeneration ? 'Generation ✅' : 'Not Generation ❌'}`);
-          return isGeneration;
-        });
-
-        const art = processedVideos.filter(v => {
-          const isArt = v.metadata?.classification === 'art';
-          console.log(`Video ${v.id} (${v.metadata?.title || 'Untitled'}): ${isArt ? 'Art ✅' : 'Not Art ❌'}`);
-          return isArt;
-        });
-        
-        console.log('Generation Videos:', generations.map(v => v.id));
-        console.log('Art Videos:', art.map(v => v.id));
-        
-        setGenerationVideos(generations);
-        setArtVideos(art);
-        setUserVideos(processedVideos);
+      if (!videosData || videosData.length === 0) {
+        console.log('No videos found for this user.');
+        setIsLoadingVideos(false);
+        return; // Exit early if no videos
       }
+
+      console.log('Raw videos data:', videosData.map(video => ({
+        id: video.id,
+        classification: video.classification,
+        title: video.title
+      })));
+
+      // Step 2: Fetch asset associations for these videos
+      const videoIds = videosData.map(v => v.id);
+      const mediaIdToAssetId = new Map<string, string>();
+
+      if (videoIds.length > 0) {
+        const { data: assetLinks, error: linksError } = await supabase
+          .from('asset_media')
+          .select('media_id, asset_id')
+          .in('media_id', videoIds);
+
+        if (linksError) {
+          // Log error but proceed, videos might just not be linked
+          console.error('Error fetching asset_media links:', linksError);
+          toast.warning("Could not determine LoRA links for some videos.");
+        } else if (assetLinks) {
+          assetLinks.forEach(link => {
+            if (link.media_id && link.asset_id) {
+              // Assuming one video links to at most one asset in this context?
+              // If multiple are possible, this will only keep the last one encountered.
+              mediaIdToAssetId.set(link.media_id, link.asset_id);
+            }
+          });
+          console.log('Built mediaId -> assetId map:', mediaIdToAssetId);
+        }
+      }
+
+      // Step 3: Process videos, adding associatedAssetId
+      const processedVideos: VideoEntry[] = videosData.map(video => {
+        let classification = video.classification || 'generation';
+        if (classification !== 'art' && classification !== 'generation') {
+          console.log(`Defaulting video ${video.id} classification from '${video.classification}' to 'generation'`);
+          classification = 'generation';
+        }
+        
+        // Look up the asset_id from the map
+        const associatedAssetId = mediaIdToAssetId.get(video.id) || null;
+        
+        const processedVideo: VideoEntry = {
+          id: video.id,
+          url: video.url, // Assuming URL is directly usable
+          associatedAssetId: associatedAssetId, // Assign the fetched asset ID
+          reviewer_name: video.creator || '', // Should fetch profile if needed
+          skipped: false, // Default value
+          created_at: video.created_at,
+          admin_approved: video.admin_approved, // Keep as is
+          user_id: video.user_id,
+          // Ensure metadata has all necessary fields used by VideoCard/Lightbox
+          metadata: {
+            title: video.title || 'Untitled Video', // Provide default title
+            description: video.description || '', // Ensure description exists
+            creator: 'self', // Assuming videos on user page are by the user
+            classification: classification as 'art' | 'generation', // Assert type
+            placeholder_image: video.placeholder_image
+          },
+          // Add top-level fields if needed by VideoCard/Lightbox props directly
+          thumbnailUrl: video.placeholder_image,
+          title: video.title || 'Untitled Video',
+          description: video.description || ''
+        };
+        
+        return processedVideo;
+      }).filter(video => video !== null) as VideoEntry[]; // Filter out potential nulls if error handling added
+
+      // Separate videos into categories
+      const genVids = processedVideos.filter(v => v.metadata.classification === 'generation');
+      const artVids = processedVideos.filter(v => v.metadata.classification === 'art');
+      
+      setGenerationVideos(genVids);
+      setArtVideos(artVids);
+      console.log(`Processed videos: ${genVids.length} generation, ${artVids.length} art.`);
+      // Log one processed video to verify structure
+      if (processedVideos.length > 0) {
+          console.log('Example processed video entry:', processedVideos[0]);
+      }
+
     } catch (err) {
       console.error('Error processing user videos:', err);
+      toast.error("An error occurred while loading the user's videos.");
     } finally {
       setIsLoadingVideos(false);
     }

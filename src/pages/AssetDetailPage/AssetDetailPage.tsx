@@ -326,6 +326,20 @@ function AssetDetailPage() {
     );
   }
   
+  if (!asset) {
+    return (
+      <div className="flex flex-col min-h-screen bg-cream-light">
+        <Navigation />
+        <main className="flex-1 container mx-auto p-4 text-center">
+          <h1 className="text-2xl font-semibold text-olive">Asset not found</h1>
+          <p className="text-muted-foreground">The requested asset could not be located.</p>
+          <Button onClick={() => navigate('/')} className="mt-4">Go Home</Button>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  
   return (
     <div className="flex flex-col min-h-screen bg-background">
       <Navigation />
@@ -379,7 +393,7 @@ function AssetDetailPage() {
               videoId={currentVideo.id}
               title={currentVideo.metadata?.title}
               description={currentVideo.metadata?.description}
-              loraIdentifier={currentVideo.lora_identifier}
+              initialAssetId={currentVideo.associatedAssetId ?? undefined}
               creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
               thumbnailUrl={currentVideo.placeholder_image || currentVideo.metadata?.placeholder_image}
               creatorId={currentVideo.user_id}

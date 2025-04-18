@@ -47,8 +47,11 @@ export interface VideoEntry {
     resolution?: string;
     trainingDataset?: string;
   };
-  lora_identifier?: string | null;
+  associatedAssetId?: string | null;
   placeholder_image?: string | null;
+  thumbnailUrl?: string;
+  title?: string;
+  description?: string;
 }
 
 export interface RecordedVideo {

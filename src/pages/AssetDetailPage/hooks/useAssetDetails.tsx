@@ -55,7 +55,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
-          .select('*, lora_identifier')
+          .select('*')
           .in('id', mediaIds);
           
         if (mediaError) {
@@ -79,7 +79,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         
         const { data: mediaData, error: mediaError } = await supabase
           .from('media')
-          .select('*, lora_identifier')
+          .select('*')
           .in('id', mediaIds);
           
         if (mediaError) {
@@ -87,28 +87,27 @@ export const useAssetDetails = (assetId: string | undefined) => {
         } else {
           assetVideos = mediaData || [];
           console.log('[VideoLightboxDebug] Related media fetched:', assetVideos.length);
-          // Debug log for raw media data
           console.log('[VideoLightboxDebug] Raw mediaData:', mediaData); 
         }
       } else {
         const { data: videoData, error: videoError } = await supabase
           .from('media')
-          .select('*, lora_identifier')
+          .select('*')
           .eq('type', 'video');
 
         if (videoError) {
-          console.error('[VideoLightboxDebug] Error fetching videos:', videoError);
+          console.error('[VideoLightboxDebug] Error fetching videos (fallback):', videoError);
           throw videoError;
         }
 
-        console.log('[VideoLightboxDebug] All videos retrieved:', videoData?.length || 0);
+        console.log('[VideoLightboxDebug] All videos retrieved (fallback):', videoData?.length || 0);
 
         assetVideos = videoData?.filter(video => 
           video.title?.includes(assetData.name) || 
           video.id === assetData.primary_media_id
         ) || [];
         
-        console.log('[VideoLightboxDebug] Videos for this asset (filtered by name):]', assetVideos?.length || 0);
+        console.log('[VideoLightboxDebug] Videos for this asset (filtered fallback):]', assetVideos?.length || 0);
       }
 
       const pVideo = assetData.primaryVideo;
@@ -169,7 +168,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
             return {
               id: media.id,
               url: videoUrl,
-              lora_identifier: media.lora_identifier,
+              associatedAssetId: assetId,
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
               created_at: media.created_at,
@@ -190,7 +189,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 creatorName: media.creator_name,
                 modelVariant: processedAsset.model_variant,
               }
-            };
+            } as VideoEntry;
           } catch (error) {
             console.error(`[VideoLightboxDebug] Error processing video ${media.id}:`, error);
             return null;
@@ -200,7 +199,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
       setVideos(convertedVideos.filter(v => v !== null) as VideoEntry[]);
       console.log('[VideoLightboxDebug] Final processed related videos:', convertedVideos.filter(v => v !== null).length);
-      // Debug log for converted videos
       console.log('[VideoLightboxDebug] Converted videos state:', convertedVideos.filter(v => v !== null)); 
     } catch (error) {
       console.error('[VideoLightboxDebug] Error fetching asset details:', error);

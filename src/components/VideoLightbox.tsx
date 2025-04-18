@@ -32,7 +32,7 @@ interface VideoLightboxProps {
   videoId: string;
   title?: string;
   description?: string;
-  loraIdentifier?: string;
+  initialAssetId?: string;
   creator?: string | null;
   thumbnailUrl?: string;
   creatorId?: string;
@@ -51,7 +51,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   videoId,
   title: initialTitle,
   description: initialDescription,
-  loraIdentifier: initialLoraIdentifier,
+  initialAssetId,
   creator,
   thumbnailUrl,
   creatorId,
@@ -72,7 +72,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editableTitle, setEditableTitle] = useState(initialTitle || '');
   const [editableDescription, setEditableDescription] = useState(initialDescription || '');
-  const [editableLoraIdentifier, setEditableLoraIdentifier] = useState(initialLoraIdentifier || '');
+  const [editableAssetId, setEditableAssetId] = useState(initialAssetId || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -84,9 +84,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   useEffect(() => {
     setEditableTitle(initialTitle || '');
     setEditableDescription(initialDescription || '');
-    setEditableLoraIdentifier(initialLoraIdentifier || '');
+    setEditableAssetId(initialAssetId || '');
     setIsEditing(false);
-  }, [videoId, initialTitle, initialDescription, initialLoraIdentifier]);
+  }, [videoId, initialTitle, initialDescription, initialAssetId]);
 
   useEffect(() => {
     const fetchCreatorDisplayName = async () => {
@@ -161,8 +161,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setIsEditing(false);
     setEditableTitle(initialTitle || '');
     setEditableDescription(initialDescription || '');
-    setEditableLoraIdentifier(initialLoraIdentifier || '');
-  }, [initialTitle, initialDescription, initialLoraIdentifier]);
+    setEditableAssetId(initialAssetId || '');
+  }, [initialTitle, initialDescription, initialAssetId]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -187,11 +187,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const handleToggleEdit = () => {
     console.log(`[VideoLightboxDebug] handleToggleEdit called. Current isEditing: ${isEditing}`);
     if (!isEditing) { 
-      console.log(`[VideoLightboxDebug] Entering edit mode. Initial LoRA from props: '${initialLoraIdentifier}'`);
+      console.log(`[VideoLightboxDebug] Entering edit mode. Initial Asset ID from props: '${initialAssetId}'`);
       setEditableTitle(initialTitle || '');
       setEditableDescription(initialDescription || '');
-      setEditableLoraIdentifier(initialLoraIdentifier || '');
-      console.log(`[VideoLightboxDebug] Set editableLoraIdentifier state to: '${initialLoraIdentifier || ''}'`);
+      setEditableAssetId(initialAssetId || '');
+      console.log(`[VideoLightboxDebug] Set editableAssetId state to: '${initialAssetId || ''}'`);
     } else {
       console.log('[VideoLightboxDebug] Leaving edit mode.');
     } 
@@ -200,43 +200,83 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   const handleSaveEdit = async () => {
     console.log('[VideoLightboxDebug] handleSaveEdit: videoId *before* check:', videoId);
-    console.log(`[VideoLightboxDebug] Checking save conditions: canEdit=${canEdit}, videoId=${videoId}`); // Check guard values
+    console.log(`[VideoLightboxDebug] Checking save conditions: canEdit=${canEdit}, videoId=${videoId}`); 
     if (!canEdit || !videoId) return;
     setIsSaving(true);
     console.log('[VideoLightboxDebug] handleSaveEdit: Starting save process...');
 
-    // Prepare the updates for the top-level columns
-    const updates = {
-      title: editableTitle,
-      description: editableDescription, // Update description directly
-      asset_id: editableLoraIdentifier === "" ? null : editableLoraIdentifier, // Use asset_id instead of lora_identifier
-    };
-    console.log('[VideoLightboxDebug] handleSaveEdit: Prepared updates:', updates);
-    console.log(`[VideoLightboxDebug] handleSaveEdit: Attempting update for videoId: ${videoId}`);
+    const newAssetId = editableAssetId === "" ? null : editableAssetId;
+    console.log('[VideoLightboxDebug] handleSaveEdit: Target asset ID:', newAssetId);
 
     try {
-      // Update the record in the database
-      const { error } = await supabase
+      // Step 1: Update media title and description
+      const { error: mediaUpdateError } = await supabase
         .from('media')
-        .update(updates)
+        .update({ 
+          title: editableTitle, 
+          description: editableDescription 
+        })
         .eq('id', videoId);
 
-      console.log('[VideoLightboxDebug] handleSaveEdit: Supabase update result:', { error });
+      if (mediaUpdateError) {
+        console.error('[VideoLightboxDebug] handleSaveEdit: Error updating media details:', mediaUpdateError);
+        throw new Error(`Failed to update video details: ${mediaUpdateError.message}`);
+      }
+      console.log('[VideoLightboxDebug] handleSaveEdit: Media details updated successfully.');
 
-      if (error) throw error;
+      // Step 2: Delete existing associations in asset_media for this video
+      const { error: deleteError } = await supabase
+        .from('asset_media')
+        .delete()
+        .eq('media_id', videoId);
 
+      if (deleteError) {
+        // Log the error but maybe proceed? Or should this be fatal? For now, let's make it fatal.
+        console.error('[VideoLightboxDebug] handleSaveEdit: Error deleting existing asset_media links:', deleteError);
+        throw new Error(`Failed to clear existing LoRA associations: ${deleteError.message}`);
+      }
+       console.log('[VideoLightboxDebug] handleSaveEdit: Existing asset_media links cleared successfully.');
+
+
+      // Step 3: Insert new association if a LoRA was selected
+      if (newAssetId) {
+        console.log(`[VideoLightboxDebug] handleSaveEdit: Attempting to insert new asset_media link: mediaId=${videoId}, assetId=${newAssetId}`);
+        const { error: insertError } = await supabase
+          .from('asset_media')
+          .insert({ 
+            asset_id: newAssetId, 
+            media_id: videoId 
+          });
+
+        if (insertError) {
+          console.error('[VideoLightboxDebug] handleSaveEdit: Error inserting new asset_media link:', insertError);
+          // Check for unique constraint violation (e.g., 23505 in PostgreSQL) which might indicate a race condition or logic error
+          if (insertError.code === '23505') {
+             throw new Error(`Failed to link LoRA: This video might already be linked to this LoRA. ${insertError.message}`);
+          } else {
+             throw new Error(`Failed to link selected LoRA: ${insertError.message}`);
+          }
+        }
+         console.log('[VideoLightboxDebug] handleSaveEdit: New asset_media link inserted successfully.');
+      } else {
+         console.log('[VideoLightboxDebug] handleSaveEdit: No new LoRA selected, skipping insert into asset_media.');
+      }
+
+      // If all steps succeeded
       toast({
         title: "Video updated successfully!",
       });
       console.log('[VideoLightboxDebug] handleSaveEdit: Update successful, toast shown.');
       setIsEditing(false);
+      
+      // Trigger potential refetch in parent component
       if (onVideoUpdate) {
         console.log('[VideoLightboxDebug] handleSaveEdit: Calling onVideoUpdate...');
-        onVideoUpdate();
+        onVideoUpdate(); 
       }
 
     } catch (error: any) {
-      console.error('[VideoLightboxDebug] handleSaveEdit: Error updating video:', error);
+      console.error('[VideoLightboxDebug] handleSaveEdit: Error during update process:', error);
       toast({
         title: "Error updating video",
         description: error.message || "Could not save changes.",
@@ -283,8 +323,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const displayTitle = isEditing ? '' : (initialTitle || '');
   const displayCreator = creatorDisplayName ? `By ${creatorDisplayName}` : '';
 
-  const loraDisplayText = initialLoraIdentifier
-    ? availableLoras.find(l => l.id === initialLoraIdentifier)?.name ?? initialLoraIdentifier
+  const loraDisplayText = initialAssetId
+    ? availableLoras.find(l => l.id === initialAssetId)?.name ?? initialAssetId
     : null;
 
   return (
@@ -327,8 +367,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             
             <div className="p-4 pt-0 flex-grow overflow-y-auto min-h-0">
               {isEditing ? (() => { 
-                  console.log(`[VideoLightboxDebug] Rendering Edit Form. Current editableLoraIdentifier state: '${editableLoraIdentifier}'`);
-                  const selectValue = editableLoraIdentifier || "";
+                  console.log(`[VideoLightboxDebug] Rendering Edit Form. Current editableAssetId state: '${editableAssetId}'`);
+                  const selectValue = editableAssetId || "";
                   console.log(`[VideoLightboxDebug] Rendering Select component with value: '${selectValue}'`);
                   console.log('[VideoLightboxDebug] availableLoras:', availableLoras);
                   return (
@@ -363,7 +403,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                              value={selectValue}
                              onValueChange={(value) => {
                                console.log(`[VideoLightboxDebug] LoRA Select onValueChange: new value selected: '${value}'`);
-                               setEditableLoraIdentifier(value === "__NONE__" ? "" : value);
+                               setEditableAssetId(value === "__NONE__" ? "" : value);
                              }}
                              disabled={isSaving}
                              name="videoLora"
