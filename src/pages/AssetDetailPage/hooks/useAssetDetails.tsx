@@ -87,6 +87,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
         } else {
           assetVideos = mediaData || [];
           console.log('AssetDetailPage - Related media fetched:', assetVideos.length);
+          // Debug log for raw media data
+          console.log('[useAssetDetailsDebug] Raw mediaData:', mediaData); 
         }
       } else {
         const { data: videoData, error: videoError } = await supabase
@@ -197,6 +199,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
       setVideos(convertedVideos.filter(v => v !== null) as VideoEntry[]);
       console.log('AssetDetailPage - Final processed related videos:', convertedVideos.filter(v => v !== null).length);
+      // Debug log for converted videos
+      console.log('[useAssetDetailsDebug] Converted videos state:', convertedVideos.filter(v => v !== null)); 
     } catch (error) {
       console.error('Error fetching asset details:', error);
       toast.error('Failed to load asset details');

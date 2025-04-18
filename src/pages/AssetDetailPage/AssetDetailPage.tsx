@@ -367,17 +367,24 @@ function AssetDetailPage() {
         )}
       </div>
       
-      {currentVideo && (
-        <VideoLightbox
-          isOpen={lightboxOpen}
-          onClose={handleCloseLightbox}
-          videoUrl={currentVideo.url}
-          title={currentVideo.metadata?.title}
-          creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
-          thumbnailUrl={currentVideo.metadata?.placeholder_image}
-          creatorId={currentVideo.user_id}
-        />
-      )}
+      {lightboxOpen && currentVideo && (() => {
+        console.log('[AssetDetailPageDebug] Rendering Lightbox. currentVideo:', currentVideo);
+        return (
+          <VideoLightbox
+            isOpen={lightboxOpen}
+            onClose={handleCloseLightbox}
+            videoUrl={currentVideo.url}
+            videoId={currentVideo.id}
+            title={currentVideo.metadata?.title}
+            description={currentVideo.metadata?.description}
+            loraIdentifier={currentVideo.lora_identifier}
+            creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
+            thumbnailUrl={currentVideo.placeholder_image || currentVideo.metadata?.placeholder_image}
+            creatorId={currentVideo.user_id}
+            onVideoUpdate={fetchAssetDetails}
+          />
+        );
+      })()}
       
       <Footer />
     </div>

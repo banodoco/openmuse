@@ -28,6 +28,8 @@ export interface VideoEntry {
   admin_approved: string | null;
   user_id?: string;
   metadata?: VideoMetadata;
+  lora_identifier?: string | null;
+  placeholder_image?: string | null;
 }
 
 export interface RecordedVideo {
