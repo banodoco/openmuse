@@ -182,8 +182,8 @@
 /* Fade-out effect for Masonry containers */
 .masonry-fade-container {
   position: relative;
-  /* Constrain the max height. Content (including dummies) exceeding this will be clipped. */
-  max-height: 85vh; 
+  /* Remove fixed max-height here, apply via Tailwind classes instead */
+  /* max-height: 85vh; */ 
   overflow: hidden; /* Ensures clipping */
 }
 

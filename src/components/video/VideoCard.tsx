@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Check, X, Play } from 'lucide-react';
+import { Check, X, Play, ArrowUpRight } from 'lucide-react';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -40,16 +40,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(isHovering);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
-  const [shouldAttemptGeneration, setShouldAttemptGeneration] = useState(false);
-  const initialUrlFromMetadata = video.metadata?.thumbnailUrl;
   
   useEffect(() => {
     isHoveringRef.current = isHovering;
-    logger.log(`[${video.id}] VideoCard: isHovering prop changed: ${isHovering}`);
+    logger.log(`VideoCard: isHovering prop changed for ${video.id}: ${isHovering}`);
   }, [isHovering, video.id]);
   
   useEffect(() => {
-    logger.log(`[${video.id}] VideoCard: useEffect for metadata/profile running.`);
     const fetchCreatorProfile = async () => {
       if (video.user_id) {
         try {
@@ -68,93 +65,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
     };
     
-    logger.log(`[${video.id}] VideoCard: Received initial metadata.thumbnailUrl: ${initialUrlFromMetadata}`);
-
-    // Determine if we need to trigger generation
-    const needsInitialGeneration = !initialUrlFromMetadata || initialUrlFromMetadata === 'FAILED_GENERATION';
-    logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = ${needsInitialGeneration}. (Reason: initialUrl is ${initialUrlFromMetadata})`);
-    setShouldAttemptGeneration(needsInitialGeneration);
-
-    // Update local state for display, using null if generation is needed or URL is invalid
-    if (needsInitialGeneration) {
-      // If we need to generate, don't display 'FAILED_GENERATION' as the poster initially
-      setThumbnailUrl(null); 
-    } else {
-      // Otherwise, set the valid URL we found in the metadata
-      setThumbnailUrl(initialUrlFromMetadata); 
+    if (video.metadata?.thumbnailUrl) {
+      setThumbnailUrl(video.metadata.thumbnailUrl);
     }
     
     fetchCreatorProfile();
-  }, [video.id, video.user_id, video.metadata, initialUrlFromMetadata]);
-  
-  const handleThumbnailUpdate = async (result: { success: true; url: string } | { success: false }) => {
-    if (!video.id) {
-      logger.error('[NO_ID] VideoCard: Cannot update thumbnail, video ID is missing.');
-      return;
-    }
-    logger.log(`[${video.id}] VideoCard: handleThumbnailUpdate called. Result: ${JSON.stringify(result)}`);
-
-    const valueToSave = result.success ? result.url : 'FAILED_GENERATION';
-    logger.log(`[${video.id}] VideoCard: Determined valueToSave: ${valueToSave}`);
-
-    // Stop trying to generate after this attempt, regardless of DB success/failure
-    // The trigger should only happen based on initial metadata state.
-    setShouldAttemptGeneration(false); 
-    logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = false after attempt.`);
-
-    try {
-      logger.log(`[${video.id}] VideoCard: Fetching current metadata before update...`);
-      const { data: currentMedia, error: fetchError } = await supabase
-        .from('media')
-        .select('metadata')
-        .eq('id', video.id)
-        .maybeSingle();
-
-      if (fetchError) {
-        logger.error(`VideoCard: Error fetching current metadata for video ${video.id}:`, fetchError);
-        // Update local state even if DB fetch fails, so UI reflects the attempt result
-        setThumbnailUrl(valueToSave); 
-        return;
-      }
-
-      const currentMetadata = currentMedia?.metadata || {};
-      logger.log(`[${video.id}] VideoCard: Fetched current metadata.thumbnailUrl: ${currentMetadata.thumbnailUrl}`);
-
-      if (currentMetadata.thumbnailUrl === valueToSave) {
-        logger.log(`[${video.id}] VideoCard: Thumbnail URL already matches valueToSave (${valueToSave}). Skipping DB update.`);
-        // Ensure local state matches, even if DB isn't updated
-        if (thumbnailUrl !== valueToSave) {
-          setThumbnailUrl(valueToSave);
-        }
-        return;
-      }
-
-      const newMetadata = {
-        ...currentMetadata,
-        thumbnailUrl: valueToSave
-      };
-      logger.log(`[${video.id}] VideoCard: New metadata object prepared: ${JSON.stringify(newMetadata)}`);
-
-      logger.log(`[${video.id}] VideoCard: Calling Supabase to update metadata...`);
-      const { error: updateError } = await supabase
-        .from('media')
-        .update({ metadata: newMetadata })
-        .eq('id', video.id);
-
-      if (updateError) {
-        logger.error(`[${video.id}] VideoCard: Supabase update error:`, updateError);
-        // Still update local state to reflect the attempt result, even if DB update failed
-        setThumbnailUrl(valueToSave);
-      } else {
-        logger.log(`[${video.id}] VideoCard: Supabase update successful. Updating local state.`);
-        setThumbnailUrl(valueToSave); // Update local state with the result (URL or FAILED_GENERATION)
-      }
-    } catch (error) {
-      logger.error(`[${video.id}] VideoCard: Unexpected error in handleThumbnailUpdate:`, error);
-      // Update local state even on unexpected errors
-      setThumbnailUrl(valueToSave);
-    }
-  };
+  }, [video.user_id, video.metadata]);
   
   const handleVideoLoad = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     const videoElement = event.target as HTMLVideoElement;
@@ -234,6 +150,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   const isProfilePage = location.pathname.includes('/profile/');
+  const isLoRAAssetPage = location.pathname.includes('/assets/loras/');
   
   logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
   
@@ -249,7 +166,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
       data-video-id={video.id}
     >
       <div 
-        className="w-full overflow-hidden bg-muted relative max-h-[75vh]"
+        className="w-full overflow-hidden bg-muted relative max-h-[75vh] group"
         style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16/9' }}
       >
         <div className="absolute inset-0 w-full h-full">
@@ -262,16 +179,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             isHovering={isHovering}
             lazyLoad={false}
             thumbnailUrl={thumbnailUrl}
-            forceGenerate={shouldAttemptGeneration}
             onLoadedData={handleVideoLoad}
-            onThumbnailSuccess={(url) => {
-              logger.log(`[${video.id}] VideoCard: onThumbnailSuccess called by VideoPreview with url: ${url ? url.substring(0,30)+'...' : 'null'}`);
-              handleThumbnailUpdate({ success: true, url });
-            }}
-            onThumbnailFailure={() => {
-              logger.log(`[${video.id}] VideoCard: onThumbnailFailure called by VideoPreview.`);
-              handleThumbnailUpdate({ success: false });
-            }}
           />
           
           {!isMobile && (
@@ -285,23 +193,32 @@ const VideoCard: React.FC<VideoCardProps> = ({
               </div>
             </div>
           )}
+
+          {!isMobile && (
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none flex flex-col justify-between p-2 z-10">
+              <div className="flex justify-between items-start">
+                {video.metadata?.title ? (
+                  <span className="text-white text-xs font-medium line-clamp-2 mr-2">
+                    {video.metadata.title}
+                  </span>
+                ) : <span />}
+                <ArrowUpRight className="text-white h-4 w-4 flex-shrink-0" />
+              </div>
+
+              {!isProfilePage && video.user_id && (
+                <div className="self-start">
+                  <span className="text-white text-xs bg-black/30 px-1.5 py-0.5 rounded-sm backdrop-blur-sm">
+                    By: {getCreatorName()}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       
-      <div className="bg-gradient-to-b from-card to-card/70 flex-grow flex flex-col backdrop-blur-sm">
-        {video.metadata?.title ? (
-          <h3 className="px-2 pt-2 font-medium text-sm truncate">
-            {video.metadata.title}
-          </h3>
-        ) : null}
-        
-        {!isProfilePage && video.user_id && (
-            <p className="px-2 pb-2 text-xs text-muted-foreground truncate">By: {getCreatorName()}</p>
-        )}
-      </div>
-      
       {isAdmin && (
-        <div className="absolute top-2 right-2 flex space-x-1 z-10">
+        <div className="absolute top-2 right-2 flex space-x-1 z-20">
           <Button 
             variant="secondary" 
             size="icon" 

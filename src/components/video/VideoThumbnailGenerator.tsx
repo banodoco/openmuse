@@ -1,3 +1,4 @@
+
 import { useEffect, useRef, useState } from 'react';
 import { getYoutubeVideoId } from '@/lib/utils/videoPreviewUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -9,21 +10,19 @@ const logger = new Logger('VideoThumbnailGenerator');
 interface VideoThumbnailGeneratorProps {
   file?: File;
   url?: string;
-  onSuccess: (thumbnailUrl: string) => void;
+  onThumbnailGenerated: (thumbnailUrl: string) => void;
   saveThumbnail?: boolean;
   userId?: string;
   forceGenerate?: boolean;
-  onFailure?: () => void;
 }
 
 const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   file,
   url,
-  onSuccess,
+  onThumbnailGenerated,
   saveThumbnail = false,
   userId,
-  forceGenerate = false,
-  onFailure
+  forceGenerate = false
 }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [retryCount, setRetryCount] = useState(0);
@@ -31,25 +30,15 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
   const [hasGeneratedThumbnail, setHasGeneratedThumbnail] = useState(false);
   const thumbnailGenerationAttemptedRef = useRef(false);
   const unmountedRef = useRef(false);
-  const componentIdRef = useRef(`thumb_gen_${Math.random().toString(36).substring(2, 9)}`);
-  const componentId = componentIdRef.current;
-  
-  logger.log(`[${componentId}] VideoThumbnailGenerator instance created.`);
   
   const saveThumbnailToStorage = async (dataUrl: string) => {
-    logger.log(`[${componentId}] saveThumbnailToStorage called.`);
-    if (!userId) {
-      logger.warn(`[${componentId}] Cannot save thumbnail, userId is missing.`);
-      return null;
-    }
+    if (!userId) return null;
 
     try {
-      logger.log(`[${componentId}] Fetching data URL blob...`);
+      logger.log('Saving thumbnail to storage');
       const blob = await (await fetch(dataUrl)).blob();
       const thumbnailName = `thumbnails/${userId}/${uuidv4()}.jpg`;
-      logger.log(`[${componentId}] Generated thumbnail name: ${thumbnailName}`);
       
-      logger.log(`[${componentId}] Calling Supabase storage upload...`);
       const { data, error } = await supabase.storage
         .from('thumbnails')
         .upload(thumbnailName, blob, {
@@ -58,29 +47,25 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
         });
 
       if (error) {
-        logger.error(`[${componentId}] Supabase storage upload error:`, error);
-        onFailure?.();
+        logger.error('Thumbnail upload error:', error);
         return null;
       }
-      logger.log(`[${componentId}] Supabase storage upload successful. Data:`, data);
 
-      logger.log(`[${componentId}] Getting public URL...`);
       const { data: { publicUrl } } = supabase.storage
         .from('thumbnails')
         .getPublicUrl(thumbnailName);
       
-      logger.log(`[${componentId}] Thumbnail saved successfully, Public URL:`, publicUrl ? publicUrl.substring(0, 50) + '...' : 'null');
+      logger.log('Thumbnail saved successfully, URL:', publicUrl.substring(0, 50) + '...');
       return publicUrl;
     } catch (error) {
-      logger.error(`[${componentId}] Error saving thumbnail (catch block):`, error);
-      onFailure?.();
+      logger.error('Error saving thumbnail:', error);
       return null;
     }
   };
 
   useEffect(() => {
-    logger.log(`[${componentId}] Mounting/Effect run. Props: url=${url ? url.substring(0, 30)+'...' : 'none'}, file=${file ? file.name : 'none'}, forceGenerate=${forceGenerate}, saveThumbnail=${saveThumbnail}, userId=${userId}`);
-    logger.log(`[${componentId}] Initial State: hasGeneratedThumbnail=${hasGeneratedThumbnail}, attempted=${thumbnailGenerationAttemptedRef.current}`);
+    logger.log(`Thumbnail generator mounting. URL: ${url ? url.substring(0, 30) + '...' : 'none'}, File: ${file ? file.name : 'none'}`);
+    logger.log(`forceGenerate: ${forceGenerate}, hasGeneratedThumbnail: ${hasGeneratedThumbnail}, attempted: ${thumbnailGenerationAttemptedRef.current}`);
     
     // Set up cleanup function
     unmountedRef.current = false;
@@ -149,25 +134,20 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               const storedThumbnailUrl = await saveThumbnailToStorage(dataUrl);
               if (storedThumbnailUrl) {
                 thumbnailUrl = storedThumbnailUrl;
-              } else {
-                logger.warn(`[${componentId}] saveThumbnailToStorage failed for file. Aborting.`);
-                URL.revokeObjectURL(fileUrl);
-                return;
               }
             }
             
             if (!unmountedRef.current) {
-              logger.log(`[${componentId}] File thumbnail success. Calling onSuccess callback.`);
+              logger.log('File thumbnail generated successfully');
               setHasGeneratedThumbnail(true);
-              onSuccess(thumbnailUrl);
+              onThumbnailGenerated(thumbnailUrl);
             }
           }
           
           URL.revokeObjectURL(fileUrl);
         } catch (e) {
-          logger.error(`[${componentId}] Error generating file thumbnail (catch block):`, e);
+          logger.error('Error generating thumbnail:', e);
           URL.revokeObjectURL(fileUrl);
-          onFailure?.();
         }
       };
       
@@ -188,9 +168,8 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
           logger.log('YouTube thumbnail URL generated:', thumbnailUrl);
           
           if (!unmountedRef.current) {
-            logger.log(`[${componentId}] YouTube thumbnail success. Calling onSuccess callback.`);
             setHasGeneratedThumbnail(true);
-            onSuccess(thumbnailUrl);
+            onThumbnailGenerated(thumbnailUrl);
           }
           return;
         }
@@ -247,11 +226,9 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
               
               if (!unmountedRef.current) {
-                logger.log(`[${componentId}] URL thumbnail success. Calling onSuccess callback.`);
+                logger.log('URL thumbnail generated successfully');
                 setHasGeneratedThumbnail(true);
-                // Note: We are not saving URL-based thumbnails currently unless forced?
-                // Might need adjustment if saveThumbnail should apply here too.
-                onSuccess(dataUrl);
+                onThumbnailGenerated(dataUrl);
               }
               
               tempVideo.pause();
@@ -259,19 +236,43 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
               tempVideo.load();
             }
           } catch (e) {
-            logger.error(`[${componentId}] Error seeking/drawing URL frame (catch block):`, e);
-            tempVideo.pause();
-            tempVideo.src = '';
-            tempVideo.load();
-            onFailure?.();
+            logger.error('Error generating thumbnail:', e);
+            
+            // Only retry if component is still mounted
+            if (!unmountedRef.current && retryCount < maxRetries) {
+              logger.log(`Retrying thumbnail generation (${retryCount + 1}/${maxRetries})...`);
+              setRetryCount(prev => prev + 1);
+              // Use a small delay before retrying
+              setTimeout(() => {
+                if (!unmountedRef.current) {
+                  tempVideo.currentTime = 0.1;
+                }
+              }, 500);
+            } else {
+              tempVideo.pause();
+              tempVideo.src = '';
+              tempVideo.load();
+            }
           }
         };
         
-        tempVideo.onerror = (e) => {
-          logger.error(`[${componentId}] Error loading video for URL thumbnail (onerror):`, e);
-          if (!unmountedRef.current) {
-            logger.log(`[${componentId}] Calling onFailure callback due to video load error.`);
-            onFailure?.();
+        tempVideo.onerror = () => {
+          logger.error('Error loading video for thumbnail generation, URL:', url.substring(0, 30) + '...');
+          
+          // Only retry if component is still mounted
+          if (!unmountedRef.current && retryCount < maxRetries) {
+            logger.log(`Retrying video load (${retryCount + 1}/${maxRetries})...`);
+            setRetryCount(prev => prev + 1);
+            setTimeout(() => {
+              if (!unmountedRef.current) {
+                tempVideo.src = url;
+                tempVideo.load();
+              }
+            }, 1000);
+          } else {
+            tempVideo.pause();
+            tempVideo.src = '';
+            tempVideo.load();
           }
         };
         
@@ -287,10 +288,10 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
     }
     
     return () => {
-      logger.log(`[${componentId}] Thumbnail generator effect cleanup.`);
+      logger.log('Thumbnail generator effect cleanup');
       unmountedRef.current = true;
     };
-  }, [file, url, onSuccess, saveThumbnail, userId, retryCount, forceGenerate, hasGeneratedThumbnail, onFailure]);
+  }, [file, url, onThumbnailGenerated, saveThumbnail, userId, retryCount, forceGenerate, hasGeneratedThumbnail]);
 
   return (
     <video 

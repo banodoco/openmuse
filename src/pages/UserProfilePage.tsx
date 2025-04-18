@@ -601,7 +601,7 @@ export default function UserProfilePage() {
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : userAssets.length > 0 ? (
                   <>
-                    <div className="relative masonry-fade-container pt-6">
+                    <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
                       <Masonry
                         breakpointCols={breakpointColumnsObj}
                         className="my-masonry-grid"
@@ -661,15 +661,12 @@ export default function UserProfilePage() {
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : generationVideos.length > 0 ? ( // Render if there are ANY generation videos
                   <>
-                    {/* Container holds only Masonry now */}
-                    <div className="relative masonry-fade-container pt-6">
-                      {/* Masonry renders combined real videos AND dummies */}
+                    <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
                       <Masonry
                         breakpointCols={breakpointColumnsObj}
                         className="my-masonry-grid"
                         columnClassName="my-masonry-grid_column"
                       >
-                        {/* Map over the combined list */}
                         {generationItemsForPage.map((item) => {
                           if (isVideoEntry(item)) {
                             // Render VideoCard
@@ -697,10 +694,8 @@ export default function UserProfilePage() {
                           }
                         })}
                       </Masonry>
-                      {/* Add the dedicated fade overlay element *after* Masonry */}
                       <div className="fade-overlay-element"></div>
                     </div>
-                    {/* Only show pagination if there are multiple pages of REAL videos */}
                     {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)}
                   </>
                 ) : (
@@ -731,17 +726,14 @@ export default function UserProfilePage() {
                   <LoraGallerySkeleton count={isMobile ? 2 : 4} />
                 ) : artVideos.length > 0 ? ( // Render if there are ANY art videos
                   <>
-                     {/* Container holds only Masonry now */}
-                    <div className="relative masonry-fade-container pt-6">
-                       {/* Masonry renders combined real videos AND dummies */}
+                    <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
                       <Masonry
                         breakpointCols={breakpointColumnsObj}
                         className="my-masonry-grid"
                         columnClassName="my-masonry-grid_column"
                       >
-                         {/* Map over the combined list */}
                         {artItemsForPage.map((item) => {
-                           if (isVideoEntry(item)) {
+                          if (isVideoEntry(item)) {
                             // Render VideoCard
                             return (
                               <VideoCard
@@ -767,10 +759,8 @@ export default function UserProfilePage() {
                           }
                         })}
                       </Masonry>
-                      {/* Add the dedicated fade overlay element *after* Masonry */}
                       <div className="fade-overlay-element"></div>
                     </div>
-                     {/* Only show pagination if there are multiple pages of REAL videos */}
                     {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)}
                   </>
                 ) : (
