@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Check, X, Play, ArrowUpRight } from 'lucide-react';
+import { Check, X, Play, ArrowUpRight, Trash } from 'lucide-react';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -10,6 +10,18 @@ import VideoPreview from '../VideoPreview';
 import { Logger } from '@/lib/logger';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Link } from 'react-router-dom';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import { toast } from 'sonner';
 
 const logger = new Logger('VideoCard');
 
@@ -17,8 +29,9 @@ interface VideoCardProps {
   video: VideoEntry;
   isAdmin: boolean;
   onOpenLightbox: (video: VideoEntry) => void;
-  onApproveVideo?: (videoId: string) => void;
-  onDeleteVideo?: (videoId: string) => void;
+  onApproveVideo?: (videoId: string) => Promise<void>;
+  onRejectVideo?: (videoId: string) => Promise<void>;
+  onDeleteVideo?: (videoId: string) => Promise<void>;
   isHovering?: boolean;
   onHoverChange?: (isHovering: boolean) => void;
 }
@@ -28,6 +41,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   isAdmin,
   onOpenLightbox,
   onApproveVideo,
+  onRejectVideo,
   onDeleteVideo,
   isHovering = false,
   onHoverChange
@@ -40,6 +54,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const cardRef = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(isHovering);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
   
   useEffect(() => {
     isHoveringRef.current = isHovering;
@@ -126,11 +141,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
     const isActive = currentStatus === status;
     
     return cn(
-      "text-xs h-6 w-6",
+      "text-xs h-7 w-7 p-0",
       isActive && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
       isActive && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
-      isActive && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
-      !isActive && "bg-black/40 hover:bg-black/60 text-white"
+      isActive && status === 'Rejected' && "bg-orange-500 text-white hover:bg-orange-600",
+      !isActive && "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
+      "rounded-md shadow-sm"
     );
   };
   
@@ -146,7 +162,21 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleReject = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onDeleteVideo) onDeleteVideo(video.id);
+    if (onRejectVideo) onRejectVideo(video.id);
+  };
+  
+  const handleDeleteConfirm = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!onDeleteVideo) return;
+    
+    setIsDeleting(true);
+    try {
+      await onDeleteVideo(video.id);
+    } catch (error) { 
+      logger.error('Error during video delete confirmation:', error);
+    } finally {
+      setIsDeleting(false); 
+    }
   };
   
   const isProfilePage = location.pathname.includes('/profile/');
@@ -158,7 +188,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
     <div 
       ref={cardRef}
       key={video.id} 
-      className="relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10"
+      className="relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4"
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
@@ -225,8 +255,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
             className={getButtonStyle('Curated')}
             onClick={handleApprove}
             title="Curate video"
+            disabled={!onApproveVideo}
           >
-            <Check className="h-3 w-3" />
+            <Check className="h-4 w-4" />
           </Button>
           
           <Button 
@@ -235,19 +266,57 @@ const VideoCard: React.FC<VideoCardProps> = ({
             className={getButtonStyle('Listed')}
             onClick={handleList}
             title="List video"
+            disabled={!onApproveVideo}
           >
             <span className="text-xs font-bold">L</span>
           </Button>
           
           <Button 
-            variant="destructive" 
+            variant="secondary"
             size="icon" 
             className={getButtonStyle('Rejected')}
             onClick={handleReject}
             title="Reject video"
+            disabled={!onRejectVideo}
           >
-            <X className="h-3 w-3" />
+            <X className="h-4 w-4" />
           </Button>
+
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button 
+                variant="destructive" 
+                size="icon" 
+                className={cn(
+                  "text-xs h-7 w-7 p-0 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm",
+                  isDeleting && "opacity-50 cursor-not-allowed"
+                )}
+                title="Delete video permanently"
+                disabled={!onDeleteVideo || isDeleting}
+                onClick={(e) => e.stopPropagation()}
+              >
+                {isDeleting ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Trash className="h-4 w-4" />}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent onClick={(e) => e.stopPropagation()}> 
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this video?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This action cannot be undone. The video file and its metadata will be permanently removed.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel onClick={(e) => e.stopPropagation()} disabled={isDeleting}>Cancel</AlertDialogCancel>
+                <AlertDialogAction 
+                  onClick={handleDeleteConfirm}
+                  disabled={isDeleting}
+                  className="bg-destructive hover:bg-destructive/90"
+                >
+                  {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </div>
       )}
     </div>

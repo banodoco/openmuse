@@ -37,6 +37,7 @@ interface AssetVideoSectionProps {
   handleOpenLightbox: (video: VideoEntry) => void;
   handleApproveVideo: (videoId: string) => Promise<void>;
   handleDeleteVideo: (videoId: string) => Promise<void>;
+  handleRejectVideo: (videoId: string) => Promise<void>;
   fetchAssetDetails: () => Promise<void>;
 }
 
@@ -47,6 +48,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   handleOpenLightbox,
   handleApproveVideo,
   handleDeleteVideo,
+  handleRejectVideo,
   fetchAssetDetails
 }) => {
   const { user } = useAuth();
@@ -137,6 +139,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     onOpenLightbox={handleOpenLightbox}
                     onApproveVideo={handleApproveVideo}
                     onDeleteVideo={handleDeleteVideo}
+                    onRejectVideo={handleRejectVideo}
                     isHovering={hoveredVideoId === item.id}
                     onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                   />

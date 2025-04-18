@@ -16,88 +16,55 @@ import {
   X, 
   Info,
   ExternalLink,
-  Edit
+  Edit,
+  Trash
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LoraAsset } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import EditableLoraDetails from '@/components/lora/EditableLoraDetails';
-import { useState } from 'react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 interface AssetInfoCardProps {
   asset: LoraAsset | null;
   isAuthorizedToEdit: boolean;
+  isAdmin: boolean;
+  isApproving: boolean;
+  handleCurateAsset: () => Promise<void>;
+  handleListAsset: () => Promise<void>;
+  handleRejectAsset: () => Promise<void>;
+  handleDeleteAsset: () => Promise<void>;
+  getCreatorName: () => string;
+  creatorDisplayName?: string;
 }
 
 const AssetInfoCard = ({
   asset,
   isAuthorizedToEdit,
+  isAdmin,
+  isApproving,
+  handleCurateAsset,
+  handleListAsset,
+  handleRejectAsset,
+  handleDeleteAsset,
+  getCreatorName,
+  creatorDisplayName,
 }: AssetInfoCardProps) => {
-  const { isAdmin, user } = useAuth();
-  const [isApproving, setIsApproving] = useState(false);
-
-  const handleCurateAsset = async () => {
-    if (!asset || !isAdmin) return;
-    setIsApproving(true);
-    try {
-      const { error } = await supabase
-        .from('assets')
-        .update({ admin_approved: 'Curated' })
-        .eq('id', asset.id);
-      
-      if (error) throw error;
-      toast.success('Asset curated successfully');
-      window.location.reload();
-    } catch (error) {
-      console.error('Error curating asset:', error);
-      toast.error('Failed to curate asset');
-    } finally {
-      setIsApproving(false);
-    }
-  };
-
-  const handleListAsset = async () => {
-    if (!asset || !isAdmin) return;
-    setIsApproving(true);
-    try {
-      const { error } = await supabase
-        .from('assets')
-        .update({ admin_approved: 'Listed' })
-        .eq('id', asset.id);
-      
-      if (error) throw error;
-      toast.success('Asset listed successfully');
-      window.location.reload();
-    } catch (error) {
-      console.error('Error listing asset:', error);
-      toast.error('Failed to list asset');
-    } finally {
-      setIsApproving(false);
-    }
-  };
-
-  const handleRejectAsset = async () => {
-    if (!asset || !isAdmin) return;
-    setIsApproving(true);
-    try {
-      const { error } = await supabase
-        .from('assets')
-        .update({ admin_approved: 'Rejected' })
-        .eq('id', asset.id);
-      
-      if (error) throw error;
-      toast.success('Asset rejected successfully');
-      window.location.reload();
-    } catch (error) {
-      console.error('Error rejecting asset:', error);
-      toast.error('Failed to reject asset');
-    } finally {
-      setIsApproving(false);
-    }
-  };
+  const { isAdmin: authAdmin, user } = useAuth();
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const getModelColor = (modelType?: string): string => {
     switch (modelType?.toLowerCase()) {
@@ -127,6 +94,11 @@ const AssetInfoCard = ({
       default:
         return "bg-yellow-500 text-white";
     }
+  };
+
+  const onDeleteConfirm = async () => {
+    setIsDeleting(true);
+    await handleDeleteAsset();
   };
 
   return (
@@ -160,13 +132,48 @@ const AssetInfoCard = ({
           {/* Edit Button - Visible to authorized users */}
           {isAuthorizedToEdit && (
             <Button
-              onClick={() => {/* Add edit handler */}}
               variant="secondary"
               className="w-full gap-2"
+              disabled
             >
               <Edit className="h-4 w-4" />
-              Edit Details
+              Edit Details (via fields above)
             </Button>
+          )}
+
+          {/* Delete LoRA Button - Visible to authorized users */}
+          {isAuthorizedToEdit && (
+             <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <Button
+                    variant="destructive"
+                    className="w-full gap-2"
+                    disabled={isDeleting}
+                  >
+                    <Trash className="h-4 w-4" />
+                    {isDeleting ? 'Deleting...' : 'Delete LoRA'}
+                  </Button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      This action cannot be undone. This will permanently delete the LoRA asset
+                      and potentially associated data (like videos, depending on setup).
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                    <AlertDialogAction 
+                      onClick={onDeleteConfirm} 
+                      disabled={isDeleting}
+                      className="bg-destructive hover:bg-destructive/90"
+                    >
+                      {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
           )}
 
           {/* Admin Moderation Buttons */}
