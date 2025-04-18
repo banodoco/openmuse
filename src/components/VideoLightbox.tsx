@@ -23,6 +23,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { cn } from '@/lib/utils';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -292,7 +293,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               <X size={24} />
             </button>
             
-            <div className="p-4 flex-shrink">
+            <div className={cn(
+              "p-4 flex-shrink max-h-[75vh]",
+              isEditing && "max-h-[50vh]"
+            )}>
               <VideoPlayer
                 src={videoUrl}
                 poster={thumbnailUrl}
