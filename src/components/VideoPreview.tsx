@@ -56,6 +56,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const previewRef = useRef<HTMLDivElement>(null);
   const [forceGenerate, setForceGenerate] = useState(!thumbnailUrl);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(!!thumbnailUrl);
+  const [thumbnailCreationFailed, setThumbnailCreationFailed] = useState(false);
   const componentId = useRef(`video_preview_${Math.random().toString(36).substring(2, 9)}`);
   const [thumbnailGenerationAttempts, setThumbnailGenerationAttempts] = useState(0);
   const thumbnailGeneratorMounted = useRef(false);
@@ -133,6 +134,14 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     }
   };
 
+  const handleThumbnailGenerationFailed = () => {
+    if (unmountedRef.current) return;
+    logger.warn(`VideoPreview [${componentId.current}]: Thumbnail generation failed.`);
+    setThumbnailCreationFailed(true);
+    setPosterUrl(null);
+    setThumbnailLoaded(false);
+  };
+
   const handleMouseEnter = () => {
     if (externalHoverState === undefined && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: Mouse entered`);
@@ -157,7 +166,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
 
-  const needsThumbnailGeneration = (!posterUrl || forceGenerate) && thumbnailGenerationAttempts < 2 && !thumbnailGeneratorMounted.current;
+  const needsThumbnailGeneration = (!posterUrl || forceGenerate) && thumbnailGenerationAttempts < 2 && !thumbnailGeneratorMounted.current && !thumbnailCreationFailed;
   
   if (needsThumbnailGeneration) {
     thumbnailGeneratorMounted.current = true;
@@ -182,6 +191,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       data-is-mobile={isMobile ? "true" : "false"}
       data-component-id={componentId.current}
       data-thumbnail-loaded={thumbnailLoaded ? "true" : "false"}
+      data-thumbnail-failed={thumbnailCreationFailed ? "true" : "false"}
     >
       {needsThumbnailGeneration && (
         <VideoThumbnailGenerator 
@@ -191,6 +201,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           userId={user?.id}
           saveThumbnail={true}
           forceGenerate={forceGenerate}
+          onThumbnailGenerationFailed={handleThumbnailGenerationFailed}
         />
       )}
       

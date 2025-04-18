@@ -191,7 +191,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
 
   return (
     <Card 
-      className="overflow-hidden h-full flex flex-col group cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out" 
+      className="relative z-10 overflow-hidden h-full flex flex-col group cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out" 
       onClick={handleView}
     >
       <div 

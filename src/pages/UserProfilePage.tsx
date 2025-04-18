@@ -54,6 +54,7 @@ export default function UserProfilePage() {
   // Pagination State
   const [generationPage, setGenerationPage] = useState(1);
   const [artPage, setArtPage] = useState(1);
+  const [loraPage, setLoraPage] = useState(1);
 
   useEffect(() => {
     setForceLoggedOutView(searchParams.get('loggedOutView') === 'true');
@@ -118,6 +119,7 @@ export default function UserProfilePage() {
   useEffect(() => {
     setGenerationPage(1);
     setArtPage(1);
+    setLoraPage(1);
   }, [profile?.id]);
 
   const fetchUserAssets = async (userId: string) => {
@@ -269,6 +271,7 @@ export default function UserProfilePage() {
 
   const totalGenerationPages = getTotalPages(generationVideos.length);
   const totalArtPages = getTotalPages(artVideos.length);
+  const totalLoraPages = getTotalPages(userAssets.length);
 
   const handleGenerationPageChange = (newPage: number) => {
     setGenerationPage(newPage);
@@ -278,6 +281,10 @@ export default function UserProfilePage() {
     setArtPage(newPage);
   };
 
+  const handleLoraPageChange = (newPage: number) => {
+    setLoraPage(newPage);
+  };
+
   // --- Prepare items for Masonry, including dummies ---
   
   // Type guard to check if item is a real video
@@ -285,11 +292,17 @@ export default function UserProfilePage() {
     return !('type' in item && item.type === 'dummy');
   }
 
+  // Type guard to check if item is a real LoRA
+  const isLoraAsset = (item: LoraAsset | { type: 'dummy' }): item is LoraAsset => {
+    return !('type' in item && item.type === 'dummy');
+  }
+
   // --- Restore function to get items for a specific page, including dummies ---
-  const getItemsForPage = (
-    allItems: VideoEntry[], 
-    page: number
-  ): Array<VideoEntry | { type: 'dummy'; id: string; colorClass: string }> => {
+  const getItemsForPage = <T extends VideoEntry | LoraAsset>(
+    allItems: T[], 
+    page: number,
+    assetType: 'video' | 'lora'
+  ): Array<T | { type: 'dummy'; id: string; colorClass: string }> => {
     const startIndex = (page - 1) * ITEMS_PER_PAGE;
     const endIndex = startIndex + ITEMS_PER_PAGE;
     const pageItems = allItems.slice(startIndex, endIndex);
@@ -307,8 +320,9 @@ export default function UserProfilePage() {
   // --- End Restore ---
 
   // --- Restore combined item calculation ---
-  const generationItemsForPage = getItemsForPage(generationVideos, generationPage);
-  const artItemsForPage = getItemsForPage(artVideos, artPage);
+  const generationItemsForPage = getItemsForPage(generationVideos, generationPage, 'video');
+  const artItemsForPage = getItemsForPage(artVideos, artPage, 'video');
+  const loraItemsForPage = getItemsForPage(userAssets, loraPage, 'lora');
   // --- End Restore ---
 
   // --- Remove independent dummy generation ---
@@ -586,15 +600,39 @@ export default function UserProfilePage() {
                 {isLoadingAssets ? (
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : userAssets.length > 0 ? (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
-                    {userAssets.map(asset => (
-                      <LoraCard 
-                        key={asset.id} 
-                        lora={asset}
-                        isAdmin={isAdmin}
-                      />
-                    ))}
-                  </div>
+                  <>
+                    <div className="relative masonry-fade-container pt-6">
+                      <Masonry
+                        breakpointCols={breakpointColumnsObj}
+                        className="my-masonry-grid"
+                        columnClassName="my-masonry-grid_column"
+                      >
+                        {loraItemsForPage.map(item => {
+                          if (isLoraAsset(item)) {
+                            // Render LoraCard
+                            return (
+                              <LoraCard 
+                                key={item.id} 
+                                lora={item}
+                                isAdmin={isAdmin}
+                              />
+                            );
+                          } else {
+                            // Render DummyCard
+                            return (
+                              <DummyCard 
+                                key={item.id} 
+                                id={item.id} 
+                                colorClass={item.colorClass} 
+                              />
+                            );
+                          }
+                        })}
+                      </Masonry>
+                      <div className="fade-overlay-element"></div>
+                    </div>
+                    {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)}
+                  </>
                 ) : (
                   <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg">
                     This user hasn't created any LoRAs yet.
