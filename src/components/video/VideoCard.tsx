@@ -41,6 +41,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const isHoveringRef = useRef(isHovering);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [shouldAttemptGeneration, setShouldAttemptGeneration] = useState(false);
+  const initialUrlFromMetadata = video.metadata?.thumbnailUrl;
   
   useEffect(() => {
     isHoveringRef.current = isHovering;
@@ -67,27 +68,24 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
     };
     
-    const initialUrlFromMetadata = video.metadata?.thumbnailUrl;
     logger.log(`[${video.id}] VideoCard: Received initial metadata.thumbnailUrl: ${initialUrlFromMetadata}`);
 
-    if (initialUrlFromMetadata) {
-      const initialUrl = initialUrlFromMetadata;
-      setThumbnailUrl(initialUrl);
-      if (initialUrl === 'FAILED_GENERATION') {
-        setShouldAttemptGeneration(true);
-        logger.log(`[${video.id}] VideoCard: Initial state is FAILED_GENERATION. Setting shouldAttemptGeneration = true.`);
-      } else {
-        setShouldAttemptGeneration(false);
-        logger.log(`[${video.id}] VideoCard: Initial state is a URL. Setting shouldAttemptGeneration = false.`);
-      }
+    // Determine if we need to trigger generation
+    const needsInitialGeneration = !initialUrlFromMetadata || initialUrlFromMetadata === 'FAILED_GENERATION';
+    logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = ${needsInitialGeneration}. (Reason: initialUrl is ${initialUrlFromMetadata})`);
+    setShouldAttemptGeneration(needsInitialGeneration);
+
+    // Update local state for display, using null if generation is needed or URL is invalid
+    if (needsInitialGeneration) {
+      // If we need to generate, don't display 'FAILED_GENERATION' as the poster initially
+      setThumbnailUrl(null); 
     } else {
-      setThumbnailUrl(null);
-      setShouldAttemptGeneration(false);
-      logger.log(`[${video.id}] VideoCard: Initial state is null/undefined. Setting shouldAttemptGeneration = false.`);
+      // Otherwise, set the valid URL we found in the metadata
+      setThumbnailUrl(initialUrlFromMetadata); 
     }
     
     fetchCreatorProfile();
-  }, [video.id, video.user_id, video.metadata]);
+  }, [video.id, video.user_id, video.metadata, initialUrlFromMetadata]);
   
   const handleThumbnailUpdate = async (result: { success: true; url: string } | { success: false }) => {
     if (!video.id) {
@@ -99,6 +97,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
     const valueToSave = result.success ? result.url : 'FAILED_GENERATION';
     logger.log(`[${video.id}] VideoCard: Determined valueToSave: ${valueToSave}`);
 
+    // Stop trying to generate after this attempt, regardless of DB success/failure
+    // The trigger should only happen based on initial metadata state.
+    setShouldAttemptGeneration(false); 
+    logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = false after attempt.`);
+
     try {
       logger.log(`[${video.id}] VideoCard: Fetching current metadata before update...`);
       const { data: currentMedia, error: fetchError } = await supabase
@@ -109,6 +112,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
       if (fetchError) {
         logger.error(`VideoCard: Error fetching current metadata for video ${video.id}:`, fetchError);
+        // Update local state even if DB fetch fails, so UI reflects the attempt result
+        setThumbnailUrl(valueToSave); 
         return;
       }
 
@@ -117,9 +122,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
       if (currentMetadata.thumbnailUrl === valueToSave) {
         logger.log(`[${video.id}] VideoCard: Thumbnail URL already matches valueToSave (${valueToSave}). Skipping DB update.`);
-        if (!result.success) {
-          logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = false after failed attempt (DB skip).`);
-          setShouldAttemptGeneration(false);
+        // Ensure local state matches, even if DB isn't updated
+        if (thumbnailUrl !== valueToSave) {
+          setThumbnailUrl(valueToSave);
         }
         return;
       }
@@ -138,16 +143,16 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
       if (updateError) {
         logger.error(`[${video.id}] VideoCard: Supabase update error:`, updateError);
+        // Still update local state to reflect the attempt result, even if DB update failed
+        setThumbnailUrl(valueToSave);
       } else {
         logger.log(`[${video.id}] VideoCard: Supabase update successful. Updating local state.`);
-        setThumbnailUrl(valueToSave);
-        if (!result.success) {
-          logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = false after failed attempt (DB update).`);
-          setShouldAttemptGeneration(false);
-        }
+        setThumbnailUrl(valueToSave); // Update local state with the result (URL or FAILED_GENERATION)
       }
     } catch (error) {
       logger.error(`[${video.id}] VideoCard: Unexpected error in handleThumbnailUpdate:`, error);
+      // Update local state even on unexpected errors
+      setThumbnailUrl(valueToSave);
     }
   };
   
@@ -256,7 +261,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             className="w-full h-full object-cover"
             isHovering={isHovering}
             lazyLoad={false}
-            thumbnailUrl={thumbnailUrl === 'FAILED_GENERATION' ? null : thumbnailUrl}
+            thumbnailUrl={thumbnailUrl}
             forceGenerate={shouldAttemptGeneration}
             onLoadedData={handleVideoLoad}
             onThumbnailSuccess={(url) => {
