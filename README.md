@@ -1,69 +1,54 @@
-# Welcome to your Lovable project
+# OpenMuse
 
-## Project info
+This project is a web application designed to manage and showcase LoRA (Low-Rank Adaptation) assets specifically created for open-source video generation models like Wan, LTXV, and Hunyuan.
 
-**URL**: https://lovable.dev/projects/ce5342cb-af98-4ea7-8363-878f37aa318e
+It serves as a curated gallery where users can browse, filter, and view LoRAs along with video examples generated using them. The platform supports user uploads (subject to potential admin approval) of both LoRA assets and their corresponding showcase videos.
 
-## How can I edit this code?
+## Key Features
 
-There are several ways of editing your application.
+*   Browse and filter LoRAs by base model, approval status, and name.
+*   View detailed information about each LoRA.
+*   Watch video examples generated with specific LoRAs.
+*   Upload new LoRA assets (name, description, base model, type, link).
+*   Upload showcase videos associated with specific LoRAs.
+*   User authentication (via Supabase).
+*   Admin approval workflow for curating LoRAs.
 
-**Use Lovable**
+## Tech Stack
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/ce5342cb-af98-4ea7-8363-878f37aa318e) and start prompting.
+*   **Frontend:** React with TypeScript
+*   **UI Framework:** Tailwind CSS with shadcn/ui
+*   **Build Tool:** Vite
+*   **Backend/BaaS:** Supabase (Authentication, Database, Storage)
+*   **Data Fetching:** React Query (`@tanstack/react-query`)
+*   **Routing:** React Router (`react-router-dom`)
 
-Changes made via Lovable will be committed automatically to this repo.
+## Local Development Setup
 
-**Use your preferred IDE**
+To work on this project locally:
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
-
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
-
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with .
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/ce5342cb-af98-4ea7-8363-878f37aa318e) and click on Share -> Publish.
-
-## I want to use a custom domain - is that possible?
-
-We don't support custom domains (yet). If you want to deploy your project under your own domain then we recommend using Netlify. Visit our docs for more details: [Custom domains](https://docs.lovable.dev/tips-tricks/custom-domain/)
+1.  **Prerequisites:** Ensure you have [Node.js](https://nodejs.org/) (v18 or later recommended) and npm installed. Using [nvm](https://github.com/nvm-sh/nvm#installing-and-updating) is advised.
+2.  **Clone the repository:**
+    ```sh
+    git clone <YOUR_GIT_REPOSITORY_URL>
+    cd <YOUR_PROJECT_DIRECTORY>
+    ```
+3.  **Install dependencies:**
+    ```sh
+    npm install 
+    # or if you use bun: bun install
+    ```
+4.  **Environment Variables:**
+    *   You will need to set up Supabase environment variables. Create a `.env.local` file in the root directory.
+    *   Copy the contents of `.env.example` (if it exists) or add the necessary Supabase keys:
+        ```dotenv
+        VITE_SUPABASE_URL=YOUR_SUPABASE_PROJECT_URL
+        VITE_SUPABASE_ANON_KEY=YOUR_SUPABASE_ANON_KEY 
+        ```
+    *   Obtain these values from your Supabase project settings.
+5.  **Run the development server:**
+    ```sh
+    npm run dev
+    # or: bun run dev
+    ```
+    The application should now be running, typically at `http://localhost:8080`.
