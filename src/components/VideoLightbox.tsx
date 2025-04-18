@@ -178,12 +178,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   }, [isOpen, onClose, isEditing, handleCancelEdit]);
 
   const handleToggleEdit = () => {
-    setIsEditing(!isEditing);
-    if (!isEditing) {
+    if (!isEditing) { 
       setEditableTitle(initialTitle || '');
       setEditableDescription(initialDescription || '');
       setEditableLoraIdentifier(initialLoraIdentifier || '');
-    }
+    } 
+    setIsEditing(!isEditing);
   };
 
   const handleSaveEdit = async () => {
@@ -272,7 +272,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           }
       }}>
         <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 [&>button.absolute.right-4.top-4]:hidden flex flex-col">
-          <div className="relative flex flex-col h-full overflow-hidden">
+          <div className="relative flex flex-col h-full">
             <button
               onClick={() => {
                   if (isEditing) handleCancelEdit();
