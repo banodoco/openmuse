@@ -339,7 +339,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                      ) : (
                        <Select
                          value={editableLoraIdentifier || ""}
-                         onValueChange={(value) => setEditableLoraIdentifier(value === "" ? "" : value)}
+                         onValueChange={(value) => setEditableLoraIdentifier(value === "__NONE__" ? "" : value)}
                          disabled={isSaving}
                          name="videoLora"
                        >
@@ -347,7 +347,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                            <SelectValue placeholder="Select a LoRA..." />
                          </SelectTrigger>
                          <SelectContent>
-                           <SelectItem value="">-- None --</SelectItem>
+                           <SelectItem value="__NONE__">-- None --</SelectItem>
                            {availableLoras.map((lora) => (
                              <SelectItem key={lora.id} value={lora.id}>
                                {lora.name}
