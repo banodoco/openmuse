@@ -379,7 +379,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                          <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
                              <XCircle className="mr-2 h-4 w-4" /> Cancel
                          </Button>
-                         <Button onClick={handleSaveEdit} disabled={isSaving}>
+                         <Button
+                            onClick={(e) => {
+                                console.log('[VideoLightboxDebug] Save Changes button clicked!');
+                                handleSaveEdit();
+                            }}
+                            disabled={isSaving}
+                         >
                              <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
                          </Button>
                       </div>
