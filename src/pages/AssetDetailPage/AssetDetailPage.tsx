@@ -369,6 +369,11 @@ function AssetDetailPage() {
       
       {lightboxOpen && currentVideo && (() => {
         console.log('[VideoLightboxDebug] Rendering Lightbox. currentVideo:', currentVideo);
+        if (!currentVideo.id) {
+          console.error('[VideoLightboxDebug] ERROR: currentVideo is missing ID! Cannot render Lightbox.', currentVideo);
+          toast.error('Error: Cannot open video details (missing ID).');
+          return null;
+        }
         return (
           <VideoLightbox
             isOpen={lightboxOpen}
