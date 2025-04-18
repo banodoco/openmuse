@@ -198,12 +198,15 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const handleSaveEdit = async () => {
     if (!canEdit || !videoId) return;
     setIsSaving(true);
+    console.log('[VideoLightboxDebug] handleSaveEdit: Starting save process...');
 
     const updates = {
       title: editableTitle,
       description: editableDescription,
       lora_identifier: editableLoraIdentifier === "" ? null : editableLoraIdentifier,
     };
+    console.log('[VideoLightboxDebug] handleSaveEdit: Prepared updates:', updates);
+    console.log(`[VideoLightboxDebug] handleSaveEdit: Attempting update for videoId: ${videoId}`);
 
     try {
       const { error } = await supabase
@@ -211,18 +214,22 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
         .update(updates)
         .eq('id', videoId);
 
+      console.log('[VideoLightboxDebug] handleSaveEdit: Supabase update result:', { error });
+
       if (error) throw error;
 
       toast({
         title: "Video updated successfully!",
       });
+      console.log('[VideoLightboxDebug] handleSaveEdit: Update successful, toast shown.');
       setIsEditing(false);
       if (onVideoUpdate) {
+        console.log('[VideoLightboxDebug] handleSaveEdit: Calling onVideoUpdate...');
         onVideoUpdate();
       }
 
     } catch (error: any) {
-      console.error('Error updating video:', error);
+      console.error('[VideoLightboxDebug] handleSaveEdit: Error updating video:', error);
       toast({
         title: "Error updating video",
         description: error.message || "Could not save changes.",
@@ -230,6 +237,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       });
     } finally {
       setIsSaving(false);
+      console.log('[VideoLightboxDebug] handleSaveEdit: Finished save process (finally block).');
     }
   };
 
@@ -295,7 +303,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             
             <div className={cn(
               "p-4 flex-shrink",
-              isEditing ? "max-h-[50vh]" : "max-h-[75vh]"
+              isEditing ? "max-h-[40vh]" : "max-h-[75vh]"
             )}>
               <VideoPlayer
                 src={videoUrl}
