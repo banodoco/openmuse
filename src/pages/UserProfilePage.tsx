@@ -28,8 +28,12 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import { DummyCard, generateDummyItems } from '@/components/common/DummyCard';
+import { Logger } from '@/lib/logger';
+import { toast } from 'sonner';
 
 const ITEMS_PER_PAGE = 12; // Define items per page
+
+const logger = new Logger('UserProfilePage');
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -139,7 +143,7 @@ export default function UserProfilePage() {
       if (assetsData) {
         const processedAssets: LoraAsset[] = assetsData.map(asset => {
           const videoUrl = asset.primaryVideo?.url || '';
-          const thumbnailUrl = asset.primaryVideo?.metadata?.thumbnailUrl || null;
+          const thumbnailUrl = asset.primaryVideo?.metadata?.placeholder_image || null;
           
           return {
             id: asset.id,
@@ -157,7 +161,7 @@ export default function UserProfilePage() {
             lora_link: asset.lora_link,
             primaryVideo: asset.primaryVideo ? {
               id: asset.primaryVideo.id,
-              video_location: asset.primaryVideo.url,
+              url: asset.primaryVideo.url,
               reviewer_name: asset.primaryVideo.creator || '',
               skipped: false,
               created_at: asset.primaryVideo.created_at,
@@ -165,7 +169,7 @@ export default function UserProfilePage() {
               user_id: asset.primaryVideo.user_id,
               metadata: {
                 title: asset.primaryVideo.title,
-                thumbnailUrl: thumbnailUrl
+                placeholder_image: asset.primaryVideo.placeholder_image
               }
             } : undefined
           };
@@ -211,7 +215,7 @@ export default function UserProfilePage() {
           
           const processedVideo: VideoEntry = {
             id: video.id,
-            video_location: video.url,
+            url: video.url,
             reviewer_name: video.creator || '',
             skipped: false,
             created_at: video.created_at,
@@ -222,7 +226,7 @@ export default function UserProfilePage() {
               description: '',
               creator: 'self',
               classification: classification,
-              thumbnailUrl: video.metadata?.thumbnailUrl
+              placeholder_image: video.placeholder_image
             }
           };
           
@@ -385,19 +389,97 @@ export default function UserProfilePage() {
     setLightboxVideo(null);
   };
 
-  const deleteVideo = async (id: string) => {
+  const deleteVideo = async (videoId: string) => {
+    logger.log(`[deleteVideo] Initiated for video ID: ${videoId}`);
+    if (!canEdit) { 
+      logger.warn(`[deleteVideo] Permission denied: User cannot edit this profile. Video ID: ${videoId}`);
+      toast.error("You don't have permission to delete videos on this profile.");
+      return;
+    }
+
+    logger.log(`[deleteVideo] User authorized. Proceeding with deletion for video ID: ${videoId}`);
     try {
-      await supabase
+      logger.log(`[deleteVideo] Attempting to fetch media record for ID: ${videoId}`);
+      const { data: mediaRecord, error: fetchError } = await supabase
+        .from('media')
+        .select('url, placeholder_image')
+        .eq('id', videoId)
+        .single();
+
+      if (fetchError || !mediaRecord) {
+        logger.error(`[deleteVideo] Failed to fetch media record ${videoId}:`, fetchError);
+        throw new Error(`Could not fetch media record ${videoId}.`);
+      }
+      logger.log(`[deleteVideo] Successfully fetched media record for ID: ${videoId}`, mediaRecord);
+      
+      const videoPath = mediaRecord.url;
+      const thumbnailPath = mediaRecord.placeholder_image;
+      logger.log(`[deleteVideo] Video URL: ${videoPath || 'N/A'}, Thumbnail path: ${thumbnailPath || 'N/A'} for ID: ${videoId}`);
+
+      if (videoPath) {
+        logger.log(`[deleteVideo] Attempting to delete video file from 'videos' bucket: ${videoPath}`);
+        try {
+          const { data: deleteData, error: storageVideoError } = await supabase.storage
+            .from('videos')
+            .remove([videoPath]);
+          if (storageVideoError) {
+            logger.warn(`[deleteVideo] Failed to delete video file '${videoPath}' from storage (non-blocking):`, storageVideoError);
+            toast.warning(`Could not delete video file from storage.`);
+          } else {
+             logger.log(`[deleteVideo] Successfully deleted video file '${videoPath}' from storage.`, deleteData);
+          }
+        } catch (storageError) {
+           logger.warn(`[deleteVideo] Exception during video file storage deletion for '${videoPath}' (non-blocking):`, storageError);
+           toast.warning(`Error occurred during video file deletion.`);
+        }
+      } else {
+         logger.log(`[deleteVideo] No url found for media record ${videoId}. Skipping video storage deletion.`);
+      }
+      
+      if (thumbnailPath) {
+        logger.log(`[deleteVideo] Attempting to delete thumbnail file from 'thumbnails' bucket: ${thumbnailPath}`);
+         try {
+            const { data: deleteData, error: storageThumbnailError } = await supabase.storage
+              .from('thumbnails')
+              .remove([thumbnailPath]);
+            if (storageThumbnailError) {
+              logger.warn(`[deleteVideo] Failed to delete thumbnail file '${thumbnailPath}' from storage (non-blocking):`, storageThumbnailError);
+              toast.warning(`Could not delete thumbnail file from storage.`);
+            } else {
+               logger.log(`[deleteVideo] Successfully deleted thumbnail file '${thumbnailPath}' from storage.`, deleteData);
+            }
+         } catch (storageError) {
+            logger.warn(`[deleteVideo] Exception during thumbnail file storage deletion for '${thumbnailPath}' (non-blocking):`, storageError);
+            toast.warning(`Error occurred during thumbnail file deletion.`);
+         }
+      } else {
+          logger.log(`[deleteVideo] No placeholder_image found for media record ${videoId}. Skipping thumbnail storage deletion.`);
+      }
+
+      logger.log(`[deleteVideo] Attempting to delete media record from database for ID: ${videoId}`);
+      const { error: dbError } = await supabase
         .from('media')
         .delete()
-        .eq('id', id);
+        .eq('id', videoId);
+
+      if (dbError) {
+        logger.error(`[deleteVideo] Failed to delete media record ${videoId} from database:`, dbError);
+        throw dbError;
+      }
+      logger.log(`[deleteVideo] Successfully deleted media record from database for ID: ${videoId}`);
+
+      setGenerationVideos(prev => prev.filter(video => video.id !== videoId));
+      setArtVideos(prev => prev.filter(video => video.id !== videoId));
+      setUserVideos(prev => prev.filter(video => video.id !== videoId));
       
-      setGenerationVideos(prev => prev.filter(video => video.id !== id));
-      setArtVideos(prev => prev.filter(video => video.id !== id));
-      setUserVideos(prev => prev.filter(video => video.id !== id));
+      toast.success('Video deleted successfully');
+      logger.log(`[deleteVideo] Deletion successful for ID: ${videoId}. Local state updated.`);
+
     } catch (error) {
-      console.error('Error deleting video:', error);
+      logger.error(`[deleteVideo] Error during deletion process for video ID ${videoId}:`, error);
+      toast.error(`Failed to delete video: ${error.message || 'Unknown error'}`);
     }
+    logger.log(`[deleteVideo] Finished for video ID: ${videoId}`);
   };
 
   const approveVideo = async (id: string) => {
@@ -674,10 +756,11 @@ export default function UserProfilePage() {
                               <VideoCard
                                 key={item.id}
                                 video={item}
-                                isAdmin={!!isAdmin && canEdit}
+                                isAdmin={canEdit}
                                 onOpenLightbox={handleOpenLightbox}
                                 onApproveVideo={approveVideo}
-                                onDeleteVideo={rejectVideo}
+                                onRejectVideo={rejectVideo}
+                                onDeleteVideo={deleteVideo}
                                 isHovering={hoveredVideoId === item.id}
                                 onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                               />
@@ -739,10 +822,11 @@ export default function UserProfilePage() {
                               <VideoCard
                                 key={item.id}
                                 video={item}
-                                isAdmin={!!isAdmin && canEdit}
+                                isAdmin={canEdit}
                                 onOpenLightbox={handleOpenLightbox}
                                 onApproveVideo={approveVideo}
-                                onDeleteVideo={rejectVideo}
+                                onRejectVideo={rejectVideo}
+                                onDeleteVideo={deleteVideo}
                                 isHovering={hoveredVideoId === item.id}
                                 onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                               />
@@ -778,10 +862,10 @@ export default function UserProfilePage() {
         <VideoLightbox
           isOpen={!!lightboxVideo}
           onClose={handleCloseLightbox}
-          videoUrl={lightboxVideo.video_location}
+          videoUrl={lightboxVideo.url}
           title={lightboxVideo.metadata?.title}
-          creator={lightboxVideo.user_id}
-          thumbnailUrl={lightboxVideo.metadata?.thumbnailUrl}
+          creator={lightboxVideo.user_id || lightboxVideo.metadata?.creatorName}
+          thumbnailUrl={lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
         />
       )}
