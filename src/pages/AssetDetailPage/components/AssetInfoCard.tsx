@@ -38,7 +38,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
-import { logger } from "@/lib/logger";
+import { Logger } from "@/lib/logger";
+
+const logger = new Logger('AssetInfoCard');
 
 interface AssetInfoCardProps {
   asset: LoraAsset | null;
