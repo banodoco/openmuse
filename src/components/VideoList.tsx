@@ -69,7 +69,7 @@ const VideoList: React.FC<VideoListProps> = ({
       
       for (const video of videos) {
         try {
-          const url = await videoUrlService.getVideoUrl(video.video_location);
+          const url = await videoUrlService.getVideoUrl(video.url);
           if (url) {
             urlMap[video.id] = url;
           }

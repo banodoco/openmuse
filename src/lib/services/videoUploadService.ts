@@ -61,7 +61,7 @@ class VideoUploadService {
           classification: videoFile.metadata?.classification || 'art',
           creator: videoFile.metadata?.creatorName || reviewerName,
           user_id: userId || this.currentUserId,
-          admin_approved: 'Listed',
+          admin_status: 'Listed',
           placeholder_image: thumbnailUrl
         })
         .select()
@@ -96,11 +96,12 @@ class VideoUploadService {
       
       const entry: VideoEntry = {
         id: mediaData.id,
-        video_location: mediaData.url,
+        url: mediaData.url,
         reviewer_name: reviewerName,
         skipped: false,
         created_at: mediaData.created_at,
-        admin_approved: 'Listed',
+        admin_status: 'Listed',
+        user_status: null,
         user_id: mediaData.user_id,
         metadata: {
           ...(videoFile.metadata || {}),
@@ -108,12 +109,8 @@ class VideoUploadService {
           assetId
         }
       };
-      
-      return entry;
-    } catch (error) {
-      logger.error('Error in uploadVideo:', error);
-      throw error;
-    }
+    
+    return entry;
   }
   
   public async uploadVideoToExistingAsset(
@@ -165,7 +162,7 @@ class VideoUploadService {
           classification: videoFile.metadata?.classification || 'art',
           creator: videoFile.metadata?.creatorName || reviewerName,
           user_id: userId || this.currentUserId,
-          admin_approved: 'Listed'
+          admin_status: 'Listed'
         })
         .select()
         .single();
@@ -181,11 +178,12 @@ class VideoUploadService {
       
       const entry: VideoEntry = {
         id: mediaData.id,
-        video_location: mediaData.url,
+        url: mediaData.url,
         reviewer_name: reviewerName,
         skipped: false,
         created_at: mediaData.created_at,
-        admin_approved: 'Listed',
+        admin_status: 'Listed',
+        user_status: null,
         user_id: mediaData.user_id,
         metadata: {
           ...(videoFile.metadata || {}),
@@ -274,7 +272,7 @@ class VideoUploadService {
           creator: creatorName,
           user_id: userId,
           primary_media_id: mediaId,
-          admin_approved: 'Listed',
+          admin_status: 'Listed',
           lora_type: loraType,
           lora_link: loraLink
         })
@@ -308,7 +306,7 @@ class VideoUploadService {
     }
   }
   
-  public async addEntry(entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+  public async addEntry(entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status'>>): Promise<VideoEntry> {
     try {
       logger.log(`Adding new entry: ${JSON.stringify(entryData)}`);
       
@@ -320,12 +318,12 @@ class VideoUploadService {
         .from('media')
         .insert({
           title: entryData.metadata?.title || 'Untitled',
-          url: entryData.video_location,
+          url: entryData.url,
           type: 'video',
           classification: entryData.metadata?.classification || 'art',
           creator: entryData.metadata?.creatorName || entryData.reviewer_name,
           user_id: entryData.user_id || this.currentUserId,
-          admin_approved: 'Listed'
+          admin_status: 'Listed'
         })
         .select()
         .single();
@@ -357,11 +355,12 @@ class VideoUploadService {
       
       const newEntry: VideoEntry = {
         id: mediaData.id,
-        video_location: mediaData.url,
+        url: mediaData.url,
         reviewer_name: entryData.reviewer_name,
         skipped: entryData.skipped || false,
         created_at: mediaData.created_at,
-        admin_approved: 'Listed',
+        admin_status: 'Listed',
+        user_status: null,
         user_id: mediaData.user_id,
         metadata: {
           ...(entryData.metadata || {}),
@@ -378,7 +377,7 @@ class VideoUploadService {
   }
   
   public async addEntryToExistingAsset(
-    entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>,
+    entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status'>,
     assetId: string,
     isPrimary: boolean = false
   ): Promise<VideoEntry> {
@@ -393,12 +392,12 @@ class VideoUploadService {
         .from('media')
         .insert({
           title: entryData.metadata?.title || 'Untitled',
-          url: entryData.video_location,
+          url: entryData.url,
           type: 'video',
           classification: entryData.metadata?.classification || 'art',
           creator: entryData.metadata?.creatorName || entryData.reviewer_name,
           user_id: entryData.user_id || this.currentUserId,
-          admin_approved: 'Listed'
+          admin_status: 'Listed'
         })
         .select()
         .single();
@@ -414,11 +413,12 @@ class VideoUploadService {
       
       const newEntry: VideoEntry = {
         id: mediaData.id,
-        video_location: mediaData.url,
+        url: mediaData.url,
         reviewer_name: entryData.reviewer_name,
         skipped: entryData.skipped || false,
         created_at: mediaData.created_at,
-        admin_approved: 'Listed',
+        admin_status: 'Listed',
+        user_status: null,
         user_id: mediaData.user_id,
         metadata: {
           ...(entryData.metadata || {}),

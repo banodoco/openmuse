@@ -48,7 +48,6 @@ export type Database = {
       assets: {
         Row: {
           admin_status: string | null
-          user_status: string | null
           created_at: string
           creator: string | null
           description: string | null
@@ -61,10 +60,10 @@ export type Database = {
           primary_media_id: string | null
           type: string
           user_id: string | null
+          user_status: string | null
         }
         Insert: {
           admin_status?: string | null
-          user_status?: string | null
           created_at?: string
           creator?: string | null
           description?: string | null
@@ -77,10 +76,10 @@ export type Database = {
           primary_media_id?: string | null
           type: string
           user_id?: string | null
+          user_status?: string | null
         }
         Update: {
           admin_status?: string | null
-          user_status?: string | null
           created_at?: string
           creator?: string | null
           description?: string | null
@@ -93,6 +92,7 @@ export type Database = {
           primary_media_id?: string | null
           type?: string
           user_id?: string | null
+          user_status?: string | null
         }
         Relationships: [
           {
@@ -107,7 +107,6 @@ export type Database = {
       media: {
         Row: {
           admin_status: string | null
-          user_status: string | null
           classification: string | null
           created_at: string
           creator: string | null
@@ -119,10 +118,10 @@ export type Database = {
           type: string
           url: string
           user_id: string | null
+          user_status: string | null
         }
         Insert: {
           admin_status?: string | null
-          user_status?: string | null
           classification?: string | null
           created_at?: string
           creator?: string | null
@@ -134,10 +133,10 @@ export type Database = {
           type: string
           url: string
           user_id?: string | null
+          user_status?: string | null
         }
         Update: {
           admin_status?: string | null
-          user_status?: string | null
           classification?: string | null
           created_at?: string
           creator?: string | null
@@ -149,6 +148,7 @@ export type Database = {
           type?: string
           url?: string
           user_id?: string | null
+          user_status?: string | null
         }
         Relationships: []
       }

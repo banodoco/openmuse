@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { VideoEntry } from '@/lib/types';
@@ -64,7 +63,7 @@ const VideoPage: React.FC = () => {
           console.log('Found video:', foundVideo);
           setVideo(foundVideo);
           
-          if (!foundVideo.video_location || !isValidVideoUrl(foundVideo.video_location)) {
+          if (!foundVideo.url || !isValidVideoUrl(foundVideo.url)) {
             setVideoError("This video has an invalid or expired URL");
           }
           
@@ -76,7 +75,7 @@ const VideoPage: React.FC = () => {
             );
             
             const validVideos = related.filter(
-              video => video.video_location && isValidVideoUrl(video.video_location)
+              video => video.url && isValidVideoUrl(video.url)
             );
             
             setRelatedVideos(related);
@@ -118,8 +117,8 @@ const VideoPage: React.FC = () => {
   };
 
   const filteredRelatedVideos = validRelatedVideos.filter(video => {
-    if (assetFilter.approved && video.admin_approved === 'Curated') return true;
-    if (assetFilter.notApproved && (video.admin_approved === 'Rejected' || video.admin_approved === 'Listed' || video.admin_approved === null)) return true;
+    if (assetFilter.approved && video.admin_status === 'Curated') return true;
+    if (assetFilter.notApproved && (video.admin_status === 'Rejected' || video.admin_status === 'Listed' || video.admin_status === null)) return true;
     return false;
   });
 
@@ -154,7 +153,7 @@ const VideoPage: React.FC = () => {
     );
   }
 
-  const hasValidVideo = video.video_location && isValidVideoUrl(video.video_location);
+  const hasValidVideo = video.url && isValidVideoUrl(video.url);
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
@@ -192,7 +191,7 @@ const VideoPage: React.FC = () => {
                 <div className="aspect-video w-full bg-muted rounded-md overflow-hidden">
                   {hasValidVideo ? (
                     <VideoPlayer 
-                      src={video.video_location} 
+                      src={video.url} 
                       controls
                       onLoadedData={handleVideoLoaded}
                       onError={handleVideoError}
@@ -219,7 +218,7 @@ const VideoPage: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-medium text-muted-foreground">Approval Status</h3>
                   <div className="mt-1">
-                    {video.admin_approved === 'Curated' ? (
+                    {video.admin_status === 'Curated' ? (
                       <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                         <Check className="h-3 w-3" />
                         Curated
@@ -227,7 +226,7 @@ const VideoPage: React.FC = () => {
                     ) : (
                       <Badge variant="destructive" className="gap-1">
                         <X className="h-3 w-3" />
-                        {video.admin_approved === 'Rejected' ? 'Rejected' : 'Listed'}
+                        {video.admin_status === 'Rejected' ? 'Rejected' : 'Listed'}
                       </Badge>
                     )}
                   </div>
@@ -341,7 +340,7 @@ const VideoPage: React.FC = () => {
                       <TableCell>{relatedVideo.metadata?.creatorName || relatedVideo.reviewer_name}</TableCell>
                       <TableCell>{formatDate(relatedVideo.created_at)}</TableCell>
                       <TableCell>
-                        {relatedVideo.admin_approved === 'Curated' ? (
+                        {relatedVideo.admin_status === 'Curated' ? (
                           <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                             <Check className="h-3 w-3" />
                             Curated
@@ -349,7 +348,7 @@ const VideoPage: React.FC = () => {
                         ) : (
                           <Badge variant="destructive" className="gap-1">
                             <X className="h-3 w-3" />
-                            {relatedVideo.admin_approved === 'Rejected' ? 'Rejected' : 'Listed'}
+                            {relatedVideo.admin_status === 'Rejected' ? 'Rejected' : 'Listed'}
                           </Badge>
                         )}
                       </TableCell>

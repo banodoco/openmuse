@@ -15,7 +15,6 @@ export class SupabaseDatabase extends BaseDatabase {
     try {
       this.logger.log("Getting all entries from media table");
       
-      // Fetch media entries of type 'video'
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .select('*, assets(id, name, description, type, creator)')
@@ -29,9 +28,7 @@ export class SupabaseDatabase extends BaseDatabase {
       
       this.logger.log(`Retrieved ${mediaData?.length || 0} media entries`);
       
-      // Transform media entries to VideoEntry format
       const entries: VideoEntry[] = mediaData.map(media => {
-        // Find associated asset (if any)
         const asset = media.assets && media.assets.length > 0 ? media.assets[0] : null;
         
         return {
@@ -40,8 +37,8 @@ export class SupabaseDatabase extends BaseDatabase {
           reviewer_name: media.creator || 'Unknown',
           skipped: false,
           created_at: media.created_at,
-          admin_status: media.admin_status || 'Listed', // Default to Listed
-          user_status: media.user_status || null, // Added user_status
+          admin_status: media.admin_status || 'Listed',
+          user_status: media.user_status || null,
           user_id: media.user_id,
           metadata: {
             title: media.title,
@@ -51,18 +48,16 @@ export class SupabaseDatabase extends BaseDatabase {
             loraName: asset?.name,
             loraDescription: asset?.description,
             assetId: asset?.id,
-            isPrimary: false // Will be updated later
+            isPrimary: false
           }
         };
       });
-      
-      // Get asset-media relationships to determine primary videos
+
       const { data: assetMediaData, error: assetMediaError } = await supabase
         .from('assets')
         .select('id, primary_media_id');
       
       if (!assetMediaError && assetMediaData) {
-        // Mark primary videos
         for (const entry of entries) {
           if (entry.metadata?.assetId) {
             const asset = assetMediaData.find(a => a.id === entry.metadata?.assetId);
@@ -82,7 +77,6 @@ export class SupabaseDatabase extends BaseDatabase {
   
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
     try {
-      // Update the media entry
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .update({
@@ -100,7 +94,6 @@ export class SupabaseDatabase extends BaseDatabase {
         return null;
       }
       
-      // If there's an asset ID in metadata, update the asset too
       if (update.metadata?.assetId) {
         const { error: assetError } = await supabase
           .from('assets')
@@ -118,7 +111,6 @@ export class SupabaseDatabase extends BaseDatabase {
         }
       }
       
-      // Construct the updated VideoEntry object
       const updatedEntry: VideoEntry = {
         id: mediaData.id,
         url: mediaData.url,
@@ -157,11 +149,9 @@ export class SupabaseDatabase extends BaseDatabase {
   }
   
   async getVideoUrl(videoLocation: string): Promise<string> {
-    // Delegate to the videoUrlService for more robust URL handling
     return videoUrlService.getVideoUrl(videoLocation);
   }
 
-  // Add missing method implementations to satisfy the abstract base class
   async deleteEntry(id: string): Promise<boolean> {
     this.logger.error("deleteEntry not implemented in base SupabaseDatabase class");
     return false;
