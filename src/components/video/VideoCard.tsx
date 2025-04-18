@@ -80,8 +80,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
     };
     
-    if (video.metadata?.thumbnailUrl) {
-      setThumbnailUrl(video.metadata.thumbnailUrl);
+    if (video.metadata?.placeholder_image) {
+      setThumbnailUrl(video.metadata.placeholder_image);
     }
     
     fetchCreatorProfile();
@@ -209,7 +209,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         <div className="absolute inset-0 w-full h-full">
           <VideoPreview
             key={`video-${video.id}`}
-            url={video.video_location}
+            url={video.url}
             title={video.metadata?.title || `Video by ${getCreatorName()}`}
             creator={getCreatorName()}
             className="w-full h-full object-cover"

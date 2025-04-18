@@ -43,8 +43,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const { user } = useAuth();
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   
-  const videoUrl = lora.primaryVideo?.video_location;
-  const thumbnailUrl = lora.primaryVideo?.metadata?.thumbnailUrl;
+  const videoUrl = lora.primaryVideo?.url;
+  const thumbnailUrl = lora.primaryVideo?.metadata?.placeholder_image;
   
   const getModelColor = (modelType?: string): string => {
     switch (modelType?.toLowerCase()) {

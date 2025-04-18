@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { supabase, debugAssetMedia } from '@/integrations/supabase/client';
 import { LoraAsset, VideoEntry } from '@/lib/types';
@@ -27,7 +26,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
       console.log('AssetDetailPage - Fetching asset details for ID:', assetId);
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
-        .select('*')
+        .select('*, primaryVideo:primary_media_id(*)')
         .eq('id', assetId)
         .maybeSingle();
 
@@ -110,6 +109,55 @@ export const useAssetDetails = (assetId: string | undefined) => {
         console.log('AssetDetailPage - Videos for this asset (filtered by name):', assetVideos?.length || 0);
       }
 
+      const pVideo = assetData.primaryVideo;
+      logger.log(`[useAssetDetails] Processing asset: ${assetData.id}, Fetched Primary Video Data (pVideo):`, {
+          exists: !!pVideo,
+          id: pVideo?.id,
+          url: pVideo?.url,
+          placeholder: pVideo?.placeholder_image,
+          title: pVideo?.title
+      });
+
+      const processedAsset: LoraAsset = {
+          id: assetData.id,
+          name: assetData.name,
+          description: assetData.description,
+          creator: assetData.creator,
+          type: assetData.type,
+          created_at: assetData.created_at,
+          user_id: assetData.user_id,
+          primary_media_id: assetData.primary_media_id,
+          admin_approved: assetData.admin_approved,
+          lora_type: assetData.lora_type,
+          lora_base_model: assetData.lora_base_model,
+          model_variant: assetData.model_variant,
+          lora_link: assetData.lora_link,
+          primaryVideo: pVideo ? {
+              id: pVideo.id,
+              url: pVideo.url,
+              reviewer_name: pVideo.creator || '',
+              skipped: false,
+              created_at: pVideo.created_at,
+              admin_approved: pVideo.admin_approved,
+              user_id: pVideo.user_id,
+              metadata: {
+                  title: pVideo.title || assetData.name,
+                  placeholder_image: pVideo.placeholder_image || null,
+                  description: pVideo.description,
+                  creator: pVideo.creator ? 'self' : undefined,
+                  creatorName: pVideo.creator_name,
+                  classification: pVideo.classification,
+                  loraName: assetData.name,
+                  assetId: assetData.id,
+                  loraType: assetData.lora_type,
+                  model: assetData.lora_base_model,
+                  modelVariant: assetData.model_variant,
+              }
+          } : undefined
+      };
+      
+      setAsset(processedAsset);
+
       const convertedVideos: VideoEntry[] = await Promise.all(
         assetVideos.map(async (media: any) => {
           try {
@@ -117,22 +165,26 @@ export const useAssetDetails = (assetId: string | undefined) => {
             
             return {
               id: media.id,
-              video_location: videoUrl,
+              url: videoUrl,
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
               created_at: media.created_at,
               admin_approved: media.admin_approved || 'Listed',
               user_id: media.user_id,
               metadata: {
-                title: media.title,
-                description: '',
+                title: media.title || processedAsset.name,
+                description: media.description || '',
+                placeholder_image: media.placeholder_image || null,
                 classification: media.classification,
-                model: assetData.lora_base_model || media.type, // Use asset's base model first, fall back to media type
-                loraName: assetData.name,
-                loraDescription: assetData.description,
-                assetId: assetData.id,
-                loraType: assetData.lora_type, // LoRA type (Concept, Motion Style, etc)
-                loraLink: assetData.lora_link
+                model: processedAsset.lora_base_model || media.type,
+                loraName: processedAsset.name,
+                loraDescription: processedAsset.description,
+                assetId: processedAsset.id,
+                loraType: processedAsset.lora_type,
+                loraLink: processedAsset.lora_link,
+                creator: media.creator ? 'self' : undefined,
+                creatorName: media.creator_name,
+                modelVariant: processedAsset.model_variant,
               }
             };
           } catch (error) {
@@ -142,9 +194,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
         })
       );
 
-      setAsset(assetData);
       setVideos(convertedVideos.filter(v => v !== null) as VideoEntry[]);
-      console.log('AssetDetailPage - Final processed videos:', convertedVideos.filter(v => v !== null).length);
+      console.log('AssetDetailPage - Final processed related videos:', convertedVideos.filter(v => v !== null).length);
     } catch (error) {
       console.error('Error fetching asset details:', error);
       toast.error('Failed to load asset details');

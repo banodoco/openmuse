@@ -142,9 +142,16 @@ export default function UserProfilePage() {
 
       if (assetsData) {
         const processedAssets: LoraAsset[] = assetsData.map(asset => {
-          const videoUrl = asset.primaryVideo?.url || '';
-          const thumbnailUrl = asset.primaryVideo?.metadata?.placeholder_image || null;
+          const pVideo = asset.primaryVideo; // Raw primary video data from join
           
+          logger.log(`[fetchUserAssets] Processing asset: ${asset.id}, Primary Video Data (pVideo):`, {
+            exists: !!pVideo,
+            id: pVideo?.id,
+            url: pVideo?.url, // Log the URL we expect to use
+            placeholder: pVideo?.placeholder_image, // Log the placeholder image
+            title: pVideo?.title
+          });
+
           return {
             id: asset.id,
             name: asset.name,
@@ -159,18 +166,28 @@ export default function UserProfilePage() {
             lora_base_model: asset.lora_base_model,
             model_variant: asset.model_variant,
             lora_link: asset.lora_link,
-            primaryVideo: asset.primaryVideo ? {
-              id: asset.primaryVideo.id,
-              url: asset.primaryVideo.url,
-              reviewer_name: asset.primaryVideo.creator || '',
+            
+            primaryVideo: pVideo ? {
+              id: pVideo.id,
+              url: pVideo.url,
+              reviewer_name: pVideo.creator || '',
               skipped: false,
-              created_at: asset.primaryVideo.created_at,
-              admin_approved: asset.primaryVideo.admin_approved,
-              user_id: asset.primaryVideo.user_id,
+              created_at: pVideo.created_at,
+              admin_approved: pVideo.admin_approved,
+              user_id: pVideo.user_id,
               metadata: {
-                title: asset.primaryVideo.title,
-                placeholder_image: asset.primaryVideo.placeholder_image
-              }
+                title: pVideo.title || asset.name,
+                placeholder_image: pVideo.placeholder_image || null,
+                description: pVideo.description,
+                creator: pVideo.creator ? 'self' : undefined,
+                creatorName: pVideo.creator_name,
+                classification: pVideo.classification,
+                loraName: asset.name,
+                assetId: asset.id,
+                loraType: asset.lora_type,
+                model: asset.lora_base_model,
+                modelVariant: asset.model_variant,
+              } 
             } : undefined
           };
         });

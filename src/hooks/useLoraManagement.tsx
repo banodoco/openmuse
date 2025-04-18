@@ -52,7 +52,6 @@ export const useLoraManagement = (filters: LoraFilters) => {
   };
 
   const loadAllLoras = useCallback(async () => {
-    // Pass filters to the log
     logger.log(`[loadAllLoras] Attempting to load... Filters: model=${modelFilter}, approval=${approvalFilter}`);
     
     if (!isMounted.current) {
@@ -61,10 +60,6 @@ export const useLoraManagement = (filters: LoraFilters) => {
     }
     if (fetchInProgress.current) {
       logger.log("[loadAllLoras] Skipping: Fetch already in progress");
-      return;
-    }
-    if (videosLoading) {
-      logger.log("[loadAllLoras] Skipping: Videos still loading");
       return;
     }
 
@@ -86,8 +81,8 @@ export const useLoraManagement = (filters: LoraFilters) => {
     try {
       let query = supabase
         .from('assets')
-        .select('*')
-        .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`); // Base filter for LoRA type
+        .select('*, primaryVideo:primary_media_id(*)')
+        .or(`type.ilike.%lora%,type.eq.LoRA,type.eq.lora,type.eq.Lora`);
 
       // Apply model filter if not 'all'
       if (modelFilter && modelFilter !== 'all') {
@@ -154,33 +149,49 @@ export const useLoraManagement = (filters: LoraFilters) => {
         logger.log("[loadAllLoras] No unique user IDs found, skipping profile fetch.");
       }
 
-      logger.log("[loadAllLoras] Combining LoRAs with videos and profiles...");
-      const lorasWithVideos = loraAssets?.map((asset) => {
-        const primaryVideo = videos.find(v => v.id === asset.primary_media_id);
-        const assetVideos = videos.filter(v =>
-          v.metadata?.assetId === asset.id ||
-          (v.metadata?.loraName &&
-           v.metadata.loraName.toLowerCase() === (asset.name || '').toLowerCase())
-        );
-        const admin_approved = asset.admin_approved || 'Listed';
+      logger.log("[loadAllLoras] Combining LoRAs with profiles...");
+      const processedLoras: LoraAsset[] = loraAssets?.map((asset) => {
+        const pVideo = asset.primaryVideo;
         const creatorDisplayName = asset.user_id && userProfiles[asset.user_id]
           ? userProfiles[asset.user_id]
           : asset.creator;
+        
+        logger.log(`[loadAllLoras] Processing asset ${asset.id}. Joined pVideo exists: ${!!pVideo}`);
+        
         return {
-          ...asset,
-          primaryVideo,
-          videos: assetVideos,
-          admin_approved,
-          creatorDisplayName,
-          model_variant: asset.model_variant
+          ...asset, 
+          primaryVideo: pVideo ? { 
+              id: pVideo.id,
+              url: pVideo.url,
+              reviewer_name: pVideo.creator || '', 
+              skipped: false,
+              created_at: pVideo.created_at,
+              admin_approved: pVideo.admin_approved,
+              user_id: pVideo.user_id,
+              metadata: {
+                  title: pVideo.title || asset.name,
+                  placeholder_image: pVideo.placeholder_image || null,
+                  description: pVideo.description, 
+                  creator: pVideo.creator ? 'self' : undefined,
+                  creatorName: pVideo.creator_name,
+                  classification: pVideo.classification,
+                  loraName: asset.name,
+                  assetId: asset.id,
+                  loraType: asset.lora_type,
+                  model: asset.lora_base_model,
+                  modelVariant: asset.model_variant,
+              }
+          } : undefined,
+          creatorDisplayName: creatorDisplayName,
+          admin_approved: asset.admin_approved || (approvalFilter === 'listed' ? 'Listed' : asset.admin_approved) 
         } as LoraAsset;
       }) || [];
 
-      logger.log("[loadAllLoras] Final combined LoRAs count:", lorasWithVideos.length);
+      logger.log("[loadAllLoras] Final processed LoRAs count:", processedLoras.length);
 
       if (isMounted.current) {
         logger.log("[loadAllLoras] Setting loras state and isLoading = false");
-        setLoras(lorasWithVideos);
+        setLoras(processedLoras);
         setIsLoading(false);
         if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
       }
@@ -200,22 +211,20 @@ export const useLoraManagement = (filters: LoraFilters) => {
          logger.log("[loadAllLoras] FINALLY block: Component unmounted, fetchInProgress remains", fetchInProgress.current);
       }
     }
-  // Add filters to dependencies
-  }, [videos, videosLoading, modelFilter, approvalFilter]); 
+  // Depend on filters ONLY (remove videos/videosLoading dependency here if not needed for processing)
+  }, [modelFilter, approvalFilter]); 
 
   useEffect(() => {
-    // This effect now triggers loadAllLoras whenever videos finish loading OR when filters change
-    logger.log(`[Effect Load/Refetch] Running. State: videosLoading=${videosLoading}, fetchInProgress=${fetchInProgress.current}. Filters: model=${modelFilter}, approval=${approvalFilter}`);
-    if (!videosLoading && !fetchInProgress.current) {
-      logger.log("[Effect Load/Refetch] Videos loaded & no fetch in progress, triggering loadAllLoras.");
+    // This effect triggers loadAllLoras when filters change
+    logger.log(`[Effect Load/Refetch] Running. Filters: model=${modelFilter}, approval=${approvalFilter}`);
+    if (!fetchInProgress.current) { // Only trigger if not already fetching
+      logger.log("[Effect Load/Refetch] Triggering loadAllLoras due to filter change or initial load.");
       loadAllLoras();
-    } else if (videosLoading) {
-      logger.log("[Effect Load/Refetch] Waiting for videos to load.");
-    } else if (fetchInProgress.current) {
+    } else {
       logger.log("[Effect Load/Refetch] Fetch already in progress, skipping trigger.");
     }
-  // Depend on filters and videosLoading status
-  }, [videosLoading, modelFilter, approvalFilter, loadAllLoras]); 
+  // Depend only on filters and loadAllLoras callback reference
+  }, [modelFilter, approvalFilter, loadAllLoras]); 
 
   useEffect(() => {
     logger.log('[Effect Mount] Setting isMounted = true');
