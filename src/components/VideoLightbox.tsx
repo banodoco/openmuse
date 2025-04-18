@@ -57,6 +57,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   creatorId,
   onVideoUpdate
 }) => {
+  console.log('[VideoLightboxDebug] Component Rendered. Initial videoId prop:', videoId);
   console.log('[VideoLightboxDebug] Component Version: 2024-07-29_17:48'); // Simple version log
 
   const authContext = useContext(AuthContext);
@@ -198,6 +199,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   };
 
   const handleSaveEdit = async () => {
+    console.log('[VideoLightboxDebug] handleSaveEdit: videoId *before* check:', videoId);
     console.log(`[VideoLightboxDebug] Checking save conditions: canEdit=${canEdit}, videoId=${videoId}`); // Check guard values
     if (!canEdit || !videoId) return;
     setIsSaving(true);
