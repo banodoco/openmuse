@@ -44,10 +44,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   useEffect(() => {
     isHoveringRef.current = isHovering;
-    logger.log(`VideoCard: isHovering prop changed for ${video.id}: ${isHovering}`);
+    logger.log(`[${video.id}] VideoCard: isHovering prop changed: ${isHovering}`);
   }, [isHovering, video.id]);
   
   useEffect(() => {
+    logger.log(`[${video.id}] VideoCard: useEffect for metadata/profile running.`);
     const fetchCreatorProfile = async () => {
       if (video.user_id) {
         try {
@@ -66,19 +67,23 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
     };
     
-    if (video.metadata?.thumbnailUrl) {
-      const initialUrl = video.metadata.thumbnailUrl;
+    const initialUrlFromMetadata = video.metadata?.thumbnailUrl;
+    logger.log(`[${video.id}] VideoCard: Received initial metadata.thumbnailUrl: ${initialUrlFromMetadata}`);
+
+    if (initialUrlFromMetadata) {
+      const initialUrl = initialUrlFromMetadata;
       setThumbnailUrl(initialUrl);
       if (initialUrl === 'FAILED_GENERATION') {
         setShouldAttemptGeneration(true);
-        logger.log(`VideoCard: Initial state for ${video.id} is FAILED_GENERATION, will attempt generation.`);
+        logger.log(`[${video.id}] VideoCard: Initial state is FAILED_GENERATION. Setting shouldAttemptGeneration = true.`);
       } else {
         setShouldAttemptGeneration(false);
+        logger.log(`[${video.id}] VideoCard: Initial state is a URL. Setting shouldAttemptGeneration = false.`);
       }
     } else {
       setThumbnailUrl(null);
       setShouldAttemptGeneration(false);
-      logger.log(`VideoCard: Initial state for ${video.id} has no thumbnailUrl, generation will not be attempted.`);
+      logger.log(`[${video.id}] VideoCard: Initial state is null/undefined. Setting shouldAttemptGeneration = false.`);
     }
     
     fetchCreatorProfile();
@@ -86,14 +91,16 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleThumbnailUpdate = async (result: { success: true; url: string } | { success: false }) => {
     if (!video.id) {
-      logger.error('VideoCard: Cannot update thumbnail, video ID is missing.');
+      logger.error('[NO_ID] VideoCard: Cannot update thumbnail, video ID is missing.');
       return;
     }
+    logger.log(`[${video.id}] VideoCard: handleThumbnailUpdate called. Result: ${JSON.stringify(result)}`);
 
     const valueToSave = result.success ? result.url : 'FAILED_GENERATION';
-    logger.log(`VideoCard: Handling thumbnail update for video ${video.id}. Result: ${result.success ? 'Success' : 'Failure'}. Value to save: ${valueToSave}`);
+    logger.log(`[${video.id}] VideoCard: Determined valueToSave: ${valueToSave}`);
 
     try {
+      logger.log(`[${video.id}] VideoCard: Fetching current metadata before update...`);
       const { data: currentMedia, error: fetchError } = await supabase
         .from('media')
         .select('metadata')
@@ -106,8 +113,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
 
       const currentMetadata = currentMedia?.metadata || {};
+      logger.log(`[${video.id}] VideoCard: Fetched current metadata.thumbnailUrl: ${currentMetadata.thumbnailUrl}`);
+
       if (currentMetadata.thumbnailUrl === valueToSave) {
-        logger.log(`VideoCard: Thumbnail URL for video ${video.id} is already ${valueToSave}. Skipping DB update.`);
+        logger.log(`[${video.id}] VideoCard: Thumbnail URL already matches valueToSave (${valueToSave}). Skipping DB update.`);
+        if (!result.success) {
+          logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = false after failed attempt (DB skip).`);
+          setShouldAttemptGeneration(false);
+        }
         return;
       }
 
@@ -115,23 +128,26 @@ const VideoCard: React.FC<VideoCardProps> = ({
         ...currentMetadata,
         thumbnailUrl: valueToSave
       };
+      logger.log(`[${video.id}] VideoCard: New metadata object prepared: ${JSON.stringify(newMetadata)}`);
 
+      logger.log(`[${video.id}] VideoCard: Calling Supabase to update metadata...`);
       const { error: updateError } = await supabase
         .from('media')
         .update({ metadata: newMetadata })
         .eq('id', video.id);
 
       if (updateError) {
-        logger.error(`VideoCard: Error updating thumbnail URL in DB for video ${video.id}:`, updateError);
+        logger.error(`[${video.id}] VideoCard: Supabase update error:`, updateError);
       } else {
-        logger.log(`VideoCard: Successfully updated thumbnail URL in DB for video ${video.id} to ${valueToSave}`);
+        logger.log(`[${video.id}] VideoCard: Supabase update successful. Updating local state.`);
         setThumbnailUrl(valueToSave);
         if (!result.success) {
+          logger.log(`[${video.id}] VideoCard: Setting shouldAttemptGeneration = false after failed attempt (DB update).`);
           setShouldAttemptGeneration(false);
         }
       }
     } catch (error) {
-      logger.error(`VideoCard: Unexpected error updating thumbnail in DB for video ${video.id}:`, error);
+      logger.error(`[${video.id}] VideoCard: Unexpected error in handleThumbnailUpdate:`, error);
     }
   };
   
@@ -243,8 +259,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
             thumbnailUrl={thumbnailUrl === 'FAILED_GENERATION' ? null : thumbnailUrl}
             forceGenerate={shouldAttemptGeneration}
             onLoadedData={handleVideoLoad}
-            onThumbnailSuccess={(url) => handleThumbnailUpdate({ success: true, url })}
-            onThumbnailFailure={() => handleThumbnailUpdate({ success: false })}
+            onThumbnailSuccess={(url) => {
+              logger.log(`[${video.id}] VideoCard: onThumbnailSuccess called by VideoPreview with url: ${url ? url.substring(0,30)+'...' : 'null'}`);
+              handleThumbnailUpdate({ success: true, url });
+            }}
+            onThumbnailFailure={() => {
+              logger.log(`[${video.id}] VideoCard: onThumbnailFailure called by VideoPreview.`);
+              handleThumbnailUpdate({ success: false });
+            }}
           />
           
           {!isMobile && (
