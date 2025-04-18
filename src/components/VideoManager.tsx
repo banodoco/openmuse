@@ -44,18 +44,18 @@ const VideoManager: React.FC<VideoManagerProps> = ({
   
   const filteredVideos = React.useMemo(() => {
     if (videoFilter === 'curated') {
-      return sortedVideos.filter(video => video.admin_approved === 'Curated');
+      return sortedVideos.filter(video => video.admin_status === 'Curated');
     } else if (videoFilter === 'listed') {
-      return sortedVideos.filter(video => !video.admin_approved || video.admin_approved === 'Listed');
+      return sortedVideos.filter(video => video.admin_status === 'Listed');
     } else if (videoFilter === 'rejected') {
-      return sortedVideos.filter(video => video.admin_approved === 'Rejected');
+      return sortedVideos.filter(video => video.admin_status === 'Rejected');
     }
     return sortedVideos;
   }, [sortedVideos, videoFilter]);
   
-  const curatedVideos = sortedVideos.filter(video => video.admin_approved === 'Curated');
-  const listedVideos = sortedVideos.filter(video => !video.admin_approved || video.admin_approved === 'Listed');
-  const rejectedVideos = sortedVideos.filter(video => video.admin_approved === 'Rejected');
+  const curatedVideos = sortedVideos.filter(video => video.admin_status === 'Curated');
+  const listedVideos = sortedVideos.filter(video => video.admin_status === 'Listed');
+  const rejectedVideos = sortedVideos.filter(video => video.admin_status === 'Rejected');
   
   const handleDelete = async (id: string) => {
     try {

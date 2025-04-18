@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MultipleVideoUploader } from '@/pages/upload/components';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -119,7 +118,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
           console.log(`Adding video URL: title=${video.metadata.title}, assetId=${assetId}`);
           
           return videoUploadService.addEntryToExistingAsset({
-            video_location: video.url,
+            url: video.url,
             reviewer_name: username,
             skipped: false,
             user_id: user?.id || null,

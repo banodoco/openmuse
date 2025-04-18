@@ -155,7 +155,7 @@ const VideoList: React.FC<VideoListProps> = ({
       for (const videoId of selectedVideos) {
         await supabase
           .from('media')
-          .update({ admin_approved: 'Curated' })
+          .update({ admin_status: 'Curated' })
           .eq('id', videoId);
       }
       toast.success('Selected videos curated successfully.');
@@ -179,7 +179,7 @@ const VideoList: React.FC<VideoListProps> = ({
       for (const videoId of selectedVideos) {
         await supabase
           .from('media')
-          .update({ admin_approved: 'Listed' })
+          .update({ admin_status: 'Listed' })
           .eq('id', videoId);
       }
       toast.success('Selected videos listed successfully.');
@@ -203,7 +203,7 @@ const VideoList: React.FC<VideoListProps> = ({
       for (const videoId of selectedVideos) {
         await supabase
           .from('media')
-          .update({ admin_approved: 'Rejected' })
+          .update({ admin_status: 'Rejected' })
           .eq('id', videoId);
       }
       toast.success('Selected videos rejected successfully.');

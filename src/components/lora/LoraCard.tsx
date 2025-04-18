@@ -109,13 +109,13 @@ const LoraCard: React.FC<LoraCardProps> = ({
     try {
       const { error } = await supabase
         .from('assets')
-        .update({ admin_approved: 'Curated' })
+        .update({ admin_status: 'Curated' })
         .eq('id', lora.id);
       
       if (error) throw error;
       
       toast.success('LoRA curated successfully');
-      lora.admin_approved = 'Curated';
+      lora.admin_status = 'Curated';
     } catch (error) {
       console.error('Error curating LoRA:', error);
       toast.error('Failed to curate LoRA');
@@ -131,13 +131,13 @@ const LoraCard: React.FC<LoraCardProps> = ({
     try {
       const { error } = await supabase
         .from('assets')
-        .update({ admin_approved: 'Listed' })
+        .update({ admin_status: 'Listed' })
         .eq('id', lora.id);
       
       if (error) throw error;
       
       toast.success('LoRA listed successfully');
-      lora.admin_approved = 'Listed';
+      lora.admin_status = 'Listed';
     } catch (error) {
       console.error('Error listing LoRA:', error);
       toast.error('Failed to list LoRA');
@@ -153,13 +153,13 @@ const LoraCard: React.FC<LoraCardProps> = ({
     try {
       const { error } = await supabase
         .from('assets')
-        .update({ admin_approved: 'Rejected' })
+        .update({ admin_status: 'Rejected' })
         .eq('id', lora.id);
       
       if (error) throw error;
       
       toast.success('LoRA rejected');
-      lora.admin_approved = 'Rejected';
+      lora.admin_status = 'Rejected';
     } catch (error) {
       console.error('Error rejecting LoRA:', error);
       toast.error('Failed to reject LoRA');
@@ -169,7 +169,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   };
   
   const getButtonStyle = (status: string) => {
-    const isActive = lora.admin_approved === status;
+    const isActive = lora.admin_status === status;
     
     return cn(
       "text-xs h-8 flex-1",

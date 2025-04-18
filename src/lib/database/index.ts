@@ -1,4 +1,3 @@
-
 import { databaseProvider } from './DatabaseProvider';
 import { VideoEntry } from '../types';
 
@@ -66,7 +65,7 @@ export class VideoDatabase {
   /**
    * Add a new video entry
    */
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status' | 'user_status'>): Promise<VideoEntry> {
     const db = await databaseProvider.getDatabase();
     return db.addEntry(entry);
   }
@@ -74,7 +73,7 @@ export class VideoDatabase {
   /**
    * Create a new video entry (alias for addEntry)
    */
-  async createEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+  async createEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status' | 'user_status'>): Promise<VideoEntry> {
     const db = await databaseProvider.getDatabase();
     return db.createEntry(entry);
   }

@@ -93,13 +93,10 @@ export const useLoraManagement = (filters: LoraFilters) => {
       // Apply approval status filter if not 'all'
       if (approvalFilter && approvalFilter !== 'all') {
           logger.log(`[loadAllLoras] Applying approval filter: ${approvalFilter}`);
-          // Assuming 'Listed' might be null or 'Listed', handle accordingly
-          if (approvalFilter === 'listed') {
-              query = query.or('admin_approved.is.null,admin_approved.eq.Listed');
-          } else {
-             // For 'Curated' or 'Rejected', use direct equality
-             query = query.eq('admin_approved', approvalFilter.charAt(0).toUpperCase() + approvalFilter.slice(1)); // Capitalize e.g., 'curated' -> 'Curated'
-          }
+          // Construct the status string with correct capitalization
+          const statusFilterValue = approvalFilter.charAt(0).toUpperCase() + approvalFilter.slice(1);
+          // Use the new admin_status field
+          query = query.eq('admin_status', statusFilterValue);
       }
 
       // Add ordering
@@ -166,7 +163,7 @@ export const useLoraManagement = (filters: LoraFilters) => {
               reviewer_name: pVideo.creator || '', 
               skipped: false,
               created_at: pVideo.created_at,
-              admin_approved: pVideo.admin_approved,
+              admin_status: pVideo.admin_status,
               user_id: pVideo.user_id,
               metadata: {
                   title: pVideo.title || asset.name,
@@ -183,7 +180,8 @@ export const useLoraManagement = (filters: LoraFilters) => {
               }
           } : undefined,
           creatorDisplayName: creatorDisplayName,
-          admin_approved: asset.admin_approved || (approvalFilter === 'listed' ? 'Listed' : asset.admin_approved) 
+          // Use the correct admin_status field from the fetched asset data
+          admin_status: asset.admin_status 
         } as LoraAsset;
       }) || [];
 

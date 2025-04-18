@@ -60,7 +60,7 @@ function AssetDetailPage() {
       logger.log(`Approving video: ${videoId}`);
       const { error } = await supabase
         .from('media')
-        .update({ admin_approved: 'Curated' })
+        .update({ admin_status: 'Curated' })
         .eq('id', videoId);
         
       if (error) throw error;
@@ -78,7 +78,7 @@ function AssetDetailPage() {
       logger.log(`Rejecting video: ${videoId}`);
       const { error } = await supabase
         .from('media')
-        .update({ admin_approved: 'Rejected' })
+        .update({ admin_status: 'Rejected' })
         .eq('id', videoId);
         
       if (error) throw error;

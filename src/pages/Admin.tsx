@@ -69,7 +69,7 @@ const Admin: React.FC = () => {
       let status: 'approved' | 'skipped' | 'responded' | 'unapproved' | 'unresponded';
       
       // Approved takes highest priority
-      if (entry.admin_approved) {
+      if (entry.admin_status === 'Curated' || entry.admin_status === 'Featured') {
         status = 'approved';
         counts.approved++;
       }
@@ -125,13 +125,13 @@ const Admin: React.FC = () => {
   const handleApproveToggle = async (entry: VideoEntry) => {
     try {
       const db = await databaseSwitcher.getDatabase();
-      // Update to pass a string value instead of a boolean
-      const newStatus = entry.admin_approved === 'Curated' ? 'Listed' : 'Curated';
+      // Update to use admin_status and toggle between 'Curated' and 'Listed'
+      const newStatus = entry.admin_status === 'Curated' ? 'Listed' : 'Curated';
       const updatedEntry = await db.setApprovalStatus(entry.id, newStatus);
       
       if (updatedEntry) {
         setEntries(entries.map(e => e.id === entry.id ? updatedEntry : e));
-        toast.success(`Video ${updatedEntry.admin_approved === 'Curated' ? 'approved' : 'unapproved'} successfully`);
+        toast.success(`Video ${updatedEntry.admin_status === 'Curated' ? 'approved' : 'unapproved'} successfully`);
       }
     } catch (error: any) {
       console.error('Error toggling approval:', error);
@@ -201,10 +201,11 @@ const Admin: React.FC = () => {
     icon: React.ReactNode,
     variant: 'default' | 'secondary' | 'destructive' | 'outline'
   } => {
-    if (entry.admin_approved) {
+    // Check admin_status for 'Curated' or 'Featured'
+    if (entry.admin_status === 'Curated' || entry.admin_status === 'Featured') {
       return {
         status: 'approved',
-        label: 'Approved',
+        label: entry.admin_status, // Display the actual status
         icon: <CheckCircle className="h-3 w-3 mr-1" />,
         variant: 'default'
       };
@@ -353,11 +354,11 @@ const Admin: React.FC = () => {
                           </div>
                           <div className="flex space-x-2">
                             <Button 
-                              variant={entry.admin_approved ? "outline" : "default"}
+                              variant={entry.admin_status === 'Curated' ? "outline" : "default"}
                               size="sm"
                               onClick={() => handleApproveToggle(entry)}
                             >
-                              {entry.admin_approved ? "Unapprove" : "Approve"}
+                              {entry.admin_status === 'Curated' ? "Unapprove" : "Approve"}
                             </Button>
                             <Button 
                               variant="destructive" 
@@ -373,7 +374,7 @@ const Admin: React.FC = () => {
                           <p className="text-sm font-medium mb-2">Original Video</p>
                           <div className="rounded overflow-hidden bg-black aspect-video">
                             <StorageVideoPlayer
-                              videoLocation={entry.video_location}
+                              videoLocation={entry.url}
                               className="w-full h-full"
                               controls
                             />

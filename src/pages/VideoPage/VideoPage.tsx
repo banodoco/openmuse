@@ -48,14 +48,14 @@ const VideoPage: React.FC = () => {
         setVideo(videoData);
         
         // Check if this is a blob URL that needs to be replaced with a permanent URL
-        if (videoData.video_location) {
+        if (videoData.url) {
           // Always attempt to get a fresh URL from the database first instead of using blob URLs
           try {
             console.log('Attempting to get permanent URL from database first');
             let permanentUrl = null;
             
             // If this appears to be a blob URL, always try to resolve it to a permanent URL
-            if (videoData.video_location.startsWith('blob:')) {
+            if (videoData.url.startsWith('blob:')) {
               console.log('Detected blob URL, attempting to get permanent URL from database');
               permanentUrl = await videoUrlService.lookupUrlFromDatabase(videoData.id);
             }
@@ -66,14 +66,14 @@ const VideoPage: React.FC = () => {
               setVideoUrl(permanentUrl);
             } else {
               // If no permanent URL is found, try forceRefreshUrl as a fallback
-              const freshUrl = await videoUrlService.forceRefreshUrl(videoData.video_location);
+              const freshUrl = await videoUrlService.forceRefreshUrl(videoData.url);
               setVideoUrl(freshUrl);
             }
           } catch (urlError) {
             console.error('Failed to refresh video URL:', urlError);
             
             // Fallback to regular URL resolution
-            const standardUrl = await videoUrlService.getVideoUrl(videoData.video_location);
+            const standardUrl = await videoUrlService.getVideoUrl(videoData.url);
             setVideoUrl(standardUrl);
           }
         }
@@ -116,7 +116,7 @@ const VideoPage: React.FC = () => {
   }, [id, navigate]);
   
   const handleRefreshUrl = async () => {
-    if (!video?.video_location) return;
+    if (!video?.url) return;
     
     setIsRefreshingUrl(true);
     try {
@@ -138,7 +138,7 @@ const VideoPage: React.FC = () => {
         toast.success("Retrieved permanent video URL");
       } else {
         // Otherwise fall back to forceRefreshUrl
-        const freshUrl = await videoUrlService.forceRefreshUrl(video.video_location);
+        const freshUrl = await videoUrlService.forceRefreshUrl(video.url);
         setVideoUrl(freshUrl);
         toast.success("Video URL refreshed");
       }

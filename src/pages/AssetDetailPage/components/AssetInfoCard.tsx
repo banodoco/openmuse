@@ -155,7 +155,7 @@ const AssetInfoCard = ({
               <Button
                 onClick={handleCurateAsset}
                 className="w-full gap-2"
-                disabled={isApproving || asset?.admin_approved === 'Curated'}
+                disabled={isApproving || asset?.admin_status === 'Curated'}
               >
                 <Check className="h-4 w-4" />
                 Curate
@@ -164,7 +164,7 @@ const AssetInfoCard = ({
                 onClick={handleListAsset}
                 variant="secondary"
                 className="w-full gap-2"
-                disabled={isApproving || asset?.admin_approved === 'Listed'}
+                disabled={isApproving || asset?.admin_status === 'Listed'}
               >
                 <Check className="h-4 w-4" />
                 List
@@ -175,9 +175,9 @@ const AssetInfoCard = ({
                 className={cn(
                   "w-full gap-2",
                   "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
-                  (isApproving || asset?.admin_approved === 'Rejected') && "bg-orange-100 opacity-70 cursor-not-allowed"
+                  (isApproving || asset?.admin_status === 'Rejected') && "bg-orange-100 opacity-70 cursor-not-allowed"
                 )}
-                disabled={isApproving || asset?.admin_approved === 'Rejected'}
+                disabled={isApproving || asset?.admin_status === 'Rejected'}
               >
                 <EyeOff className="h-4 w-4" />
                 Hide

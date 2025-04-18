@@ -130,7 +130,7 @@ export const useVideoManagement = () => {
       if (updatedVideo) {
         logger.log(`[approveVideo] Successfully approved, updating state for ID: ${id}`);
         setVideos(prev => prev.map(video =>
-          video.id === id ? { ...video, admin_approved: "Curated" } : video
+          video.id === id ? { ...video, admin_status: "Curated" } : video
         ));
       }
       return updatedVideo;
@@ -148,7 +148,7 @@ export const useVideoManagement = () => {
       if (updatedVideo) {
          logger.log(`[rejectVideo] Successfully rejected, updating state for ID: ${id}`);
         setVideos(prev => prev.map(video =>
-          video.id === id ? { ...video, admin_approved: "Rejected" } : video
+          video.id === id ? { ...video, admin_status: "Rejected" } : video
         ));
       }
       return updatedVideo;

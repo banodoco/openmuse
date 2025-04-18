@@ -1,4 +1,3 @@
-
 import { VideoEntry } from '../types';
 import { Logger } from '../logger';
 
@@ -26,10 +25,10 @@ export abstract class BaseDatabase {
   abstract getVideoUrl(videoLocation: string): Promise<string>;
   abstract deleteEntry(id: string): Promise<boolean>;
   abstract clearAllEntries(): Promise<void>;
-  abstract addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry>;
+  abstract addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status' | 'user_status'>): Promise<VideoEntry>;
   
   // Common alias for addEntry
-  async createEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+  async createEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status' | 'user_status'>): Promise<VideoEntry> {
     this.logger.log('createEntry called, using addEntry method');
     return this.addEntry(entry);
   }

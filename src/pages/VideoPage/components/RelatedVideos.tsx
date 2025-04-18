@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import { Check, X, Filter } from 'lucide-react';
@@ -39,8 +38,8 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
   };
 
   const filteredVideos = videos.filter(video => {
-    if (assetFilter.approved && video.admin_approved === "Curated") return true;
-    if (assetFilter.notApproved && (video.admin_approved === "Rejected" || video.admin_approved === "Listed" || video.admin_approved === null)) return true;
+    if (assetFilter.approved && video.admin_status === "Curated") return true;
+    if (assetFilter.notApproved && (video.admin_status === "Rejected" || video.admin_status === "Listed")) return true;
     return false;
   });
 
@@ -115,15 +114,15 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
                       {formatDate(video.created_at)}
                     </TableCell>
                     <TableCell>
-                      {video.admin_approved === "Curated" ? (
+                      {video.admin_status === "Curated" ? (
                         <Badge variant="secondary" className="gap-1 bg-green-500 hover:bg-green-600 text-white">
                           <Check className="h-3 w-3" />
                           Curated
                         </Badge>
                       ) : (
-                        <Badge variant={video.admin_approved === "Rejected" ? "destructive" : "outline"} className="gap-1">
-                          {video.admin_approved === "Rejected" && <X className="h-3 w-3" />}
-                          {video.admin_approved === "Rejected" ? "Rejected" : "Listed"}
+                        <Badge variant={video.admin_status === "Rejected" ? "destructive" : "outline"} className="gap-1">
+                          {video.admin_status === "Rejected" && <X className="h-3 w-3" />}
+                          {video.admin_status === "Rejected" ? "Rejected" : "Listed"}
                         </Badge>
                       )}
                     </TableCell>

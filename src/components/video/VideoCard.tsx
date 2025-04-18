@@ -137,7 +137,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   const getButtonStyle = (status: string) => {
-    const currentStatus = video.admin_approved || 'Listed';
+    const currentStatus = video.admin_status || 'Listed';
     const isActive = currentStatus === status;
     
     return cn(

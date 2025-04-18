@@ -161,7 +161,7 @@ export default function UserProfilePage() {
             created_at: asset.created_at,
             user_id: asset.user_id,
             primary_media_id: asset.primary_media_id,
-            admin_approved: asset.admin_approved,
+            admin_status: asset.admin_status,
             lora_type: asset.lora_type,
             lora_base_model: asset.lora_base_model,
             model_variant: asset.model_variant,
@@ -173,8 +173,9 @@ export default function UserProfilePage() {
               reviewer_name: pVideo.creator || '',
               skipped: false,
               created_at: pVideo.created_at,
-              admin_approved: pVideo.admin_approved,
+              admin_status: pVideo.admin_status,
               user_id: pVideo.user_id,
+              user_status: pVideo.user_status || null,
               metadata: {
                 title: pVideo.title || asset.name,
                 placeholder_image: pVideo.placeholder_image || null,
@@ -277,7 +278,8 @@ export default function UserProfilePage() {
           reviewer_name: video.creator || '', // Should fetch profile if needed
           skipped: false, // Default value
           created_at: video.created_at,
-          admin_approved: video.admin_approved, // Keep as is
+          admin_status: video.admin_status,
+          user_status: video.user_status || null,
           user_id: video.user_id,
           // Ensure metadata has all necessary fields used by VideoCard/Lightbox
           metadata: {
@@ -543,17 +545,17 @@ export default function UserProfilePage() {
     try {
       await supabase
         .from('media')
-        .update({ admin_approved: 'Curated' })
+        .update({ admin_status: 'Curated' })
         .eq('id', id);
       
       setGenerationVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_approved: 'Curated' } : video
+        video.id === id ? { ...video, admin_status: 'Curated' } : video
       ));
       setArtVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_approved: 'Curated' } : video
+        video.id === id ? { ...video, admin_status: 'Curated' } : video
       ));
       setUserVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_approved: 'Curated' } : video
+        video.id === id ? { ...video, admin_status: 'Curated' } : video
       ));
     } catch (error) {
       console.error('Error approving video:', error);
@@ -564,17 +566,17 @@ export default function UserProfilePage() {
     try {
       await supabase
         .from('media')
-        .update({ admin_approved: 'Rejected' })
+        .update({ admin_status: 'Rejected' })
         .eq('id', id);
       
       setGenerationVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_approved: 'Rejected' } : video
+        video.id === id ? { ...video, admin_status: 'Rejected' } : video
       ));
       setArtVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_approved: 'Rejected' } : video
+        video.id === id ? { ...video, admin_status: 'Rejected' } : video
       ));
       setUserVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_approved: 'Rejected' } : video
+        video.id === id ? { ...video, admin_status: 'Rejected' } : video
       ));
     } catch (error) {
       console.error('Error rejecting video:', error);

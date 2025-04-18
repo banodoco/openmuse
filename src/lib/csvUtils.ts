@@ -1,4 +1,3 @@
-
 import { VideoEntry } from './types';
 import { format } from 'date-fns';
 
@@ -23,18 +22,24 @@ export const convertToCSV = (videos: VideoEntry[]): string => {
     const date = new Date(video.created_at);
     const formattedDate = format(date, 'yyyy-MM-dd HH:mm:ss');
     
-    const status = video.admin_approved 
-      ? 'Curated' 
-      : video.skipped 
-        ? 'Skipped' 
-        : 'Pending';
+    // Determine status based on admin_status first, then skipped
+    let status = 'Pending'; // Default status
+    if (video.admin_status === 'Curated' || video.admin_status === 'Featured') {
+      status = 'Curated';
+    } else if (video.admin_status === 'Rejected') {
+      status = 'Rejected';
+    } else if (video.admin_status === 'Listed') {
+      status = 'Listed';
+    } else if (video.skipped) {
+      status = 'Skipped';
+    }
         
     return [
       video.id,
       video.reviewer_name,
       status,
       formattedDate,
-      video.video_location,
+      video.url,
       video.metadata?.title || 'No title',
       video.metadata?.creator === 'self' ? 'Self' : video.metadata?.creatorName || 'Someone else',
       video.metadata?.classification || 'Unknown',
