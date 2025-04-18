@@ -56,7 +56,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [retryCount, setRetryCount] = useState(0);
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
   const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
-  const [hasHovered, setHasHovered] = useState(autoPlay || forcePreload);
+  const [hasHovered, setHasHovered] = useState(forcePreload || (!isMobile && autoPlay));
+  const [shouldPlay, setShouldPlay] = useState(isMobile ? false : (forcePreload || autoPlay));
   const prevVideoLocationRef = useRef<string | null>(null);
 
   logger.log(`[${componentId}] Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}`);
@@ -91,13 +92,21 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   }, [isHoveringExternally]);
 
+  // Effect to handle mobile state – only auto–load if `forcePreload` is set.
+  useEffect(() => {
+    if (isMobile && forcePreload && !unmountedRef.current) {
+      setShouldLoadVideo(true);
+      setHasHovered(true);
+    }
+  }, [isMobile, forcePreload]);
+
   // Handle manual hover events
   const handleManualHoverStart = () => {
     if (isHoveringExternally === undefined && !unmountedRef.current) {
       logger.log('StorageVideoPlayer: Manual hover start');
       setIsHovering(true);
       setHasHovered(true);
-      setShouldLoadVideo(true); 
+      setShouldLoadVideo(true);
     }
   };
 
@@ -207,10 +216,19 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   };
 
+  // Handle tap on mobile devices to start loading / playing the video
+  const handleMobileTap = () => {
+    if (isMobile && !shouldPlay && !unmountedRef.current) {
+      logger.log('StorageVideoPlayer: Mobile tap to load video');
+      setShouldPlay(true);
+      setHasHovered(true);
+    }
+  };
+
   // Determine visibility states
-  const showThumbnail = !!thumbnailUrl && (!hasHovered || isLoadingVideoUrl || !isVideoLoaded);
-  const showVideo = hasHovered && !!videoUrl && !error;
-  const showLoadingSpinner = !!thumbnailUrl && hasHovered && !isVideoLoaded && !error && (isLoadingVideoUrl || !videoUrl); 
+  const showThumbnail = !!thumbnailUrl && ((!hasHovered && !isMobile) || isLoadingVideoUrl || !isVideoLoaded);
+  const showVideo = !!videoUrl && !error;
+  const showLoadingSpinner = !!thumbnailUrl && ((hasHovered || isMobile) && !isVideoLoaded && !error && isLoadingVideoUrl);
 
   logger.log(`[${componentId}] Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
 
@@ -219,6 +237,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       className={cn("relative w-full h-full bg-muted overflow-hidden", className)}
       onMouseEnter={handleManualHoverStart}
       onMouseLeave={handleManualHoverEnd}
+      onClick={handleMobileTap}
       ref={containerRef}
       data-is-mobile={isMobile ? "true" : "false"}
       data-is-hovering={isHovering ? "true" : "false"}
@@ -245,10 +264,10 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
            alt="Video thumbnail" 
            className={cn(
              "absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-10 pointer-events-none",
-             // Hide thumbnail smoothly when video is loaded and ready to play (after hover)
-             showVideo && isVideoLoaded ? "opacity-0" : "opacity-100" 
+             // Hide thumbnail smoothly when video is loaded and ready to play
+             isVideoLoaded ? "opacity-0" : "opacity-100"
            )}
-           loading="lazy" // Add lazy loading to thumbnails
+           loading="lazy"
            onLoad={() => logger.log(`[${componentId}] Thumbnail img loaded: ${thumbnailUrl.substring(0,30)}...`)}
            onError={() => logger.error(`[${componentId}] Thumbnail img failed to load: ${thumbnailUrl.substring(0,30)}...`)}
          />
@@ -272,7 +291,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             isVideoLoaded ? "opacity-100" : "opacity-0" 
           )}
           controls={controls && !previewMode} 
-          autoPlay={isHovering && !isMobile}
+          autoPlay={false}
+          triggerPlay={shouldPlay}
           muted={muted}
           loop={loop}
           playOnHover={playOnHover && !isMobile}
@@ -285,6 +305,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
           poster={thumbnailUrl} // Pass thumbnail as poster
           onLoadedData={handleVideoLoadedData} 
           isMobile={isMobile}
+          // Always preload for first frame, but don't autoplay
+          preload="auto"
         />
       )}
 

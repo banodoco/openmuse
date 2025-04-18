@@ -14,6 +14,7 @@ const logger = new Logger('VideoPlayer');
 interface VideoPlayerProps {
   src: string;
   autoPlay?: boolean;
+  triggerPlay?: boolean;
   muted?: boolean;
   loop?: boolean;
   className?: string;
@@ -30,11 +31,13 @@ interface VideoPlayerProps {
   lazyLoad?: boolean;
   isMobile?: boolean;
   preventLoadingFlicker?: boolean;
+  preload?: 'none' | 'metadata' | 'auto';
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
   autoPlay = false,
+  triggerPlay = false,
   muted = true,
   loop = false,
   className = '',
@@ -86,6 +89,31 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     isMobile
   });
   
+  useEffect(() => {
+    if (isMobile && videoRef.current && !autoPlay) {
+      const video = videoRef.current;
+      
+      const handleLoadedData = () => {
+        if (!unmountedRef.current) {
+          video.pause();
+          video.currentTime = 0;
+        }
+      };
+      
+      video.addEventListener('loadeddata', handleLoadedData);
+      return () => video.removeEventListener('loadeddata', handleLoadedData);
+    }
+  }, [isMobile, autoPlay]);
+  
+  useEffect(() => {
+    if (triggerPlay && videoRef.current && videoRef.current.paused && !unmountedRef.current) {
+      logger.log(`[${componentId}] triggerPlay is true, attempting to play.`);
+      videoRef.current.play().catch(err => {
+        logger.error(`[${componentId}] Error attempting to play via triggerPlay:`, err);
+      });
+    }
+  }, [triggerPlay, videoRef]);
+  
   useVideoPlayback({
     videoRef,
     externallyControlled,
@@ -128,6 +156,11 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [externallyControlled, isHovering, isMobile, playAttempted, isLoading, videoRef]);
   
   React.useEffect(() => {
+    if (isMobile && poster) {
+      logger.log(`[${componentId}] Mobile: skipping poster load, marking poster as loaded for URL: ${poster.substring(0, 30)}...`);
+      setPosterLoaded(true);
+      return;
+    }
     if (poster) {
       const img = new Image();
       img.onload = () => {
@@ -146,9 +179,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       img.src = poster;
     } else {
       logger.log(`[${componentId}] No poster provided.`);
-      setPosterLoaded(false); // Ensure posterLoaded is false if no poster
+      setPosterLoaded(false);
     }
-  }, [poster]);
+  }, [poster, isMobile]);
   
   React.useEffect(() => {
     logger.log(`VideoPlayer isMobile state: ${isMobile}`);
@@ -229,10 +262,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         className={cn("w-full h-full object-cover", className, {
           'opacity-0': (lazyLoad && poster && !hasInteracted && !externallyControlled) 
         })}
-        autoPlay={autoPlay && (externallyControlled || (!playOnHover && !isMobile))}
+        autoPlay={autoPlay}
         muted={muted}
         loop={loop}
-        controls={isMobile ? true : (showPlayButtonOnHover ? controls : false)}
+        controls={controls}
         playsInline
         poster={poster || undefined}
         preload={(hasInteracted || externallyControlled || preventLoadingFlicker) ? "auto" : "metadata"}
