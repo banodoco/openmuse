@@ -294,7 +294,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             </button>
             
             <div className={cn(
-              "p-4 flex-shrink max-h-[75vh]"
+              "p-4 flex-shrink",
+              isEditing ? "max-h-[85vh]" : "max-h-[75vh]"
             )}>
               <VideoPlayer
                 src={videoUrl}
