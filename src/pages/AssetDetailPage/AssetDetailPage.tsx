@@ -367,29 +367,27 @@ function AssetDetailPage() {
         )}
       </div>
       
-      {lightboxOpen && currentVideo && (() => {
-        console.log('[VideoLightboxDebug] Rendering Lightbox. currentVideo:', currentVideo);
-        if (!currentVideo.id) {
-          console.error('[VideoLightboxDebug] ERROR: currentVideo is missing ID! Cannot render Lightbox.', currentVideo);
-          toast.error('Error: Cannot open video details (missing ID).');
-          return null;
-        }
-        return (
-          <VideoLightbox
-            isOpen={lightboxOpen}
-            onClose={handleCloseLightbox}
-            videoUrl={currentVideo.url}
-            videoId={currentVideo.id}
-            title={currentVideo.metadata?.title}
-            description={currentVideo.metadata?.description}
-            loraIdentifier={currentVideo.lora_identifier}
-            creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
-            thumbnailUrl={currentVideo.placeholder_image || currentVideo.metadata?.placeholder_image}
-            creatorId={currentVideo.user_id}
-            onVideoUpdate={fetchAssetDetails}
-          />
-        );
-      })()}
+      {lightboxOpen && currentVideo && (
+        <>
+          {!currentVideo.id ? (
+            null 
+          ) : (
+            <VideoLightbox
+              isOpen={lightboxOpen}
+              onClose={handleCloseLightbox}
+              videoUrl={currentVideo.url}
+              videoId={currentVideo.id}
+              title={currentVideo.metadata?.title}
+              description={currentVideo.metadata?.description}
+              loraIdentifier={currentVideo.lora_identifier}
+              creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
+              thumbnailUrl={currentVideo.placeholder_image || currentVideo.metadata?.placeholder_image}
+              creatorId={currentVideo.user_id}
+              onVideoUpdate={fetchAssetDetails}
+            />
+          )}
+        </>
+      )}
       
       <Footer />
     </div>
