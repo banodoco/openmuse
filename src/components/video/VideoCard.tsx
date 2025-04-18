@@ -72,6 +72,48 @@ const VideoCard: React.FC<VideoCardProps> = ({
     fetchCreatorProfile();
   }, [video.user_id, video.metadata]);
   
+  const updateThumbnailInDatabase = async (newThumbnailUrl: string) => {
+    if (!video.id) {
+      logger.error('VideoCard: Cannot update thumbnail, video ID is missing.');
+      return;
+    }
+
+    logger.log(`VideoCard: Attempting to update thumbnail URL in DB for video ${video.id}`);
+
+    try {
+      const { data: currentMedia, error: fetchError } = await supabase
+        .from('media')
+        .select('metadata')
+        .eq('id', video.id)
+        .maybeSingle();
+
+      if (fetchError) {
+        logger.error(`VideoCard: Error fetching current metadata for video ${video.id}:`, fetchError);
+        return;
+      }
+
+      const currentMetadata = currentMedia?.metadata || {};
+      const newMetadata = {
+        ...currentMetadata,
+        thumbnailUrl: newThumbnailUrl
+      };
+
+      const { error: updateError } = await supabase
+        .from('media')
+        .update({ metadata: newMetadata })
+        .eq('id', video.id);
+
+      if (updateError) {
+        logger.error(`VideoCard: Error updating thumbnail URL in DB for video ${video.id}:`, updateError);
+      } else {
+        logger.log(`VideoCard: Successfully updated thumbnail URL in DB for video ${video.id}`);
+        setThumbnailUrl(newThumbnailUrl);
+      }
+    } catch (error) {
+      logger.error(`VideoCard: Unexpected error updating thumbnail in DB for video ${video.id}:`, error);
+    }
+  };
+  
   const handleVideoLoad = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     const videoElement = event.target as HTMLVideoElement;
     if (videoElement.videoWidth && videoElement.videoHeight) {
@@ -179,6 +221,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             lazyLoad={false}
             thumbnailUrl={thumbnailUrl}
             onLoadedData={handleVideoLoad}
+            onThumbnailSavedToDb={updateThumbnailInDatabase}
           />
           
           {!isMobile && (

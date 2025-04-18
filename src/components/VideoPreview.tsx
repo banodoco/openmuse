@@ -24,6 +24,7 @@ interface VideoPreviewProps {
   preventLoadingFlicker?: boolean;
   previewMode?: boolean;
   onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onThumbnailSavedToDb?: (thumbnailUrl: string) => void;
 }
 
 /**
@@ -41,7 +42,8 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   thumbnailUrl,
   preventLoadingFlicker = true,
   previewMode = false,
-  onLoadedData
+  onLoadedData,
+  onThumbnailSavedToDb
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -129,8 +131,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       if (thumbnailGenerationAttempts === 0) {
         setForceGenerate(false);
       }
+      onThumbnailSavedToDb?.(thumbnailUrl);
     } else {
-      logger.log(`VideoPreview [${componentId.current}]: Ignoring new thumbnail because we already have one`);
+      logger.log(`VideoPreview [${componentId.current}]: Ignoring new thumbnail because we already have one or generation was not forced`);
     }
   };
 
