@@ -116,20 +116,21 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
     }
   }
   
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status' | 'user_status'>): Promise<VideoEntry> {
     try {
       // Create the media entry
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
           title: entry.metadata?.title || 'Untitled',
-          url: entry.video_location,
+          url: entry.url,
           type: 'video',
           classification: entry.metadata?.classification || 'art',
           creator: entry.metadata?.creatorName || entry.reviewer_name,
           user_id: entry.user_id || this.currentUserId,
-          admin_approved: 'Listed', // Default to Listed
-          model_variant: entry.metadata?.modelVariant // Add model variant to media entry
+          admin_status: 'Listed',
+          user_status: null,
+          model_variant: entry.metadata?.modelVariant
         })
         .select()
         .single();
@@ -153,11 +154,12 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
             creator: entry.metadata.creatorName || entry.reviewer_name,
             user_id: entry.user_id || this.currentUserId,
             primary_media_id: mediaData.id,
-            admin_approved: 'Listed', // Default to Listed
+            admin_status: 'Listed',
+            user_status: null,
             lora_type: entry.metadata.loraType,
             lora_link: entry.metadata.loraLink,
-            lora_base_model: entry.metadata.model, // Store base model
-            model_variant: entry.metadata.modelVariant // Store model variant
+            lora_base_model: entry.metadata.model,
+            model_variant: entry.metadata.modelVariant
           })
           .select()
           .single();
@@ -223,11 +225,12 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
       // Construct the new VideoEntry object
       const newEntry: VideoEntry = {
         id: mediaData.id,
-        video_location: mediaData.url,
+        url: mediaData.url,
         reviewer_name: entry.reviewer_name,
         skipped: entry.skipped || false,
         created_at: mediaData.created_at,
-        admin_approved: 'Listed', // Default to Listed
+        admin_status: 'Listed',
+        user_status: null,
         user_id: mediaData.user_id,
         metadata: {
           title: mediaData.title,
@@ -235,8 +238,20 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           classification: mediaData.classification || 'art',
           description: entry.metadata?.description || '',
           assetId,
-          modelVariant: entry.metadata?.modelVariant // Include model variant in returned entry
-        }
+          loraName: entry.metadata?.loraName,
+          loraDescription: entry.metadata?.loraDescription,
+          loraType: entry.metadata?.loraType,
+          loraLink: entry.metadata?.loraLink,
+          model: entry.metadata?.model,
+          modelVariant: entry.metadata?.modelVariant,
+          baseModel: entry.metadata?.baseModel,
+          placeholder_image: entry.metadata?.placeholder_image,
+          trainingSteps: entry.metadata?.trainingSteps,
+          resolution: entry.metadata?.resolution,
+          trainingDataset: entry.metadata?.trainingDataset,
+          isPrimary: entry.metadata?.isPrimary || false
+        },
+        associatedAssetId: assetId
       };
       
       return newEntry;
@@ -269,7 +284,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           creator: creatorName,
           user_id: userId,
           primary_media_id: mediaId,
-          admin_approved: 'Listed',
+          admin_status: 'Listed',
+          user_status: null,
           lora_type: loraType,
           lora_link: loraLink,
           lora_base_model: baseModel,

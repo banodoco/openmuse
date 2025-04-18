@@ -22,7 +22,8 @@ export interface Database {
           classification?: string | null
           user_id?: string | null
           created_at: string
-          admin_approved?: string | null
+          admin_status?: string | null
+          user_status?: string | null
           description?: string | null
         }
       }
@@ -36,7 +37,8 @@ export interface Database {
           primary_media_id?: string | null
           user_id?: string | null
           created_at: string
-          admin_approved?: string | null
+          admin_status?: string | null
+          user_status?: string | null
           lora_type?: string | null
           lora_base_model?: string | null
           lora_link?: string | null

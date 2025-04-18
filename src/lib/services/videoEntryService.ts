@@ -45,11 +45,12 @@ export class VideoEntryService {
         
         const entry: VideoEntry = {
           id: media.id,
-          video_location: media.url,
+          url: media.url,
           reviewer_name: media.creator || 'Unknown',
           skipped: false,
           created_at: media.created_at,
-          admin_approved: media.admin_approved || 'Listed',
+          admin_status: media.admin_status || 'Listed',
+          user_status: media.user_status || null,
           user_id: media.user_id,
           metadata: {
             title: media.title,
@@ -81,7 +82,8 @@ export class VideoEntryService {
           title: update.metadata?.title,
           classification: update.metadata?.classification,
           creator: update.metadata?.creatorName || update.reviewer_name,
-          admin_approved: update.admin_approved,
+          admin_status: update.admin_status,
+          user_status: update.user_status,
           description: update.metadata?.description
         })
         .eq('id', id)
@@ -116,11 +118,12 @@ export class VideoEntryService {
       // Construct the updated VideoEntry object
       const updatedEntry: VideoEntry = {
         id: data.id,
-        video_location: data.url,
+        url: data.url,
         reviewer_name: data.creator || 'Unknown',
         skipped: update.skipped || false,
         created_at: data.created_at,
-        admin_approved: data.admin_approved || 'Listed',
+        admin_status: data.admin_status || 'Listed',
+        user_status: data.user_status || null,
         user_id: data.user_id,
         metadata: {
           title: data.title,
@@ -147,23 +150,22 @@ export class VideoEntryService {
     return this.updateEntry(id, { skipped: true });
   }
   
-  async setApprovalStatus(id: string, approved: string): Promise<VideoEntry | null> {
-    this.logger.log(`Setting approval status for entry ${id} to ${approved}`);
+  async setApprovalStatus(id: string, status: string): Promise<VideoEntry | null> {
+    this.logger.log(`Setting admin status for entry ${id} to ${status}`);
     
     if (this.currentUserId) {
       const isAdmin = await checkIsAdmin(this.currentUserId);
       if (!isAdmin) {
-        this.logger.error('Non-admin user attempted to set approval status');
-        throw new Error('Permission denied: Only admins can change approval status');
+        this.logger.error('Non-admin user attempted to set admin status');
+        throw new Error('Permission denied: Only admins can change admin status');
       }
     } else {
-      this.logger.error('Unauthenticated user attempted to set approval status');
-      throw new Error('Authentication required to change approval status');
+      this.logger.error('Unauthenticated user attempted to set admin status');
+      throw new Error('Authentication required to change admin status');
     }
     
-    // Implement approval status differently since video_entries is gone
-    // Just pass through to updateEntry for now
-    return this.updateEntry(id, { admin_approved: approved });
+    // Pass through to updateEntry to update admin_status
+    return this.updateEntry(id, { admin_status: status });
   }
   
   async deleteEntry(id: string): Promise<boolean> {

@@ -36,11 +36,12 @@ export class SupabaseDatabase extends BaseDatabase {
         
         return {
           id: media.id,
-          video_location: media.url,
+          url: media.url,
           reviewer_name: media.creator || 'Unknown',
           skipped: false,
           created_at: media.created_at,
-          admin_approved: media.admin_approved || 'Listed', // Default to Listed
+          admin_status: media.admin_status || 'Listed', // Default to Listed
+          user_status: media.user_status || null, // Added user_status
           user_id: media.user_id,
           metadata: {
             title: media.title,
@@ -88,7 +89,7 @@ export class SupabaseDatabase extends BaseDatabase {
           title: update.metadata?.title,
           classification: update.metadata?.classification,
           creator: update.metadata?.creatorName || update.reviewer_name,
-          admin_approved: update.admin_approved
+          admin_status: update.admin_status
         })
         .eq('id', id)
         .select()
@@ -107,7 +108,8 @@ export class SupabaseDatabase extends BaseDatabase {
             name: update.metadata.loraName,
             description: update.metadata.loraDescription,
             creator: update.metadata.creatorName || update.reviewer_name,
-            admin_approved: update.admin_approved
+            admin_status: update.admin_status,
+            user_status: update.user_status
           })
           .eq('id', update.metadata.assetId);
         
@@ -119,11 +121,12 @@ export class SupabaseDatabase extends BaseDatabase {
       // Construct the updated VideoEntry object
       const updatedEntry: VideoEntry = {
         id: mediaData.id,
-        video_location: mediaData.url,
+        url: mediaData.url,
         reviewer_name: mediaData.creator || 'Unknown',
         skipped: update.skipped || false,
         created_at: mediaData.created_at,
-        admin_approved: mediaData.admin_approved || 'Listed',
+        admin_status: mediaData.admin_status || 'Listed',
+        user_status: mediaData.user_status || null,
         user_id: mediaData.user_id,
         metadata: {
           title: mediaData.title,
@@ -148,9 +151,9 @@ export class SupabaseDatabase extends BaseDatabase {
     return this.updateEntry(id, { skipped: true });
   }
   
-  async setApprovalStatus(id: string, approved: string): Promise<VideoEntry | null> {
-    this.logger.log(`Setting approval status for media ${id} to ${approved}`);
-    return this.updateEntry(id, { admin_approved: approved });
+  async setApprovalStatus(id: string, status: string): Promise<VideoEntry | null> {
+    this.logger.log(`Setting admin status for media ${id} to ${status}`);
+    return this.updateEntry(id, { admin_status: status });
   }
   
   async getVideoUrl(videoLocation: string): Promise<string> {
@@ -168,7 +171,7 @@ export class SupabaseDatabase extends BaseDatabase {
     this.logger.error("clearAllEntries not implemented in base SupabaseDatabase class");
   }
   
-  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_approved'>): Promise<VideoEntry> {
+  async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status' | 'user_status'>): Promise<VideoEntry> {
     this.logger.error("addEntry not implemented in base SupabaseDatabase class");
     throw new Error("Method not implemented");
   }

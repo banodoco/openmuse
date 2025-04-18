@@ -25,7 +25,8 @@ export interface VideoEntry {
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_approved: string | null;
+  admin_status: string | null;
+  user_status: string | null;
   user_id?: string;
   metadata: {
     title: string;
@@ -92,7 +93,8 @@ export interface LoraAsset {
   created_at: string;
   user_id?: string;
   primary_media_id?: string;
-  admin_approved?: string | null;
+  admin_status?: string | null;
+  user_status?: string | null;
   lora_type?: string;  // LoRA type (Concept, Motion Style, etc)
   lora_base_model?: string;  // Base model (wan, hunyuan, etc)
   model_variant?: string;  // New field for model variant
