@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, UserProfile, VideoEntry } from '@/lib/types';
+import { LoraAsset, UserProfile, VideoEntry, VideoDisplayStatus } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LoraCard from '@/components/lora/LoraCard';
@@ -270,49 +270,55 @@ export default function UserProfilePage() {
       const processedVideos: VideoEntry[] = videosData.map(video => {
         let classification = video.classification || 'generation';
         if (classification !== 'art' && classification !== 'generation') {
-          console.log(`Defaulting video ${video.id} classification from '${video.classification}' to 'generation'`);
+          logger.log(`Defaulting video ${video.id} classification from '${video.classification}' to 'generation'`);
           classification = 'generation';
         }
         
-        // Look up the asset_id from the map
         const associatedAssetId = mediaIdToAssetId.get(video.id) || null;
         
         const processedVideo: VideoEntry = {
           id: video.id,
-          url: video.url, // Assuming URL is directly usable
-          associatedAssetId: associatedAssetId, // Assign the fetched asset ID
-          reviewer_name: video.creator || '', // Should fetch profile if needed
-          skipped: false, // Default value
+          url: video.url,
+          associatedAssetId: associatedAssetId,
+          reviewer_name: video.creator || '', 
+          skipped: false, 
           created_at: video.created_at,
           admin_status: video.admin_status,
-          user_status: video.user_status || null,
+          // Correctly assign user_status (Profile page context)
+          user_status: video.user_status as VideoDisplayStatus || null, 
+          // assetMediaDisplayStatus would be fetched/set differently on asset pages
+          assetMediaDisplayStatus: null, // Set to null for profile page context
           user_id: video.user_id,
-          // Ensure metadata has all necessary fields used by VideoCard/Lightbox
           metadata: {
-            title: video.title || '', // <-- Changed fallback to empty string
-            description: video.description || '', // Ensure description exists
-            creator: 'self', // Assuming videos on user page are by the user
-            classification: classification as 'art' | 'generation', // Assert type
-            placeholder_image: video.placeholder_image
+            title: video.title || '',
+            description: video.description || '',
+            creator: 'self', 
+            classification: classification as 'art' | 'generation', 
+            placeholder_image: video.placeholder_image,
+            // isPrimary is determined by asset data, not here
+            assetId: associatedAssetId, // Pass assetId if available
           },
-          // Add top-level fields if needed by VideoCard/Lightbox props directly
           thumbnailUrl: video.placeholder_image,
-          title: video.title || '', // <-- Changed fallback to empty string
-          description: video.description || ''
+          title: video.title || '',
+          description: video.description || '',
+          // is_primary should be determined based on LoraAsset primary_media_id, not here
+          is_primary: false, 
         };
         
         return processedVideo;
       }).filter(video => video !== null) as VideoEntry[]; 
 
-      // Step 4: Filter Hidden videos for non-authorized users
+      // Step 4: Filter Hidden videos for non-authorized users (Profile Context)
       const isViewerAuthorized = userId === currentViewerId || isViewerAdmin;
       const visibleVideos = isViewerAuthorized 
         ? processedVideos
         : processedVideos.filter(v => v.user_status !== 'Hidden');
 
-      // Step 5: Sort videos: Pinned > View/null > Hidden
-      const statusOrder: { [key: string]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+      // Step 5: Sort videos (Profile Context: Pinned > View > Hidden)
+      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+
       const sortedVideos = visibleVideos.sort((a, b) => {
+        // 1. Sort by Status (Pinned > View > Hidden)
         const statusA = a.user_status || 'View'; // Default null/undefined to 'View'
         const statusB = b.user_status || 'View';
         const orderA = statusOrder[statusA] || 2; // Default unknown statuses to 'View'
@@ -321,13 +327,15 @@ export default function UserProfilePage() {
         if (orderA !== orderB) {
           return orderA - orderB; // Sort by status priority
         }
-        // If statuses are the same, sort by creation date (newest first)
+
+        // 2. If statuses are the same, sort by creation date (newest first)
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
+      logger.log('[fetchUserVideos] Applied PROFILE sorting logic.');
 
       // Separate videos into categories
-      const genVids = sortedVideos.filter(v => v.metadata.classification === 'generation');
-      const artVids = sortedVideos.filter(v => v.metadata.classification === 'art');
+      const genVids = sortedVideos.filter(v => v.metadata?.classification === 'generation');
+      const artVids = sortedVideos.filter(v => v.metadata?.classification === 'art');
       
       setGenerationVideos(genVids);
       setArtVideos(artVids);

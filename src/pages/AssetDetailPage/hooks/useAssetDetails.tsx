@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
-import { supabase, debugAssetMedia } from '@/integrations/supabase/client';
-import { LoraAsset, VideoEntry } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
+import { LoraAsset, VideoEntry, VideoDisplayStatus } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
+import { useAuth } from '@/hooks/useAuth';
 
 const logger = new Logger('useAssetDetails');
 
@@ -13,6 +14,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const [isLoading, setIsLoading] = useState(true);
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const { user, isAdmin } = useAuth();
 
   const fetchAssetDetails = useCallback(async () => {
     if (!assetId) {
@@ -22,8 +24,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
       return;
     }
 
+    setIsLoading(true);
     try {
-      console.log('[VideoLightboxDebug] Fetching asset details for ID:', assetId);
+      logger.log('[useAssetDetails] Fetching asset details for ID:', assetId);
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
         .select('*, primaryVideo:primary_media_id(*)')
@@ -31,12 +34,14 @@ export const useAssetDetails = (assetId: string | undefined) => {
         .maybeSingle();
 
       if (assetError) {
-        console.error('[VideoLightboxDebug] Error fetching asset:', assetError);
+        logger.error('[useAssetDetails] Error fetching asset:', assetError);
         throw assetError;
       }
 
       if (!assetData) {
-        console.error('[VideoLightboxDebug] No asset found with ID:', assetId);
+        logger.error('[useAssetDetails] No asset found with ID:', assetId);
+        setAsset(null);
+        setVideos([]);
         setIsLoading(false);
         setDataFetchAttempted(true);
         return;
@@ -48,7 +53,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
         name: assetData.name
       });
 
-      // Fetch related media by querying asset_media and joining media details
       logger.log(`[useAssetDetails] Fetching asset_media joined with media for asset ID: ${assetId}`);
       const { data: assetMediaJoinData, error: assetMediaJoinError } = await supabase
         .from('asset_media')
@@ -60,14 +64,12 @@ export const useAssetDetails = (assetId: string | undefined) => {
         .eq('asset_id', assetId);
 
       if (assetMediaJoinError) {
-        console.error('[VideoLightboxDebug] Error fetching asset_media joined data:', assetMediaJoinError);
+        logger.error('[useAssetDetails] Error fetching asset_media joined data:', assetMediaJoinError);
         throw assetMediaJoinError;
       }
 
       const fetchedAssetMedia = assetMediaJoinData || [];
       logger.log(`[useAssetDetails] Fetched ${fetchedAssetMedia.length} asset_media join records.`);
-      
-      // {ITEMSHOWINGBUG} Log raw fetched asset_media join data
       logger.log('{ITEMSHOWINGBUG} Raw asset_media join data:', fetchedAssetMedia);
 
       const pVideo = assetData.primaryVideo;
@@ -99,9 +101,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
               reviewer_name: pVideo.creator || '',
               skipped: false,
               created_at: pVideo.created_at,
-              assetMediaDisplayStatus: pVideo.admin_status,
+              assetMediaDisplayStatus: (pVideo.status as VideoDisplayStatus) || 'View',
               user_id: pVideo.user_id,
-              user_status: pVideo.user_status || null,
+              user_status: (pVideo.user_status as VideoDisplayStatus) || null,
               metadata: {
                   title: pVideo.title || '',
                   placeholder_image: pVideo.placeholder_image || null,
@@ -122,25 +124,21 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
       const convertedVideos: VideoEntry[] = await Promise.all(
         fetchedAssetMedia
-          .filter(item => item.media) // Ensure media data exists from join
+          .filter(item => item.media)
           .map(async (item: any) => {
-          const media = item.media; // Extract the joined media object
-          // {ITEMSHOWINGBUG} Log the item being processed for VideoEntry conversion
-          logger.log(`{ITEMSHOWINGBUG} Processing joined item for VideoEntry (media ID: ${media?.id}, asset_media status: ${item.status}):`, item);
+          const media = item.media;
+          logger.log(`{ITEMSHOWINGBUG} Processing joined item for VideoEntry (media ID: ${media?.id}, asset_media status: ${item.status}, is_primary: ${item.is_primary}):`, item);
           try {
-            // Use the joined media URL directly if available
             const videoUrl = media.url ? await videoUrlService.getVideoUrl(media.url) : null; 
             if (!videoUrl) {
-              console.warn(`[VideoLightboxDebug] Could not get video URL for media ID: ${media.id}`);
-              return null; // Skip if URL is invalid
+              logger.warn(`[useAssetDetails] Could not get video URL for media ID: ${media.id}`);
+              return null;
             }
             
-            // Use is_primary directly from asset_media
             const isPrimary = item.is_primary === true; 
  
-            // {ITEMSHOWINGBUG} Determine the status to be assigned
-            const assignedStatus = item.status || media?.admin_status || 'Listed';
-            logger.log(`{ITEMSHOWINGBUG} Assigning status to VideoEntry (media ID: ${media.id}): ${assignedStatus} (Source: item.status=${item.status}, media.admin_status=${media?.admin_status})`);
+            const assignedStatus = (item.status as VideoDisplayStatus) || 'View'; 
+            logger.log(`{ITEMSHOWINGBUG} Assigning status to VideoEntry (media ID: ${media.id}): ${assignedStatus} (Source: item.status=${item.status})`);
 
             return {
               id: media.id,
@@ -150,9 +148,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
               created_at: media.created_at,
-              assetMediaDisplayStatus: assignedStatus, // Use the determined status with the new field name
+              assetMediaDisplayStatus: assignedStatus,
               user_id: media.user_id,
-              user_status: media.user_status || null,
+              user_status: (media.user_status as VideoDisplayStatus) || null,
               metadata: {
                 title: media.title || '',
                 description: media.description || '',
@@ -170,31 +168,61 @@ export const useAssetDetails = (assetId: string | undefined) => {
               }
             } as VideoEntry;
           } catch (error) {
-            console.error(`[VideoLightboxDebug] Error processing video ${media.id}:`, error);
+            logger.error(`[useAssetDetails] Error processing video ${media.id}:`, error);
             return null;
           }
         })
       );
 
       const validVideos = convertedVideos.filter(v => v !== null) as VideoEntry[];
-      setVideos(validVideos);
-      console.log('[VideoLightboxDebug] Final processed related videos:', convertedVideos.filter(v => v !== null).length);
-      // {ITEMSHOWINGBUG} Log the final state being set
-      logger.log('{ITEMSHOWINGBUG} Final VideoEntry array being set to state:', validVideos);
+      logger.log(`[useAssetDetails] Processed ${validVideos.length} valid videos from join data.`);
+
+      const isViewerAuthorized = isAdmin || (!!user && user.id === assetData?.user_id);
+      logger.log(`[useAssetDetails] Viewer authorization check: isAdmin=${isAdmin}, user.id=${user?.id}, asset.user_id=${assetData?.user_id}, isAuthorized=${isViewerAuthorized}`);
+
+      const filteredVideos = isViewerAuthorized
+        ? validVideos
+        : validVideos.filter(v => v.assetMediaDisplayStatus !== 'Hidden');
+      logger.log(`[useAssetDetails] Filtered videos count (Hidden removed for non-auth): ${filteredVideos.length}`);
+
+      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+      
+      const sortedVideos = filteredVideos.sort((a, b) => {
+        if (a.is_primary && !b.is_primary) return -1;
+        if (!a.is_primary && b.is_primary) return 1;
+
+        const statusA = a.assetMediaDisplayStatus || 'View';
+        const statusB = b.assetMediaDisplayStatus || 'View';
+        const orderA = statusOrder[statusA] || 2;
+        const orderB = statusOrder[statusB] || 2;
+        
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      logger.log(`[useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
+
+      setVideos(sortedVideos);
+      logger.log('{ITEMSHOWINGBUG} Final VideoEntry array being set to state:', sortedVideos);
+
     } catch (error) {
-      console.error('[VideoLightboxDebug] Error fetching asset details:', error);
+      logger.error('[useAssetDetails] Error in fetchAssetDetails:', error);
       toast.error('Failed to load asset details');
+      setAsset(null);
+      setVideos([]);
     } finally {
       setIsLoading(false);
       setDataFetchAttempted(true);
     }
-  }, [assetId]);
+  }, [assetId, user, isAdmin]);
 
   useEffect(() => {
-    if (!dataFetchAttempted) {
+    if (!dataFetchAttempted && assetId) {
       fetchAssetDetails();
     }
-  }, [fetchAssetDetails, dataFetchAttempted]);
+  }, [fetchAssetDetails, dataFetchAttempted, assetId]);
 
   useEffect(() => {
     const fetchCreatorProfile = async () => {
@@ -205,12 +233,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
           .eq('id', asset.user_id)
           .maybeSingle();
         
-        console.log('[VideoLightboxDebug] Asset User Profile:', {
-          user_id: asset.user_id,
-          creator: asset.creator,
-          profile: profile,
-          error: error
-        });
+        logger.log('[useAssetDetails] Asset User Profile fetch result:', { profile, error });
         
         if (profile && !error) {
           setCreatorDisplayName(profile.display_name || profile.username);

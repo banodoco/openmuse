@@ -3,7 +3,7 @@ export interface VideoMetadata {
   description?: string;
   creator?: 'self' | 'someone_else';
   creatorName?: string;
-  classification?: string;
+  classification?: 'art' | 'generation'; // Enforce allowed values
   isPrimary?: boolean;
   loraName?: string;
   loraDescription?: string;
@@ -19,25 +19,30 @@ export interface VideoMetadata {
   trainingDataset?: string;
 }
 
+// Define the status types matching VideoStatusControls
+// Use the same status names for both contexts
+// Export this type so it can be imported elsewhere
+export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';
+
 export interface VideoEntry {
   id: string;
   url: string;
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_status?: string | null;
-  // This status is derived from asset_media.status for display/sorting on asset page
-  assetMediaDisplayStatus?: 'Hidden' | 'Listed' | 'Featured' | 'View' | 'Pinned' | null; 
-  user_status?: 'Pinned' | 'Hidden' | 'View' | null;
+  admin_status?: string | null; // e.g., 'Curated', 'Rejected'
+  // Use the unified status type for both fields
+  assetMediaDisplayStatus?: VideoDisplayStatus | null; // Status for asset page (from asset_media.status)
+  user_status?: VideoDisplayStatus | null; // Status for user profile page (from media.user_status)
   user_id?: string | null;
-  metadata?: VideoMetadata;
-  associatedAssetId?: string | null;
+  metadata?: VideoMetadata; // Should contain fields like title, description, classification
+  associatedAssetId?: string | null; // ID of the LoRA asset this video is linked to
   placeholder_image?: string | null;
-  is_primary?: boolean;
-  thumbnailUrl?: string;
-  title?: string;
-  description?: string;
-  status?: 'Hidden' | 'Listed' | 'Featured'; // This seems unused now? Consider removing if confirmed.
+  is_primary?: boolean; // Is this the primary video for an asset?
+  // Redundant fields? Consider removing if always available in metadata
+  thumbnailUrl?: string; // Often same as placeholder_image
+  title?: string; // Usually in metadata.title
+  description?: string; // Usually in metadata.description
 }
 
 export interface RecordedVideo {

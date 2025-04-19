@@ -3,13 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
+import { VideoDisplayStatus } from '@/lib/types';
 
 const logger = new Logger('VideoStatusControls');
 
 interface VideoStatusControlsProps {
-  // Supports both profile-page statuses (Pinned, View, Hidden) and asset-page statuses (Featured, Listed, Hidden)
-  status: 'Hidden' | 'Listed' | 'Featured' | 'Pinned' | 'View';
-  onStatusChange: (status: 'Hidden' | 'Listed' | 'Featured' | 'Pinned' | 'View') => void;
+  status: VideoDisplayStatus | null | undefined;
+  onStatusChange: (status: VideoDisplayStatus) => void;
   className?: string;
 }
 
@@ -18,67 +18,66 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
   onStatusChange,
   className
 }) => {
-  // {ITEMSHOWINGBUG} Log the status prop received by VideoStatusControls
-  useEffect(() => {
-    logger.log(`{ITEMSHOWINGBUG} VideoStatusControls received status prop: '${status}'`);
-  }, [status]);
+  const currentStatus = status || 'View';
 
-  // Prevent click events from propagating to parent elements
-  const handleButtonClick = (newStatus: 'Hidden' | 'Listed' | 'Featured' | 'Pinned' | 'View') => (e: React.MouseEvent) => {
+  useEffect(() => {
+    logger.log(`{ITEMSHOWINGBUG} VideoStatusControls received status prop: '${status}', effective status: '${currentStatus}'`);
+  }, [status, currentStatus]);
+
+  const handleButtonClick = (newStatus: VideoDisplayStatus) => (e: React.MouseEvent) => {
     logger.log(`Button clicked: ${newStatus}`);
     e.stopPropagation();
     e.preventDefault();
-    logger.log(`After stopPropagation for ${newStatus}`);
     onStatusChange(newStatus);
   };
 
   return (
-    <div 
-      className={cn("flex gap-1 bg-black/50 backdrop-blur-sm rounded-md p-1", className)} 
+    <div
+      className={cn("flex gap-1 bg-black/50 backdrop-blur-sm rounded-md p-1", className)}
       onClick={e => {
-        logger.log("Container clicked");
+        logger.log("Container clicked, stopping propagation.");
         e.stopPropagation();
         e.preventDefault();
       }}
       style={{ pointerEvents: 'all' }}
     >
-      <Button 
+      <Button
         variant="ghost"
         size="icon"
         className={cn(
           "h-7 w-7 rounded-sm",
-          (status === 'Featured' || status === 'Pinned') 
-            ? "bg-yellow-500/90 text-white hover:bg-yellow-600" 
+          currentStatus === 'Pinned'
+            ? "bg-yellow-500/90 text-white hover:bg-yellow-600"
             : "bg-black/50 text-yellow-400 hover:bg-black/70 hover:text-yellow-300"
         )}
         onClick={handleButtonClick('Pinned')}
         title="Pin this video"
       >
-        <Bookmark className={cn("h-4 w-4", status === 'Featured' && "fill-current")} />
+        <Bookmark className="h-4 w-4" />
       </Button>
 
-      <Button 
+      <Button
         variant="ghost"
         size="icon"
         className={cn(
           "h-7 w-7 rounded-sm",
-          (status === 'Listed' || status === 'View') 
-            ? "bg-blue-500/90 text-white hover:bg-blue-600" 
+          currentStatus === 'View'
+            ? "bg-blue-500/90 text-white hover:bg-blue-600"
             : "bg-black/50 text-white hover:bg-black/70"
         )}
         onClick={handleButtonClick('View')}
-        title="Make visible"
+        title="Make visible (View)"
       >
         <Eye className="h-4 w-4" />
       </Button>
 
-      <Button 
+      <Button
         variant="ghost"
         size="icon"
         className={cn(
           "h-7 w-7 rounded-sm",
-          status === 'Hidden' 
-            ? "bg-gray-500/90 text-white hover:bg-gray-600" 
+          currentStatus === 'Hidden'
+            ? "bg-gray-500/90 text-white hover:bg-gray-600"
             : "bg-black/50 text-gray-400 hover:bg-black/70 hover:text-gray-300"
         )}
         onClick={handleButtonClick('Hidden')}

@@ -3,7 +3,7 @@ import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { Check, X, Play, ArrowUpRight, Trash, Star } from 'lucide-react';
-import { VideoEntry } from '@/lib/types';
+import { VideoEntry, VideoDisplayStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import VideoPreview from '../VideoPreview';
@@ -63,6 +63,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   
+  // Determine context based on URL
+  const pageContext = location.pathname.includes('/profile/') ? 'profile' : 'asset';
+  logger.log(`VideoCard ${video.id}: Determined context: ${pageContext}`);
+
   useEffect(() => {
     isHoveringRef.current = isHovering;
     logger.log(`VideoCard: isHovering prop changed for ${video.id}: ${isHovering}`);
@@ -143,19 +147,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
     return 'Unknown';
   };
   
-  const getButtonStyle = (status: string) => {
-    const currentStatus = isProfilePage ? (video.user_status || 'View') : (video.assetMediaDisplayStatus || 'Listed');
-    const isActive = currentStatus === status;
-    
-    return cn(
-      "text-xs h-7 w-7 p-0 rounded-md shadow-sm",
-      currentStatus === 'Featured' && "bg-green-500 text-white hover:bg-green-600",
-      currentStatus === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
-      currentStatus === 'Hidden' && "bg-gray-500 text-white hover:bg-gray-600",
-      !(currentStatus === 'Featured' || currentStatus === 'Listed' || currentStatus === 'Hidden') && "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
-    );
-  };
-  
   const handleApprove = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onApproveVideo) onApproveVideo(video.id);
@@ -200,14 +191,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
   
-  const isProfilePage = location.pathname.includes('/profile/');
-  const isLoRAAssetPage = location.pathname.includes('/assets/loras/');
+  const isProfilePage = pageContext === 'profile';
+  const isLoRAAssetPage = pageContext === 'asset';
   
-  logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
+  logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}, context: ${pageContext}`);
 
-  const handleStatusChange = async (newStatus: 'Hidden' | 'View' | 'Pinned') => {
+  const handleStatusChange = async (newStatus: VideoDisplayStatus) => {
     try {
-      logger.log(`[VideoCard] handleStatusChange called with newStatus: ${newStatus} (type: ${typeof newStatus})`);
+      logger.log(`[VideoCard] handleStatusChange called with newStatus: ${newStatus} (type: ${typeof newStatus}), context: ${pageContext}`);
 
       if (isProfilePage) {
         // Update media.user_status
@@ -226,17 +217,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
           throw error;
         }
 
-        toast.success(`Video ${newStatus.toLowerCase()} successfully`);
+        toast.success(`Video status updated to ${newStatus}`);
       } else {
-        // Update asset_media.status as before
-        const assetId = video.metadata?.assetId;
+        // Update asset_media.status
+        const assetId = video.metadata?.assetId || video.associatedAssetId;
         if (!assetId) {
           logger.error(`[VideoCard] Cannot update asset_media status: assetId is missing for video ID ${video.id}.`);
           toast.error("Cannot update status: Missing asset information.");
           return;
         }
 
-        logger.log(`[VideoCard] Attempting to update asset_media status to ${newStatus} for media ID: ${video.id}, asset ID: ${assetId}`);
+        logger.log(`[VideoCard] Attempting to update asset_media.status to ${newStatus} for media ID: ${video.id}, asset ID: ${assetId}`);
 
         const { data, error } = await supabase
           .from('asset_media')
@@ -253,36 +244,40 @@ const VideoCard: React.FC<VideoCardProps> = ({
         }
 
         if (!data || data.length === 0) {
-          logger.warn(`[VideoCard] Supabase asset_media update for media ID ${video.id}, asset ID ${assetId} returned no data.`);
+          logger.warn(`[VideoCard] Supabase asset_media update for media ID ${video.id}, asset ID ${assetId} might not have found a matching row.`);
+          // Consider if insert is needed if row doesn't exist?
         }
 
-        toast.success(`Video ${newStatus.toLowerCase()} successfully`);
+        toast.success(`Video status updated to ${newStatus}`);
       }
       
       if (onStatusUpdateComplete) {
         logger.log(`[VideoCard] Calling onStatusUpdateComplete callback for media ID: ${video.id}`);
-        onStatusUpdateComplete();
+        await onStatusUpdateComplete();
       } else {
         logger.warn(`[VideoCard] onStatusUpdateComplete callback is missing for media ID: ${video.id}`);
       }
     } catch (error) {
-      logger.error(`[VideoCard] Failed to update asset_media status for media ID ${video.id}:`, error);
+      logger.error(`[VideoCard] Failed to update video status for media ID ${video.id}:`, error);
       toast.error('Failed to update video status');
     }
   };
   
   // Log the full video object on render for debugging
   useEffect(() => {
-    logger.log(`{ITEMSHOWINGBUG} VideoCard Rendering with video prop (ID: ${video.id}) (assetMediaDisplayStatus: ${video.assetMediaDisplayStatus}):`, video);
+    logger.log(`{ITEMSHOWINGBUG} VideoCard Rendering with video prop (ID: ${video.id}) (user_status: ${video.user_status}, assetMediaDisplayStatus: ${video.assetMediaDisplayStatus}):`, video);
   }, [video]); // Rerun if video object changes
   
+  // Determine the relevant status to pass to the controls
+  const currentRelevantStatus = isProfilePage ? video.user_status : video.assetMediaDisplayStatus;
+
   return (
     <div 
       ref={cardRef}
       key={video.id} 
       className={cn(
         "relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4",
-        isProfilePage && video.user_status === 'Hidden' && isAuthorized && "opacity-50 grayscale hover:opacity-75"
+        currentRelevantStatus === 'Hidden' && isAuthorized && "opacity-50 grayscale hover:opacity-75"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -307,14 +302,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
             onLoadedData={handleVideoLoad}
           />
 
-          {/* Status controls at bottom left with higher z-index */}
+          {/* Status controls at bottom left */}
           {isAuthorized && (
             <div className="absolute bottom-2 left-2 z-50 group-hover:opacity-100 transition-opacity duration-200" onClick={e => {
               e.stopPropagation();
               e.preventDefault();
             }} style={{ pointerEvents: 'all' }}>
               <VideoStatusControls
-                status={isProfilePage ? (video.user_status as 'Hidden' | 'View' | 'Pinned' || 'View') : (video.assetMediaDisplayStatus as 'Hidden' | 'Listed' | 'Featured' || 'Listed')}
+                status={currentRelevantStatus}
                 onStatusChange={handleStatusChange}
                 className=""
               />
@@ -331,7 +326,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
               }}
               style={{ pointerEvents: 'all' }}
             >
-              {onSetPrimaryMedia && (
+              {isLoRAAssetPage && onSetPrimaryMedia && (
                 <Button
                   variant="ghost"
                   size="icon"
