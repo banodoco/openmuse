@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Check, X, Play, ArrowUpRight, Trash } from 'lucide-react';
+import { Check, X, Play, ArrowUpRight, Trash, Star } from 'lucide-react';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -28,10 +28,12 @@ const logger = new Logger('VideoCard');
 interface VideoCardProps {
   video: VideoEntry;
   isAdmin: boolean;
+  isAuthorized: boolean;
   onOpenLightbox: (video: VideoEntry) => void;
   onApproveVideo?: (videoId: string) => Promise<void>;
   onRejectVideo?: (videoId: string) => Promise<void>;
   onDeleteVideo?: (videoId: string) => Promise<void>;
+  onSetPrimaryMedia?: (mediaId: string) => Promise<void>;
   isHovering?: boolean;
   onHoverChange?: (isHovering: boolean) => void;
 }
@@ -39,10 +41,12 @@ interface VideoCardProps {
 const VideoCard: React.FC<VideoCardProps> = ({
   video,
   isAdmin,
+  isAuthorized,
   onOpenLightbox,
   onApproveVideo,
   onRejectVideo,
   onDeleteVideo,
+  onSetPrimaryMedia,
   isHovering = false,
   onHoverChange
 }) => {
@@ -186,6 +190,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
   
+  const handleSetPrimary = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (onSetPrimaryMedia && !video.is_primary) {
+      logger.log(`[VideoCard] Calling onSetPrimaryMedia for video ID: ${video.id}`);
+      onSetPrimaryMedia(video.id);
+    }
+  };
+  
   const isProfilePage = location.pathname.includes('/profile/');
   const isLoRAAssetPage = location.pathname.includes('/assets/loras/');
   
@@ -219,6 +231,25 @@ const VideoCard: React.FC<VideoCardProps> = ({
             onLoadedData={handleVideoLoad}
           />
           
+          {isAuthorized && onSetPrimaryMedia && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "absolute top-2 left-2 z-20 h-7 w-7 p-0 rounded-md shadow-sm",
+                "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
+                video.is_primary && "text-yellow-400 hover:text-yellow-300"
+              )}
+              onClick={handleSetPrimary}
+              title={video.is_primary ? "This is the primary media" : "Set as primary media"}
+              disabled={video.is_primary}
+            >
+              <Star 
+                className={cn("h-4 w-4", video.is_primary && "fill-current")} 
+              />
+            </Button>
+          )}
+
           {!isMobile && (
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none

@@ -312,6 +312,36 @@ function AssetDetailPage() {
     logger.log(`[handleDeleteAsset] Finished for asset ID: ${assetId}`);
   };
   
+  // New function to set primary media
+  const handleSetPrimaryMedia = async (mediaId: string) => {
+    logger.log(`[handleSetPrimaryMedia] Initiated for media ID: ${mediaId} on asset ID: ${id}`);
+    if (!id || !isAuthorized) {
+      logger.warn(`[handleSetPrimaryMedia] Permission denied or missing ID. Asset ID: ${id}, Authorized: ${isAuthorized}`);
+      toast.error("You don't have permission or the asset ID is missing.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase.rpc('set_primary_media', {
+        p_asset_id: id,
+        p_media_id: mediaId,
+      });
+
+      if (error) {
+        logger.error(`[handleSetPrimaryMedia] Error calling Supabase function:`, error);
+        throw error;
+      }
+
+      toast.success('Primary media updated successfully!');
+      logger.log(`[handleSetPrimaryMedia] Success for media ID: ${mediaId}. Refreshing asset details.`);
+      await fetchAssetDetails(); // Refresh data to reflect changes
+
+    } catch (error: any) {
+      logger.error(`[handleSetPrimaryMedia] Error setting primary media for ${mediaId}:`, error);
+      toast.error(`Failed to set primary media: ${error.message || 'Unknown error'}`);
+    }
+  };
+  
   if (isLoading) {
     return (
       <div className="flex flex-col min-h-screen bg-background">
@@ -374,6 +404,8 @@ function AssetDetailPage() {
                   handleDeleteVideo={handleDeleteVideo}
                   handleRejectVideo={handleRejectVideo}
                   fetchAssetDetails={fetchAssetDetails}
+                  handleSetPrimaryMedia={handleSetPrimaryMedia}
+                  isAuthorized={isAuthorized}
                 />
               </div>
             </div>

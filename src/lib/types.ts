@@ -25,31 +25,13 @@ export interface VideoEntry {
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_status: string | null;
-  user_status: string | null;
-  user_id?: string;
-  metadata: {
-    title: string;
-    description?: string;
-    creator?: 'self' | 'someone_else';
-    creatorName?: string;
-    classification?: string;
-    isPrimary?: boolean;
-    loraName?: string;
-    loraDescription?: string;
-    assetId?: string;
-    loraType?: string;
-    loraLink?: string;
-    model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';  // This is the base model
-    modelVariant?: string;  // New field for model variant
-    baseModel?: string;
-    placeholder_image?: string;
-    trainingSteps?: string | number;
-    resolution?: string;
-    trainingDataset?: string;
-  };
+  admin_status?: string | null;
+  user_status?: string | null;
+  user_id?: string | null;
+  metadata?: VideoMetadata;
   associatedAssetId?: string | null;
   placeholder_image?: string | null;
+  is_primary?: boolean;
   thumbnailUrl?: string;
   title?: string;
   description?: string;

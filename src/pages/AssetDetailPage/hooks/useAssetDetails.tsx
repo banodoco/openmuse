@@ -71,23 +71,24 @@ export const useAssetDetails = (assetId: string | undefined) => {
         }
       }
 
-      let assetVideos: any[] = [];
-      
+      let assetMediaData: any[] = [];
       if (assetMediaRelationships && Array.isArray(assetMediaRelationships) && assetMediaRelationships.length > 0) {
         const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
-        console.log('[VideoLightboxDebug] Fetching media with IDs:', mediaIds);
-        
-        const { data: mediaData, error: mediaError } = await supabase
+        const { data: mediaJoinData, error: mediaJoinError } = await supabase
           .from('media')
-          .select('*')
-          .in('id', mediaIds);
-          
-        if (mediaError) {
-          console.error('[VideoLightboxDebug] Error fetching related media:', mediaError);
+          .select(`
+            *,
+            asset_media!inner(is_primary)
+          `)
+          .in('id', mediaIds)
+          .eq('asset_media.asset_id', assetId);
+
+        if (mediaJoinError) {
+          console.error('[VideoLightboxDebug] Error fetching related media with primary status:', mediaJoinError);
         } else {
-          assetVideos = mediaData || [];
-          console.log('[VideoLightboxDebug] Related media fetched:', assetVideos.length);
-          console.log('[VideoLightboxDebug] Raw mediaData:', mediaData); 
+          assetMediaData = mediaJoinData || [];
+          console.log('[VideoLightboxDebug] Related media with primary status fetched:', assetMediaData.length);
+          console.log('[VideoLightboxDebug] Raw mediaData with primary status:', assetMediaData);
         }
       } else {
         const { data: videoData, error: videoError } = await supabase
@@ -102,12 +103,16 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
         console.log('[VideoLightboxDebug] All videos retrieved (fallback):', videoData?.length || 0);
 
-        assetVideos = videoData?.filter(video => 
+        assetMediaData = videoData?.filter(video => 
           video.title?.includes(assetData.name) || 
           video.id === assetData.primary_media_id
         ) || [];
         
-        console.log('[VideoLightboxDebug] Videos for this asset (filtered fallback):]', assetVideos?.length || 0);
+        console.log('[VideoLightboxDebug] Videos for this asset (filtered fallback):]', assetMediaData?.length || 0);
+
+        if (assetMediaData.length > 0) {
+          console.warn('[VideoLightboxDebug] Using fallback media fetch logic. is_primary status might be inaccurate.');
+        }
       }
 
       const pVideo = assetData.primaryVideo;
@@ -161,15 +166,20 @@ export const useAssetDetails = (assetId: string | undefined) => {
       setAsset(processedAsset);
 
       const convertedVideos: VideoEntry[] = await Promise.all(
-        assetVideos.map(async (media: any) => {
+        assetMediaData.map(async (media: any) => {
           console.log('[VideoLightboxDebug] Processing media item:', media?.id, media);
           try {
             const videoUrl = await videoUrlService.getVideoUrl(media.url);
             
+            const isPrimary = media.asset_media && media.asset_media.length > 0
+              ? media.asset_media[0].is_primary
+              : (media.id === processedAsset.primary_media_id);
+
             return {
               id: media.id,
               url: videoUrl,
               associatedAssetId: assetId,
+              is_primary: isPrimary,
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
               created_at: media.created_at,

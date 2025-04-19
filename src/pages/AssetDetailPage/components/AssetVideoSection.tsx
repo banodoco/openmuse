@@ -39,6 +39,8 @@ interface AssetVideoSectionProps {
   handleDeleteVideo: (videoId: string) => Promise<void>;
   handleRejectVideo: (videoId: string) => Promise<void>;
   fetchAssetDetails: () => Promise<void>;
+  handleSetPrimaryMedia: (mediaId: string) => Promise<void>;
+  isAuthorized: boolean;
 }
 
 const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
@@ -49,7 +51,9 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   handleApproveVideo,
   handleDeleteVideo,
   handleRejectVideo,
-  fetchAssetDetails
+  fetchAssetDetails,
+  handleSetPrimaryMedia,
+  isAuthorized
 }) => {
   const { user } = useAuth();
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
@@ -60,18 +64,29 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     setHoveredVideoId(isHovering ? videoId : null);
   };
   
-  const filteredVideos = useMemo(() => {
+  const sortedAndFilteredVideos = useMemo(() => {
     if (!videos) return [];
-    if (classification === 'all') return videos;
-    return videos.filter(video => {
-      const videoClassification = video.metadata?.classification?.toLowerCase();
-      if (classification === 'generation') {
-        return videoClassification === 'generation';
-      }
-      if (classification === 'art') {
-        return videoClassification === 'art';
-      }
-      return false;
+    
+    // Filter first
+    let currentVideos = videos;
+    if (classification !== 'all') {
+      currentVideos = videos.filter(video => {
+        const videoClassification = video.metadata?.classification?.toLowerCase();
+        if (classification === 'generation') {
+          return videoClassification === 'generation';
+        }
+        if (classification === 'art') {
+          return videoClassification === 'art';
+        }
+        return false;
+      });
+    }
+
+    // Then sort: primary first, then by creation date
+    return currentVideos.sort((a, b) => {
+      if (a.is_primary && !b.is_primary) return -1;
+      if (!a.is_primary && b.is_primary) return 1;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest first
     });
   }, [videos, classification]);
 
@@ -92,7 +107,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   };
   // --- End Add ---
 
-  const itemsToDisplay = useMemo(() => getItemsWithDummies(filteredVideos), [filteredVideos]);
+  const itemsToDisplay = useMemo(() => getItemsWithDummies(sortedAndFilteredVideos), [sortedAndFilteredVideos]);
   
   return (
     <div className="md:col-span-2">
@@ -122,7 +137,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         />
       </div>
       
-      {filteredVideos.length > 0 ? (
+      {sortedAndFilteredVideos.length > 0 ? (
         <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
           <Masonry
             breakpointCols={breakpointColumnsObj}
@@ -136,10 +151,12 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     key={item.id}
                     video={item}
                     isAdmin={isAdmin}
+                    isAuthorized={isAuthorized}
                     onOpenLightbox={handleOpenLightbox}
                     onApproveVideo={handleApproveVideo}
                     onDeleteVideo={handleDeleteVideo}
                     onRejectVideo={handleRejectVideo}
+                    onSetPrimaryMedia={handleSetPrimaryMedia}
                     isHovering={hoveredVideoId === item.id}
                     onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                   />
