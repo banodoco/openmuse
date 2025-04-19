@@ -170,6 +170,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     onSetPrimaryMedia={handleSetPrimaryMedia}
                     isHovering={hoveredVideoId === item.id}
                     onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
+                    onStatusUpdateComplete={fetchAssetDetails}
                   />
                 );
               } else {

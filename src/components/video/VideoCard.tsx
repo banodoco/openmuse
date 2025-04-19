@@ -37,6 +37,7 @@ interface VideoCardProps {
   onSetPrimaryMedia?: (mediaId: string) => Promise<void>;
   isHovering?: boolean;
   onHoverChange?: (isHovering: boolean) => void;
+  onStatusUpdateComplete?: () => Promise<void>;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -49,7 +50,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onDeleteVideo,
   onSetPrimaryMedia,
   isHovering = false,
-  onHoverChange
+  onHoverChange,
+  onStatusUpdateComplete
 }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -236,6 +238,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
       
       logger.log(`[VideoCard] Asset_media status update process completed for ${newStatus} on media ID: ${video.id}, asset ID: ${assetId}.`);
       toast.success(`Video ${newStatus.toLowerCase()} successfully`);
+      
+      if (onStatusUpdateComplete) {
+        logger.log(`[VideoCard] Calling onStatusUpdateComplete callback for media ID: ${video.id}`);
+        onStatusUpdateComplete();
+      } else {
+        logger.warn(`[VideoCard] onStatusUpdateComplete callback is missing for media ID: ${video.id}`);
+      }
     } catch (error) {
       logger.error(`[VideoCard] Failed to update asset_media status for media ID ${video.id}:`, error);
       toast.error('Failed to update video status');
