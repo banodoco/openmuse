@@ -10,6 +10,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
 import { Button } from '@/components/ui/button';
 import { Link } from 'lucide-react';
+import { VideoMetadataForm as VideoMetadataFormType } from '@/lib/types';
 
 type LoraOption = {
   id: string;
@@ -18,14 +19,7 @@ type LoraOption = {
 
 interface VideoMetadataFormProps {
   videoId: string;
-  metadata: {
-    title: string;
-    description: string;
-    classification: 'art' | 'generation';
-    creator: 'self' | 'someone_else';
-    creatorName: string;
-    isPrimary?: boolean;
-  };
+  metadata: VideoMetadataFormType;
   associatedLoraIds: string[];
   availableLoras: LoraOption[];
   onMetadataChange: (id: string, field: string, value: any) => void;

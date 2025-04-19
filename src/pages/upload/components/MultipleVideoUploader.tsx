@@ -7,27 +7,13 @@ import VideoDropzone from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { VideoItem } from '@/lib/types';
 
 // Define LoraOption locally
 type LoraOption = {
   id: string;
   name: string;
 };
-
-interface VideoItem {
-  file: File | null;
-  url: string | null;
-  metadata: {
-    title: string;
-    description: string;
-    classification: 'art' | 'gen';
-    creator: 'self' | 'someone_else';
-    creatorName: string;
-    isPrimary?: boolean;
-  };
-  id: string;
-  associatedLoraIds?: string[];
-}
 
 interface MultipleVideoUploaderProps {
   videos: VideoItem[];
@@ -57,7 +43,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     metadata: {
       title: '',
       description: '',
-      classification: 'gen',
+      classification: 'generation',
       creator: 'self',
       creatorName: user?.email || '',
       isPrimary: videos.length === 0
@@ -90,7 +76,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'gen' as 'art' | 'gen',
+            classification: 'generation',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst
@@ -127,7 +113,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         metadata: {
           title: '',
           description: '',
-          classification: 'gen' as 'art' | 'gen',
+          classification: 'generation',
           creator: 'self' as 'self' | 'someone_else',
           creatorName: user?.email || '',
           isPrimary: isFirst
@@ -167,7 +153,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'gen' as 'art' | 'gen',
+            classification: 'generation',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst
@@ -192,14 +178,12 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: string, value: any) => {
-    // Log arguments individually for clarity
     console.log(`MultipleVideoUploader: updateVideoMetadata received -> id: ${id}, field: ${field}, value:`, value);
     if (disabled) return;
     
     setVideos(prev => {
       const updated = prev.map(video => {
         if (video.id === id) {
-          // Handle associatedLoraIds separately from metadata fields
           if (field === 'associatedLoraIds') {
             return {
               ...video,
@@ -207,20 +191,16 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             };
           }
           
-          // Handle metadata fields
           return {
             ...video,
             metadata: {
               ...video.metadata,
               [field]: value,
-              // Special case for isPrimary - if this video becomes primary, others should not be
               ...(field === 'isPrimary' && value === true ? { isPrimary: true } : {})
             }
           };
         }
         
-        // If this video is not being updated but we're setting a new primary,
-        // ensure this video is not primary
         if (field === 'isPrimary' && value === true) {
           return {
             ...video,
@@ -238,7 +218,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     });
   };
   
-  // New function to apply selected LoRAs to all videos
   const applyLorasToAllVideos = (loraIdsToApply: string[]) => {
     console.log(`[MultipleVideoUploader] Applying LoRA IDs to all videos:`, loraIdsToApply);
     if (disabled) return;
@@ -246,7 +225,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     setVideos(prevVideos => 
       prevVideos.map(video => ({
         ...video,
-        associatedLoraIds: [...loraIdsToApply] // Ensure a new array reference
+        associatedLoraIds: [...loraIdsToApply]
       }))
     );
   };

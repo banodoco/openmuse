@@ -7,25 +7,9 @@ import { Upload, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { videoUploadService } from '@/lib/services/videoUploadService';
-import { VideoFile, VideoMetadata } from '@/lib/types';
+import { VideoFile, VideoMetadata, VideoItem } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useNavigate } from 'react-router-dom';
-
-interface VideoItem {
-  id: string;
-  file: File | null;
-  url: string | null;
-  metadata: VideoMetadataForm;
-}
-
-interface VideoMetadataForm {
-  title: string;
-  description: string;
-  classification: 'art' | 'generation';
-  creator: 'self' | 'someone_else';
-  creatorName: string;
-  isPrimary?: boolean;
-}
 
 interface LoRAVideoUploaderProps {
   assetId: string;
@@ -96,7 +80,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             isPrimary: false,
             title,
             description,
-            classification, // This is now correctly typed as 'art' | 'generation'
+            classification,
             creator,
             creatorName
           };

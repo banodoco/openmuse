@@ -96,3 +96,22 @@ export interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading: boolean;
 }
+
+// Standard video metadata form interface to be used across components
+export interface VideoMetadataForm {
+  title: string;
+  description: string;
+  classification: 'art' | 'generation';
+  creator: 'self' | 'someone_else';
+  creatorName: string;
+  isPrimary?: boolean;
+}
+
+// Standard video item interface to be used across components
+export interface VideoItem {
+  id: string;
+  file: File | null;
+  url: string | null;
+  metadata: VideoMetadataForm;
+  associatedLoraIds?: string[];
+}
