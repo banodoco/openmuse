@@ -211,7 +211,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
       });
       logger.log(`[useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
 
-      logger.log('[loraorderingbug] Final sorted video array (before setting state):', sortedVideos.map(v => ({id: v.id, status: v.assetMediaDisplayStatus, is_primary: v.is_primary})));
+      logger.log('[loraorderingbug] Final sorted video IDs and statuses (before setting state):', sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus}, Primary: ${v.is_primary})`));
 
       setVideos(sortedVideos);
       logger.log('{ITEMSHOWINGBUG} Final VideoEntry array being set to state:', sortedVideos);
