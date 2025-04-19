@@ -32,7 +32,8 @@ function AssetDetailPage() {
     creatorDisplayName,
     getCreatorName,
     fetchAssetDetails,
-    setAsset
+    setAsset,
+    updateLocalVideoStatus
   } = useAssetDetails(id);
   
   // Calculate if the current user is authorized to edit or delete the asset
@@ -406,6 +407,7 @@ function AssetDetailPage() {
                   fetchAssetDetails={fetchAssetDetails}
                   handleSetPrimaryMedia={handleSetPrimaryMedia}
                   isAuthorized={isAuthorized}
+                  onUpdateLocalVideoStatus={updateLocalVideoStatus}
                 />
               </div>
             </div>

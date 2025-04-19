@@ -270,6 +270,43 @@ export const useAssetDetails = (assetId: string | undefined) => {
     return 'Unknown';
   };
 
+  // Function to update the status of a single video locally
+  const updateLocalVideoStatus = useCallback((videoId: string, newStatus: VideoDisplayStatus) => {
+    logger.log(`[useAssetDetails] Updating local video status for ${videoId} to ${newStatus}`);
+    setVideos(currentVideos => {
+      const updatedVideos = currentVideos.map(video => {
+        if (video.id === videoId) {
+          logger.log(`[useAssetDetails] Found video ${videoId}, updating assetMediaDisplayStatus`);
+          // Update the specific status field. Assuming asset page context for now.
+          // If profile page needs different logic, this might need adjustment.
+          return { ...video, assetMediaDisplayStatus: newStatus };
+        }
+        return video;
+      });
+      
+      // Log before and after for debugging comparison
+      // logger.log('[useAssetDetails] Videos before local update:', currentVideos.find(v => v.id === videoId));
+      // logger.log('[useAssetDetails] Videos after local update:', updatedVideos.find(v => v.id === videoId));
+      
+      // Re-sort the videos based on the new status
+      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+      const sortedUpdatedVideos = updatedVideos.sort((a, b) => {
+        if (a.is_primary && !b.is_primary) return -1;
+        if (!a.is_primary && b.is_primary) return 1;
+        const statusA = a.assetMediaDisplayStatus || 'View';
+        const statusB = b.assetMediaDisplayStatus || 'View';
+        const orderA = statusOrder[statusA] || 2;
+        const orderB = statusOrder[statusB] || 2;
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      logger.log('[useAssetDetails] Locally updated and re-sorted videos:', sortedUpdatedVideos.map(v => `${v.id} (${v.assetMediaDisplayStatus})`));
+      return sortedUpdatedVideos; 
+    });
+  }, [logger]); // Added logger dependency
+
   return {
     asset,
     videos,
@@ -279,6 +316,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
     getCreatorName,
     fetchAssetDetails,
     setAsset,
-    setDataFetchAttempted
+    setDataFetchAttempted,
+    updateLocalVideoStatus
   };
 };

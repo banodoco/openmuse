@@ -38,6 +38,7 @@ interface VideoCardProps {
   isHovering?: boolean;
   onHoverChange?: (isHovering: boolean) => void;
   onStatusUpdateComplete?: () => Promise<void>;
+  onUpdateLocalVideoStatus?: (videoId: string, newStatus: VideoDisplayStatus) => void;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -51,7 +52,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onSetPrimaryMedia,
   isHovering = false,
   onHoverChange,
-  onStatusUpdateComplete
+  onStatusUpdateComplete,
+  onUpdateLocalVideoStatus
 }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -257,11 +259,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
         toast.success(`Video status updated to ${newStatus}`);
       }
       
-      if (onStatusUpdateComplete) {
-        logger.log(`[VideoCard] Calling onStatusUpdateComplete callback for media ID: ${video.id}`);
-        await onStatusUpdateComplete();
+      if (onUpdateLocalVideoStatus) {
+        logger.log(`[VideoCard] Calling onUpdateLocalVideoStatus callback for media ID: ${video.id} with status ${newStatus}`);
+        onUpdateLocalVideoStatus(video.id, newStatus);
       } else {
-        logger.warn(`[VideoCard] onStatusUpdateComplete callback is missing for media ID: ${video.id}`);
+        logger.warn(`[VideoCard] onUpdateLocalVideoStatus callback is missing for media ID: ${video.id}. Falling back to full refresh.`);
+        if (onStatusUpdateComplete) {
+          logger.log(`[VideoCard] Falling back: Calling onStatusUpdateComplete callback for media ID: ${video.id}`);
+          await onStatusUpdateComplete();
+        } else {
+           logger.warn(`[VideoCard] Fallback failed: onStatusUpdateComplete callback is also missing for media ID: ${video.id}`);
+        }
       }
     } catch (error) {
       logger.error(`[VideoCard] Failed to update video status for media ID ${video.id}:`, error);

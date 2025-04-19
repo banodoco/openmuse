@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { VideoEntry, LoraAsset } from '@/lib/types';
+import { VideoEntry, LoraAsset, VideoDisplayStatus } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
 import VideoCard from '@/components/video/VideoCard';
 import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
@@ -39,6 +39,7 @@ interface AssetVideoSectionProps {
   fetchAssetDetails: () => Promise<void>;
   handleSetPrimaryMedia: (mediaId: string) => Promise<void>;
   isAuthorized: boolean;
+  onUpdateLocalVideoStatus: (videoId: string, newStatus: VideoDisplayStatus) => void;
 }
 
 const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
@@ -51,7 +52,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   handleRejectVideo,
   fetchAssetDetails,
   handleSetPrimaryMedia,
-  isAuthorized
+  isAuthorized,
+  onUpdateLocalVideoStatus
 }) => {
   const { user } = useAuth();
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
@@ -83,12 +85,15 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       if (a.is_primary && !b.is_primary) return -1;
       if (!a.is_primary && b.is_primary) return 1;
       
-      const statusOrder = { 'Featured': 1, 'Listed': 2, 'Hidden': 3 };
-      const statusA = a.assetMediaDisplayStatus || 'Listed';
-      const statusB = b.assetMediaDisplayStatus || 'Listed';
+      const statusOrder: Record<VideoDisplayStatus, number> = { 'Pinned': 1, 'View': 2, 'Hidden': 3 };
+      const statusA = a.assetMediaDisplayStatus || 'View';
+      const statusB = b.assetMediaDisplayStatus || 'View';
       
-      if (statusOrder[statusA] !== statusOrder[statusB]) {
-        return statusOrder[statusA] - statusOrder[statusB];
+      const orderA = statusOrder[statusA] ?? 2;
+      const orderB = statusOrder[statusB] ?? 2;
+
+      if (orderA !== orderB) {
+        return orderA - orderB;
       }
       
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
@@ -171,6 +176,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     isHovering={hoveredVideoId === item.id}
                     onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                     onStatusUpdateComplete={fetchAssetDetails}
+                    onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
                   />
                 );
               } else {
