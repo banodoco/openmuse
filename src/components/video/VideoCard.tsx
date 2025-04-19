@@ -236,12 +236,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
               variant="ghost"
               size="icon"
               className={cn(
-                "absolute top-2 left-2 z-20 h-7 w-7 p-0 rounded-md shadow-sm",
+                "absolute left-2 z-20 h-7 w-7 p-0 rounded-md shadow-sm",
                 "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
-                video.is_primary && "text-yellow-400 hover:text-yellow-300"
+                video.is_primary && "text-yellow-400 hover:text-yellow-300",
+                video.metadata?.title ? "top-8" : "top-2"
               )}
               onClick={handleSetPrimary}
-              title={video.is_primary ? "This is the primary media" : "Set as primary media"}
+              title={video.is_primary ? "This is the primary media" : "Make primary video"}
               disabled={video.is_primary}
             >
               <Star 
