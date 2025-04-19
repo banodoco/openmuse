@@ -84,8 +84,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       if (!a.is_primary && b.is_primary) return 1;
       
       const statusOrder = { 'Featured': 1, 'Listed': 2, 'Hidden': 3 };
-      const statusA = a.status || 'Listed';
-      const statusB = b.status || 'Listed';
+      const statusA = a.assetMediaDisplayStatus || 'Listed';
+      const statusB = b.assetMediaDisplayStatus || 'Listed';
       
       if (statusOrder[statusA] !== statusOrder[statusB]) {
         return statusOrder[statusA] - statusOrder[statusB];
@@ -112,7 +112,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       return sortedAndFilteredVideos;
     } else {
       logger.log(`Non-authorized user, filtering out hidden videos`);
-      const filtered = sortedAndFilteredVideos.filter(video => video.status !== 'Hidden');
+      const filtered = sortedAndFilteredVideos.filter(video => video.assetMediaDisplayStatus !== 'Hidden');
       logger.log(`Filtered videos count: ${filtered.length}`);
       return filtered;
     }

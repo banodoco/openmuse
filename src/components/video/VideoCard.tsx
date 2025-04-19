@@ -142,16 +142,15 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   const getButtonStyle = (status: string) => {
-    const currentStatus = video.admin_status || 'Listed';
+    const currentStatus = video.assetMediaDisplayStatus || 'Listed';
     const isActive = currentStatus === status;
     
     return cn(
-      "text-xs h-7 w-7 p-0",
-      isActive && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
-      isActive && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
-      isActive && status === 'Rejected' && "bg-orange-500 text-white hover:bg-orange-600",
-      !isActive && "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
-      "rounded-md shadow-sm"
+      "text-xs h-7 w-7 p-0 rounded-md shadow-sm",
+      currentStatus === 'Featured' && "bg-green-500 text-white hover:bg-green-600",
+      currentStatus === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
+      currentStatus === 'Hidden' && "bg-gray-500 text-white hover:bg-gray-600",
+      !(currentStatus === 'Featured' || currentStatus === 'Listed' || currentStatus === 'Hidden') && "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm"
     );
   };
   
@@ -245,7 +244,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   // Log the full video object on render for debugging
   useEffect(() => {
-    logger.log(`[VideoCard] Rendering with video object for ID ${video.id}:`, video);
+    logger.log(`{ITEMSHOWINGBUG} VideoCard Rendering with video prop (ID: ${video.id}) (assetMediaDisplayStatus: ${video.assetMediaDisplayStatus}):`, video);
   }, [video]); // Rerun if video object changes
   
   return (
@@ -285,7 +284,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
               e.preventDefault();
             }} style={{ pointerEvents: 'all' }}>
               <VideoStatusControls
-                status={video.status as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
+                status={video.assetMediaDisplayStatus as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
                 onStatusChange={handleStatusChange}
                 className=""
               />

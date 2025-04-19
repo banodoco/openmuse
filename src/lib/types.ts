@@ -25,7 +25,8 @@ export interface VideoEntry {
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_status?: string | null;
+  // This status is derived from asset_media.status for display/sorting on asset page
+  assetMediaDisplayStatus?: 'Hidden' | 'Listed' | 'Featured' | null; 
   user_status?: string | null;
   user_id?: string | null;
   metadata?: VideoMetadata;
@@ -35,7 +36,7 @@ export interface VideoEntry {
   thumbnailUrl?: string;
   title?: string;
   description?: string;
-  status?: 'Hidden' | 'Listed' | 'Featured';
+  status?: 'Hidden' | 'Listed' | 'Featured'; // This seems unused now? Consider removing if confirmed.
 }
 
 export interface RecordedVideo {

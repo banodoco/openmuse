@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -17,6 +17,11 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
   onStatusChange,
   className
 }) => {
+  // {ITEMSHOWINGBUG} Log the status prop received by VideoStatusControls
+  useEffect(() => {
+    logger.log(`{ITEMSHOWINGBUG} VideoStatusControls received status prop: '${status}'`);
+  }, [status]);
+
   // Prevent click events from propagating to parent elements
   const handleButtonClick = (newStatus: 'Hidden' | 'Listed' | 'Featured') => (e: React.MouseEvent) => {
     logger.log(`Button clicked: ${newStatus}`);
