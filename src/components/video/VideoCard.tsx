@@ -254,7 +254,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
           {/* Status controls at bottom left with higher z-index */}
           {isAuthorized && (
-            <div className="absolute left-2 bottom-2 z-40" onClick={e => e.stopPropagation()}>
+            <div className="absolute left-2 bottom-2 z-50" onClick={e => {
+              e.stopPropagation();
+              e.preventDefault();
+            }} style={{ pointerEvents: 'all' }}>
               <VideoStatusControls
                 status={video.status as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
                 onStatusChange={handleStatusChange}
@@ -266,8 +269,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
           {/* Delete and primary buttons at top right */}
           {isAuthorized && (
             <div 
-              className="absolute top-2 right-2 z-40 flex gap-2"
-              onClick={e => e.stopPropagation()}
+              className="absolute top-2 right-2 z-50 flex gap-2"
+              onClick={e => {
+                e.stopPropagation();
+                e.preventDefault();
+              }}
+              style={{ pointerEvents: 'all' }}
             >
               {onSetPrimaryMedia && (
                 <Button

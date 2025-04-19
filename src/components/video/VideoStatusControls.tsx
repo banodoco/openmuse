@@ -29,12 +29,13 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
 
   return (
     <div 
-      className={cn("absolute z-30 flex gap-1 bg-black/50 backdrop-blur-sm rounded-md p-1", className)} 
+      className={cn("absolute z-50 flex gap-1 bg-black/50 backdrop-blur-sm rounded-md p-1", className)} 
       onClick={e => {
         logger.log("Container clicked");
         e.stopPropagation();
         e.preventDefault();
       }}
+      style={{ pointerEvents: 'all' }}
     >
       <Button 
         variant="ghost"
