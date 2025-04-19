@@ -377,8 +377,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             </button>
             
             <div className={cn(
-              "p-4 flex-shrink",
-              isEditing ? "max-h-[40vh]" : "max-h-[75vh]"
+              "relative p-4 flex-shrink-0",
+              "bg-white",
+              isEditing ? "h-[40vh]" : "h-[75vh]"
             )}>
               <VideoPlayer
                 src={videoUrl}
@@ -392,15 +393,15 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 <div
                   className="absolute top-2 left-2 z-50"
                   onClick={(e) => {
-                    e.stopPropagation(); // Prevent clicks from reaching the video/lightbox background
+                    e.stopPropagation();
                     e.preventDefault();
                   }}
-                  style={{ pointerEvents: 'all' }} // Ensure buttons are clickable
+                  style={{ pointerEvents: 'all' }}
                 >
                   <VideoStatusControls
                     status={currentStatus}
                     onStatusChange={handleStatusInternal}
-                    className="" // Add any specific styling if needed
+                    className=""
                   />
                 </div>
               )}
