@@ -18,11 +18,13 @@ import {
   ExternalLink,
   Edit,
   Trash,
-  EyeOff
+  EyeOff,
+  PinIcon,
+  List
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, UserAssetPreferenceStatus } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import EditableLoraDetails from '@/components/lora/EditableLoraDetails';
 import { toast } from 'sonner';
@@ -45,80 +47,43 @@ const logger = new Logger('AssetInfoCard');
 interface AssetInfoCardProps {
   asset: LoraAsset | null;
   isAuthorizedToEdit: boolean;
-  isAdmin: boolean;
-  isApproving: boolean;
-  handleCurateAsset: () => Promise<void>;
-  handleListAsset: () => Promise<void>;
-  handleRejectAsset: () => Promise<void>;
-  handleDeleteAsset: () => Promise<void>;
-  getCreatorName: () => string;
-  creatorDisplayName?: string;
+  userIsLoggedIn: boolean;
+  currentUserPreference: UserAssetPreferenceStatus | null;
+  onPreferenceChange: (newStatus: UserAssetPreferenceStatus) => void;
 }
 
 const AssetInfoCard = ({
   asset,
   isAuthorizedToEdit,
-  isAdmin,
-  isApproving,
-  handleCurateAsset,
-  handleListAsset,
-  handleRejectAsset,
-  handleDeleteAsset,
-  getCreatorName,
-  creatorDisplayName,
+  userIsLoggedIn,
+  currentUserPreference,
+  onPreferenceChange
 }: AssetInfoCardProps) => {
-  const { isAdmin: authAdmin, user } = useAuth();
-  const [isDeleting, setIsDeleting] = React.useState(false);
+  const { user } = useAuth();
+  const [isUpdatingPreference, setIsUpdatingPreference] = React.useState(false);
 
-  const getModelColor = (modelType?: string): string => {
-    switch (modelType?.toLowerCase()) {
-      case 'wan':
-        return "bg-blue-500 text-white";
-      case 'hunyuan':
-        return "bg-purple-500 text-white";
-      case 'ltxv':
-        return "bg-amber-500 text-white";
-      case 'cogvideox':
-        return "bg-emerald-500 text-white";
-      case 'animatediff':
-        return "bg-pink-500 text-white";
-      default:
-        return "bg-gray-500 text-white";
-    }
-  };
-
-  const getStatusColor = (status?: string | null): string => {
-    switch (status) {
-      case 'Curated':
-        return "bg-green-500 text-white";
-      case 'Listed':
-        return "bg-blue-500 text-white";
-      case 'Rejected':
-        return "bg-red-500 text-white";
-      default:
-        return "bg-yellow-500 text-white";
-    }
-  };
-
-  const onDeleteConfirm = async () => {
-    logger.log(`[AssetInfoCard] onDeleteConfirm triggered for asset ID: ${asset?.id}`);
-    if (!handleDeleteAsset) {
-      logger.warn(`[AssetInfoCard] handleDeleteAsset prop is missing for asset ID: ${asset?.id}`);
-      toast.error("Delete function is unavailable."); 
-      setIsDeleting(false);
-      return;
-    }
+  const handlePreferenceClick = async (newStatus: UserAssetPreferenceStatus) => {
+    if (!onPreferenceChange || !userIsLoggedIn) return;
     
-    logger.log(`[AssetInfoCard] Calling handleDeleteAsset prop for asset ID: ${asset?.id}`);
-    setIsDeleting(true);
+    setIsUpdatingPreference(true);
     try {
-      await handleDeleteAsset();
-      logger.log(`[AssetInfoCard] handleDeleteAsset prop finished successfully for asset ID: ${asset?.id}`);
+      await onPreferenceChange(newStatus);
     } catch (error) {
-      logger.error(`[AssetInfoCard] Error executing handleDeleteAsset prop for asset ID ${asset?.id}:`, error);
-      setIsDeleting(false); 
-    } 
-    logger.log(`[AssetInfoCard] onDeleteConfirm finished for asset ID: ${asset?.id}`);
+      logger.error("[AssetInfoCard] Preference change failed:", error);
+    } finally {
+      setIsUpdatingPreference(false);
+    }
+  };
+
+  const getPreferenceButtonStyle = (status: UserAssetPreferenceStatus) => {
+    const isActive = currentUserPreference === status;
+    return cn(
+      "text-xs h-8 flex-1",
+      isActive && status === 'Pinned' && "bg-green-500 text-white hover:bg-green-600",
+      isActive && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
+      isActive && status === 'Hidden' && "bg-gray-500 text-white hover:bg-gray-600",
+      !isActive && "bg-transparent"
+    );
   };
 
   return (
@@ -131,93 +96,60 @@ const AssetInfoCard = ({
           <EditableLoraDetails 
             asset={asset}
             isAuthorized={isAuthorizedToEdit}
-            onDetailsUpdated={() => window.location.reload()}
+            onDetailsUpdated={() => { /* TODO: Trigger refetch from parent */ }}
           />
         </CardContent>
         
         <CardFooter className="flex flex-col gap-2 border-t pt-4">
-          {/* External Link Button - Always visible if link exists */}
+          {/* External Link Button */}
           {asset?.lora_link && (
             <a 
               href={asset.lora_link}
               target="_blank"
               rel="noopener noreferrer"
-              className={cn(buttonVariants(), "w-full gap-2")}
+              className={cn(buttonVariants(), "w-full gap-2 mb-2")}
             > 
               <ExternalLink className="h-4 w-4" />
               View External Link
             </a>
           )}
 
-          {/* Admin Moderation Buttons */}
-          {isAdmin && (
-            <>
-              <Button
-                onClick={handleCurateAsset}
-                className="w-full gap-2"
-                disabled={isApproving || asset?.admin_status === 'Curated'}
+          {/* User Preference Buttons - Show only if user is logged in */}
+          {userIsLoggedIn && (
+            <div className="grid grid-cols-3 gap-2 w-full border-t pt-4 mt-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handlePreferenceClick('Pinned')}
+                disabled={isUpdatingPreference}
+                className={getPreferenceButtonStyle('Pinned')}
               >
-                <Check className="h-4 w-4" />
-                Curate
+                <PinIcon className="h-3 w-3 mr-1" /> 
+                Pin
               </Button>
-              <Button
-                onClick={handleListAsset}
-                variant="secondary"
-                className="w-full gap-2"
-                disabled={isApproving || asset?.admin_status === 'Listed'}
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handlePreferenceClick('Listed')}
+                disabled={isUpdatingPreference}
+                className={getPreferenceButtonStyle('Listed')}
               >
-                <Check className="h-4 w-4" />
+                <List className="h-3 w-3 mr-1" />
                 List
               </Button>
-              <Button
-                onClick={handleRejectAsset}
-                variant="outline"
-                className={cn(
-                  "w-full gap-2",
-                  "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
-                  (isApproving || asset?.admin_status === 'Rejected') && "bg-orange-100 opacity-70 cursor-not-allowed"
-                )}
-                disabled={isApproving || asset?.admin_status === 'Rejected'}
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handlePreferenceClick('Hidden')}
+                disabled={isUpdatingPreference}
+                className={getPreferenceButtonStyle('Hidden')}
               >
-                <EyeOff className="h-4 w-4" />
+                <EyeOff className="h-3 w-3 mr-1" /> 
                 Hide
               </Button>
-            </>
-          )}
-
-          {/* Delete LoRA Button - Moved to the bottom, visible to authorized users */}
-          {isAuthorizedToEdit && (
-             <AlertDialog>
-                <AlertDialogTrigger asChild>
-                  <Button
-                    variant="destructive"
-                    className="w-full gap-2 mt-4"
-                    disabled={isDeleting}
-                  >
-                    <Trash className="h-4 w-4" />
-                    {isDeleting ? 'Deleting...' : 'Delete LoRA'}
-                  </Button>
-                </AlertDialogTrigger>
-                <AlertDialogContent>
-                  <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-                    <AlertDialogDescription>
-                      This action cannot be undone. This will permanently delete the LoRA asset
-                      and potentially associated data (like videos, depending on setup).
-                    </AlertDialogDescription>
-                  </AlertDialogHeader>
-                  <AlertDialogFooter>
-                    <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-                    <AlertDialogAction 
-                      onClick={onDeleteConfirm} 
-                      disabled={isDeleting}
-                      className="bg-destructive hover:bg-destructive/90"
-                    >
-                      {isDeleting ? 'Deleting...' : 'Confirm Delete'}
-                    </AlertDialogAction>
-                  </AlertDialogFooter>
-                </AlertDialogContent>
-              </AlertDialog>
+            </div>
           )}
           
         </CardFooter>

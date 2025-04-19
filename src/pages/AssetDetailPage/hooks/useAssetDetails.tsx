@@ -1,12 +1,19 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, VideoEntry, VideoDisplayStatus } from '@/lib/types';
+import { LoraAsset, VideoEntry, VideoDisplayStatus, UserAssetPreferenceStatus, VideoMetadata } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
 
 const logger = new Logger('useAssetDetails');
+
+// Helper type guard for allowed model strings
+const isValidModel = (model: string | undefined): model is VideoMetadata['model'] => {
+  if (!model) return false;
+  const allowedModels = ['wan', 'hunyuan', 'ltxv', 'cogvideox', 'animatediff'];
+  return allowedModels.includes(model.toLowerCase());
+};
 
 export const useAssetDetails = (assetId: string | undefined) => {
   const [asset, setAsset] = useState<LoraAsset | null>(null);
@@ -15,6 +22,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const { user, isAdmin } = useAuth();
+  const [userPreferenceStatus, setUserPreferenceStatus] = useState<UserAssetPreferenceStatus | null>(null);
 
   const fetchAssetDetails = useCallback(async () => {
     if (!assetId) {
@@ -25,11 +33,13 @@ export const useAssetDetails = (assetId: string | undefined) => {
     }
 
     setIsLoading(true);
+    setUserPreferenceStatus(null);
     try {
-      logger.log('[useAssetDetails] Fetching asset details for ID:', assetId);
+      logger.log('[useAssetDetails] Fetching core asset details for ID:', assetId);
+      
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
-        .select('*, primaryVideo:primary_media_id(*)')
+        .select(`*, primaryVideo:primary_media_id(*)`)
         .eq('id', assetId)
         .maybeSingle();
 
@@ -46,6 +56,25 @@ export const useAssetDetails = (assetId: string | undefined) => {
         setDataFetchAttempted(true);
         return;
       }
+
+      let fetchedPreference: UserAssetPreferenceStatus | null = null;
+      if (user?.id) {
+        logger.log(`[useAssetDetails] Fetching preference status for user ${user.id}, asset ${assetId}`);
+        const { data: preferenceData, error: preferenceError } = await supabase
+          .from('user_asset_preferences')
+          .select('status')
+          .eq('user_id', user.id)
+          .eq('asset_id', assetId)
+          .maybeSingle();
+        
+        if (preferenceError) {
+          logger.error('[useAssetDetails] Error fetching user preference:', preferenceError);
+        } else if (preferenceData) {
+          fetchedPreference = preferenceData.status as UserAssetPreferenceStatus;
+        }
+      }
+      setUserPreferenceStatus(fetchedPreference);
+      logger.log(`[useAssetDetails] Final user preference status: ${fetchedPreference}`);
 
       logger.log('Asset Base Model Verification:', {
         lora_base_model: assetData.lora_base_model,
@@ -81,6 +110,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
           title: pVideo?.title
       });
 
+      const validModel = isValidModel(assetData.lora_base_model) ? assetData.lora_base_model : undefined;
+
       const processedAsset: LoraAsset = {
           id: assetData.id,
           name: assetData.name,
@@ -95,26 +126,27 @@ export const useAssetDetails = (assetId: string | undefined) => {
           lora_base_model: assetData.lora_base_model,
           model_variant: assetData.model_variant,
           lora_link: assetData.lora_link,
+          user_preference_status: fetchedPreference,
           primaryVideo: pVideo ? {
               id: pVideo.id,
               url: pVideo.url,
-              reviewer_name: pVideo.creator || '',
+              reviewer_name: (pVideo as any)?.creator || '',
               skipped: false,
               created_at: pVideo.created_at,
-              assetMediaDisplayStatus: (pVideo.status as VideoDisplayStatus) || 'View',
+              assetMediaDisplayStatus: (pVideo as any)?.status as VideoDisplayStatus || 'View',
               user_id: pVideo.user_id,
-              user_status: (pVideo.user_status as VideoDisplayStatus) || null,
+              user_status: (pVideo as any)?.user_status as VideoDisplayStatus || null,
               metadata: {
                   title: pVideo.title || '',
                   placeholder_image: pVideo.placeholder_image || null,
                   description: pVideo.description,
-                  creator: pVideo.creator ? 'self' : undefined,
-                  creatorName: pVideo.creator_name,
-                  classification: pVideo.classification,
+                  creator: (pVideo as any)?.creator ? 'self' : undefined,
+                  creatorName: (pVideo as any)?.creator_name,
+                  classification: (pVideo as any)?.classification,
                   loraName: assetData.name,
                   assetId: assetData.id,
                   loraType: assetData.lora_type,
-                  model: assetData.lora_base_model,
+                  model: validModel,
                   modelVariant: assetData.model_variant,
               }
           } : undefined
@@ -249,78 +281,107 @@ export const useAssetDetails = (assetId: string | undefined) => {
         }
       }
     };
-
-    if (asset) {
+    if (asset?.user_id) {
       fetchCreatorProfile();
+    } else {
+      setCreatorDisplayName(null);
     }
   }, [asset]);
 
   const getCreatorName = () => {
-    if (creatorDisplayName) {
-      return creatorDisplayName;
-    }
-    
-    if (asset?.creator) {
-      if (asset.creator.includes('@')) {
-        return asset.creator.split('@')[0];
-      }
-      return asset.creator;
-    }
-    
-    return 'Unknown';
+    return creatorDisplayName || asset?.creator || 'Unknown';
   };
+  
+  const updateUserPreferenceStatus = useCallback(async (newStatus: UserAssetPreferenceStatus) => {
+    if (!user || !asset) {
+      logger.warn('[updateUserPreferenceStatus] User or asset not available.');
+      return;
+    }
 
-  // Function to update the status of a single video locally
-  const updateLocalVideoStatus = useCallback((videoId: string, newStatus: VideoDisplayStatus) => {
-    logger.log(`[useAssetDetails] Updating local video status for ${videoId} to ${newStatus}`);
-    setVideos(currentVideos => {
-      const updatedVideos = currentVideos.map(video => {
+    const optimisticPreviousStatus = userPreferenceStatus;
+    setUserPreferenceStatus(newStatus);
+
+    try {
+      logger.log(`[updateUserPreferenceStatus] Upserting preference for user ${user.id}, asset ${asset.id} to status ${newStatus}`);
+      const { error } = await supabase
+        .from('user_asset_preferences')
+        .upsert(
+          { 
+            user_id: user.id, 
+            asset_id: asset.id, 
+            status: newStatus 
+          },
+          { onConflict: 'user_id, asset_id' }
+        );
+
+      if (error) throw error;
+
+      toast.success(`Asset status updated to ${newStatus}`);
+      setAsset(prev => prev ? { ...prev, user_preference_status: newStatus } : null);
+
+    } catch (error) {
+      logger.error(`[updateUserPreferenceStatus] Error setting status to ${newStatus}:`, error);
+      toast.error(`Failed to set status to ${newStatus}`);
+      setUserPreferenceStatus(optimisticPreviousStatus);
+      setAsset(prev => prev ? { ...prev, user_preference_status: optimisticPreviousStatus } : null);
+    }
+  }, [user, asset, userPreferenceStatus]);
+
+  const updateLocalVideoStatus = useCallback((videoId: string, newStatus: VideoDisplayStatus, type: 'assetMedia' | 'user') => {
+    setVideos(prevVideos => {
+      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+      
+      const updatedVideos = prevVideos.map(video => {
         if (video.id === videoId) {
-          return { ...video, assetMediaDisplayStatus: newStatus };
+          logger.log(`[useAssetDetails/updateLocalVideoStatus] Updating video ${videoId} - Setting ${type} status to ${newStatus}`);
+          return { 
+            ...video, 
+            assetMediaDisplayStatus: type === 'assetMedia' ? newStatus : video.assetMediaDisplayStatus,
+            user_status: type === 'user' ? newStatus : video.user_status
+          };
         }
         return video;
       });
-      return sortVideos(updatedVideos);
-    });
-  }, [logger]);
+      
+      const sortedVideos = updatedVideos.sort((a, b) => {
+         const statusA = a.assetMediaDisplayStatus || 'View';
+        const statusB = b.assetMediaDisplayStatus || 'View';
 
-  // Helper function to sort videos consistently
-  const sortVideos = useCallback((videos: VideoEntry[]) => {
-    const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
-    return videos.sort((a, b) => {
-      if (a.is_primary && !b.is_primary) return -1;
-      if (!a.is_primary && b.is_primary) return 1;
-      const statusA = a.assetMediaDisplayStatus || 'View';
-      const statusB = b.assetMediaDisplayStatus || 'View';
-      const orderA = statusOrder[statusA] || 2;
-      const orderB = statusOrder[statusB] || 2;
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+        if (statusA !== 'Hidden' && statusB !== 'Hidden') {
+          if (a.is_primary && !b.is_primary) return -1;
+          if (!a.is_primary && b.is_primary) return 1;
+        }
+
+        const orderA = statusOrder[statusA] || 2;
+        const orderB = statusOrder[statusB] || 2;
+        
+        if (orderA !== orderB) {
+          return orderA - orderB;
+        }
+
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+      
+      logger.log(`[useAssetDetails/updateLocalVideoStatus] State updated for video ${videoId}. New sorted order:`, sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus})`));
+      return sortedVideos;
     });
   }, []);
 
-  // Function to update primary media locally
-  const updateLocalPrimaryMedia = useCallback((newPrimaryMediaId: string) => {
-    logger.log(`[useAssetDetails] Updating local primary media to ${newPrimaryMediaId}`);
-    setVideos(currentVideos => {
-      const updatedVideos = currentVideos.map(video => ({
-        ...video,
-        is_primary: video.id === newPrimaryMediaId
-      }));
-      return sortVideos(updatedVideos);
+  const updateLocalPrimaryMedia = useCallback((newPrimaryMediaId: string | null) => {
+    setAsset(prevAsset => {
+      if (!prevAsset) return null;
+      return { ...prevAsset, primary_media_id: newPrimaryMediaId };
     });
-  }, [logger, sortVideos]);
-
-  // Function to remove a video locally
+    setVideos(prevVideos => prevVideos.map(v => ({
+      ...v,
+      is_primary: v.id === newPrimaryMediaId
+    })));
+  }, []);
+  
   const removeVideoLocally = useCallback((videoId: string) => {
-    logger.log(`[useAssetDetails] Removing video ${videoId} from local state`);
-    setVideos(currentVideos => {
-      const filteredVideos = currentVideos.filter(video => video.id !== videoId);
-      return sortVideos(filteredVideos);
-    });
-  }, [logger, sortVideos]);
+     setVideos(prevVideos => prevVideos.filter(v => v.id !== videoId));
+     logger.log(`[useAssetDetails] Video ${videoId} removed locally.`);
+  }, []);
 
   return {
     asset,
@@ -334,6 +395,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
     setDataFetchAttempted,
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
-    removeVideoLocally
+    removeVideoLocally,
+    userPreferenceStatus,
+    updateUserPreferenceStatus
   };
 };

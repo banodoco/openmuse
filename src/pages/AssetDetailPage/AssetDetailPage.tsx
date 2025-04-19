@@ -4,7 +4,7 @@ import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { LoraAsset, VideoEntry, VideoDisplayStatus } from '@/lib/types';
+import { LoraAsset, VideoEntry, VideoDisplayStatus, UserAssetPreferenceStatus } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import AssetHeader from './components/AssetHeader';
@@ -35,10 +35,11 @@ function AssetDetailPage() {
     setAsset,
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
-    removeVideoLocally
+    removeVideoLocally,
+    userPreferenceStatus,
+    updateUserPreferenceStatus
   } = useAssetDetails(id);
   
-  // Calculate if the current user is authorized to edit or delete the asset
   const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
   
   const {
@@ -75,7 +76,6 @@ function AssetDetailPage() {
     }
   };
   
-  // Renamed from handleDeleteVideo, keeps existing reject logic
   const handleRejectVideo = async (videoId: string) => {
     try {
       logger.log(`Rejecting video: ${videoId}`);
@@ -93,7 +93,6 @@ function AssetDetailPage() {
     }
   };
 
-  // New function to actually delete a video
   const handleDeleteVideo = async (videoId: string) => {
     logger.log(`[handleDeleteVideo] Initiated for video ID: ${videoId}`);
     if (!isAdmin) {
@@ -103,10 +102,8 @@ function AssetDetailPage() {
     }
     
     logger.log(`[handleDeleteVideo] User authorized as admin. Proceeding with deletion for video ID: ${videoId}`);
-    // --- Start Deletion Process ---
     try {
       logger.log(`[handleDeleteVideo] Attempting to fetch media record for ID: ${videoId}`);
-      // 1. Fetch the media record to get file paths
       const { data: mediaRecord, error: fetchError } = await supabase
         .from('media')
         .select('url, placeholder_image')
@@ -123,7 +120,6 @@ function AssetDetailPage() {
       const thumbnailPath = mediaRecord.placeholder_image;
       logger.log(`[handleDeleteVideo] Video URL: ${videoPath || 'N/A'}, Thumbnail path: ${thumbnailPath || 'N/A'} for ID: ${videoId}`);
 
-      // 2. Attempt to delete video file from storage
       if (videoPath) {
         logger.log(`[handleDeleteVideo] Attempting to delete video file from 'videos' bucket: ${videoPath}`);
         try {
@@ -144,7 +140,6 @@ function AssetDetailPage() {
          logger.log(`[handleDeleteVideo] No url found for media record ${videoId}. Skipping video storage deletion.`);
       }
       
-      // 3. Attempt to delete thumbnail file from storage
       if (thumbnailPath) {
         logger.log(`[handleDeleteVideo] Attempting to delete thumbnail file from 'thumbnails' bucket: ${thumbnailPath}`);
          try {
@@ -165,7 +160,6 @@ function AssetDetailPage() {
           logger.log(`[handleDeleteVideo] No placeholder_image found for media record ${videoId}. Skipping thumbnail storage deletion.`);
       }
 
-      // 4. Delete the media record itself from the database
       logger.log(`[handleDeleteVideo] Attempting to delete media record from database for ID: ${videoId}`);
       const { error: dbError } = await supabase
         .from('media')
@@ -174,11 +168,10 @@ function AssetDetailPage() {
 
       if (dbError) {
         logger.error(`[handleDeleteVideo] Failed to delete media record ${videoId} from database:`, dbError);
-        throw dbError; // Throw error to be caught by the outer catch block
+        throw dbError;
       }
       logger.log(`[handleDeleteVideo] Successfully deleted media record from database for ID: ${videoId}`);
 
-      // After successful deletion, update local state instead of refetching
       removeVideoLocally(videoId);
       toast.success('Video deleted successfully');
 
@@ -189,7 +182,6 @@ function AssetDetailPage() {
     logger.log(`[handleDeleteVideo] Finished for video ID: ${videoId}`);
   };
 
-  // New function to delete the entire asset
   const handleDeleteAsset = async () => {
     logger.log(`[handleDeleteAsset] Initiated.`);
     if (!isAuthorized) {
@@ -207,7 +199,6 @@ function AssetDetailPage() {
     logger.log(`[handleDeleteAsset] User authorized. Proceeding with deletion for asset ID: ${assetId}`);
 
     try {
-      // 1. Fetch associated media records
       logger.log(`[handleDeleteAsset] Fetching associated media for asset ID: ${assetId}`);
       const { data: associatedMedia, error: fetchMediaError } = await supabase
         .from('media')
@@ -235,7 +226,6 @@ function AssetDetailPage() {
         logger.log(`[handleDeleteAsset] Video paths to delete: [${videoPaths.join(', ')}]`);
         logger.log(`[handleDeleteAsset] Thumbnail paths to delete: [${thumbnailPaths.join(', ')}]`);
 
-        // 2. Attempt to delete associated video files from storage
         if (videoPaths.length > 0) {
           logger.log(`[handleDeleteAsset] Attempting to delete ${videoPaths.length} video files from 'videos' bucket.`);
           try {
@@ -255,7 +245,6 @@ function AssetDetailPage() {
           }
         }
         
-        // 3. Attempt to delete associated thumbnail files from storage
         if (thumbnailPaths.length > 0) {
            logger.log(`[handleDeleteAsset] Attempting to delete ${thumbnailPaths.length} thumbnail files from 'thumbnails' bucket.`);
            try {
@@ -275,7 +264,6 @@ function AssetDetailPage() {
            }
          }
 
-        // 4. Delete associated media records from the database
         if (mediaIds.length > 0) {
           logger.log(`[handleDeleteAsset] Attempting to delete ${mediaIds.length} associated media records from database.`);
           const { error: mediaDbError } = await supabase
@@ -291,7 +279,6 @@ function AssetDetailPage() {
         }
       }
 
-      // 5. Delete the asset record itself
       logger.log(`[handleDeleteAsset] Attempting to delete asset record ${assetId} from database.`);
       const { error: assetDbError } = await supabase
         .from('assets')
@@ -315,7 +302,6 @@ function AssetDetailPage() {
     logger.log(`[handleDeleteAsset] Finished for asset ID: ${assetId}`);
   };
   
-  // New function to set primary media
   const handleSetPrimaryMedia = async (mediaId: string) => {
     try {
       const { error } = await supabase.rpc('set_primary_media', {
@@ -325,7 +311,6 @@ function AssetDetailPage() {
 
       if (error) throw error;
 
-      // Update local state instead of refetching
       updateLocalPrimaryMedia(mediaId);
       toast.success('Primary media updated successfully!');
 
@@ -335,54 +320,57 @@ function AssetDetailPage() {
     }
   };
   
-  // --- New Handler for Lightbox Status Changes (Asset Context) ---
   const handleLightboxAssetStatusChange = async (newStatus: VideoDisplayStatus) => {
     if (!currentVideo || !asset?.id) {
-      logger.error('[AssetDetailPage] Cannot update status: currentVideo or asset.id missing.');
-      toast.error("Cannot update status: Video or Asset information missing.");
+      logger.error('[AssetDetailPage] Cannot update status: lightbox video or asset ID missing.');
+      toast.error("Cannot update status: Video information missing.");
       return;
     }
 
     const videoId = currentVideo.id;
-    const assetId = asset.id;
-    logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange called for video ${videoId}, asset ${assetId} with status ${newStatus}`);
+    logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange called for video ${videoId} with status ${newStatus}`);
 
     try {
-      const upsertData = {
-        media_id: videoId,
-        asset_id: assetId,
-        status: newStatus
-      };
-
       const { data, error } = await supabase
         .from('asset_media')
-        .upsert(upsertData, { onConflict: 'media_id, asset_id' })
-        .select();
+        .update({ status: newStatus })
+        .eq('asset_id', asset.id)
+        .eq('media_id', videoId)
+        .select(); 
 
       if (error) throw error;
 
       toast.success(`Video status updated to ${newStatus}`);
-      // Update local state using the existing hook function
-      updateLocalVideoStatus(videoId, newStatus);
-      // Update the status in the currently open lightbox video state as well
+      updateLocalVideoStatus(videoId, newStatus, 'assetMedia');
       setCurrentVideo(prev => prev ? { ...prev, assetMediaDisplayStatus: newStatus } : null);
 
     } catch (error) {
-      logger.error(`[AssetDetailPage] Failed to update video status for media ID ${videoId}, asset ID ${assetId}:`, error);
+      logger.error(`[AssetDetailPage] Failed to update asset_media status for video ID ${videoId}:`, error);
       toast.error('Failed to update video status');
     }
   };
-  // --- End New Handler ---
 
   if (isLoading) {
     return (
-      <div className="flex flex-col min-h-screen bg-background">
+      <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light">
         <Navigation />
-        <div className="flex-1 w-full max-w-6xl mx-auto p-4">
-          <div className="flex justify-center items-center h-64">
-            <Skeleton className="h-16 w-16 rounded-full" />
+        <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
+          <div className="flex justify-start mb-4">
+             <Skeleton className="h-10 w-24" />
           </div>
-        </div>
+          <Skeleton className="h-48 w-full mb-6" /> 
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-1 space-y-4">
+              <Skeleton className="h-64 w-full" />
+            </div>
+            <div className="md:col-span-2">
+              <Skeleton className="h-12 w-1/2 mb-4" /> 
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+                {[...Array(3)].map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}
+              </div>
+            </div>
+          </div>
+        </main>
         <Footer />
       </div>
     );
@@ -390,12 +378,14 @@ function AssetDetailPage() {
   
   if (!asset) {
     return (
-      <div className="flex flex-col min-h-screen bg-cream-light">
+      <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light">
         <Navigation />
-        <main className="flex-1 container mx-auto p-4 text-center">
-          <h1 className="text-2xl font-semibold text-olive">Asset not found</h1>
-          <p className="text-muted-foreground">The requested asset could not be located.</p>
-          <Button onClick={() => navigate('/')} className="mt-4">Go Home</Button>
+        <main className="flex-1 container mx-auto p-4 md:p-6 flex flex-col items-center justify-center">
+          <h1 className="text-2xl font-semibold mb-4">Asset Not Found</h1>
+          <p className="text-muted-foreground mb-6">The requested LoRA asset could not be found.</p>
+          <Button onClick={() => navigate(-1)} variant="outline">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+          </Button>
         </main>
         <Footer />
       </div>
@@ -403,72 +393,71 @@ function AssetDetailPage() {
   }
   
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light">
       <Navigation />
-      
-      <div className="flex-1 w-full max-w-screen-2xl mx-auto p-4">
-        {asset && (
-          <>
-            <AssetHeader asset={asset} />
-            
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mt-6">
-              <div className="lg:col-span-1">
-                <AssetInfoCard 
-                  asset={asset}
-                  isAuthorizedToEdit={isAuthorized}
-                  isAdmin={isAdmin}
-                  isApproving={isApproving}
-                  handleCurateAsset={handleCurateAsset}
-                  handleListAsset={handleListAsset}
-                  handleRejectAsset={handleRejectAsset}
-                  handleDeleteAsset={handleDeleteAsset}
-                  getCreatorName={getCreatorName}
-                />
-              </div>
-              
-              <div className="lg:col-span-2">
-                <AssetVideoSection 
-                  asset={asset}
-                  videos={videos}
-                  isAdmin={isAdmin}
-                  handleOpenLightbox={handleOpenLightbox}
-                  handleApproveVideo={handleApproveVideo}
-                  handleDeleteVideo={handleDeleteVideo}
-                  handleRejectVideo={handleRejectVideo}
-                  fetchAssetDetails={fetchAssetDetails}
-                  handleSetPrimaryMedia={handleSetPrimaryMedia}
-                  isAuthorized={isAuthorized}
-                  onUpdateLocalVideoStatus={updateLocalVideoStatus}
-                />
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+      <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
+        <div className="flex justify-start">
+          <Button onClick={() => navigate(-1)} variant="outline" size="sm">
+            <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
+          </Button>
+        </div>
+
+        <AssetHeader 
+          asset={asset} 
+          creatorName={getCreatorName()}
+          isAdmin={isAdmin}
+          isAuthorized={isAuthorized}
+          isApproving={isApproving}
+          onCurate={handleCurateAsset}
+          onList={handleListAsset}
+          onReject={handleRejectAsset}
+          onDelete={handleDeleteAsset}
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="md:col-span-1 space-y-4">
+            <AssetInfoCard 
+              asset={asset}
+              isAuthorizedToEdit={isAuthorized}
+              userIsLoggedIn={!!user}
+              currentUserPreference={userPreferenceStatus}
+              onPreferenceChange={updateUserPreferenceStatus}
+            />
+          </div>
+          <div className="md:col-span-2">
+            <AssetVideoSection 
+              videos={videos}
+              asset={asset}
+              isAdmin={isAdmin}
+              isAuthorized={isAuthorized}
+              onOpenLightbox={handleOpenLightbox}
+              handleApproveVideo={handleApproveVideo}
+              handleRejectVideo={handleRejectVideo}
+              handleDeleteVideo={handleDeleteVideo}
+              handleSetPrimaryMedia={handleSetPrimaryMedia}
+              onStatusChange={updateLocalVideoStatus}
+            />
+          </div>
+        </div>
+      </main>
       
       {lightboxOpen && currentVideo && (
-        <>
-          {!currentVideo.id ? (
-            null 
-          ) : (
-            <VideoLightbox
-              isOpen={lightboxOpen}
-              onClose={handleCloseLightbox}
-              videoUrl={currentVideo.url}
-              videoId={currentVideo.id}
-              title={currentVideo.metadata?.title}
-              description={currentVideo.metadata?.description}
-              initialAssetId={currentVideo.associatedAssetId ?? undefined}
-              creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
-              thumbnailUrl={currentVideo.placeholder_image || currentVideo.metadata?.placeholder_image}
-              creatorId={currentVideo.user_id}
-              onVideoUpdate={fetchAssetDetails}
-              isAuthorized={isAuthorized}
-              currentStatus={currentVideo.assetMediaDisplayStatus}
-              onStatusChange={handleLightboxAssetStatusChange}
-            />
-          )}
-        </>
+        <VideoLightbox
+          isOpen={lightboxOpen}
+          onClose={handleCloseLightbox}
+          videoUrl={currentVideo.url}
+          videoId={currentVideo.id}
+          title={currentVideo.metadata?.title}
+          description={currentVideo.metadata?.description}
+          initialAssetId={currentVideo.associatedAssetId ?? undefined}
+          creator={currentVideo.metadata?.creatorName || currentVideo.user_id}
+          thumbnailUrl={currentVideo.metadata?.placeholder_image}
+          creatorId={currentVideo.user_id}
+          onVideoUpdate={fetchAssetDetails}
+          currentStatus={currentVideo.assetMediaDisplayStatus}
+          onStatusChange={handleLightboxAssetStatusChange}
+          isAuthorized={isAuthorized}
+        />
       )}
       
       <Footer />

@@ -32,28 +32,26 @@ interface AssetVideoSectionProps {
   asset: LoraAsset | null;
   videos: VideoEntry[];
   isAdmin: boolean;
-  handleOpenLightbox: (video: VideoEntry) => void;
+  onOpenLightbox: (video: VideoEntry) => void;
   handleApproveVideo: (videoId: string) => Promise<void>;
   handleDeleteVideo: (videoId: string) => Promise<void>;
   handleRejectVideo: (videoId: string) => Promise<void>;
-  fetchAssetDetails: () => Promise<void>;
   handleSetPrimaryMedia: (mediaId: string) => Promise<void>;
   isAuthorized: boolean;
-  onUpdateLocalVideoStatus: (videoId: string, newStatus: VideoDisplayStatus) => void;
+  onStatusChange: (videoId: string, newStatus: VideoDisplayStatus, type: 'assetMedia' | 'user') => void;
 }
 
 const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   asset,
   videos,
   isAdmin,
-  handleOpenLightbox,
+  onOpenLightbox,
   handleApproveVideo,
   handleDeleteVideo,
   handleRejectVideo,
-  fetchAssetDetails,
   handleSetPrimaryMedia,
   isAuthorized,
-  onUpdateLocalVideoStatus
+  onStatusChange
 }) => {
   const { user } = useAuth();
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
@@ -148,7 +146,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         <LoRAVideoUploader 
           assetId={asset?.id || ''} 
           assetName={asset?.name || ''} 
-          onUploadsComplete={fetchAssetDetails}
+          onUploadsComplete={() => { /* TODO: Consider refetch or update */ }}
           isLoggedIn={!!user}
         />
       </div>
@@ -168,15 +166,14 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     video={item}
                     isAdmin={isAdmin}
                     isAuthorized={isAuthorized}
-                    onOpenLightbox={handleOpenLightbox}
+                    onOpenLightbox={onOpenLightbox}
                     onApproveVideo={handleApproveVideo}
                     onDeleteVideo={handleDeleteVideo}
                     onRejectVideo={handleRejectVideo}
                     onSetPrimaryMedia={handleSetPrimaryMedia}
                     isHovering={hoveredVideoId === item.id}
                     onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
-                    onStatusUpdateComplete={fetchAssetDetails}
-                    onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
+                    onUpdateLocalVideoStatus={onStatusChange}
                   />
                 );
               } else {

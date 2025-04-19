@@ -38,7 +38,7 @@ interface VideoCardProps {
   isHovering?: boolean;
   onHoverChange?: (isHovering: boolean) => void;
   onStatusUpdateComplete?: () => Promise<void>;
-  onUpdateLocalVideoStatus?: (videoId: string, newStatus: VideoDisplayStatus) => void;
+  onUpdateLocalVideoStatus?: (videoId: string, newStatus: VideoDisplayStatus, type: 'user' | 'assetMedia') => void;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -200,10 +200,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const handleStatusChange = async (newStatus: VideoDisplayStatus) => {
     try {
-      logger.log(`[VideoCard] handleStatusChange called with newStatus: ${newStatus} (type: ${typeof newStatus}), context: ${pageContext}`);
+      logger.log(`[VideoCard] handleStatusChange called with newStatus: ${newStatus}, context: ${pageContext}`);
+      let updateType: 'user' | 'assetMedia';
 
       if (isProfilePage) {
-        // Update media.user_status
+        updateType = 'user';
         logger.log(`[VideoCard] Updating media.user_status to ${newStatus} for media ID: ${video.id}`);
 
         const { data, error } = await supabase
@@ -221,7 +222,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
         toast.success(`Video status updated to ${newStatus}`);
       } else {
-        // Update asset_media.status
+        updateType = 'assetMedia';
         const assetId = video.metadata?.assetId || video.associatedAssetId;
         if (!assetId) {
           logger.error(`[VideoCard] Cannot update asset_media status: assetId is missing for video ID ${video.id}.`);
@@ -260,8 +261,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
       }
       
       if (onUpdateLocalVideoStatus) {
-        logger.log(`[VideoCard] Calling onUpdateLocalVideoStatus callback for media ID: ${video.id} with status ${newStatus}`);
-        onUpdateLocalVideoStatus(video.id, newStatus);
+        logger.log(`[VideoCard] Calling onUpdateLocalVideoStatus for ${video.id} with status ${newStatus} and type ${updateType}`);
+        onUpdateLocalVideoStatus(video.id, newStatus, updateType);
       } else {
         logger.warn(`[VideoCard] onUpdateLocalVideoStatus callback is missing for media ID: ${video.id}. Falling back to full refresh.`);
         if (onStatusUpdateComplete) {

@@ -1,4 +1,3 @@
-
 import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 
 export interface VideoMetadata {
@@ -115,3 +114,5 @@ export interface VideoItem {
   metadata: VideoMetadataForm;
   associatedLoraIds?: string[];
 }
+
+export type { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';

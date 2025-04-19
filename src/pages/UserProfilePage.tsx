@@ -172,23 +172,21 @@ export default function UserProfilePage() {
   const fetchUserAssets = async (profileUserId: string, loggedInUserId: string | null | undefined) => {
     setIsLoadingAssets(true);
     try {
-      let query = supabase
+      // Conditionally construct the select string for the preference join
+      const preferenceSelect = loggedInUserId 
+        ? `user_preference:user_asset_preferences!left(status)?user_id=eq.${loggedInUserId}` 
+        : `user_preference:user_asset_preferences!left(status)`;
+
+      const { data: assetsData, error: assetsError } = await supabase
         .from('assets')
         .select(`
           *,
           primaryVideo:primary_media_id(*),
-          user_preference:user_asset_preferences!left(status)
+          ${preferenceSelect}
         `)
         .eq('user_id', profileUserId) // Assets owned by the profile user
         .order('created_at', { ascending: false });
 
-      // If a user is logged in, filter the join to *their* preferences for these assets
-      if (loggedInUserId) {
-        query = query.eq('user_preference.user_id', loggedInUserId);
-      }
-
-      const { data: assetsData, error: assetsError } = await query;
-      
       if (assetsError) {
         // Log specific Supabase error if available
         logger.error('Error fetching user assets:', assetsError);
