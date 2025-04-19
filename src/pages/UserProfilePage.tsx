@@ -493,6 +493,34 @@ export default function UserProfilePage() {
     logger.log(`[UserProfilePage] Local video states updated for ${videoId}`);
   }, [logger]); // Dependencies managed by useCallback
 
+  // New function to handle status update from the lightbox for user_status
+  const handleLightboxUserStatusUpdate = async (videoId: string, newStatus: VideoDisplayStatus) => {
+    if (!canEdit) {
+      logger.warn(`[handleLightboxUserStatusUpdate] Permission denied: User cannot edit this profile. Video ID: ${videoId}`);
+      toast.error("You don't have permission to change the status of this video.");
+      return;
+    }
+    
+    logger.log(`[handleLightboxUserStatusUpdate] Updating media.user_status to ${newStatus} for media ID: ${videoId}`);
+    try {
+      const { data, error } = await supabase
+        .from('media')
+        .update({ user_status: newStatus })
+        .eq('id', videoId)
+        .select();
+
+      if (error) throw error;
+
+      logger.log(`[handleLightboxUserStatusUpdate] Status updated successfully in DB for video ${videoId} to ${newStatus}. Updating local state.`);
+      handleLocalVideoUserStatusUpdate(videoId, newStatus); // Reuse the existing local state handler
+      toast.success(`Video status updated to ${newStatus}`);
+
+    } catch (error) {
+      logger.error(`[handleLightboxUserStatusUpdate] Failed to update video status for media ID ${videoId}:`, error);
+      toast.error('Failed to update video status');
+    }
+  };
+
   // Delete video (already handles local state update correctly)
   const deleteVideo = async (videoId: string) => {
     logger.log(`[deleteVideo] Initiated for video ID: ${videoId}`);
@@ -997,6 +1025,9 @@ export default function UserProfilePage() {
               console.warn('[UserProfilePage] Cannot refresh videos via lightbox: Profile ID missing.');
             }
           }}
+          isAuthorized={canEdit}
+          currentStatus={lightboxVideo.user_status}
+          onStatusChange={(newStatus) => handleLightboxUserStatusUpdate(lightboxVideo.id, newStatus)}
         />
       )}
 

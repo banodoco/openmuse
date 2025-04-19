@@ -24,6 +24,8 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
+import { VideoDisplayStatus } from '@/lib/types';
+import VideoStatusControls from './video/VideoStatusControls';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -37,6 +39,9 @@ interface VideoLightboxProps {
   thumbnailUrl?: string;
   creatorId?: string;
   onVideoUpdate?: () => Promise<void> | void;
+  isAuthorized?: boolean;
+  currentStatus?: VideoDisplayStatus | null;
+  onStatusChange?: (newStatus: VideoDisplayStatus) => Promise<void> | void;
 }
 
 interface LoraOption {
@@ -55,7 +60,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   creator,
   thumbnailUrl,
   creatorId,
-  onVideoUpdate
+  onVideoUpdate,
+  isAuthorized = false,
+  currentStatus = null,
+  onStatusChange
 }) => {
   console.log('[VideoLightboxDebug] Component Rendered. Initial videoId prop:', videoId);
   console.log('[VideoLightboxDebug] Component Version: 2024-07-30_10:00'); // Updated version log
@@ -341,7 +349,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               onClose();
           }
       }}>
-        <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 [&>button.absolute.right-4.top-4]:hidden flex flex-col">
+        <DialogContent
+          className={cn(
+            "p-0 max-w-full md:max-w-6xl lg:max-w-7xl h-full md:h-[90vh] flex flex-col border-none bg-black/90 text-white",
+            "overflow-hidden"
+          )}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <div className="relative flex flex-col h-full">
             <button
               onClick={() => {

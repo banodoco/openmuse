@@ -4,7 +4,7 @@ import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { LoraAsset, VideoEntry } from '@/lib/types';
+import { LoraAsset, VideoEntry, VideoDisplayStatus } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import AssetHeader from './components/AssetHeader';
@@ -187,6 +187,47 @@ function AssetDetailPage() {
       toast.error(`Failed to delete video: ${error.message || 'Unknown error'}`);
     }
     logger.log(`[handleDeleteVideo] Finished for video ID: ${videoId}`);
+  };
+
+  // New function to handle status update from the lightbox
+  const handleLightboxVideoStatusUpdate = async (videoId: string, newStatus: VideoDisplayStatus) => {
+    if (!asset?.id) {
+      logger.error(`[handleLightboxVideoStatusUpdate] Cannot update status: assetId is missing for video ID ${videoId}.`);
+      toast.error("Cannot update status: Missing asset information.");
+      return;
+    }
+    
+    const assetId = asset.id;
+    logger.log(`[handleLightboxVideoStatusUpdate] Attempting to update asset_media.status to ${newStatus} for media ID: ${videoId}, asset ID: ${assetId}`);
+
+    try {
+      const upsertData = {
+        media_id: videoId,
+        asset_id: assetId,
+        status: newStatus
+      };
+
+      const { data, error } = await supabase
+        .from('asset_media')
+        .upsert(upsertData, {
+          onConflict: 'media_id, asset_id',
+        })
+        .select();
+
+      if (error) throw error;
+      
+      if (!data || data.length === 0) {
+        logger.warn(`[handleLightboxVideoStatusUpdate] Supabase asset_media update for media ID ${videoId}, asset ID ${assetId} might not have found/affected a row.`);
+      }
+      
+      logger.log(`[handleLightboxVideoStatusUpdate] Status updated successfully in DB for video ${videoId} to ${newStatus}. Updating local state.`);
+      updateLocalVideoStatus(videoId, newStatus); // Use the existing local state updater
+      toast.success(`Video status updated to ${newStatus}`);
+
+    } catch (error) {
+      logger.error(`[handleLightboxVideoStatusUpdate] Failed to update video status for media ID ${videoId}, asset ID ${assetId}:`, error);
+      toast.error('Failed to update video status');
+    }
   };
 
   // New function to delete the entire asset
@@ -424,6 +465,9 @@ function AssetDetailPage() {
               thumbnailUrl={currentVideo.placeholder_image || currentVideo.metadata?.placeholder_image}
               creatorId={currentVideo.user_id}
               onVideoUpdate={fetchAssetDetails}
+              isAuthorized={isAuthorized}
+              currentStatus={currentVideo.assetMediaDisplayStatus}
+              onStatusChange={(newStatus) => handleLightboxVideoStatusUpdate(currentVideo.id, newStatus)}
             />
           )}
         </>
