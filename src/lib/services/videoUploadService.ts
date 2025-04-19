@@ -1,4 +1,3 @@
-
 import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
@@ -23,7 +22,7 @@ class VideoUploadService {
 
     try {
       const videoId = videoFile.id || uuidv4();
-      const videoPath = `videos/${videoId}.webm`;
+      const videoPath = `${videoId}.webm`;
       
       logger.log(`Uploading video to ${videoPath}`);
       
@@ -132,7 +131,7 @@ class VideoUploadService {
 
     try {
       const videoId = videoFile.id || uuidv4();
-      const videoPath = `videos/${videoId}.webm`;
+      const videoPath = `${videoId}.webm`;
       
       logger.log(`Uploading video to ${videoPath} for asset ${assetId}`);
       

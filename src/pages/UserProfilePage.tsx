@@ -27,13 +27,18 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
-import { DummyCard, generateDummyItems } from '@/components/common/DummyCard';
 import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
 
-const ITEMS_PER_PAGE = 12; // Define items per page
-
 const logger = new Logger('UserProfilePage');
+
+// Helper function to calculate page size based on total items
+const calculatePageSize = (totalItems: number): number => {
+  if (totalItems <= 8) return totalItems; // Rule 1: Show all if 8 or less
+  if (totalItems <= 11) return 8;  // Rule 2: Use 8/page for 9-11 items
+  if (totalItems <= 15) return 12; // Rule 3: Use 12/page for 12-15 items
+  return 16;                        // Rule 4: Use 16/page for 16+ items
+};
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -318,23 +323,26 @@ export default function UserProfilePage() {
     }
   };
 
-  // Pagination Logic
-  const getPaginatedItems = <T,>(items: T[], page: number): T[] => {
-    const startIndex = (page - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
+  // Helper to get paginated items for a given page and calculated size
+  const getPaginatedItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
+    if (pageSize <= 0) return items; // Avoid division by zero or negative index
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
     return items.slice(startIndex, endIndex);
   };
 
-  const getTotalPages = (totalItems: number): number => {
-    return Math.ceil(totalItems / ITEMS_PER_PAGE);
+  // Helper to get total pages based on total items and calculated size
+  const getTotalPages = (totalItems: number, pageSize: number): number => {
+    if (pageSize <= 0 || totalItems <= pageSize) return 1; // Only 1 page if size invalid or items fit
+    return Math.ceil(totalItems / pageSize);
   };
 
-  const currentGenerationVideos = getPaginatedItems(generationVideos, generationPage);
-  const currentArtVideos = getPaginatedItems(artVideos, artPage);
+  const currentGenerationVideos = getPaginatedItems(generationVideos, generationPage, calculatePageSize(generationVideos.length));
+  const currentArtVideos = getPaginatedItems(artVideos, artPage, calculatePageSize(artVideos.length));
 
-  const totalGenerationPages = getTotalPages(generationVideos.length);
-  const totalArtPages = getTotalPages(artVideos.length);
-  const totalLoraPages = getTotalPages(userAssets.length);
+  const totalGenerationPages = getTotalPages(generationVideos.length, calculatePageSize(generationVideos.length));
+  const totalArtPages = getTotalPages(artVideos.length, calculatePageSize(artVideos.length));
+  const totalLoraPages = getTotalPages(userAssets.length, calculatePageSize(userAssets.length));
 
   const handleGenerationPageChange = (newPage: number) => {
     setGenerationPage(newPage);
@@ -350,43 +358,27 @@ export default function UserProfilePage() {
 
   // --- Prepare items for Masonry, including dummies ---
   
-  // Type guard to check if item is a real video
-  const isVideoEntry = (item: VideoEntry | { type: 'dummy' }): item is VideoEntry => {
-    return !('type' in item && item.type === 'dummy');
-  }
-
-  // Type guard to check if item is a real LoRA
-  const isLoraAsset = (item: LoraAsset | { type: 'dummy' }): item is LoraAsset => {
-    return !('type' in item && item.type === 'dummy');
-  }
-
-  // --- Restore function to get items for a specific page, including dummies ---
-  const getItemsForPage = <T extends VideoEntry | LoraAsset>(
-    allItems: T[], 
+  // Update return type to Array<T>
+  const getItemsForPage = <T extends VideoEntry | LoraAsset> (
+    allItems: T[],
     page: number,
-    assetType: 'video' | 'lora'
-  ): Array<T | { type: 'dummy'; id: string; colorClass: string }> => {
-    const startIndex = (page - 1) * ITEMS_PER_PAGE;
-    const endIndex = startIndex + ITEMS_PER_PAGE;
-    const pageItems = allItems.slice(startIndex, endIndex);
-    
-    // Only add dummy items if the total number of real items is > 4
-    if (allItems.length > 4) {
-      const dummyItems = generateDummyItems(6, pageItems.length);
-      // Combine real items for the page with the 6 dummy items
-      return [...pageItems, ...dummyItems]; 
-    } else {
-      // Otherwise, just return the real items for the page
-      return pageItems;
-    }
-  };
-  // --- End Restore ---
+    assetType: 'video' | 'lora' // assetType might be removable now if not used for logging/debugging
+  ): Array<T> => {
+    const totalItems = allItems.length;
+    const pageSize = calculatePageSize(totalItems); // Calculate dynamic page size
+    const paginatedItems = getPaginatedItems(allItems, page, pageSize);
 
-  // --- Restore combined item calculation ---
+    // logger.log(`[getItemsForPage - ${assetType}] Total: ${totalItems}, Page: ${page}, PageSize: ${pageSize}, Displaying: ${paginatedItems.length}`);
+
+    return paginatedItems; // Return only the real items for the current page
+  };
+
+  // --- Calculate items for page --- 
+  // Type will now be Array<VideoEntry> or Array<LoraAsset>
   const generationItemsForPage = getItemsForPage(generationVideos, generationPage, 'video');
   const artItemsForPage = getItemsForPage(artVideos, artPage, 'video');
   const loraItemsForPage = getItemsForPage(userAssets, loraPage, 'lora');
-  // --- End Restore ---
+  // --- End Calculate --- 
 
   // --- Remove independent dummy generation ---
   // const dummyItemsToRender = generateDummyItems(6, 0); 
@@ -475,42 +467,74 @@ export default function UserProfilePage() {
       const thumbnailPath = mediaRecord.placeholder_image;
       logger.log(`[deleteVideo] Video URL: ${videoPath || 'N/A'}, Thumbnail path: ${thumbnailPath || 'N/A'} for ID: ${videoId}`);
 
-      if (videoPath) {
-        logger.log(`[deleteVideo] Attempting to delete video file from 'videos' bucket: ${videoPath}`);
+      const extractRelativePath = (url: string | null | undefined, bucketName: string): string | null => {
+        if (!url) return null;
         try {
-          const { data: deleteData, error: storageVideoError } = await supabase.storage
-            .from('videos')
-            .remove([videoPath]);
-          if (storageVideoError) {
-            logger.warn(`[deleteVideo] Failed to delete video file '${videoPath}' from storage (non-blocking):`, storageVideoError);
-            toast.warning(`Could not delete video file from storage.`);
-          } else {
-             logger.log(`[deleteVideo] Successfully deleted video file '${videoPath}' from storage.`, deleteData);
+          const urlObject = new URL(url);
+          // Pathname looks like /storage/v1/object/public/bucketName/filePath
+          const pathSegments = urlObject.pathname.split('/');
+          const bucketIndex = pathSegments.findIndex(segment => segment === bucketName);
+          if (bucketIndex !== -1 && bucketIndex + 1 < pathSegments.length) {
+            const relativePath = pathSegments.slice(bucketIndex + 1).join('/');
+            logger.log(`[extractRelativePath] Extracted path '${relativePath}' for bucket '${bucketName}' from URL ${url}`);
+            return relativePath;
           }
-        } catch (storageError) {
-           logger.warn(`[deleteVideo] Exception during video file storage deletion for '${videoPath}' (non-blocking):`, storageError);
-           toast.warning(`Error occurred during video file deletion.`);
+          logger.warn(`[extractRelativePath] Could not find bucket '${bucketName}' in path segments for URL: ${url}`);
+        } catch (e) {
+          logger.error(`[extractRelativePath] Error parsing URL ${url}:`, e);
+        }
+        // Fallback or error case: return null if path extraction fails
+        return null; 
+      };
+
+      if (videoPath) {
+        const relativeVideoPath = extractRelativePath(videoPath, 'videos');
+        if (relativeVideoPath) {
+          logger.log(`[deleteVideo] Attempting to delete video file from 'videos' bucket with relative path: ${relativeVideoPath}`);
+          try {
+            const { data: deleteData, error: storageVideoError } = await supabase.storage
+              .from('videos')
+              .remove([relativeVideoPath]); // Use extracted relative path
+            if (storageVideoError) {
+              logger.warn(`[deleteVideo] Failed to delete video file '${relativeVideoPath}' from storage (non-blocking):`, storageVideoError);
+              toast.warning(`Could not delete video file from storage.`);
+            } else {
+              logger.log(`[deleteVideo] Successfully deleted video file '${relativeVideoPath}' from storage.`, deleteData);
+            }
+          } catch (storageError) {
+            logger.warn(`[deleteVideo] Exception during video file storage deletion for '${relativeVideoPath}' (non-blocking):`, storageError);
+            toast.warning(`Error occurred during video file deletion.`);
+          }
+        } else {
+          logger.warn(`[deleteVideo] Could not extract relative path from video URL: ${videoPath}. Skipping storage deletion.`);
+          toast.warning(`Could not determine the storage path for the video file.`);
         }
       } else {
          logger.log(`[deleteVideo] No url found for media record ${videoId}. Skipping video storage deletion.`);
       }
       
       if (thumbnailPath) {
-        logger.log(`[deleteVideo] Attempting to delete thumbnail file from 'thumbnails' bucket: ${thumbnailPath}`);
-         try {
+        const relativeThumbnailPath = extractRelativePath(thumbnailPath, 'thumbnails');
+        if (relativeThumbnailPath) {
+          logger.log(`[deleteVideo] Attempting to delete thumbnail file from 'thumbnails' bucket with relative path: ${relativeThumbnailPath}`);
+          try {
             const { data: deleteData, error: storageThumbnailError } = await supabase.storage
               .from('thumbnails')
-              .remove([thumbnailPath]);
+              .remove([relativeThumbnailPath]); // Use extracted relative path
             if (storageThumbnailError) {
-              logger.warn(`[deleteVideo] Failed to delete thumbnail file '${thumbnailPath}' from storage (non-blocking):`, storageThumbnailError);
+              logger.warn(`[deleteVideo] Failed to delete thumbnail file '${relativeThumbnailPath}' from storage (non-blocking):`, storageThumbnailError);
               toast.warning(`Could not delete thumbnail file from storage.`);
             } else {
-               logger.log(`[deleteVideo] Successfully deleted thumbnail file '${thumbnailPath}' from storage.`, deleteData);
+              logger.log(`[deleteVideo] Successfully deleted thumbnail file '${relativeThumbnailPath}' from storage.`, deleteData);
             }
-         } catch (storageError) {
-            logger.warn(`[deleteVideo] Exception during thumbnail file storage deletion for '${thumbnailPath}' (non-blocking):`, storageError);
+          } catch (storageError) {
+            logger.warn(`[deleteVideo] Exception during thumbnail file storage deletion for '${relativeThumbnailPath}' (non-blocking):`, storageError);
             toast.warning(`Error occurred during thumbnail file deletion.`);
-         }
+          }
+        } else {
+          logger.warn(`[deleteVideo] Could not extract relative path from thumbnail URL: ${thumbnailPath}. Skipping storage deletion.`);
+          toast.warning(`Could not determine the storage path for the thumbnail file.`);
+        }
       } else {
           logger.log(`[deleteVideo] No placeholder_image found for media record ${videoId}. Skipping thumbnail storage deletion.`);
       }
@@ -742,35 +766,20 @@ export default function UserProfilePage() {
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : userAssets.length > 0 ? (
                   <>
-                    <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
+                    <div className="relative pt-6"> 
                       <Masonry
                         breakpointCols={breakpointColumnsObj}
                         className="my-masonry-grid"
                         columnClassName="my-masonry-grid_column"
                       >
-                        {loraItemsForPage.map(item => {
-                          if (isLoraAsset(item)) {
-                            // Render LoraCard
-                            return (
-                              <LoraCard 
-                                key={item.id} 
-                                lora={item}
-                                isAdmin={isAdmin}
-                              />
-                            );
-                          } else {
-                            // Render DummyCard
-                            return (
-                              <DummyCard 
-                                key={item.id} 
-                                id={item.id} 
-                                colorClass={item.colorClass} 
-                              />
-                            );
-                          }
-                        })}
+                        {loraItemsForPage.map(item => (
+                          <LoraCard 
+                            key={item.id} 
+                            lora={item}
+                            isAdmin={isAdmin}
+                          />
+                        ))}
                       </Masonry>
-                      <div className="fade-overlay-element"></div>
                     </div>
                     {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)}
                   </>
@@ -802,41 +811,26 @@ export default function UserProfilePage() {
                   <LoraGallerySkeleton count={isMobile ? 2 : 6} />
                 ) : generationVideos.length > 0 ? ( // Render if there are ANY generation videos
                   <>
-                    <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
+                    <div className="relative pt-6"> 
                       <Masonry
                         breakpointCols={breakpointColumnsObj}
                         className="my-masonry-grid"
                         columnClassName="my-masonry-grid_column"
                       >
-                        {generationItemsForPage.map((item) => {
-                          if (isVideoEntry(item)) {
-                            // Render VideoCard
-                            return (
-                              <VideoCard
-                                key={item.id}
-                                video={item}
-                                isAdmin={canEdit}
-                                onOpenLightbox={handleOpenLightbox}
-                                onApproveVideo={approveVideo}
-                                onRejectVideo={rejectVideo}
-                                onDeleteVideo={deleteVideo}
-                                isHovering={hoveredVideoId === item.id}
-                                onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
-                              />
-                            );
-                          } else {
-                            // Render DummyCard
-                            return (
-                              <DummyCard 
-                                key={item.id} 
-                                id={item.id} 
-                                colorClass={item.colorClass} 
-                              />
-                            );
-                          }
-                        })}
+                        {generationItemsForPage.map((item) => (
+                          <VideoCard
+                            key={item.id}
+                            video={item}
+                            isAdmin={canEdit}
+                            onOpenLightbox={handleOpenLightbox}
+                            onApproveVideo={approveVideo}
+                            onRejectVideo={rejectVideo}
+                            onDeleteVideo={deleteVideo}
+                            isHovering={hoveredVideoId === item.id}
+                            onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
+                          />
+                        ))}
                       </Masonry>
-                      <div className="fade-overlay-element"></div>
                     </div>
                     {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)}
                   </>
@@ -868,41 +862,26 @@ export default function UserProfilePage() {
                   <LoraGallerySkeleton count={isMobile ? 2 : 4} />
                 ) : artVideos.length > 0 ? ( // Render if there are ANY art videos
                   <>
-                    <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
+                    <div className="relative pt-6">
                       <Masonry
                         breakpointCols={breakpointColumnsObj}
                         className="my-masonry-grid"
                         columnClassName="my-masonry-grid_column"
                       >
-                        {artItemsForPage.map((item) => {
-                          if (isVideoEntry(item)) {
-                            // Render VideoCard
-                            return (
-                              <VideoCard
-                                key={item.id}
-                                video={item}
-                                isAdmin={canEdit}
-                                onOpenLightbox={handleOpenLightbox}
-                                onApproveVideo={approveVideo}
-                                onRejectVideo={rejectVideo}
-                                onDeleteVideo={deleteVideo}
-                                isHovering={hoveredVideoId === item.id}
-                                onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
-                              />
-                            );
-                          } else {
-                            // Render DummyCard
-                            return (
-                              <DummyCard 
-                                key={item.id} 
-                                id={item.id} 
-                                colorClass={item.colorClass} 
-                              />
-                            );
-                          }
-                        })}
+                        {artItemsForPage.map((item) => (
+                          <VideoCard
+                            key={item.id}
+                            video={item}
+                            isAdmin={canEdit}
+                            onOpenLightbox={handleOpenLightbox}
+                            onApproveVideo={approveVideo}
+                            onRejectVideo={rejectVideo}
+                            onDeleteVideo={deleteVideo}
+                            isHovering={hoveredVideoId === item.id}
+                            onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
+                          />
+                        ))}
                       </Masonry>
-                      <div className="fade-overlay-element"></div>
                     </div>
                     {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)}
                   </>
