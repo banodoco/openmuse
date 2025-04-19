@@ -250,18 +250,19 @@ const VideoCard: React.FC<VideoCardProps> = ({
             thumbnailUrl={thumbnailUrl}
             onLoadedData={handleVideoLoad}
           />
-          
+
+          {/* Move status controls to bottom left */}
           {isAuthorized && (
             <VideoStatusControls
               status={video.status as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
               onStatusChange={handleStatusChange}
-              className="right-2 top-2"
+              className="left-2 bottom-2"
             />
           )}
 
-          {/* Move delete and primary buttons to bottom right */}
+          {/* Move delete and primary buttons to top right */}
           {isAuthorized && (
-            <div className="absolute bottom-2 right-2 z-20 flex gap-2">
+            <div className="absolute top-2 right-2 z-20 flex gap-2">
               {onSetPrimaryMedia && (
                 <Button
                   variant="ghost"
@@ -333,22 +334,19 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
           {!isMobile && (
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none flex flex-col justify-between p-2 z-10">
-              <div className="flex justify-between items-start">
-                {video.metadata?.title ? (
-                  <span className="text-white text-xs font-medium line-clamp-2 mr-2">
+              <div className="flex flex-col items-start">
+                {video.metadata?.title && (
+                  <span className="text-white text-sm font-medium line-clamp-2 mr-2">
                     {video.metadata.title}
                   </span>
-                ) : <span />}
-                <ArrowUpRight className="text-white h-4 w-4 flex-shrink-0" />
-              </div>
-
-              {!isProfilePage && video.user_id && (
-                <div className="self-start">
-                  <span className="text-white text-xs bg-black/30 px-1.5 py-0.5 rounded-sm backdrop-blur-sm">
+                )}
+                {!isProfilePage && video.user_id && (
+                  <span className="text-white/80 text-xs">
                     By: {getCreatorName()}
                   </span>
-                </div>
-              )}
+                )}
+              </div>
+              <div /> {/* Empty div to maintain flex spacing */}
             </div>
           )}
         </div>
