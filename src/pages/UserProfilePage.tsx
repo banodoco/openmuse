@@ -470,6 +470,7 @@ export default function UserProfilePage() {
   };
 
   const handleOpenLightbox = (video: VideoEntry) => {
+    logger.log(`[UserProfilePage] Opening lightbox for video: ${video.id}, Status: ${video.user_status}`);
     setLightboxVideo(video);
   };
 
@@ -479,47 +480,61 @@ export default function UserProfilePage() {
 
   // --- Local State Update Handlers ---
 
-  // Handles status updates triggered from VideoCard controls
+  // Handles status updates triggered from VideoCard controls OR Lightbox controls
   const handleLocalVideoUserStatusUpdate = useCallback((videoId: string, newStatus: VideoDisplayStatus) => {
     logger.log(`[UserProfilePage] handleLocalVideoUserStatusUpdate called for video ${videoId} with status ${newStatus}`);
     
     const updateUserStatus = (video: VideoEntry) => 
       video.id === videoId ? { ...video, user_status: newStatus } : video;
 
+    // Update all lists that might contain this video
     setUserVideos(prev => sortProfileVideos(prev.map(updateUserStatus)));
     setGenerationVideos(prev => sortProfileVideos(prev.map(updateUserStatus)));
     setArtVideos(prev => sortProfileVideos(prev.map(updateUserStatus)));
     
+    // Also update the video currently in the lightbox if it matches
+    setLightboxVideo(prev => prev?.id === videoId ? { ...prev, user_status: newStatus } : prev);
+
     logger.log(`[UserProfilePage] Local video states updated for ${videoId}`);
   }, [logger]); // Dependencies managed by useCallback
 
-  // New function to handle status update from the lightbox for user_status
-  const handleLightboxUserStatusUpdate = async (videoId: string, newStatus: VideoDisplayStatus) => {
-    if (!canEdit) {
-      logger.warn(`[handleLightboxUserStatusUpdate] Permission denied: User cannot edit this profile. Video ID: ${videoId}`);
-      toast.error("You don't have permission to change the status of this video.");
+  // --- New handler specifically for lightbox status changes ---
+  const handleLightboxStatusChange = async (newStatus: VideoDisplayStatus) => {
+    if (!lightboxVideo || !lightboxVideo.id) {
+      logger.error('[handleLightboxStatusChange] Missing video ID in lightbox.');
+      toast.error('Could not update status: Video information missing.');
       return;
     }
     
-    logger.log(`[handleLightboxUserStatusUpdate] Updating media.user_status to ${newStatus} for media ID: ${videoId}`);
+    const videoId = lightboxVideo.id;
+    logger.log(`[handleLightboxStatusChange] Attempting to update media.user_status for video ${videoId} to: ${newStatus}`);
+
     try {
       const { data, error } = await supabase
         .from('media')
         .update({ user_status: newStatus })
         .eq('id', videoId)
-        .select();
+        .select(); // Select to confirm update
 
-      if (error) throw error;
-
-      logger.log(`[handleLightboxUserStatusUpdate] Status updated successfully in DB for video ${videoId} to ${newStatus}. Updating local state.`);
-      handleLocalVideoUserStatusUpdate(videoId, newStatus); // Reuse the existing local state handler
+      if (error) {
+        logger.error(`[handleLightboxStatusChange] Supabase error updating media.user_status:`, error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+         logger.warn(`[handleLightboxStatusChange] Update did not affect rows for media ${videoId}. Maybe it was deleted?`);
+      }
+      
+      logger.log(`[handleLightboxStatusChange] Successfully updated media.user_status for video ${videoId} to ${newStatus}. Calling local update.`);
+      handleLocalVideoUserStatusUpdate(videoId, newStatus); // Use the shared local update handler
       toast.success(`Video status updated to ${newStatus}`);
 
     } catch (error) {
-      logger.error(`[handleLightboxUserStatusUpdate] Failed to update video status for media ID ${videoId}:`, error);
-      toast.error('Failed to update video status');
+      logger.error(`[handleLightboxStatusChange] Failed to update video status for ${videoId}:`, error);
+      toast.error(`Failed to update video status: ${error.message || 'Unknown error'}`);
     }
   };
+  // --- End new handler ---
 
   // Delete video (already handles local state update correctly)
   const deleteVideo = async (videoId: string) => {
@@ -924,8 +939,8 @@ export default function UserProfilePage() {
                           <VideoCard
                             key={item.id}
                             video={item}
-                            isAdmin={canEdit}
-                            isAuthorized={isOwner || !!isAdmin}
+                            isAdmin={isAdmin}
+                            isAuthorized={canEdit}
                             onOpenLightbox={handleOpenLightbox}
                             onApproveVideo={approveVideo}
                             onRejectVideo={rejectVideo}
@@ -978,8 +993,8 @@ export default function UserProfilePage() {
                           <VideoCard
                             key={item.id}
                             video={item}
-                            isAdmin={canEdit}
-                            isAuthorized={isOwner || !!isAdmin}
+                            isAdmin={isAdmin}
+                            isAuthorized={canEdit}
                             onOpenLightbox={handleOpenLightbox}
                             onApproveVideo={approveVideo}
                             onRejectVideo={rejectVideo}
@@ -1019,15 +1034,15 @@ export default function UserProfilePage() {
           creatorId={lightboxVideo.user_id}
           onVideoUpdate={() => {
             if (profile?.id) {
-              console.log('[UserProfilePage] Lightbox update triggered. Refetching videos for user:', profile.id);
+              logger.log('[UserProfilePage] Lightbox update triggered. Refetching videos for user:', profile.id);
               fetchUserVideos(profile.id, user?.id, !!isAdmin);
             } else {
-              console.warn('[UserProfilePage] Cannot refresh videos via lightbox: Profile ID missing.');
+              logger.warn('[UserProfilePage] Cannot refresh videos via lightbox: Profile ID missing.');
             }
           }}
           isAuthorized={canEdit}
-          currentStatus={lightboxVideo.user_status}
-          onStatusChange={(newStatus) => handleLightboxUserStatusUpdate(lightboxVideo.id, newStatus)}
+          currentStatus={lightboxVideo.user_status || 'View'}
+          onStatusChange={handleLightboxStatusChange}
         />
       )}
 
