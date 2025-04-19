@@ -83,11 +83,22 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
       
       const uploadPromises = videosWithContent.map(async (video) => {
         if (video.file) {
-          const videoMetadata: VideoMetadata = {
-            ...video.metadata,
-            loraName: assetName,
-            assetId: assetId,
-            isPrimary: false
+          const loraName = assetName;
+          const title = video.metadata.title;
+          const description = video.metadata.description;
+          const classification = video.metadata.classification;
+          const creator = video.metadata.creator;
+          const creatorName = video.metadata.creatorName;
+
+          const metadata: VideoMetadata = {
+            loraName,
+            assetId,
+            isPrimary: false,
+            title,
+            description,
+            classification: classification === 'gen' ? 'generation' : 'art',
+            creator,
+            creatorName
           };
 
           console.log(`Uploading video: title=${video.metadata.title}, assetId=${assetId}`);
@@ -95,7 +106,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
           const videoFile: VideoFile = {
             id: video.id,
             blob: video.file,
-            metadata: videoMetadata
+            metadata
           };
 
           return videoUploadService.uploadVideoToExistingAsset(
@@ -115,8 +126,8 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             user_id: user?.id || null,
             metadata: {
               ...video.metadata,
-              loraName: assetName,
-              assetId: assetId,
+              loraName,
+              assetId,
               isPrimary: false
             }
           }, assetId, false);

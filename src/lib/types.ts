@@ -3,15 +3,15 @@ export interface VideoMetadata {
   description?: string;
   creator?: 'self' | 'someone_else';
   creatorName?: string;
-  classification?: 'art' | 'generation'; // Enforce allowed values
+  classification?: 'art' | 'generation'; // Fixing the classification type
   isPrimary?: boolean;
   loraName?: string;
   loraDescription?: string;
   assetId?: string;
   loraType?: string;
   loraLink?: string;
-  model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';  // This is the base model
-  modelVariant?: string;  // New field for model variant
+  model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  modelVariant?: string;
   baseModel?: string;
   placeholder_image?: string;
   trainingSteps?: string | number;
@@ -19,9 +19,6 @@ export interface VideoMetadata {
   trainingDataset?: string;
 }
 
-// Define the status types matching VideoStatusControls
-// Use the same status names for both contexts
-// Export this type so it can be imported elsewhere
 export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';
 
 export interface VideoEntry {
@@ -30,19 +27,17 @@ export interface VideoEntry {
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_status?: string | null; // e.g., 'Curated', 'Rejected'
-  // Use the unified status type for both fields
-  assetMediaDisplayStatus?: VideoDisplayStatus | null; // Status for asset page (from asset_media.status)
-  user_status?: VideoDisplayStatus | null; // Status for user profile page (from media.user_status)
+  admin_status?: string | null;
+  assetMediaDisplayStatus?: VideoDisplayStatus | null;
+  user_status?: VideoDisplayStatus | null;
   user_id?: string | null;
-  metadata?: VideoMetadata; // Should contain fields like title, description, classification
-  associatedAssetId?: string | null; // ID of the LoRA asset this video is linked to
+  metadata?: VideoMetadata;
+  associatedAssetId?: string | null;
   placeholder_image?: string | null;
-  is_primary?: boolean; // Is this the primary video for an asset?
-  // Redundant fields? Consider removing if always available in metadata
-  thumbnailUrl?: string; // Often same as placeholder_image
-  title?: string; // Usually in metadata.title
-  description?: string; // Usually in metadata.description
+  is_primary?: boolean;
+  thumbnailUrl?: string;
+  title?: string;
+  description?: string;
 }
 
 export interface RecordedVideo {
@@ -85,16 +80,14 @@ export interface LoraAsset {
   primary_media_id?: string;
   admin_status?: string | null;
   user_status?: string | null;
-  lora_type?: string;  // LoRA type (Concept, Motion Style, etc)
-  lora_base_model?: string;  // Base model (wan, hunyuan, etc)
-  model_variant?: string;  // New field for model variant
+  lora_type?: string;
+  lora_base_model?: string;
+  model_variant?: string;
   lora_link?: string;
-  // Populated from related data
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];
 }
 
-// Props interfaces
 export interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading: boolean;
