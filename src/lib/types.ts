@@ -1,3 +1,5 @@
+import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
+
 export interface VideoMetadata {
   title: string;
   description?: string;
@@ -86,6 +88,7 @@ export interface LoraAsset {
   lora_link?: string;
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];
+  user_preference_status?: UserAssetPreferenceStatus | null;
 }
 
 export interface LoraManagerProps {

@@ -10,7 +10,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset, UserProfile, VideoEntry, VideoDisplayStatus } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
-import LoraCard from '@/components/lora/LoraCard';
+import LoraCard, { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
 import UploadModal from '@/components/upload/UploadModal';
 import { Button } from '@/components/ui/button';
@@ -50,6 +50,25 @@ const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
     const statusB = b.user_status || 'View';
     const orderA = statusOrder[statusA] || 2;
     const orderB = statusOrder[statusB] || 2;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    // Fallback to creation date
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
+};
+
+// Helper function to sort LoRA assets based on user_preference_status
+const sortUserAssets = (assets: LoraAsset[]): LoraAsset[] => {
+  const statusOrder: { [key in UserAssetPreferenceStatus]: number } = { 'Pinned': 1, 'Listed': 2, 'Hidden': 4 };
+  return [...assets].sort((a, b) => {
+    // Use user_preference_status for sorting
+    const statusA = a.user_preference_status;
+    const statusB = b.user_preference_status;
+    // Assign default order 3 if status is null or undefined
+    const orderA = statusA ? (statusOrder[statusA] ?? 3) : 3;
+    const orderB = statusB ? (statusOrder[statusB] ?? 3) : 3;
 
     if (orderA !== orderB) {
       return orderA - orderB;
@@ -122,12 +141,12 @@ export default function UserProfilePage() {
         
         if (data) {
           setProfile(data as UserProfile);
-          const ownerStatus = user?.id === data.id;
+          const ownerStatus = !forceLoggedOutView && user?.id === data.id;
           setIsOwner(ownerStatus);
-          setCanEdit(ownerStatus || !!isAdmin);
+          setCanEdit(ownerStatus || (!!isAdmin && !forceLoggedOutView));
           
           if (data.id) {
-            fetchUserAssets(data.id);
+            fetchUserAssets(data.id, user?.id);
             fetchUserVideos(data.id, user?.id, !!isAdmin);
           }
         } else {
@@ -141,7 +160,7 @@ export default function UserProfilePage() {
     };
     
     fetchProfileByDisplayName();
-  }, [displayName, user, navigate, isAdmin]);
+  }, [displayName, user, navigate, isAdmin, forceLoggedOutView]);
 
   // Reset pagination when profile/videos change
   useEffect(() => {
@@ -150,24 +169,40 @@ export default function UserProfilePage() {
     setLoraPage(1);
   }, [profile?.id]);
 
-  const fetchUserAssets = async (userId: string) => {
+  const fetchUserAssets = async (profileUserId: string, loggedInUserId: string | null | undefined) => {
     setIsLoadingAssets(true);
     try {
-      const { data: assetsData, error: assetsError } = await supabase
+      let query = supabase
         .from('assets')
-        .select('*, primaryVideo:primary_media_id(*)')
-        .eq('user_id', userId)
+        .select(`
+          *,
+          primaryVideo:primary_media_id(*),
+          user_preference:user_asset_preferences!left(status)
+        `)
+        .eq('user_id', profileUserId) // Assets owned by the profile user
         .order('created_at', { ascending: false });
+
+      // If a user is logged in, filter the join to *their* preferences for these assets
+      if (loggedInUserId) {
+        query = query.eq('user_preference.user_id', loggedInUserId);
+      }
+
+      const { data: assetsData, error: assetsError } = await query;
       
       if (assetsError) {
-        console.error('Error fetching user assets:', assetsError);
+        // Log specific Supabase error if available
+        logger.error('Error fetching user assets:', assetsError);
+        toast.error('Failed to load LoRAs. ' + assetsError.message);
         return;
       }
 
       if (assetsData) {
-        const processedAssets: LoraAsset[] = assetsData.map(asset => {
-          const pVideo = asset.primaryVideo; // Raw primary video data from join
-          
+        const processedAssets: LoraAsset[] = assetsData.map((asset: any) => { // Use any temporarily for joined data
+          const pVideo = asset.primaryVideo;
+          const preferenceStatus = asset.user_preference && asset.user_preference.length > 0 
+                                    ? asset.user_preference[0].status as UserAssetPreferenceStatus 
+                                    : null;
+
           logger.log(`[fetchUserAssets] Processing asset: ${asset.id}, Primary Video Data (pVideo):`, {
             exists: !!pVideo,
             id: pVideo?.id,
@@ -190,6 +225,7 @@ export default function UserProfilePage() {
             lora_base_model: asset.lora_base_model,
             model_variant: asset.model_variant,
             lora_link: asset.lora_link,
+            user_preference_status: preferenceStatus,
             
             primaryVideo: pVideo ? {
               id: pVideo.id,
@@ -217,10 +253,12 @@ export default function UserProfilePage() {
           };
         });
         
-        setUserAssets(processedAssets);
+        // Sort the processed assets before setting state
+        setUserAssets(sortUserAssets(processedAssets));
       }
     } catch (err) {
-      console.error('Error processing user assets:', err);
+      logger.error('Error processing user assets:', err);
+      toast.error('An unexpected error occurred while loading LoRAs.');
     } finally {
       setIsLoadingAssets(false);
     }
@@ -766,6 +804,21 @@ export default function UserProfilePage() {
     );
   };
 
+  // --- New Handler for LoraCard Preference Changes ---
+  const handleLocalAssetPreferenceChange = useCallback((assetId: string, newStatus: UserAssetPreferenceStatus) => {
+    logger.log(`[UserProfilePage] handleLocalAssetPreferenceChange called for asset ${assetId} with status ${newStatus}`);
+    
+    setUserAssets(prevAssets => {
+      const updatedAssets = prevAssets.map(asset => 
+        asset.id === assetId ? { ...asset, user_preference_status: newStatus } : asset
+      );
+      // Re-sort the assets after updating the status
+      return sortUserAssets(updatedAssets);
+    });
+    
+    logger.log(`[UserProfilePage] Local asset state updated and sorted for ${assetId}`);
+  }, [logger]); // Dependencies managed by useCallback
+
   return (
     <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light text-foreground">
       <Helmet>
@@ -865,7 +918,7 @@ export default function UserProfilePage() {
                       </Button>
                     }
                     initialUploadType="lora"
-                    onUploadSuccess={() => fetchUserAssets(profile.id)}
+                    onUploadSuccess={() => fetchUserAssets(profile.id, user?.id)}
                   />
                 )}
               </CardHeader>
@@ -884,7 +937,10 @@ export default function UserProfilePage() {
                           <LoraCard 
                             key={item.id} 
                             lora={item}
-                            isAdmin={isAdmin}
+                            isAdmin={isAdmin && !forceLoggedOutView}
+                            isOwnProfile={isOwner}
+                            userPreferenceStatus={item.user_preference_status}
+                            onPreferenceChange={handleLocalAssetPreferenceChange}
                           />
                         ))}
                       </Masonry>

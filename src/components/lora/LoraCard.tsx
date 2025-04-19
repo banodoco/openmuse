@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink, ArrowUpRight } from 'lucide-react';
+import { Trash, Check, X, ExternalLink, ArrowUpRight, PinIcon, List, EyeOff } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -26,23 +26,38 @@ import LoraCreatorInfo from './LoraCreatorInfo';
 
 const logger = new Logger('LoraCard');
 
+// Define the possible user preference statuses
+export type UserAssetPreferenceStatus = 'Pinned' | 'Listed' | 'Hidden';
+
 interface LoraCardProps {
   lora: LoraAsset;
   isAdmin?: boolean;
+  isOwnProfile?: boolean;
+  userPreferenceStatus?: UserAssetPreferenceStatus | null;
+  onPreferenceChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => void;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
   lora, 
-  isAdmin = false 
+  isAdmin = false, 
+  isOwnProfile = false,
+  userPreferenceStatus = null,
+  onPreferenceChange
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
   const [isDeleting, setIsDeleting] = useState(false);
-  const [isApproving, setIsApproving] = useState(false);
-  const [isRejecting, setIsRejecting] = useState(false);
+  const [isPinning, setIsPinning] = useState(false);
+  const [isListing, setIsListing] = useState(false);
+  const [isHiding, setIsHiding] = useState(false);
+  const [currentPreferenceStatus, setCurrentPreferenceStatus] = useState(userPreferenceStatus);
   const { user } = useAuth();
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   
+  useEffect(() => {
+    setCurrentPreferenceStatus(userPreferenceStatus);
+  }, [userPreferenceStatus]);
+
   const videoUrl = lora.primaryVideo?.url;
   const thumbnailUrl = lora.primaryVideo?.metadata?.placeholder_image;
   
@@ -102,80 +117,58 @@ const LoraCard: React.FC<LoraCardProps> = ({
     }
   };
   
-  const handleCurate = async () => {
-    if (!isAdmin) return;
-    
-    setIsApproving(true);
+  const updateUserPreference = async (newStatus: UserAssetPreferenceStatus) => {
+    if (!user || !isOwnProfile) return;
+
+    const optimisticPreviousStatus = currentPreferenceStatus;
+    setCurrentPreferenceStatus(newStatus);
+
+    let setStateFunc: React.Dispatch<React.SetStateAction<boolean>>;
+    if (newStatus === 'Pinned') setStateFunc = setIsPinning;
+    else if (newStatus === 'Listed') setStateFunc = setIsListing;
+    else setStateFunc = setIsHiding;
+
+    setStateFunc(true);
+
     try {
       const { error } = await supabase
-        .from('assets')
-        .update({ admin_status: 'Curated' })
-        .eq('id', lora.id);
-      
+        .from('user_asset_preferences')
+        .upsert(
+          { 
+            user_id: user.id, 
+            asset_id: lora.id, 
+            status: newStatus 
+          },
+          { onConflict: 'user_id, asset_id' }
+        );
+
       if (error) throw error;
-      
-      toast.success('LoRA curated successfully');
-      lora.admin_status = 'Curated';
+
+      toast.success(`Asset status updated to ${newStatus}`);
+      if (onPreferenceChange) {
+        onPreferenceChange(lora.id, newStatus);
+      }
     } catch (error) {
-      console.error('Error curating LoRA:', error);
-      toast.error('Failed to curate LoRA');
+      console.error(`Error setting status to ${newStatus}:`, error);
+      toast.error(`Failed to set status to ${newStatus}`);
+      setCurrentPreferenceStatus(optimisticPreviousStatus);
     } finally {
-      setIsApproving(false);
+      setStateFunc(false);
     }
   };
+
+  const handlePin = () => updateUserPreference('Pinned');
+  const handleSetListed = () => updateUserPreference('Listed');
+  const handleHide = () => updateUserPreference('Hidden');
   
-  const handleList = async () => {
-    if (!isAdmin) return;
-    
-    setIsApproving(true);
-    try {
-      const { error } = await supabase
-        .from('assets')
-        .update({ admin_status: 'Listed' })
-        .eq('id', lora.id);
-      
-      if (error) throw error;
-      
-      toast.success('LoRA listed successfully');
-      lora.admin_status = 'Listed';
-    } catch (error) {
-      console.error('Error listing LoRA:', error);
-      toast.error('Failed to list LoRA');
-    } finally {
-      setIsApproving(false);
-    }
-  };
-  
-  const handleReject = async () => {
-    if (!isAdmin) return;
-    
-    setIsRejecting(true);
-    try {
-      const { error } = await supabase
-        .from('assets')
-        .update({ admin_status: 'Rejected' })
-        .eq('id', lora.id);
-      
-      if (error) throw error;
-      
-      toast.success('LoRA rejected');
-      lora.admin_status = 'Rejected';
-    } catch (error) {
-      console.error('Error rejecting LoRA:', error);
-      toast.error('Failed to reject LoRA');
-    } finally {
-      setIsRejecting(false);
-    }
-  };
-  
-  const getButtonStyle = (status: string) => {
-    const isActive = lora.admin_status === status;
+  const getPreferenceButtonStyle = (status: UserAssetPreferenceStatus) => {
+    const isActive = currentPreferenceStatus === status;
     
     return cn(
       "text-xs h-8 flex-1",
-      isActive && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
+      isActive && status === 'Pinned' && "bg-green-500 text-white hover:bg-green-600",
       isActive && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
-      isActive && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
+      isActive && status === 'Hidden' && "bg-gray-500 text-white hover:bg-gray-600",
       !isActive && "bg-transparent"
     );
   };
@@ -191,7 +184,10 @@ const LoraCard: React.FC<LoraCardProps> = ({
 
   return (
     <Card 
-      className="relative z-10 overflow-hidden h-full flex flex-col cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out"
+      className={cn(
+        "relative z-10 overflow-hidden h-full flex flex-col cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out group",
+        isOwnProfile && currentPreferenceStatus === 'Hidden' && 'opacity-60 grayscale'
+      )}
       onClick={handleView}
     >
       <div 
@@ -243,7 +239,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
             </Badge>
           )}
         </div>
-        {!isOnProfilePage && (
+        {!isOwnProfile && (
           <LoraCreatorInfo 
             asset={lora} 
             avatarSize="h-5 w-5" 
@@ -253,73 +249,78 @@ const LoraCard: React.FC<LoraCardProps> = ({
         )}
       </CardContent>
       
-      {isAdmin && (
-        <CardFooter className="p-3 border-t grid gap-2" onClick={(e) => e.stopPropagation()}>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="destructive" 
-                size="sm" 
-                className="text-xs h-8 w-full"
-                disabled={isDeleting}
-              >
-                <Trash className="h-3 w-3 mr-1" /> 
-                Delete
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This will permanently delete this LoRA and all its associated data.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleDelete}
-                  className="bg-destructive text-destructive-foreground"
-                >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-          
-          <div className="col-span-1 grid grid-cols-3 gap-2 mt-1">
+      {isOwnProfile && (
+        <CardFooter className="p-3 border-t" onClick={(e) => e.stopPropagation()}>
+          <div className="grid grid-cols-3 gap-2 w-full">
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleCurate}
-              disabled={isApproving}
-              className={getButtonStyle('Curated')}
+              onClick={handlePin}
+              disabled={isPinning || isListing || isHiding}
+              className={getPreferenceButtonStyle('Pinned')}
             >
-              <Check className="h-3 w-3 mr-1" /> 
-              Curate
+              <PinIcon className="h-3 w-3 mr-1" /> 
+              Pin
             </Button>
             
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleList}
-              disabled={isApproving}
-              className={getButtonStyle('Listed')}
+              onClick={handleSetListed}
+              disabled={isPinning || isListing || isHiding}
+              className={getPreferenceButtonStyle('Listed')}
             >
+              <List className="h-3 w-3 mr-1" />
               List
             </Button>
             
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleReject}
-              disabled={isRejecting}
-              className={getButtonStyle('Rejected')}
+              onClick={handleHide}
+              disabled={isPinning || isListing || isHiding}
+              className={getPreferenceButtonStyle('Hidden')}
             >
-              <X className="h-3 w-3 mr-1" /> 
-              Reject
+              <EyeOff className="h-3 w-3 mr-1" /> 
+              Hide
             </Button>
           </div>
         </CardFooter>
+      )}
+      
+      {isAdmin && !isOwnProfile && (
+         <CardFooter className="p-3 border-t bg-red-50 dark:bg-red-900/20" onClick={(e) => e.stopPropagation()}>
+             <AlertDialog>
+               <AlertDialogTrigger asChild>
+                 <Button 
+                   variant="destructive" 
+                   size="sm" 
+                   className="text-xs h-8 w-full"
+                   disabled={isDeleting}
+                 >
+                   <Trash className="h-3 w-3 mr-1" /> 
+                   Admin Delete
+                 </Button>
+               </AlertDialogTrigger>
+               <AlertDialogContent>
+                 <AlertDialogHeader>
+                   <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                   <AlertDialogDescription>
+                     This will permanently delete this LoRA and all its associated data. This is an admin action.
+                   </AlertDialogDescription>
+                 </AlertDialogHeader>
+                 <AlertDialogFooter>
+                   <AlertDialogCancel>Cancel</AlertDialogCancel>
+                   <AlertDialogAction 
+                     onClick={handleDelete}
+                     className="bg-destructive text-destructive-foreground"
+                   >
+                     Delete
+                   </AlertDialogAction>
+                 </AlertDialogFooter>
+               </AlertDialogContent>
+             </AlertDialog>
+         </CardFooter>
       )}
     </Card>
   );
