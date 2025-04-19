@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Check, X, Play, ArrowUpRight, Trash, Star } from 'lucide-react';
+import { Check, X, Play, ArrowUpRight, Trash, Bookmark } from 'lucide-react';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -206,6 +206,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const handleStatusChange = async (newStatus: 'Hidden' | 'Listed' | 'Featured') => {
     try {
+      logger.log(`[VideoCard] Setting status to ${newStatus} for video ID: ${video.id}`);
       const { error } = await supabase
         .from('media')
         .update({ admin_status: newStatus })
@@ -251,18 +252,23 @@ const VideoCard: React.FC<VideoCardProps> = ({
             onLoadedData={handleVideoLoad}
           />
 
-          {/* Move status controls to bottom left */}
+          {/* Status controls at bottom left with higher z-index */}
           {isAuthorized && (
-            <VideoStatusControls
-              status={video.status as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
-              onStatusChange={handleStatusChange}
-              className="left-2 bottom-2"
-            />
+            <div className="absolute left-2 bottom-2 z-40" onClick={e => e.stopPropagation()}>
+              <VideoStatusControls
+                status={video.status as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
+                onStatusChange={handleStatusChange}
+                className=""
+              />
+            </div>
           )}
 
-          {/* Move delete and primary buttons to top right */}
+          {/* Delete and primary buttons at top right */}
           {isAuthorized && (
-            <div className="absolute top-2 right-2 z-20 flex gap-2">
+            <div 
+              className="absolute top-2 right-2 z-40 flex gap-2"
+              onClick={e => e.stopPropagation()}
+            >
               {onSetPrimaryMedia && (
                 <Button
                   variant="ghost"
@@ -276,7 +282,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                   title={video.is_primary ? "This is the primary media" : "Make primary video"}
                   disabled={video.is_primary}
                 >
-                  <Star className={cn("h-4 w-4", video.is_primary && "fill-current")} />
+                  <Bookmark className={cn("h-4 w-4", video.is_primary && "fill-current")} />
                 </Button>
               )}
 
