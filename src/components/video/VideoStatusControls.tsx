@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Star } from 'lucide-react';
+import { Eye, EyeOff, Bookmark } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface VideoStatusControlsProps {
@@ -15,8 +15,14 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
   onStatusChange,
   className
 }) => {
+  // Prevent click events from propagating to parent elements
+  const handleButtonClick = (newStatus: 'Hidden' | 'Listed' | 'Featured') => (e: React.MouseEvent) => {
+    e.stopPropagation();
+    onStatusChange(newStatus);
+  };
+
   return (
-    <div className={cn("absolute z-20 flex gap-2", className)}>
+    <div className={cn("absolute z-20 flex gap-2", className)} onClick={e => e.stopPropagation()}>
       <Button 
         variant="ghost"
         size="icon"
@@ -27,9 +33,9 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
             ? "bg-yellow-500/70 text-white hover:bg-yellow-600/70" 
             : "text-yellow-400 hover:text-yellow-300"
         )}
-        onClick={() => onStatusChange('Featured')}
+        onClick={handleButtonClick('Featured')}
       >
-        <Star className={cn("h-4 w-4", status === 'Featured' && "fill-current")} />
+        <Bookmark className={cn("h-4 w-4", status === 'Featured' && "fill-current")} />
       </Button>
 
       <Button 
@@ -42,7 +48,7 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
             ? "bg-blue-500/70 text-white hover:bg-blue-600/70" 
             : "text-white hover:text-white/80"
         )}
-        onClick={() => onStatusChange('Listed')}
+        onClick={handleButtonClick('Listed')}
       >
         <Eye className="h-4 w-4" />
       </Button>
@@ -57,7 +63,7 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
             ? "bg-gray-500/70 text-white hover:bg-gray-600/70" 
             : "text-gray-400 hover:text-gray-300"
         )}
-        onClick={() => onStatusChange('Hidden')}
+        onClick={handleButtonClick('Hidden')}
       >
         <EyeOff className="h-4 w-4" />
       </Button>
