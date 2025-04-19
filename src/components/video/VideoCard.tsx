@@ -22,6 +22,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
+import VideoStatusControls from './VideoStatusControls';
 
 const logger = new Logger('VideoCard');
 
@@ -202,12 +203,32 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const isLoRAAssetPage = location.pathname.includes('/assets/loras/');
   
   logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
+
+  const handleStatusChange = async (newStatus: 'Hidden' | 'Listed' | 'Featured') => {
+    try {
+      const { error } = await supabase
+        .from('media')
+        .update({ admin_status: newStatus })
+        .eq('id', video.id);
+      
+      if (error) throw error;
+      
+      // Update local state if needed
+      toast.success(`Video ${newStatus.toLowerCase()} successfully`);
+    } catch (error) {
+      console.error('Error updating video status:', error);
+      toast.error('Failed to update video status');
+    }
+  };
   
   return (
     <div 
       ref={cardRef}
       key={video.id} 
-      className="relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4"
+      className={cn(
+        "relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4",
+        video.admin_status === 'Rejected' && "opacity-50"
+      )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={() => onOpenLightbox(video)}
@@ -231,23 +252,28 @@ const VideoCard: React.FC<VideoCardProps> = ({
             onLoadedData={handleVideoLoad}
           />
           
+          {isAuthorized && (
+            <VideoStatusControls
+              status={video.admin_status || 'Listed'}
+              onStatusChange={handleStatusChange}
+              className="right-2 top-2"
+            />
+          )}
+
           {isAuthorized && onSetPrimaryMedia && (
             <Button
               variant="ghost"
               size="icon"
               className={cn(
-                "absolute left-2 z-20 h-7 w-7 p-0 rounded-md shadow-sm",
+                "absolute bottom-2 right-2 z-20 h-7 w-7 p-0 rounded-md shadow-sm",
                 "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
-                video.is_primary && "text-yellow-400 hover:text-yellow-300",
-                video.metadata?.title ? "top-8" : "top-2"
+                video.is_primary && "text-yellow-400 hover:text-yellow-300"
               )}
               onClick={handleSetPrimary}
               title={video.is_primary ? "This is the primary media" : "Make primary video"}
               disabled={video.is_primary}
             >
-              <Star 
-                className={cn("h-4 w-4", video.is_primary && "fill-current")} 
-              />
+              <Star className={cn("h-4 w-4", video.is_primary && "fill-current")} />
             </Button>
           )}
 

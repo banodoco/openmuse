@@ -16,6 +16,7 @@ export type Database = {
           id: string
           is_primary: boolean | null
           media_id: string
+          status: string
         }
         Insert: {
           asset_id: string
@@ -23,6 +24,7 @@ export type Database = {
           id?: string
           is_primary?: boolean | null
           media_id: string
+          status?: string
         }
         Update: {
           asset_id?: string
@@ -30,6 +32,7 @@ export type Database = {
           id?: string
           is_primary?: boolean | null
           media_id?: string
+          status?: string
         }
         Relationships: [
           {
@@ -228,6 +231,7 @@ export type Database = {
           id: string
           is_primary: boolean | null
           media_id: string
+          status: string
         }[]
       }
       debug_get_all_assets: {

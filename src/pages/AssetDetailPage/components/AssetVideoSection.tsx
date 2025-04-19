@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
@@ -82,11 +83,24 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       });
     }
 
-    // Then sort: primary first, then by creation date
+    // Sort by status and creation date:
+    // 1. Primary video first
+    // 2. Featured videos
+    // 3. Listed videos
+    // 4. Hidden videos (only shown to admins/owners)
     return currentVideos.sort((a, b) => {
       if (a.is_primary && !b.is_primary) return -1;
       if (!a.is_primary && b.is_primary) return 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime(); // Newest first
+      
+      const statusOrder = { 'Featured': 1, 'Listed': 2, 'Hidden': 3 };
+      const statusA = a.status || 'Listed';
+      const statusB = b.status || 'Listed';
+      
+      if (statusOrder[statusA] !== statusOrder[statusB]) {
+        return statusOrder[statusA] - statusOrder[statusB];
+      }
+      
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
   }, [videos, classification]);
 

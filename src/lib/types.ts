@@ -35,6 +35,7 @@ export interface VideoEntry {
   thumbnailUrl?: string;
   title?: string;
   description?: string;
+  status?: 'Hidden' | 'Listed' | 'Featured';
 }
 
 export interface RecordedVideo {
