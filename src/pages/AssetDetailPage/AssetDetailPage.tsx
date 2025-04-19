@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -19,7 +19,7 @@ import { toast } from 'sonner';
 const logger = new Logger('AssetDetailPage');
 
 function AssetDetailPage() {
-  const { id: assetId } = useParams<{ id: string }>();
+  const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -36,20 +36,19 @@ function AssetDetailPage() {
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
     removeVideoLocally
-  } = useAssetDetails(assetId);
+  } = useAssetDetails(id);
   
-  // Calculate if the current user is authorized to edit or delete the asset/videos
-  const isAuthorized = isAdmin || (!!user && !!asset && user.id === asset.user_id);
+  // Calculate if the current user is authorized to edit or delete the asset
+  const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
   
   const {
     isApproving,
     handleCurateAsset,
     handleListAsset,
     handleRejectAsset,
-  } = useAssetAdminActions(assetId, setAsset, fetchAssetDetails);
+  } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
   
   const handleOpenLightbox = (video: VideoEntry) => {
-    logger.log(`[AssetDetailPage] Opening lightbox for video: ${video.id}, Status: ${video.assetMediaDisplayStatus}`);
     setCurrentVideo(video);
     setLightboxOpen(true);
   };
@@ -318,14 +317,9 @@ function AssetDetailPage() {
   
   // New function to set primary media
   const handleSetPrimaryMedia = async (mediaId: string) => {
-    if (!assetId) {
-      logger.error('[handleSetPrimaryMedia] Asset ID is missing.');
-      toast.error('Cannot set primary media: Asset information missing.');
-      return;
-    }
     try {
       const { error } = await supabase.rpc('set_primary_media', {
-        p_asset_id: assetId,
+        p_asset_id: id,
         p_media_id: mediaId,
       });
 
@@ -341,52 +335,44 @@ function AssetDetailPage() {
     }
   };
   
-  // --- New handler for lightbox status changes --- 
-  const handleLightboxStatusChange = async (newStatus: VideoDisplayStatus) => {
-    if (!currentVideo || !currentVideo.id || !assetId) {
-      logger.error('[handleLightboxStatusChange] Missing video ID or asset ID.');
-      toast.error('Could not update status: Video or Asset information missing.');
+  // --- New Handler for Lightbox Status Changes (Asset Context) ---
+  const handleLightboxAssetStatusChange = async (newStatus: VideoDisplayStatus) => {
+    if (!currentVideo || !asset?.id) {
+      logger.error('[AssetDetailPage] Cannot update status: currentVideo or asset.id missing.');
+      toast.error("Cannot update status: Video or Asset information missing.");
       return;
     }
-    
+
     const videoId = currentVideo.id;
-    logger.log(`[handleLightboxStatusChange] Attempting update for video ${videoId} on asset ${assetId} to status: ${newStatus}`);
+    const assetId = asset.id;
+    logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange called for video ${videoId}, asset ${assetId} with status ${newStatus}`);
 
     try {
-       const upsertData = {
-          media_id: videoId,
-          asset_id: assetId,
-          status: newStatus
-        };
+      const upsertData = {
+        media_id: videoId,
+        asset_id: assetId,
+        status: newStatus
+      };
 
-        const { data, error } = await supabase
-          .from('asset_media')
-          .upsert(upsertData, { onConflict: 'media_id, asset_id' })
-          .select(); // Select to confirm upsert
+      const { data, error } = await supabase
+        .from('asset_media')
+        .upsert(upsertData, { onConflict: 'media_id, asset_id' })
+        .select();
 
-      if (error) {
-        logger.error(`[handleLightboxStatusChange] Supabase error updating asset_media:`, error);
-        throw error;
-      }
-      
-      if (!data || data.length === 0) {
-         logger.warn(`[handleLightboxStatusChange] Upsert might not have affected rows for video ${videoId}, asset ${assetId}.`);
-         // Potentially handle cases where the link didn't exist, though upsert should cover this.
-      }
-      
-      logger.log(`[handleLightboxStatusChange] Successfully updated asset_media status for video ${videoId} to ${newStatus}. Calling local update.`);
-      updateLocalVideoStatus(videoId, newStatus); // Update local state
+      if (error) throw error;
+
       toast.success(`Video status updated to ${newStatus}`);
-      
-      // Also update the status in the currently open lightbox video state
+      // Update local state using the existing hook function
+      updateLocalVideoStatus(videoId, newStatus);
+      // Update the status in the currently open lightbox video state as well
       setCurrentVideo(prev => prev ? { ...prev, assetMediaDisplayStatus: newStatus } : null);
 
     } catch (error) {
-      logger.error(`[handleLightboxStatusChange] Failed to update video status for ${videoId}:`, error);
-      toast.error(`Failed to update video status: ${error.message || 'Unknown error'}`);
+      logger.error(`[AssetDetailPage] Failed to update video status for media ID ${videoId}, asset ID ${assetId}:`, error);
+      toast.error('Failed to update video status');
     }
   };
-  // --- End new handler ---
+  // --- End New Handler ---
 
   if (isLoading) {
     return (
@@ -463,7 +449,7 @@ function AssetDetailPage() {
       {lightboxOpen && currentVideo && (
         <>
           {!currentVideo.id ? (
-            null // Or some loading/error state if ID is missing unexpectedly
+            null 
           ) : (
             <VideoLightbox
               isOpen={lightboxOpen}
@@ -476,12 +462,10 @@ function AssetDetailPage() {
               creator={currentVideo.user_id || currentVideo.metadata?.creatorName}
               thumbnailUrl={currentVideo.placeholder_image || currentVideo.metadata?.placeholder_image}
               creatorId={currentVideo.user_id}
-              onVideoUpdate={fetchAssetDetails} // Refresh all data on lightbox update
-              // --- Pass status props ---
+              onVideoUpdate={fetchAssetDetails}
               isAuthorized={isAuthorized}
-              currentStatus={currentVideo.assetMediaDisplayStatus || 'View'} // Pass the relevant status
-              onStatusChange={handleLightboxStatusChange} // Pass the new handler
-              // --- End status props ---
+              currentStatus={currentVideo.assetMediaDisplayStatus}
+              onStatusChange={handleLightboxAssetStatusChange}
             />
           )}
         </>
