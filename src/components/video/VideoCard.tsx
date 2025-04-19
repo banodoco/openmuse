@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Check, X, Play, ArrowUpRight, Trash, Bookmark } from 'lucide-react';
+import { Check, X, Play, ArrowUpRight, Trash, Star } from 'lucide-react';
 import { VideoEntry } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
@@ -206,28 +206,37 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const handleStatusChange = async (newStatus: 'Hidden' | 'Listed' | 'Featured') => {
     try {
-      logger.log(`[VideoCard] Attempting to set status to ${newStatus} for video ID: ${video.id}`);
+      const assetId = video.metadata?.assetId;
+      if (!assetId) {
+        logger.error(`[VideoCard] Cannot update asset_media status: assetId is missing for video ID ${video.id}.`);
+        toast.error("Cannot update status: Missing asset information.");
+        return;
+      }
+
+      logger.log(`[VideoCard] Attempting to update asset_media status to ${newStatus} for media ID: ${video.id}, asset ID: ${assetId}`);
+      
       const { data, error } = await supabase
-        .from('media')
-        .update({ admin_status: newStatus })
-        .eq('id', video.id)
+        .from('asset_media')
+        .update({ status: newStatus })
+        .eq('media_id', video.id)
+        .eq('asset_id', assetId)
         .select();
       
-      logger.log(`[VideoCard] Supabase update result for video ID ${video.id}:`, { data, error });
+      logger.log(`[VideoCard] Supabase asset_media update result for media ID ${video.id}, asset ID ${assetId}:`, { data, error });
       
       if (error) {
-        logger.error(`[VideoCard] Supabase update error for video ID ${video.id}:`, error);
+        logger.error(`[VideoCard] Supabase asset_media update error for media ID ${video.id}, asset ID ${assetId}:`, error);
         throw error;
       }
       
       if (!data || data.length === 0) {
-        logger.warn(`[VideoCard] Supabase update for video ID ${video.id} returned no data. Possible RLS issue?`);
+        logger.warn(`[VideoCard] Supabase asset_media update for media ID ${video.id}, asset ID ${assetId} returned no data. Possible RLS issue or no matching row?`);
       }
       
-      logger.log(`[VideoCard] Update process completed for ${newStatus} on video ID: ${video.id}.`);
+      logger.log(`[VideoCard] Asset_media status update process completed for ${newStatus} on media ID: ${video.id}, asset ID: ${assetId}.`);
       toast.success(`Video ${newStatus.toLowerCase()} successfully`);
     } catch (error) {
-      logger.error(`[VideoCard] Failed to update video status for ID ${video.id}:`, error);
+      logger.error(`[VideoCard] Failed to update asset_media status for media ID ${video.id}:`, error);
       toast.error('Failed to update video status');
     }
   };
@@ -299,7 +308,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                   title={video.is_primary ? "This is the primary media" : "Make primary video"}
                   disabled={video.is_primary}
                 >
-                  <Bookmark className={cn("h-4 w-4", video.is_primary && "fill-current")} />
+                  <Star className={cn("h-4 w-4", video.is_primary && "fill-current text-yellow-400")} />
                 </Button>
               )}
 
