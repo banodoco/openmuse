@@ -121,7 +121,16 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   };
   // --- End Add ---
 
-  const itemsToDisplay = useMemo(() => getItemsWithDummies(sortedAndFilteredVideos), [sortedAndFilteredVideos]);
+  // Filter out Hidden videos for non-authorized users
+  const videosToDisplay = useMemo(() => {
+    if (isAuthorized) {
+      return sortedAndFilteredVideos;
+    } else {
+      return sortedAndFilteredVideos.filter(video => video.status !== 'Hidden');
+    }
+  }, [sortedAndFilteredVideos, isAuthorized]);
+
+  const itemsToDisplay = useMemo(() => getItemsWithDummies(videosToDisplay), [videosToDisplay]);
   
   return (
     <div className="md:col-span-2">
@@ -151,7 +160,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         />
       </div>
       
-      {sortedAndFilteredVideos.length > 0 ? (
+      {videosToDisplay.length > 0 ? (
         <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
           <Masonry
             breakpointCols={breakpointColumnsObj}

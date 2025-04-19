@@ -254,7 +254,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
           
           {isAuthorized && (
             <VideoStatusControls
-              status={video.admin_status || 'Listed'}
+              status={video.status as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
               onStatusChange={handleStatusChange}
               className="right-2 top-2"
             />
