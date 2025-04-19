@@ -81,7 +81,7 @@ export interface LoraAsset {
   user_id?: string;
   primary_media_id?: string;
   admin_status?: string | null;
-  user_status?: string | null;
+  user_status?: UserAssetPreferenceStatus | null;
   lora_type?: string;
   lora_base_model?: string;
   model_variant?: string;

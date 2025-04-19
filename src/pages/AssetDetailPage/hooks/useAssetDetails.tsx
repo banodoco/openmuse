@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, VideoEntry, VideoDisplayStatus, UserAssetPreferenceStatus, VideoMetadata } from '@/lib/types';
+import { LoraAsset, VideoEntry, VideoDisplayStatus, VideoMetadata } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
@@ -22,7 +22,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const { user, isAdmin } = useAuth();
-  const [userPreferenceStatus, setUserPreferenceStatus] = useState<UserAssetPreferenceStatus | null>(null);
 
   const fetchAssetDetails = useCallback(async () => {
     if (!assetId) {
@@ -33,7 +32,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
     }
 
     setIsLoading(true);
-    setUserPreferenceStatus(null);
     try {
       logger.log('[useAssetDetails] Fetching core asset details for ID:', assetId);
       
@@ -57,30 +55,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         return;
       }
 
-      let fetchedPreference: UserAssetPreferenceStatus | null = null;
-      if (user?.id) {
-        logger.log(`[useAssetDetails] Fetching preference status for user ${user.id}, asset ${assetId}`);
-        const { data: preferenceData, error: preferenceError } = await supabase
-          .from('user_asset_preferences')
-          .select('status')
-          .eq('user_id', user.id)
-          .eq('asset_id', assetId)
-          .maybeSingle();
-        
-        if (preferenceError) {
-          logger.error('[useAssetDetails] Error fetching user preference:', preferenceError);
-        } else if (preferenceData) {
-          fetchedPreference = preferenceData.status as UserAssetPreferenceStatus;
-        }
-      }
-      setUserPreferenceStatus(fetchedPreference);
-      logger.log(`[useAssetDetails] Final user preference status: ${fetchedPreference}`);
-
-      logger.log('Asset Base Model Verification:', {
-        lora_base_model: assetData.lora_base_model,
-        type: assetData.type,
-        name: assetData.name
-      });
+      logger.log(`[useAssetDetails] Fetched asset user_status: ${assetData.user_status}`);
 
       logger.log(`[useAssetDetails] Fetching asset_media joined with media for asset ID: ${assetId}`);
       const { data: assetMediaJoinData, error: assetMediaJoinError } = await supabase
@@ -122,11 +97,11 @@ export const useAssetDetails = (assetId: string | undefined) => {
           user_id: assetData.user_id,
           primary_media_id: assetData.primary_media_id,
           admin_status: assetData.admin_status,
+          user_status: assetData.user_status,
           lora_type: assetData.lora_type,
           lora_base_model: assetData.lora_base_model,
           model_variant: assetData.model_variant,
           lora_link: assetData.lora_link,
-          user_preference_status: fetchedPreference,
           primaryVideo: pVideo ? {
               id: pVideo.id,
               url: pVideo.url,
@@ -292,40 +267,39 @@ export const useAssetDetails = (assetId: string | undefined) => {
     return creatorDisplayName || asset?.creator || 'Unknown';
   };
   
-  const updateUserPreferenceStatus = useCallback(async (newStatus: UserAssetPreferenceStatus) => {
-    if (!user || !asset) {
-      logger.warn('[updateUserPreferenceStatus] User or asset not available.');
-      return;
-    }
+  const updateAssetUserStatus = useCallback(async (newStatus: string) => {
+      const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
 
-    const optimisticPreviousStatus = userPreferenceStatus;
-    setUserPreferenceStatus(newStatus);
+      if (!isAuthorized) {
+          logger.warn('[updateAssetUserStatus] Unauthorized attempt to update asset status.');
+          toast.error("You don't have permission to change this asset's status.");
+          return;
+      }
+      if (!asset) {
+          logger.warn('[updateAssetUserStatus] Asset data not available.');
+          return;
+      }
 
-    try {
-      logger.log(`[updateUserPreferenceStatus] Upserting preference for user ${user.id}, asset ${asset.id} to status ${newStatus}`);
-      const { error } = await supabase
-        .from('user_asset_preferences')
-        .upsert(
-          { 
-            user_id: user.id, 
-            asset_id: asset.id, 
-            status: newStatus 
-          },
-          { onConflict: 'user_id, asset_id' }
-        );
+      const optimisticPreviousStatus = asset.user_status;
+      setAsset(prev => prev ? { ...prev, user_status: newStatus } : null);
 
-      if (error) throw error;
+      try {
+          logger.log(`[updateAssetUserStatus] Updating assets table for ID ${asset.id}, setting user_status to ${newStatus}`);
+          const { error } = await supabase
+              .from('assets')
+              .update({ user_status: newStatus })
+              .eq('id', asset.id);
 
-      toast.success(`Asset status updated to ${newStatus}`);
-      setAsset(prev => prev ? { ...prev, user_preference_status: newStatus } : null);
+          if (error) throw error;
 
-    } catch (error) {
-      logger.error(`[updateUserPreferenceStatus] Error setting status to ${newStatus}:`, error);
-      toast.error(`Failed to set status to ${newStatus}`);
-      setUserPreferenceStatus(optimisticPreviousStatus);
-      setAsset(prev => prev ? { ...prev, user_preference_status: optimisticPreviousStatus } : null);
-    }
-  }, [user, asset, userPreferenceStatus]);
+          toast.success(`Asset status updated to ${newStatus}`);
+
+      } catch (error) {
+          logger.error(`[updateAssetUserStatus] Error setting status to ${newStatus}:`, error);
+          toast.error(`Failed to set status to ${newStatus}`);
+          setAsset(prev => prev ? { ...prev, user_status: optimisticPreviousStatus } : null);
+      }
+  }, [user, isAdmin, asset]);
 
   const updateLocalVideoStatus = useCallback((videoId: string, newStatus: VideoDisplayStatus, type: 'assetMedia' | 'user') => {
     setVideos(prevVideos => {
@@ -396,7 +370,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
     removeVideoLocally,
-    userPreferenceStatus,
-    updateUserPreferenceStatus
+    updateAssetUserStatus
   };
 };

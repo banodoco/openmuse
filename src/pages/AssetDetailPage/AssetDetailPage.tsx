@@ -36,8 +36,7 @@ function AssetDetailPage() {
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
     removeVideoLocally,
-    userPreferenceStatus,
-    updateUserPreferenceStatus
+    updateAssetUserStatus
   } = useAssetDetails(id);
   
   const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
@@ -396,22 +395,9 @@ function AssetDetailPage() {
     <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light">
       <Navigation />
       <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
-        <div className="flex justify-start">
-          <Button onClick={() => navigate(-1)} variant="outline" size="sm">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-          </Button>
-        </div>
-
         <AssetHeader 
           asset={asset} 
           creatorName={getCreatorName()}
-          isAdmin={isAdmin}
-          isAuthorized={isAuthorized}
-          isApproving={isApproving}
-          onCurate={handleCurateAsset}
-          onList={handleListAsset}
-          onReject={handleRejectAsset}
-          onDelete={handleDeleteAsset}
         />
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -420,8 +406,15 @@ function AssetDetailPage() {
               asset={asset}
               isAuthorizedToEdit={isAuthorized}
               userIsLoggedIn={!!user}
-              currentUserPreference={userPreferenceStatus}
-              onPreferenceChange={updateUserPreferenceStatus}
+              currentStatus={asset?.user_status ?? null}
+              onStatusChange={updateAssetUserStatus}
+              isAdmin={isAdmin}
+              isAuthorized={isAuthorized}
+              isApproving={isApproving}
+              onCurate={handleCurateAsset}
+              onList={handleListAsset}
+              onReject={handleRejectAsset}
+              onDelete={handleDeleteAsset}
             />
           </div>
           <div className="md:col-span-2">
