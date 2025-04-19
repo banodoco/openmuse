@@ -254,7 +254,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
           {/* Status controls at bottom left with higher z-index */}
           {isAuthorized && (
-            <div className="absolute left-2 bottom-2 z-50" onClick={e => {
+            <div className="absolute bottom-2 left-2 z-50 group-hover:opacity-100 transition-opacity duration-200" onClick={e => {
               e.stopPropagation();
               e.preventDefault();
             }} style={{ pointerEvents: 'all' }}>
