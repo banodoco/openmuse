@@ -48,73 +48,25 @@ export const useAssetDetails = (assetId: string | undefined) => {
         name: assetData.name
       });
 
-      const assetMediaRelationships = await debugAssetMedia(assetId);
+      // Fetch related media by querying asset_media and joining media details
+      logger.log(`[useAssetDetails] Fetching asset_media joined with media for asset ID: ${assetId}`);
+      const { data: assetMediaJoinData, error: assetMediaJoinError } = await supabase
+        .from('asset_media')
+        .select(`
+          status,
+          is_primary,
+          media:media_id!inner(*)
+        `)
+        .eq('asset_id', assetId);
+
+      if (assetMediaJoinError) {
+        console.error('[VideoLightboxDebug] Error fetching asset_media joined data:', assetMediaJoinError);
+        throw assetMediaJoinError;
+      }
+
+      const fetchedAssetMedia = assetMediaJoinData || [];
+      logger.log(`[useAssetDetails] Fetched ${fetchedAssetMedia.length} asset_media join records.`);
       
-      if (assetMediaRelationships && Array.isArray(assetMediaRelationships) && assetMediaRelationships.length > 0) {
-        const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
-        
-        const { data: mediaData, error: mediaError } = await supabase
-          .from('media')
-          .select('*')
-          .in('id', mediaIds);
-          
-        if (mediaError) {
-          console.error('AssetDetailPage - Error fetching related media:', mediaError);
-        } else {
-          mediaData.forEach(media => {
-            logger.log('Related Media Type:', {
-              id: media.id,
-              type: media.type,
-              title: media.title
-            });
-          });
-        }
-      }
-
-      let assetMediaData: any[] = [];
-      if (assetMediaRelationships && Array.isArray(assetMediaRelationships) && assetMediaRelationships.length > 0) {
-        const mediaIds = assetMediaRelationships.map(rel => rel.media_id);
-        const { data: mediaJoinData, error: mediaJoinError } = await supabase
-          .from('media')
-          .select(`
-            *,
-            asset_media!inner(is_primary)
-          `)
-          .in('id', mediaIds)
-          .eq('asset_media.asset_id', assetId);
-
-        if (mediaJoinError) {
-          console.error('[VideoLightboxDebug] Error fetching related media with primary status:', mediaJoinError);
-        } else {
-          assetMediaData = mediaJoinData || [];
-          console.log('[VideoLightboxDebug] Related media with primary status fetched:', assetMediaData.length);
-          console.log('[VideoLightboxDebug] Raw mediaData with primary status:', assetMediaData);
-        }
-      } else {
-        const { data: videoData, error: videoError } = await supabase
-          .from('media')
-          .select('*')
-          .eq('type', 'video');
-
-        if (videoError) {
-          console.error('[VideoLightboxDebug] Error fetching videos (fallback):', videoError);
-          throw videoError;
-        }
-
-        console.log('[VideoLightboxDebug] All videos retrieved (fallback):', videoData?.length || 0);
-
-        assetMediaData = videoData?.filter(video => 
-          video.title?.includes(assetData.name) || 
-          video.id === assetData.primary_media_id
-        ) || [];
-        
-        console.log('[VideoLightboxDebug] Videos for this asset (filtered fallback):]', assetMediaData?.length || 0);
-
-        if (assetMediaData.length > 0) {
-          console.warn('[VideoLightboxDebug] Using fallback media fetch logic. is_primary status might be inaccurate.');
-        }
-      }
-
       const pVideo = assetData.primaryVideo;
       logger.log(`[VideoLightboxDebug] Processing asset: ${assetData.id}, Fetched Primary Video Data (pVideo):`, {
           exists: !!pVideo,
@@ -166,15 +118,22 @@ export const useAssetDetails = (assetId: string | undefined) => {
       setAsset(processedAsset);
 
       const convertedVideos: VideoEntry[] = await Promise.all(
-        assetMediaData.map(async (media: any) => {
-          console.log('[VideoLightboxDebug] Processing media item:', media?.id, media);
+        fetchedAssetMedia
+          .filter(item => item.media) // Ensure media data exists from join
+          .map(async (item: any) => {
+          const media = item.media; // Extract the joined media object
+          console.log(`[VideoLightboxDebug] Processing joined item (media ID: ${media?.id}, asset_media status: ${item.status}):`, item);
           try {
-            const videoUrl = await videoUrlService.getVideoUrl(media.url);
+            // Use the joined media URL directly if available
+            const videoUrl = media.url ? await videoUrlService.getVideoUrl(media.url) : null; 
+            if (!videoUrl) {
+              console.warn(`[VideoLightboxDebug] Could not get video URL for media ID: ${media.id}`);
+              return null; // Skip if URL is invalid
+            }
             
-            const isPrimary = media.asset_media && media.asset_media.length > 0
-              ? media.asset_media[0].is_primary
-              : (media.id === processedAsset.primary_media_id);
-
+            // Use is_primary directly from asset_media
+            const isPrimary = item.is_primary === true; 
+ 
             return {
               id: media.id,
               url: videoUrl,
@@ -183,7 +142,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
               created_at: media.created_at,
-              admin_status: media.admin_status || 'Listed',
+              admin_status: item.status || media?.admin_status || 'Listed',
               user_id: media.user_id,
               user_status: media.user_status || null,
               metadata: {
@@ -209,9 +168,10 @@ export const useAssetDetails = (assetId: string | undefined) => {
         })
       );
 
-      setVideos(convertedVideos.filter(v => v !== null) as VideoEntry[]);
+      const validVideos = convertedVideos.filter(v => v !== null) as VideoEntry[];
+      setVideos(validVideos);
       console.log('[VideoLightboxDebug] Final processed related videos:', convertedVideos.filter(v => v !== null).length);
-      console.log('[VideoLightboxDebug] Converted videos state:', convertedVideos.filter(v => v !== null)); 
+      console.log('[VideoLightboxDebug] Converted videos state:', validVideos);
     } catch (error) {
       console.error('[VideoLightboxDebug] Error fetching asset details:', error);
       toast.error('Failed to load asset details');
