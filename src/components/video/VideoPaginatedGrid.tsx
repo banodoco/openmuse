@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoCard from './VideoCard';
@@ -15,6 +16,7 @@ interface VideoPaginatedGridProps {
   itemsPerPage: number;
   gridCols: string;
   isAdmin?: boolean;
+  isAuthorized?: boolean;
   onOpenLightbox: (video: VideoEntry) => void;
   onDelete?: (id: string) => void;
   onApprove?: (id: string) => void;
@@ -26,6 +28,7 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
   itemsPerPage,
   gridCols,
   isAdmin,
+  isAuthorized = false,
   onOpenLightbox,
   onDelete = () => {},
   onApprove = () => {},
@@ -76,6 +79,7 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
             key={video.id}
             video={video}
             isAdmin={!!isAdmin}
+            isAuthorized={!!isAuthorized}
             onOpenLightbox={onOpenLightbox}
             onDeleteVideo={handleDelete}
             onApproveVideo={handleApprove}

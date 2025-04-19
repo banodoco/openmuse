@@ -1,3 +1,4 @@
+
 import React, { useRef, useState, useCallback, useEffect } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
@@ -166,8 +167,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         }
       };
       
-      video.addEventListener('loadeddata', handleLoadedData);
-      return () => video.removeEventListener('loadeddata', handleLoadedData);
+      video.addEventListener('loadeddata', handleLoadedData as EventListener);
+      return () => video.removeEventListener('loadeddata', handleLoadedData as EventListener);
     }
   }, [isMobile, autoPlay, onLoadedData]);
   
