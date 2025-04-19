@@ -229,11 +229,17 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
         logger.log(`[VideoCard] Attempting to update asset_media.status to ${newStatus} for media ID: ${video.id}, asset ID: ${assetId}`);
 
+        const upsertData = {
+          media_id: video.id,
+          asset_id: assetId,
+          status: newStatus
+        };
+
         const { data, error } = await supabase
           .from('asset_media')
-          .update({ status: newStatus })
-          .eq('media_id', video.id)
-          .eq('asset_id', assetId)
+          .upsert(upsertData, {
+            onConflict: 'media_id, asset_id',
+          })
           .select();
 
         logger.log(`[VideoCard] Supabase asset_media update result for media ID ${video.id}, asset ID ${assetId}:`, { data, error });

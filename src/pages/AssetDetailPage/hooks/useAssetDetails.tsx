@@ -70,7 +70,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
       const fetchedAssetMedia = assetMediaJoinData || [];
       logger.log(`[useAssetDetails] Fetched ${fetchedAssetMedia.length} asset_media join records.`);
-      logger.log('{ITEMSHOWINGBUG} Raw asset_media join data:', fetchedAssetMedia);
+      logger.log('[loraorderingbug] Raw asset_media join data:', fetchedAssetMedia);
 
       const pVideo = assetData.primaryVideo;
       logger.log(`[VideoLightboxDebug] Processing asset: ${assetData.id}, Fetched Primary Video Data (pVideo):`, {
@@ -138,7 +138,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
             const isPrimary = item.is_primary === true; 
  
             const assignedStatus = (item.status as VideoDisplayStatus) || 'View'; 
-            logger.log(`{ITEMSHOWINGBUG} Assigning status to VideoEntry (media ID: ${media.id}): ${assignedStatus} (Source: item.status=${item.status})`);
+            logger.log(`[loraorderingbug] Processing Video ${media.id}: Assigned status '${assignedStatus}' (from asset_media.status: ${item.status}, is_primary: ${item.is_primary})`);
 
             return {
               id: media.id,
@@ -203,6 +203,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
       logger.log(`[useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
+
+      logger.log('[loraorderingbug] Final sorted video array (before setting state):', sortedVideos.map(v => ({id: v.id, status: v.assetMediaDisplayStatus, is_primary: v.is_primary})));
 
       setVideos(sortedVideos);
       logger.log('{ITEMSHOWINGBUG} Final VideoEntry array being set to state:', sortedVideos);
