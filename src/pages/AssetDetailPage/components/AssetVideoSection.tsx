@@ -108,9 +108,13 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 
   const videosToDisplay = useMemo(() => {
     if (isAuthorized) {
+      logger.log(`Authorized user, showing all videos: ${sortedAndFilteredVideos.length}`);
       return sortedAndFilteredVideos;
     } else {
-      return sortedAndFilteredVideos.filter(video => video.status !== 'Hidden');
+      logger.log(`Non-authorized user, filtering out hidden videos`);
+      const filtered = sortedAndFilteredVideos.filter(video => video.status !== 'Hidden');
+      logger.log(`Filtered videos count: ${filtered.length}`);
+      return filtered;
     }
   }, [sortedAndFilteredVideos, isAuthorized]);
 
