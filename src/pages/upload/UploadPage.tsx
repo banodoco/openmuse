@@ -1,3 +1,4 @@
+
 import React from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Link, useNavigate } from 'react-router-dom';
@@ -33,7 +34,7 @@ const UploadPage: React.FC = () => {
         )}
         
         <UploadContent 
-          onSuccess={handleUploadSuccess} 
+          onSuccess={handleUploadSuccess}
         />
 
       </main>

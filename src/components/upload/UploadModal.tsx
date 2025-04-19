@@ -1,11 +1,12 @@
+
 import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTrigger,
-  DialogFooter, // Import if needed for separate actions
-  DialogClose   // Import if needed for explicit close button
+  DialogFooter,
+  DialogClose
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import UploadContent from '@/components/upload/UploadContent';
@@ -43,21 +44,12 @@ const UploadModal: React.FC<UploadModalProps> = ({
           <UploadContent 
             initialUploadType={initialUploadType}
             onSuccess={handleSuccess}
-            onCancel={handleCancel} // Pass cancel handler to UploadContent
+            onCancel={handleCancel}
           />
         </div>
-        {/* 
-          DialogFooter can be used if you want actions outside UploadContent, 
-          but UploadContent now handles its own submit/cancel buttons.
-          <DialogFooter>
-            <DialogClose asChild>
-              <Button type="button" variant="secondary">Close</Button>
-            </DialogClose>
-          </DialogFooter> 
-        */}
       </DialogContent>
     </Dialog>
   );
 };
 
-export default UploadModal; 
+export default UploadModal;

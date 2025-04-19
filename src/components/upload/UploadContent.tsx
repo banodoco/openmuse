@@ -1,3 +1,4 @@
+
 import React, { useState, useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Input } from "@/components/ui/input";
@@ -7,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button";
 import { toast } from 'sonner';
 import { useMutation } from '@tanstack/react-query';
-import { storage } from '@/integrations/supabase/client';
+import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { VideoMetadata } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
@@ -16,14 +17,20 @@ import { Logger } from '@/lib/logger';
 const logger = new Logger('UploadContent');
 
 interface UploadContentProps {
-  onUploadComplete?: () => void;
+  onSuccess?: () => void;
+  onCancel?: () => void;
+  initialUploadType?: 'lora' | 'video';
 }
 
-const UploadContent: React.FC<UploadContentProps> = ({ onUploadComplete }) => {
+const UploadContent: React.FC<UploadContentProps> = ({ 
+  onSuccess,
+  onCancel,
+  initialUploadType = 'lora'
+}) => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [classification, setClassification] = useState<'art' | 'gen'>('art');
+  const [classification, setClassification] = useState<'art' | 'generation'>('art');
   const [creator, setCreator] = useState<'self' | 'someone_else'>('self');
   const [creatorName, setCreatorName] = useState('');
   const [model, setModel] = useState<'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'>('wan');
@@ -39,7 +46,8 @@ const UploadContent: React.FC<UploadContentProps> = ({ onUploadComplete }) => {
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
     
-    const { data, error } = await storage
+    const { data, error } = await supabase
+      .storage
       .from('videos')
       .upload(fileName, file, {
         cacheControl: '3600',
@@ -65,7 +73,7 @@ const UploadContent: React.FC<UploadContentProps> = ({ onUploadComplete }) => {
       modelVariant,
       title,
       description,
-      classification: classification === 'gen' ? 'generation' : 'art', // Convert 'gen' to 'generation'
+      classification: classification,
       creator,
       creatorName,
       isPrimary
@@ -81,7 +89,7 @@ const UploadContent: React.FC<UploadContentProps> = ({ onUploadComplete }) => {
     });
   };
   
-  const { mutate: uploadAndCreate, isLoading } = useMutation({
+  const { mutate: uploadAndCreate, isPending } = useMutation({
     mutationFn: async () => {
       if (!videoFile) {
         throw new Error("No video file selected");
@@ -95,8 +103,8 @@ const UploadContent: React.FC<UploadContentProps> = ({ onUploadComplete }) => {
       setTitle('');
       setDescription('');
       setVideoFile(null);
-      if (onUploadComplete) {
-        onUploadComplete();
+      if (onSuccess) {
+        onSuccess();
       }
     },
     onError: (error: any) => {
@@ -160,13 +168,13 @@ const UploadContent: React.FC<UploadContentProps> = ({ onUploadComplete }) => {
       
       <div className="mt-4">
         <Label htmlFor="classification">Classification</Label>
-        <Select value={classification} onValueChange={(value) => setClassification(value as 'art' | 'gen')}>
+        <Select value={classification} onValueChange={(value) => setClassification(value as 'art' | 'generation')}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Select Classification" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="art">Art</SelectItem>
-            <SelectItem value="gen">Generation</SelectItem>
+            <SelectItem value="generation">Generation</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -226,13 +234,23 @@ const UploadContent: React.FC<UploadContentProps> = ({ onUploadComplete }) => {
         />
       </div>
       
-      <Button
-        className="w-full mt-6"
-        onClick={() => uploadAndCreate()}
-        disabled={isLoading || !videoFile}
-      >
-        {isLoading ? 'Uploading...' : 'Upload Video'}
-      </Button>
+      <div className="flex justify-end gap-2 mt-6">
+        {onCancel && (
+          <Button
+            variant="outline"
+            onClick={onCancel}
+          >
+            Cancel
+          </Button>
+        )}
+        <Button
+          className="w-full"
+          onClick={() => uploadAndCreate()}
+          disabled={isPending || !videoFile}
+        >
+          {isPending ? 'Uploading...' : 'Upload Video'}
+        </Button>
+      </div>
     </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -20,7 +21,7 @@ interface VideoMetadataFormProps {
   metadata: {
     title: string;
     description: string;
-    classification: 'art' | 'gen';
+    classification: 'art' | 'generation';
     creator: 'self' | 'someone_else';
     creatorName: string;
     isPrimary?: boolean;
@@ -145,8 +146,8 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   disabled={disabled}
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
-                    <Label htmlFor={`classification-gen-${videoId}`} className="cursor-pointer">Generation</Label>
+                    <RadioGroupItem value="generation" id={`classification-generation-${videoId}`} />
+                    <Label htmlFor={`classification-generation-${videoId}`} className="cursor-pointer">Generation</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="art" id={`classification-art-${videoId}`} />

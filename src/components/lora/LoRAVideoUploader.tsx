@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { MultipleVideoUploader } from '@/pages/upload/components';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -20,7 +21,7 @@ interface VideoItem {
 interface VideoMetadataForm {
   title: string;
   description: string;
-  classification: 'art' | 'gen';
+  classification: 'art' | 'generation';
   creator: 'self' | 'someone_else';
   creatorName: string;
   isPrimary?: boolean;
@@ -83,7 +84,6 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
       
       const uploadPromises = videosWithContent.map(async (video) => {
         if (video.file) {
-          const loraName = assetName;
           const title = video.metadata.title;
           const description = video.metadata.description;
           const classification = video.metadata.classification;
@@ -91,12 +91,12 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
           const creatorName = video.metadata.creatorName;
 
           const metadata: VideoMetadata = {
-            loraName,
+            loraName: assetName,
             assetId,
             isPrimary: false,
             title,
             description,
-            classification: classification === 'gen' ? 'generation' : 'art',
+            classification, // This is now correctly typed as 'art' | 'generation'
             creator,
             creatorName
           };
@@ -126,7 +126,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             user_id: user?.id || null,
             metadata: {
               ...video.metadata,
-              loraName,
+              loraName: assetName,
               assetId,
               isPrimary: false
             }

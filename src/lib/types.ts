@@ -1,3 +1,4 @@
+
 import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 
 export interface VideoMetadata {
@@ -5,7 +6,7 @@ export interface VideoMetadata {
   description?: string;
   creator?: 'self' | 'someone_else';
   creatorName?: string;
-  classification?: 'art' | 'generation'; // Fixing the classification type
+  classification?: 'art' | 'generation'; 
   isPrimary?: boolean;
   loraName?: string;
   loraDescription?: string;
