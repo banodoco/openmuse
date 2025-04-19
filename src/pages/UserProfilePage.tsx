@@ -29,6 +29,7 @@ import {
 } from "@/components/ui/pagination";
 import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
+import { Helmet } from 'react-helmet-async';
 
 const logger = new Logger('UserProfilePage');
 
@@ -691,7 +692,39 @@ export default function UserProfilePage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background">
+    <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light text-foreground">
+      <Helmet>
+        {/* Basic Meta Tags */}
+        <title>{profile ? `${profile.display_name || profile.username}'s Profile` : 'User Profile'} | OpenMuse</title>
+        <meta 
+          name="description" 
+          content={profile?.description ? profile.description.substring(0, 160) : `View the profile, LoRAs, and videos created by ${profile?.display_name || profile?.username || 'this user'} on OpenMuse.`} 
+        />
+        
+        {/* Open Graph / Facebook */}
+        <meta property="og:type" content="profile" />
+        <meta property="og:url" content={window.location.href} />
+        <meta property="og:title" content={profile ? `${profile.display_name || profile.username}'s Profile | OpenMuse` : 'User Profile | OpenMuse'} />
+        <meta 
+          property="og:description" 
+          content={profile?.description ? profile.description.substring(0, 160) : `View the profile, LoRAs, and videos created by ${profile?.display_name || profile?.username || 'this user'} on OpenMuse.`} 
+        />
+        {/* Use background image first if available, fallback to avatar */}
+        <meta property="og:image" content={profile?.background_image_url || profile?.avatar_url || '/placeholder.svg'} /> 
+        {profile?.username && <meta property="profile:username" content={profile.username} />} 
+
+        {/* Twitter Card */}
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:url" content={window.location.href} />
+        <meta name="twitter:title" content={profile ? `${profile.display_name || profile.username}'s Profile | OpenMuse` : 'User Profile | OpenMuse'} />
+        <meta 
+          name="twitter:description" 
+          content={profile?.description ? profile.description.substring(0, 160) : `View the profile, LoRAs, and videos created by ${profile?.display_name || profile?.username || 'this user'} on OpenMuse.`} 
+        />
+        {/* Use background image first if available, fallback to avatar */}
+        <meta name="twitter:image" content={profile?.background_image_url || profile?.avatar_url || '/placeholder.svg'} />
+      </Helmet>
+
       <Navigation />
       <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
         <PageHeader

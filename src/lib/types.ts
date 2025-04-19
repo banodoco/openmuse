@@ -25,6 +25,7 @@ export interface VideoEntry {
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
+  admin_status?: string | null;
   // This status is derived from asset_media.status for display/sorting on asset page
   assetMediaDisplayStatus?: 'Hidden' | 'Listed' | 'Featured' | null; 
   user_status?: string | null;
