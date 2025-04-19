@@ -33,7 +33,9 @@ function AssetDetailPage() {
     getCreatorName,
     fetchAssetDetails,
     setAsset,
-    updateLocalVideoStatus
+    updateLocalVideoStatus,
+    updateLocalPrimaryMedia,
+    removeVideoLocally
   } = useAssetDetails(id);
   
   // Calculate if the current user is authorized to edit or delete the asset
@@ -176,9 +178,9 @@ function AssetDetailPage() {
       }
       logger.log(`[handleDeleteVideo] Successfully deleted media record from database for ID: ${videoId}`);
 
+      // After successful deletion, update local state instead of refetching
+      removeVideoLocally(videoId);
       toast.success('Video deleted successfully');
-      logger.log(`[handleDeleteVideo] Deletion successful for ID: ${videoId}. Refreshing asset details.`);
-      await fetchAssetDetails();
 
     } catch (error) {
       logger.error(`[handleDeleteVideo] Error during deletion process for video ID ${videoId}:`, error);
@@ -315,31 +317,21 @@ function AssetDetailPage() {
   
   // New function to set primary media
   const handleSetPrimaryMedia = async (mediaId: string) => {
-    logger.log(`[handleSetPrimaryMedia] Initiated for media ID: ${mediaId} on asset ID: ${id}`);
-    if (!id || !isAuthorized) {
-      logger.warn(`[handleSetPrimaryMedia] Permission denied or missing ID. Asset ID: ${id}, Authorized: ${isAuthorized}`);
-      toast.error("You don't have permission or the asset ID is missing.");
-      return;
-    }
-
     try {
       const { error } = await supabase.rpc('set_primary_media', {
         p_asset_id: id,
         p_media_id: mediaId,
       });
 
-      if (error) {
-        logger.error(`[handleSetPrimaryMedia] Error calling Supabase function:`, error);
-        throw error;
-      }
+      if (error) throw error;
 
+      // Update local state instead of refetching
+      updateLocalPrimaryMedia(mediaId);
       toast.success('Primary media updated successfully!');
-      logger.log(`[handleSetPrimaryMedia] Success for media ID: ${mediaId}. Refreshing asset details.`);
-      await fetchAssetDetails(); // Refresh data to reflect changes
 
-    } catch (error: any) {
-      logger.error(`[handleSetPrimaryMedia] Error setting primary media for ${mediaId}:`, error);
-      toast.error(`Failed to set primary media: ${error.message || 'Unknown error'}`);
+    } catch (error) {
+      logger.error(`Error setting primary media: ${error.message}`);
+      toast.error('Failed to update primary media');
     }
   };
   

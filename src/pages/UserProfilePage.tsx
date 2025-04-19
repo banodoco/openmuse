@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -39,6 +39,24 @@ const calculatePageSize = (totalItems: number): number => {
   if (totalItems <= 11) return 8;  // Rule 2: Use 8/page for 9-11 items
   if (totalItems <= 15) return 12; // Rule 3: Use 12/page for 12-15 items
   return 16;                        // Rule 4: Use 16/page for 16+ items
+};
+
+// Helper function to sort videos for the profile page based on user_status
+const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
+  const statusOrder: { [key in VideoDisplayStatus]: number } = { 'Pinned': 1, 'View': 2, 'Hidden': 3 };
+  return [...videos].sort((a, b) => {
+    // Use user_status for profile page sorting
+    const statusA = a.user_status || 'View';
+    const statusB = b.user_status || 'View';
+    const orderA = statusOrder[statusA] || 2;
+    const orderB = statusOrder[statusB] || 2;
+
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
+    // Fallback to creation date
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 };
 
 export default function UserProfilePage() {
@@ -308,32 +326,21 @@ export default function UserProfilePage() {
         return processedVideo;
       }).filter(video => video !== null) as VideoEntry[]; 
 
-      // Step 4: Filter Hidden videos for non-authorized users (Profile Context)
-      const isViewerAuthorized = userId === currentViewerId || isViewerAdmin;
-      const visibleVideos = isViewerAuthorized 
-        ? processedVideos
-        : processedVideos.filter(v => v.user_status !== 'Hidden');
+      logger.log(`[fetchUserVideos] Processing ${processedVideos.length} videos after URL generation.`);
 
-      // Step 5: Sort videos (Profile Context: Pinned > View > Hidden)
-      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+      // Step 4: Filter videos based on viewer permissions (only show hidden if owner/admin)
+      const isViewerOwner = currentViewerId === userId;
+      const canViewerSeeHidden = isViewerOwner || isViewerAdmin;
+      const visibleVideos = processedVideos.filter(video => 
+        canViewerSeeHidden || video.user_status !== 'Hidden'
+      );
+      logger.log(`[fetchUserVideos] Filtered to ${visibleVideos.length} visible videos (canViewerSeeHidden: ${canViewerSeeHidden})`);
 
-      const sortedVideos = visibleVideos.sort((a, b) => {
-        // 1. Sort by Status (Pinned > View > Hidden)
-        const statusA = a.user_status || 'View'; // Default null/undefined to 'View'
-        const statusB = b.user_status || 'View';
-        const orderA = statusOrder[statusA] || 2; // Default unknown statuses to 'View'
-        const orderB = statusOrder[statusB] || 2;
-        
-        if (orderA !== orderB) {
-          return orderA - orderB; // Sort by status priority
-        }
+      // Step 5: Sort videos using the helper function before setting state
+      const sortedVideos = sortProfileVideos(visibleVideos); 
+      logger.log(`[fetchUserVideos] Sorted visible videos:`, sortedVideos.map(v => `${v.id} (Status: ${v.user_status})`));
 
-        // 2. If statuses are the same, sort by creation date (newest first)
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-      logger.log('[fetchUserVideos] Applied PROFILE sorting logic.');
-
-      // Separate videos into categories
+      // Step 6: Separate into Generation and Art, then set state
       const genVids = sortedVideos.filter(v => v.metadata?.classification === 'generation');
       const artVids = sortedVideos.filter(v => v.metadata?.classification === 'art');
       
@@ -470,6 +477,23 @@ export default function UserProfilePage() {
     setLightboxVideo(null);
   };
 
+  // --- Local State Update Handlers ---
+
+  // Handles status updates triggered from VideoCard controls
+  const handleLocalVideoUserStatusUpdate = useCallback((videoId: string, newStatus: VideoDisplayStatus) => {
+    logger.log(`[UserProfilePage] handleLocalVideoUserStatusUpdate called for video ${videoId} with status ${newStatus}`);
+    
+    const updateUserStatus = (video: VideoEntry) => 
+      video.id === videoId ? { ...video, user_status: newStatus } : video;
+
+    setUserVideos(prev => sortProfileVideos(prev.map(updateUserStatus)));
+    setGenerationVideos(prev => sortProfileVideos(prev.map(updateUserStatus)));
+    setArtVideos(prev => sortProfileVideos(prev.map(updateUserStatus)));
+    
+    logger.log(`[UserProfilePage] Local video states updated for ${videoId}`);
+  }, [logger]); // Dependencies managed by useCallback
+
+  // Delete video (already handles local state update correctly)
   const deleteVideo = async (videoId: string) => {
     logger.log(`[deleteVideo] Initiated for video ID: ${videoId}`);
     if (!canEdit) { 
@@ -581,9 +605,9 @@ export default function UserProfilePage() {
       }
       logger.log(`[deleteVideo] Successfully deleted media record from database for ID: ${videoId}`);
 
-      setGenerationVideos(prev => prev.filter(video => video.id !== videoId));
-      setArtVideos(prev => prev.filter(video => video.id !== videoId));
-      setUserVideos(prev => prev.filter(video => video.id !== videoId));
+      setUserVideos(prev => sortProfileVideos(prev.filter(video => video.id !== videoId)));
+      setGenerationVideos(prev => sortProfileVideos(prev.filter(video => video.id !== videoId)));
+      setArtVideos(prev => sortProfileVideos(prev.filter(video => video.id !== videoId)));
       
       toast.success('Video deleted successfully');
       logger.log(`[deleteVideo] Deletion successful for ID: ${videoId}. Local state updated.`);
@@ -595,6 +619,7 @@ export default function UserProfilePage() {
     logger.log(`[deleteVideo] Finished for video ID: ${videoId}`);
   };
 
+  // Approve/Reject might be removable later, keeping for now but ensure they sort
   const approveVideo = async (id: string) => {
     try {
       await supabase
@@ -602,15 +627,9 @@ export default function UserProfilePage() {
         .update({ admin_status: 'Curated' })
         .eq('id', id);
       
-      setGenerationVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_status: 'Curated' } : video
-      ));
-      setArtVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_status: 'Curated' } : video
-      ));
-      setUserVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_status: 'Curated' } : video
-      ));
+      setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Curated' } : video)));
+      setGenerationVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Curated' } : video)));
+      setArtVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Curated' } : video)));
     } catch (error) {
       console.error('Error approving video:', error);
     }
@@ -623,15 +642,9 @@ export default function UserProfilePage() {
         .update({ admin_status: 'Rejected' })
         .eq('id', id);
       
-      setGenerationVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_status: 'Rejected' } : video
-      ));
-      setArtVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_status: 'Rejected' } : video
-      ));
-      setUserVideos(prev => prev.map(video =>
-        video.id === id ? { ...video, admin_status: 'Rejected' } : video
-      ));
+      setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Rejected' } : video)));
+      setGenerationVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Rejected' } : video)));
+      setArtVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Rejected' } : video)));
     } catch (error) {
       console.error('Error rejecting video:', error);
     }
@@ -892,6 +905,7 @@ export default function UserProfilePage() {
                             isHovering={hoveredVideoId === item.id}
                             onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                             onStatusUpdateComplete={() => fetchUserVideos(profile.id, user?.id, !!isAdmin)}
+                            onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
                           />
                         ))}
                       </Masonry>
@@ -945,6 +959,7 @@ export default function UserProfilePage() {
                             isHovering={hoveredVideoId === item.id}
                             onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                             onStatusUpdateComplete={() => fetchUserVideos(profile.id, user?.id, !!isAdmin)}
+                            onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
                           />
                         ))}
                       </Masonry>

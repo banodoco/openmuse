@@ -276,36 +276,51 @@ export const useAssetDetails = (assetId: string | undefined) => {
     setVideos(currentVideos => {
       const updatedVideos = currentVideos.map(video => {
         if (video.id === videoId) {
-          logger.log(`[useAssetDetails] Found video ${videoId}, updating assetMediaDisplayStatus`);
-          // Update the specific status field. Assuming asset page context for now.
-          // If profile page needs different logic, this might need adjustment.
           return { ...video, assetMediaDisplayStatus: newStatus };
         }
         return video;
       });
-      
-      // Log before and after for debugging comparison
-      // logger.log('[useAssetDetails] Videos before local update:', currentVideos.find(v => v.id === videoId));
-      // logger.log('[useAssetDetails] Videos after local update:', updatedVideos.find(v => v.id === videoId));
-      
-      // Re-sort the videos based on the new status
-      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
-      const sortedUpdatedVideos = updatedVideos.sort((a, b) => {
-        if (a.is_primary && !b.is_primary) return -1;
-        if (!a.is_primary && b.is_primary) return 1;
-        const statusA = a.assetMediaDisplayStatus || 'View';
-        const statusB = b.assetMediaDisplayStatus || 'View';
-        const orderA = statusOrder[statusA] || 2;
-        const orderB = statusOrder[statusB] || 2;
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
-      logger.log('[useAssetDetails] Locally updated and re-sorted videos:', sortedUpdatedVideos.map(v => `${v.id} (${v.assetMediaDisplayStatus})`));
-      return sortedUpdatedVideos; 
+      return sortVideos(updatedVideos);
     });
-  }, [logger]); // Added logger dependency
+  }, [logger]);
+
+  // Helper function to sort videos consistently
+  const sortVideos = useCallback((videos: VideoEntry[]) => {
+    const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+    return videos.sort((a, b) => {
+      if (a.is_primary && !b.is_primary) return -1;
+      if (!a.is_primary && b.is_primary) return 1;
+      const statusA = a.assetMediaDisplayStatus || 'View';
+      const statusB = b.assetMediaDisplayStatus || 'View';
+      const orderA = statusOrder[statusA] || 2;
+      const orderB = statusOrder[statusB] || 2;
+      if (orderA !== orderB) {
+        return orderA - orderB;
+      }
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
+  }, []);
+
+  // Function to update primary media locally
+  const updateLocalPrimaryMedia = useCallback((newPrimaryMediaId: string) => {
+    logger.log(`[useAssetDetails] Updating local primary media to ${newPrimaryMediaId}`);
+    setVideos(currentVideos => {
+      const updatedVideos = currentVideos.map(video => ({
+        ...video,
+        is_primary: video.id === newPrimaryMediaId
+      }));
+      return sortVideos(updatedVideos);
+    });
+  }, [logger, sortVideos]);
+
+  // Function to remove a video locally
+  const removeVideoLocally = useCallback((videoId: string) => {
+    logger.log(`[useAssetDetails] Removing video ${videoId} from local state`);
+    setVideos(currentVideos => {
+      const filteredVideos = currentVideos.filter(video => video.id !== videoId);
+      return sortVideos(filteredVideos);
+    });
+  }, [logger, sortVideos]);
 
   return {
     asset,
@@ -317,6 +332,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
     fetchAssetDetails,
     setAsset,
     setDataFetchAttempted,
-    updateLocalVideoStatus
+    updateLocalVideoStatus,
+    updateLocalPrimaryMedia,
+    removeVideoLocally
   };
 };
