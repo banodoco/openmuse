@@ -2,12 +2,6 @@
 import React from 'react';
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Star } from 'lucide-react';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
 import { cn } from '@/lib/utils';
 
 interface VideoStatusControlsProps {
@@ -22,40 +16,52 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
   className
 }) => {
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button 
-          variant="ghost" 
-          size="icon"
-          className={cn(
-            "absolute z-20 h-7 w-7 p-0 rounded-md shadow-sm",
-            "bg-black/50 hover:bg-black/70 backdrop-blur-sm",
-            status === 'Featured' && "text-yellow-400 hover:text-yellow-300",
-            status === 'Hidden' && "text-gray-400 hover:text-gray-300",
-            status === 'Listed' && "text-white hover:text-white",
-            className
-          )}
-        >
-          {status === 'Featured' && <Star className="h-4 w-4 fill-current" />}
-          {status === 'Listed' && <Eye className="h-4 w-4" />}
-          {status === 'Hidden' && <EyeOff className="h-4 w-4" />}
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-32">
-        <DropdownMenuItem onClick={() => onStatusChange('Featured')}>
-          <Star className="mr-2 h-4 w-4" />
-          <span>Featured</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onStatusChange('Listed')}>
-          <Eye className="mr-2 h-4 w-4" />
-          <span>Listed</span>
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onStatusChange('Hidden')} className="text-gray-500">
-          <EyeOff className="mr-2 h-4 w-4" />
-          <span>Hide</span>
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className={cn("absolute z-20 flex gap-2", className)}>
+      <Button 
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "h-7 w-7 p-0 rounded-md shadow-sm",
+          "bg-black/50 hover:bg-black/70 backdrop-blur-sm",
+          status === 'Featured' 
+            ? "bg-yellow-500/70 text-white hover:bg-yellow-600/70" 
+            : "text-yellow-400 hover:text-yellow-300"
+        )}
+        onClick={() => onStatusChange('Featured')}
+      >
+        <Star className={cn("h-4 w-4", status === 'Featured' && "fill-current")} />
+      </Button>
+
+      <Button 
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "h-7 w-7 p-0 rounded-md shadow-sm",
+          "bg-black/50 hover:bg-black/70 backdrop-blur-sm",
+          status === 'Listed' 
+            ? "bg-blue-500/70 text-white hover:bg-blue-600/70" 
+            : "text-white hover:text-white/80"
+        )}
+        onClick={() => onStatusChange('Listed')}
+      >
+        <Eye className="h-4 w-4" />
+      </Button>
+
+      <Button 
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "h-7 w-7 p-0 rounded-md shadow-sm",
+          "bg-black/50 hover:bg-black/70 backdrop-blur-sm",
+          status === 'Hidden' 
+            ? "bg-gray-500/70 text-white hover:bg-gray-600/70" 
+            : "text-gray-400 hover:text-gray-300"
+        )}
+        onClick={() => onStatusChange('Hidden')}
+      >
+        <EyeOff className="h-4 w-4" />
+      </Button>
+    </div>
   );
 };
 
