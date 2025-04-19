@@ -1,5 +1,4 @@
-
-import React, { useRef, useState, useCallback, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { Play } from 'lucide-react';
@@ -21,7 +20,7 @@ interface VideoPlayerProps {
   className?: string;
   controls?: boolean;
   onClick?: (event: React.MouseEvent<HTMLVideoElement>) => void;
-  onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement, Event>) => void;
   onTimeUpdate?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   onEnded?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   onError?: (message: string) => void;
@@ -143,24 +142,23 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           video.pause();
           video.currentTime = 0;
           if (onLoadedData) {
-            // Create a synthetic event from the native event
             const syntheticEvent = {
               nativeEvent,
-              currentTarget: nativeEvent.currentTarget,
-              target: nativeEvent.target,
-              bubbles: nativeEvent.bubbles,
-              cancelable: nativeEvent.cancelable,
-              defaultPrevented: nativeEvent.defaultPrevented,
-              eventPhase: nativeEvent.eventPhase,
-              isTrusted: nativeEvent.isTrusted,
-              preventDefault: nativeEvent.preventDefault.bind(nativeEvent),
-              stopPropagation: nativeEvent.stopPropagation.bind(nativeEvent),
+              currentTarget: video,
+              target: video,
+              bubbles: false,
+              cancelable: false,
+              defaultPrevented: false,
+              eventPhase: 0,
+              isTrusted: true,
+              preventDefault: () => {},
+              stopPropagation: () => {},
               isPropagationStopped: () => false,
-              isDefaultPrevented: () => nativeEvent.defaultPrevented,
+              isDefaultPrevented: () => false,
               persist: () => {},
-              timeStamp: nativeEvent.timeStamp,
-              type: nativeEvent.type,
-            } as React.SyntheticEvent<HTMLVideoElement>;
+              timeStamp: Date.now(),
+              type: 'loadeddata',
+            } as React.SyntheticEvent<HTMLVideoElement, Event>;
             
             onLoadedData(syntheticEvent);
           }
