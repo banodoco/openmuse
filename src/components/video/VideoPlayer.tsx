@@ -20,7 +20,7 @@ interface VideoPlayerProps {
   className?: string;
   controls?: boolean;
   onClick?: (event: React.MouseEvent<HTMLVideoElement>) => void;
-  onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement, Event>) => void;
+  onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement, Event> | Event) => void;
   onTimeUpdate?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   onEnded?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   onError?: (message: string) => void;
@@ -142,7 +142,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
           video.pause();
           video.currentTime = 0;
           if (onLoadedData) {
-            const syntheticEvent = {
+            const syntheticEvent: React.SyntheticEvent<HTMLVideoElement, Event> = {
               nativeEvent,
               currentTarget: video,
               target: video,
