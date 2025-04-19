@@ -207,17 +207,24 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const handleStatusChange = async (newStatus: 'Hidden' | 'Listed' | 'Featured') => {
     try {
       logger.log(`[VideoCard] Attempting to set status to ${newStatus} for video ID: ${video.id}`);
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('media')
         .update({ admin_status: newStatus })
-        .eq('id', video.id);
+        .eq('id', video.id)
+        .select();
+      
+      logger.log(`[VideoCard] Supabase update result for video ID ${video.id}:`, { data, error });
       
       if (error) {
         logger.error(`[VideoCard] Supabase update error for video ID ${video.id}:`, error);
         throw error;
       }
       
-      logger.log(`[VideoCard] Successfully updated status to ${newStatus} for video ID: ${video.id}. (No explicit local state update in this function)`);
+      if (!data || data.length === 0) {
+        logger.warn(`[VideoCard] Supabase update for video ID ${video.id} returned no data. Possible RLS issue?`);
+      }
+      
+      logger.log(`[VideoCard] Update process completed for ${newStatus} on video ID: ${video.id}.`);
       toast.success(`Video ${newStatus.toLowerCase()} successfully`);
     } catch (error) {
       logger.error(`[VideoCard] Failed to update video status for ID ${video.id}:`, error);
