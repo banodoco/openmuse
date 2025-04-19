@@ -227,7 +227,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
       key={video.id} 
       className={cn(
         "relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4",
-        video.admin_status === 'Rejected' && "opacity-50"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -260,21 +259,64 @@ const VideoCard: React.FC<VideoCardProps> = ({
             />
           )}
 
-          {isAuthorized && onSetPrimaryMedia && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className={cn(
-                "absolute bottom-2 right-2 z-20 h-7 w-7 p-0 rounded-md shadow-sm",
-                "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
-                video.is_primary && "text-yellow-400 hover:text-yellow-300"
+          {/* Move delete and primary buttons to bottom right */}
+          {isAuthorized && (
+            <div className="absolute bottom-2 right-2 z-20 flex gap-2">
+              {onSetPrimaryMedia && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className={cn(
+                    "h-7 w-7 p-0 rounded-md shadow-sm",
+                    "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
+                    video.is_primary && "text-yellow-400 hover:text-yellow-300"
+                  )}
+                  onClick={handleSetPrimary}
+                  title={video.is_primary ? "This is the primary media" : "Make primary video"}
+                  disabled={video.is_primary}
+                >
+                  <Star className={cn("h-4 w-4", video.is_primary && "fill-current")} />
+                </Button>
               )}
-              onClick={handleSetPrimary}
-              title={video.is_primary ? "This is the primary media" : "Make primary video"}
-              disabled={video.is_primary}
-            >
-              <Star className={cn("h-4 w-4", video.is_primary && "fill-current")} />
-            </Button>
+
+              {isAdmin && (
+                <AlertDialog>
+                  <AlertDialogTrigger asChild>
+                    <Button 
+                      variant="destructive" 
+                      size="icon" 
+                      className={cn(
+                        "h-7 w-7 p-0 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm",
+                        isDeleting && "opacity-50 cursor-not-allowed"
+                      )}
+                      title="Delete video permanently"
+                      disabled={!onDeleteVideo || isDeleting}
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {isDeleting ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Trash className="h-4 w-4" />}
+                    </Button>
+                  </AlertDialogTrigger>
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                    <AlertDialogHeader>
+                      <AlertDialogTitle>Delete this video?</AlertDialogTitle>
+                      <AlertDialogDescription>
+                        This action cannot be undone. The video file and its metadata will be permanently removed.
+                      </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                      <AlertDialogCancel onClick={(e) => e.stopPropagation()} disabled={isDeleting}>Cancel</AlertDialogCancel>
+                      <AlertDialogAction 
+                        onClick={handleDeleteConfirm}
+                        disabled={isDeleting}
+                        className="bg-destructive hover:bg-destructive/90"
+                      >
+                        {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                      </AlertDialogAction>
+                    </AlertDialogFooter>
+                  </AlertDialogContent>
+                </AlertDialog>
+              )}
+            </div>
           )}
 
           {!isMobile && (
@@ -311,79 +353,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
           )}
         </div>
       </div>
-      
-      {isAdmin && (
-        <div className="absolute top-2 right-2 flex space-x-1 z-20">
-          <Button 
-            variant="secondary" 
-            size="icon" 
-            className={getButtonStyle('Curated')}
-            onClick={handleApprove}
-            title="Curate video"
-            disabled={!onApproveVideo}
-          >
-            <Check className="h-4 w-4" />
-          </Button>
-          
-          <Button 
-            variant="secondary" 
-            size="icon" 
-            className={getButtonStyle('Listed')}
-            onClick={handleList}
-            title="List video"
-            disabled={!onApproveVideo}
-          >
-            <span className="text-xs font-bold">L</span>
-          </Button>
-          
-          <Button 
-            variant="secondary"
-            size="icon" 
-            className={getButtonStyle('Rejected')}
-            onClick={handleReject}
-            title="Reject video"
-            disabled={!onRejectVideo}
-          >
-            <X className="h-4 w-4" />
-          </Button>
-
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <Button 
-                variant="destructive" 
-                size="icon" 
-                className={cn(
-                  "text-xs h-7 w-7 p-0 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm",
-                  isDeleting && "opacity-50 cursor-not-allowed"
-                )}
-                title="Delete video permanently"
-                disabled={!onDeleteVideo || isDeleting}
-                onClick={(e) => e.stopPropagation()}
-              >
-                {isDeleting ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Trash className="h-4 w-4" />}
-              </Button>
-            </AlertDialogTrigger>
-            <AlertDialogContent onClick={(e) => e.stopPropagation()}> 
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete this video?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This action cannot be undone. The video file and its metadata will be permanently removed.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel onClick={(e) => e.stopPropagation()} disabled={isDeleting}>Cancel</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleDeleteConfirm}
-                  disabled={isDeleting}
-                  className="bg-destructive hover:bg-destructive/90"
-                >
-                  {isDeleting ? 'Deleting...' : 'Confirm Delete'}
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
-        </div>
-      )}
     </div>
   );
 };

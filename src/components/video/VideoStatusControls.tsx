@@ -28,10 +28,11 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
           variant="ghost" 
           size="icon"
           className={cn(
-            "absolute top-2 right-2 z-20 h-7 w-7 p-0 rounded-md shadow-sm",
-            "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
+            "absolute z-20 h-7 w-7 p-0 rounded-md shadow-sm",
+            "bg-black/50 hover:bg-black/70 backdrop-blur-sm",
             status === 'Featured' && "text-yellow-400 hover:text-yellow-300",
-            status === 'Hidden' && "text-red-400 hover:text-red-300",
+            status === 'Hidden' && "text-gray-400 hover:text-gray-300",
+            status === 'Listed' && "text-white hover:text-white",
             className
           )}
         >
@@ -49,9 +50,9 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
           <Eye className="mr-2 h-4 w-4" />
           <span>Listed</span>
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => onStatusChange('Hidden')}>
+        <DropdownMenuItem onClick={() => onStatusChange('Hidden')} className="text-gray-500">
           <EyeOff className="mr-2 h-4 w-4" />
-          <span>Hidden</span>
+          <span>Hide</span>
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

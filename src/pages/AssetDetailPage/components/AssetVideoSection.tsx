@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { VideoEntry, LoraAsset } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
@@ -18,15 +17,13 @@ import { DummyCard, generateDummyItems } from '@/components/common/DummyCard';
 
 const logger = new Logger('AssetVideoSection');
 
-// Define breakpoint columns for Masonry
 const breakpointColumnsObj = {
-  default: 3, // Default to 3 columns
-  1100: 3,  // 3 columns for screens >= 1100px
-  700: 2,   // 2 columns for screens >= 700px
-  500: 1    // 1 column for screens < 500px
+  default: 3,
+  1100: 3,
+  700: 2,
+  500: 1
 };
 
-// Type guard to check if item is a real video
 const isVideoEntry = (item: VideoEntry | { type: 'dummy' }): item is VideoEntry => {
   return !('type' in item && item.type === 'dummy');
 };
@@ -68,7 +65,6 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const sortedAndFilteredVideos = useMemo(() => {
     if (!videos) return [];
     
-    // Filter first
     let currentVideos = videos;
     if (classification !== 'all') {
       currentVideos = videos.filter(video => {
@@ -83,11 +79,6 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       });
     }
 
-    // Sort by status and creation date:
-    // 1. Primary video first
-    // 2. Featured videos
-    // 3. Listed videos
-    // 4. Hidden videos (only shown to admins/owners)
     return currentVideos.sort((a, b) => {
       if (a.is_primary && !b.is_primary) return -1;
       if (!a.is_primary && b.is_primary) return 1;
@@ -104,24 +95,17 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     });
   }, [videos, classification]);
 
-  // --- Add function to get items for page including dummies (simplified, no pagination here) ---
   const getItemsWithDummies = <T extends VideoEntry>(
     allItems: T[]
   ): Array<T | { type: 'dummy'; id: string; colorClass: string }> => {
-    // Only add dummy items if the total number of real items is > 4
-    // And less than a certain amount to avoid excessive dummies on small sets
     if (allItems.length > 4 && allItems.length < 10) {
       const dummyItems = generateDummyItems(6, allItems.length);
-      // Combine real items with the dummy items
       return [...allItems, ...dummyItems];
     } else {
-      // Otherwise, just return the real items
       return allItems;
     }
   };
-  // --- End Add ---
 
-  // Filter out Hidden videos for non-authorized users
   const videosToDisplay = useMemo(() => {
     if (isAuthorized) {
       return sortedAndFilteredVideos;
