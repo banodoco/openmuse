@@ -188,11 +188,17 @@ export const useAssetDetails = (assetId: string | undefined) => {
       const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
       
       const sortedVideos = filteredVideos.sort((a, b) => {
-        if (a.is_primary && !b.is_primary) return -1;
-        if (!a.is_primary && b.is_primary) return 1;
-
+        // Get statuses with default 'View'
         const statusA = a.assetMediaDisplayStatus || 'View';
         const statusB = b.assetMediaDisplayStatus || 'View';
+
+        // Special case: Primary video should be first unless it's hidden
+        if (statusA !== 'Hidden' && statusB !== 'Hidden') {
+          if (a.is_primary && !b.is_primary) return -1;
+          if (!a.is_primary && b.is_primary) return 1;
+        }
+
+        // Then sort by status
         const orderA = statusOrder[statusA] || 2;
         const orderB = statusOrder[statusB] || 2;
         
@@ -200,6 +206,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
           return orderA - orderB;
         }
 
+        // If same status, sort by date
         return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
       });
       logger.log(`[useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
