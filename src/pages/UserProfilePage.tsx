@@ -110,7 +110,7 @@ export default function UserProfilePage() {
           
           if (data.id) {
             fetchUserAssets(data.id);
-            fetchUserVideos(data.id);
+            fetchUserVideos(data.id, user?.id, !!isAdmin);
           }
         } else {
           navigate('/');
@@ -208,7 +208,7 @@ export default function UserProfilePage() {
     }
   };
 
-  const fetchUserVideos = async (userId: string) => {
+  const fetchUserVideos = async (userId: string, currentViewerId: string | null | undefined, isViewerAdmin: boolean) => {
     setIsLoadingVideos(true);
     setGenerationVideos([]); // Clear previous results
     setArtVideos([]); // Clear previous results
@@ -302,11 +302,32 @@ export default function UserProfilePage() {
         };
         
         return processedVideo;
-      }).filter(video => video !== null) as VideoEntry[]; // Filter out potential nulls if error handling added
+      }).filter(video => video !== null) as VideoEntry[]; 
+
+      // Step 4: Filter Hidden videos for non-authorized users
+      const isViewerAuthorized = userId === currentViewerId || isViewerAdmin;
+      const visibleVideos = isViewerAuthorized 
+        ? processedVideos
+        : processedVideos.filter(v => v.user_status !== 'Hidden');
+
+      // Step 5: Sort videos: Pinned > View/null > Hidden
+      const statusOrder: { [key: string]: number } = { Pinned: 1, View: 2, Hidden: 3 };
+      const sortedVideos = visibleVideos.sort((a, b) => {
+        const statusA = a.user_status || 'View'; // Default null/undefined to 'View'
+        const statusB = b.user_status || 'View';
+        const orderA = statusOrder[statusA] || 2; // Default unknown statuses to 'View'
+        const orderB = statusOrder[statusB] || 2;
+        
+        if (orderA !== orderB) {
+          return orderA - orderB; // Sort by status priority
+        }
+        // If statuses are the same, sort by creation date (newest first)
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
 
       // Separate videos into categories
-      const genVids = processedVideos.filter(v => v.metadata.classification === 'generation');
-      const artVids = processedVideos.filter(v => v.metadata.classification === 'art');
+      const genVids = sortedVideos.filter(v => v.metadata.classification === 'generation');
+      const artVids = sortedVideos.filter(v => v.metadata.classification === 'art');
       
       setGenerationVideos(genVids);
       setArtVideos(artVids);
@@ -835,7 +856,7 @@ export default function UserProfilePage() {
                       </Button>
                     }
                     initialUploadType="video"
-                    onUploadSuccess={() => fetchUserVideos(profile.id)}
+                    onUploadSuccess={() => fetchUserVideos(profile.id, user?.id, !!isAdmin)}
                   />
                 )}
               </CardHeader>
@@ -862,6 +883,7 @@ export default function UserProfilePage() {
                             onDeleteVideo={deleteVideo}
                             isHovering={hoveredVideoId === item.id}
                             onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
+                            onStatusUpdateComplete={() => fetchUserVideos(profile.id, user?.id, !!isAdmin)}
                           />
                         ))}
                       </Masonry>
@@ -887,7 +909,7 @@ export default function UserProfilePage() {
                       </Button>
                     }
                     initialUploadType="video"
-                    onUploadSuccess={() => fetchUserVideos(profile.id)}
+                    onUploadSuccess={() => fetchUserVideos(profile.id, user?.id, !!isAdmin)}
                   />
                 )}
               </CardHeader>
@@ -914,6 +936,7 @@ export default function UserProfilePage() {
                             onDeleteVideo={deleteVideo}
                             isHovering={hoveredVideoId === item.id}
                             onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
+                            onStatusUpdateComplete={() => fetchUserVideos(profile.id, user?.id, !!isAdmin)}
                           />
                         ))}
                       </Masonry>
@@ -946,7 +969,7 @@ export default function UserProfilePage() {
           onVideoUpdate={() => {
             if (profile?.id) {
               console.log('[UserProfilePage] Lightbox update triggered. Refetching videos for user:', profile.id);
-              fetchUserVideos(profile.id);
+              fetchUserVideos(profile.id, user?.id, !!isAdmin);
             } else {
               console.warn('[UserProfilePage] Cannot refresh videos via lightbox: Profile ID missing.');
             }

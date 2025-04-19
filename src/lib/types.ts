@@ -27,8 +27,8 @@ export interface VideoEntry {
   created_at: string;
   admin_status?: string | null;
   // This status is derived from asset_media.status for display/sorting on asset page
-  assetMediaDisplayStatus?: 'Hidden' | 'Listed' | 'Featured' | null; 
-  user_status?: string | null;
+  assetMediaDisplayStatus?: 'Hidden' | 'Listed' | 'Featured' | 'View' | 'Pinned' | null; 
+  user_status?: 'Pinned' | 'Hidden' | 'View' | null;
   user_id?: string | null;
   metadata?: VideoMetadata;
   associatedAssetId?: string | null;

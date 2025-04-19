@@ -144,7 +144,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   const getButtonStyle = (status: string) => {
-    const currentStatus = video.assetMediaDisplayStatus || 'Listed';
+    const currentStatus = isProfilePage ? (video.user_status || 'View') : (video.assetMediaDisplayStatus || 'Listed');
     const isActive = currentStatus === status;
     
     return cn(
@@ -205,39 +205,59 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}`);
 
-  const handleStatusChange = async (newStatus: 'Hidden' | 'Listed' | 'Featured') => {
+  const handleStatusChange = async (newStatus: 'Hidden' | 'View' | 'Pinned') => {
     try {
       logger.log(`[VideoCard] handleStatusChange called with newStatus: ${newStatus} (type: ${typeof newStatus})`);
 
-      const assetId = video.metadata?.assetId;
-      if (!assetId) {
-        logger.error(`[VideoCard] Cannot update asset_media status: assetId is missing for video ID ${video.id}.`);
-        toast.error("Cannot update status: Missing asset information.");
-        return;
-      }
+      if (isProfilePage) {
+        // Update media.user_status
+        logger.log(`[VideoCard] Updating media.user_status to ${newStatus} for media ID: ${video.id}`);
 
-      logger.log(`[VideoCard] Attempting to update asset_media status to ${newStatus} for media ID: ${video.id}, asset ID: ${assetId}`);
-      
-      const { data, error } = await supabase
-        .from('asset_media')
-        .update({ status: newStatus })
-        .eq('media_id', video.id)
-        .eq('asset_id', assetId)
-        .select();
-      
-      logger.log(`[VideoCard] Supabase asset_media update result for media ID ${video.id}, asset ID ${assetId}:`, { data, error });
-      
-      if (error) {
-        logger.error(`[VideoCard] Supabase asset_media update error for media ID ${video.id}, asset ID ${assetId}:`, error);
-        throw error;
+        const { data, error } = await supabase
+          .from('media')
+          .update({ user_status: newStatus })
+          .eq('id', video.id)
+          .select();
+
+        logger.log(`[VideoCard] Supabase media update result for media ID ${video.id}:`, { data, error });
+
+        if (error) {
+          logger.error(`[VideoCard] Supabase media update error for media ID ${video.id}:`, error);
+          throw error;
+        }
+
+        toast.success(`Video ${newStatus.toLowerCase()} successfully`);
+      } else {
+        // Update asset_media.status as before
+        const assetId = video.metadata?.assetId;
+        if (!assetId) {
+          logger.error(`[VideoCard] Cannot update asset_media status: assetId is missing for video ID ${video.id}.`);
+          toast.error("Cannot update status: Missing asset information.");
+          return;
+        }
+
+        logger.log(`[VideoCard] Attempting to update asset_media status to ${newStatus} for media ID: ${video.id}, asset ID: ${assetId}`);
+
+        const { data, error } = await supabase
+          .from('asset_media')
+          .update({ status: newStatus })
+          .eq('media_id', video.id)
+          .eq('asset_id', assetId)
+          .select();
+
+        logger.log(`[VideoCard] Supabase asset_media update result for media ID ${video.id}, asset ID ${assetId}:`, { data, error });
+
+        if (error) {
+          logger.error(`[VideoCard] Supabase asset_media update error for media ID ${video.id}, asset ID ${assetId}:`, error);
+          throw error;
+        }
+
+        if (!data || data.length === 0) {
+          logger.warn(`[VideoCard] Supabase asset_media update for media ID ${video.id}, asset ID ${assetId} returned no data.`);
+        }
+
+        toast.success(`Video ${newStatus.toLowerCase()} successfully`);
       }
-      
-      if (!data || data.length === 0) {
-        logger.warn(`[VideoCard] Supabase asset_media update for media ID ${video.id}, asset ID ${assetId} returned no data. Possible RLS issue or no matching row?`);
-      }
-      
-      logger.log(`[VideoCard] Asset_media status update process completed for ${newStatus} on media ID: ${video.id}, asset ID: ${assetId}.`);
-      toast.success(`Video ${newStatus.toLowerCase()} successfully`);
       
       if (onStatusUpdateComplete) {
         logger.log(`[VideoCard] Calling onStatusUpdateComplete callback for media ID: ${video.id}`);
@@ -262,6 +282,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
       key={video.id} 
       className={cn(
         "relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4",
+        isProfilePage && video.user_status === 'Hidden' && isAuthorized && "opacity-50 grayscale hover:opacity-75"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -293,7 +314,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
               e.preventDefault();
             }} style={{ pointerEvents: 'all' }}>
               <VideoStatusControls
-                status={video.assetMediaDisplayStatus as 'Hidden' | 'Listed' | 'Featured' || 'Listed'}
+                status={isProfilePage ? (video.user_status as 'Hidden' | 'View' | 'Pinned' || 'View') : (video.assetMediaDisplayStatus as 'Hidden' | 'Listed' | 'Featured' || 'Listed')}
                 onStatusChange={handleStatusChange}
                 className=""
               />
