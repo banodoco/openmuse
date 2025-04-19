@@ -33,7 +33,7 @@ interface LoraCardProps {
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
   lora, 
-  isAdmin = false, 
+  isAdmin = false 
 }) => {
   const navigate = useNavigate();
   const location = useLocation();

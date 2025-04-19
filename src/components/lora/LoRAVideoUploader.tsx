@@ -48,13 +48,11 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
   const handleOpenChange = (open: boolean) => {
     setOpen(open);
     if (!open) {
-      // Reset the state when closing
       setVideos([]);
     }
   };
 
   const handleSignIn = () => {
-    // Redirect to auth page with return URL
     const returnUrl = window.location.pathname;
     navigate(`/auth?returnUrl=${encodeURIComponent(returnUrl)}`);
   };
@@ -77,22 +75,18 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
     try {
       const username = user?.email || 'Anonymous';
       
-      // Set the user ID for uploads
       if (user?.id) {
         videoUploadService.setCurrentUserId(user.id);
       }
 
       console.log(`Uploading ${videosWithContent.length} videos for LoRA ${assetName} (${assetId})`);
       
-      // Process and upload all videos - only add to existing asset, never override primary
       const uploadPromises = videosWithContent.map(async (video) => {
         if (video.file) {
-          // File upload
           const videoMetadata: VideoMetadata = {
             ...video.metadata,
             loraName: assetName,
             assetId: assetId,
-            // Explicitly set isPrimary to false when adding to existing LoRA
             isPrimary: false
           };
 
@@ -104,17 +98,14 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
             metadata: videoMetadata
           };
 
-          // Use the uploadVideoToExistingAsset method for existing assets
           return videoUploadService.uploadVideoToExistingAsset(
             videoFile, 
             assetId, 
             username, 
             user?.id,
-            // Always false for existing LoRAs
             false
           );
         } else if (video.url) {
-          // URL entry - use the addEntryToExistingAsset method
           console.log(`Adding video URL: title=${video.metadata.title}, assetId=${assetId}`);
           
           return videoUploadService.addEntryToExistingAsset({
@@ -126,10 +117,9 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
               ...video.metadata,
               loraName: assetName,
               assetId: assetId,
-              // Explicitly set isPrimary to false when adding to existing LoRA
               isPrimary: false
             }
-          }, assetId, false); // Always false for existing LoRAs
+          }, assetId, false);
         }
         return null;
       });
@@ -139,7 +129,6 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
 
       if (successfulUploads.length > 0) {
         toast.success(`Successfully uploaded ${successfulUploads.length} videos`);
-        // Close the dialog and reset
         setOpen(false);
         setVideos([]);
         onUploadsComplete();

@@ -14,18 +14,21 @@ export type Database = {
           asset_id: string
           created_at: string
           id: string
+          is_primary: boolean | null
           media_id: string
         }
         Insert: {
           asset_id: string
           created_at?: string
           id?: string
+          is_primary?: boolean | null
           media_id: string
         }
         Update: {
           asset_id?: string
           created_at?: string
           id?: string
+          is_primary?: boolean | null
           media_id?: string
         }
         Relationships: [
@@ -223,6 +226,7 @@ export type Database = {
           asset_id: string
           created_at: string
           id: string
+          is_primary: boolean | null
           media_id: string
         }[]
       }
@@ -233,6 +237,10 @@ export type Database = {
       has_role: {
         Args: { user_id: string; role: string }
         Returns: boolean
+      }
+      set_primary_media: {
+        Args: { p_asset_id: string; p_media_id: string }
+        Returns: undefined
       }
     }
     Enums: {

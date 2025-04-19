@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { VideoEntry } from '@/lib/types';
 import VideoCard from './VideoCard';
@@ -49,6 +48,18 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
     }
   };
 
+  const handleDelete = async (id: string) => {
+    if (onDelete) {
+      await onDelete(id);
+    }
+  };
+
+  const handleApprove = async (id: string) => {
+    if (onApprove) {
+      await onApprove(id);
+    }
+  };
+
   if (videos.length === 0) {
     return (
       <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg backdrop-blur-sm animate-fade-in">
@@ -66,8 +77,8 @@ const VideoPaginatedGrid: React.FC<VideoPaginatedGridProps> = ({
             video={video}
             isAdmin={!!isAdmin}
             onOpenLightbox={onOpenLightbox}
-            onDeleteVideo={onDelete}
-            onApproveVideo={onApprove}
+            onDeleteVideo={handleDelete}
+            onApproveVideo={handleApprove}
             isHovering={hoveredVideoId === video.id}
             onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
           />
