@@ -206,6 +206,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const handleStatusChange = async (newStatus: 'Hidden' | 'Listed' | 'Featured') => {
     try {
+      logger.log(`[VideoCard] handleStatusChange called with newStatus: ${newStatus} (type: ${typeof newStatus})`);
+
       const assetId = video.metadata?.assetId;
       if (!assetId) {
         logger.error(`[VideoCard] Cannot update asset_media status: assetId is missing for video ID ${video.id}.`);
@@ -240,6 +242,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
       toast.error('Failed to update video status');
     }
   };
+  
+  // Log the full video object on render for debugging
+  useEffect(() => {
+    logger.log(`[VideoCard] Rendering with video object for ID ${video.id}:`, video);
+  }, [video]); // Rerun if video object changes
   
   return (
     <div 
