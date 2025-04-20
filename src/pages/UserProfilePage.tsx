@@ -89,24 +89,7 @@ export default function UserProfilePage() {
   const { user, isAdmin, isLoading: isAuthLoading } = useAuth();
   const isMobile = useIsMobile();
 
-  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
-
-  // === Early return if AuthProvider is still loading ===
-  if (isAuthLoading) {
-    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
-    return (
-      <div className="w-full min-h-screen flex flex-col text-foreground">
-        <Navigation />
-        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
-          {/* Render a top-level loader */}
-          <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
-
+  // === Move ALL Hooks BEFORE the conditional return ===
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
@@ -129,208 +112,184 @@ export default function UserProfilePage() {
   const [loraPage, setLoraPage] = useState(1);
 
   // --- Data Fetching Functions defined using useCallback --- 
-
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
-      logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
-      setIsLoadingAssets(true);
-      const pageSize = 16; // Use a fixed page size
-      const rangeFrom = (page - 1) * pageSize;
-      const rangeTo = rangeFrom + pageSize - 1;
+    logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
+    setIsLoadingAssets(true);
+    const pageSize = 16; // Use a fixed page size
+    const rangeFrom = (page - 1) * pageSize;
+    const rangeTo = rangeFrom + pageSize - 1;
 
-      try {
-        // Fetch count and data in one query
-        const { data: assetsData, error: assetsError, count } = await supabase
-          .from('assets')
-          .select(`*, primaryVideo:primary_media_id(*)`, { count: 'exact' }) // Get total count
-          .eq('user_id', profileUserId)
-          // Apply visibility filter server-side if NOT owner/admin viewing
-          // Need to conditionally add this filter
-          // .filter('user_status', 'neq', 'Hidden') // Example - Needs conditional logic based on canViewerSeeHiddenAssets
-          .order('created_at', { ascending: false }) // Keep sorting consistent if needed, or sort server-side by status first
-          .range(rangeFrom, rangeTo); // Fetch specific page range
+    try {
+      // Fetch count and data in one query
+      const { data: assetsData, error: assetsError, count } = await supabase
+        .from('assets')
+        .select(`*, primaryVideo:primary_media_id(*)`, { count: 'exact' }) // Get total count
+        .eq('user_id', profileUserId)
+        .order('created_at', { ascending: false }) // Keep sorting consistent if needed, or sort server-side by status first
+        .range(rangeFrom, rangeTo); // Fetch specific page range
 
-        if (assetsError) throw assetsError;
+      if (assetsError) throw assetsError;
 
-        if (assetsData) {
-          // Process the fetched page of assets
-          const processedAssets: LoraAsset[] = assetsData.map((asset: any) => {
-             const pVideo = asset.primaryVideo;
-             const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
-             return {
-               id: asset.id,
-               name: asset.name,
-               description: asset.description,
-               creator: asset.creator,
-               type: asset.type,
-               created_at: asset.created_at,
-               user_id: asset.user_id,
-               primary_media_id: asset.primary_media_id,
-               admin_status: asset.admin_status,
-               user_status: userStatus,
-               lora_type: asset.lora_type,
-               lora_base_model: asset.lora_base_model,
-               model_variant: asset.model_variant,
-               lora_link: asset.lora_link,
-               primaryVideo: pVideo ? { 
-                 id: pVideo.id,
-                 url: pVideo.url,
-                 reviewer_name: pVideo.creator || '',
-                 skipped: false,
-                 created_at: pVideo.created_at,
-                 admin_status: pVideo.admin_status,
-                 user_id: pVideo.user_id,
-                 user_status: pVideo.user_status || null,
-                 metadata: {
-                   title: pVideo.title || asset.name,
-                   placeholder_image: pVideo.placeholder_image || null,
-                   description: pVideo.description,
-                   creator: pVideo.creator ? 'self' : undefined,
-                   creatorName: pVideo.creator_name,
-                   classification: pVideo.classification,
-                   loraName: asset.name,
-                   assetId: asset.id,
-                   loraType: asset.lora_type,
-                   model: asset.lora_base_model,
-                   modelVariant: asset.model_variant,
-                 }
-               } : undefined
-             };
-          });
-          
-          // Filter assets locally based on visibility AFTER fetching the count of ALL assets
-          // NOTE: This is inefficient if many assets are hidden. Ideally, filter server-side.
-          // For now, keeping client-side filtering for simplicity of implementation.
-          const visibleAssets = canViewerSeeHiddenAssets
-            ? processedAssets
-            : processedAssets.filter(asset => asset.user_status !== 'Hidden');
-
-          // Sort the fetched page data
-          const sortedPageAssets = sortUserAssets(visibleAssets);
-
-          setUserAssets(sortedPageAssets); // Update state with current page's data
-          setTotalAssets(count ?? 0); // Update total count from query
-        } else {
-           setUserAssets([]);
-           setTotalAssets(0);
-        }
-      } catch (err: any) {
-        logger.error('[fetchUserAssets] Error fetching user assets:', err);
-        toast.error("Failed to load LoRAs."); // Show specific error
-        setUserAssets([]); // Reset on error
-        setTotalAssets(0);
-      } finally {
-          setIsLoadingAssets(false); // Stop loading indicator
+      if (assetsData) {
+        const processedAssets: LoraAsset[] = assetsData.map((asset: any) => {
+           const pVideo = asset.primaryVideo;
+           const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
+           return {
+             id: asset.id,
+             name: asset.name,
+             description: asset.description,
+             creator: asset.creator,
+             type: asset.type,
+             created_at: asset.created_at,
+             user_id: asset.user_id,
+             primary_media_id: asset.primary_media_id,
+             admin_status: asset.admin_status,
+             user_status: userStatus,
+             lora_type: asset.lora_type,
+             lora_base_model: asset.lora_base_model,
+             model_variant: asset.model_variant,
+             lora_link: asset.lora_link,
+             primaryVideo: pVideo ? { 
+               id: pVideo.id,
+               url: pVideo.url,
+               reviewer_name: pVideo.creator || '',
+               skipped: false,
+               created_at: pVideo.created_at,
+               admin_status: pVideo.admin_status,
+               user_id: pVideo.user_id,
+               user_status: pVideo.user_status || null,
+               metadata: {
+                 title: pVideo.title || asset.name,
+                 placeholder_image: pVideo.placeholder_image || null,
+                 description: pVideo.description,
+                 creator: pVideo.creator ? 'self' : undefined,
+                 creatorName: pVideo.creator_name,
+                 classification: pVideo.classification,
+                 loraName: asset.name,
+                 assetId: asset.id,
+                 loraType: asset.lora_type,
+                 model: asset.lora_base_model,
+                 modelVariant: asset.model_variant,
+               }
+             } : undefined
+           };
+        });
+        
+        const visibleAssets = canViewerSeeHiddenAssets
+          ? processedAssets
+          : processedAssets.filter(asset => asset.user_status !== 'Hidden');
+        const sortedPageAssets = sortUserAssets(visibleAssets);
+        setUserAssets(sortedPageAssets);
+        setTotalAssets(count ?? 0);
+      } else {
+         setUserAssets([]);
+         setTotalAssets(0);
       }
-    }, []); // Keep empty deps for now, might need profileId if used directly
+    } catch (err: any) {
+      logger.error('[fetchUserAssets] Error fetching user assets:', err);
+      toast.error("Failed to load LoRAs.");
+      setUserAssets([]);
+      setTotalAssets(0);
+    } finally {
+        setIsLoadingAssets(false);
+    }
+  }, []); // Dependencies likely needed: supabase
 
-    const fetchUserVideos = useCallback(async (userId: string, currentViewerId: string | null | undefined, isViewerAdmin: boolean) => {
-      logger.log('[fetchUserVideos] Fetching videos...', { userId, currentViewerId, isViewerAdmin });
-      setIsLoadingVideos(true); 
-      let fetchedVideos: VideoEntry[] = []; 
-      let generationCount = 0;
-      let artCount = 0;
-      try {
-        const { data: videosData, error: videosError, count } = await supabase
-          .from('media')
-          .select('* ', { count: 'exact' })
-          .eq('user_id', userId)
-          .eq('type', 'video');
-          // Ideally, filter/sort/paginate here
-          // .order('created_at', { ascending: false });
-  
-        if (videosError) throw videosError;
-  
-        if (videosData && videosData.length > 0) {
-            const videoIds = videosData.map(v => v.id);
-            const mediaIdToAssetId = new Map<string, string>();
-            if (videoIds.length > 0) {
-              const { data: assetLinks, error: linksError } = await supabase
-                .from('asset_media')
-                .select('media_id, asset_id')
-                .in('media_id', videoIds);
+  const fetchUserVideos = useCallback(async (userId: string, currentViewerId: string | null | undefined, isViewerAdmin: boolean) => {
+    logger.log('[fetchUserVideos] Fetching videos...', { userId, currentViewerId, isViewerAdmin });
+    setIsLoadingVideos(true); 
+    let fetchedVideos: VideoEntry[] = []; 
+    let generationCount = 0;
+    let artCount = 0;
+    try {
+      const { data: videosData, error: videosError, count } = await supabase
+        .from('media')
+        .select('* ', { count: 'exact' })
+        .eq('user_id', userId)
+        .eq('type', 'video');
 
-              if (linksError) {
-                logger.error('Error fetching asset_media links:', linksError);
-              } else if (assetLinks) {
-                assetLinks.forEach(link => {
-                  if (link.media_id && link.asset_id) {
-                    mediaIdToAssetId.set(link.media_id, link.asset_id);
-                  }
-                });
-              }
+      if (videosError) throw videosError;
+
+      if (videosData && videosData.length > 0) {
+          const videoIds = videosData.map(v => v.id);
+          const mediaIdToAssetId = new Map<string, string>();
+          if (videoIds.length > 0) {
+            const { data: assetLinks, error: linksError } = await supabase
+              .from('asset_media')
+              .select('media_id, asset_id')
+              .in('media_id', videoIds);
+            if (linksError) {
+              logger.error('Error fetching asset_media links:', linksError);
+            } else if (assetLinks) {
+              assetLinks.forEach(link => {
+                if (link.media_id && link.asset_id) {
+                  mediaIdToAssetId.set(link.media_id, link.asset_id);
+                }
+              });
             }
-  
-            const processedVideos: VideoEntry[] = videosData.map(video => {
-              let classification = video.classification || 'generation';
-              if (classification !== 'art' && classification !== 'generation') {
-                classification = 'generation';
-              }
-              const associatedAssetId = mediaIdToAssetId.get(video.id) || null;
-              return {
-                id: video.id,
-                url: video.url,
-                associatedAssetId: associatedAssetId,
-                reviewer_name: video.creator || '',
-                skipped: false,
-                created_at: video.created_at,
-                admin_status: video.admin_status,
-                user_status: video.user_status as VideoDisplayStatus || null,
-                assetMediaDisplayStatus: null,
-                user_id: video.user_id,
-                metadata: {
-                  title: video.title || '',
-                  description: video.description || '',
-                  creator: 'self',
-                  classification: classification as 'art' | 'generation',
-                  placeholder_image: video.placeholder_image,
-                  assetId: associatedAssetId,
-                },
-                thumbnailUrl: video.placeholder_image,
+          }
+          const processedVideos: VideoEntry[] = videosData.map(video => {
+            let classification = video.classification || 'generation';
+            if (classification !== 'art' && classification !== 'generation') {
+              classification = 'generation';
+            }
+            const associatedAssetId = mediaIdToAssetId.get(video.id) || null;
+            return {
+              id: video.id,
+              url: video.url,
+              associatedAssetId: associatedAssetId,
+              reviewer_name: video.creator || '',
+              skipped: false,
+              created_at: video.created_at,
+              admin_status: video.admin_status,
+              user_status: video.user_status as VideoDisplayStatus || null,
+              assetMediaDisplayStatus: null,
+              user_id: video.user_id,
+              metadata: {
                 title: video.title || '',
                 description: video.description || '',
-                is_primary: false,
-              };
-            }).filter(Boolean) as VideoEntry[];
-  
-            const isViewerOwner = currentViewerId === userId;
-            const canViewerSeeHidden = isViewerOwner || isViewerAdmin;
-            const visibleVideos = processedVideos.filter(video =>
-              canViewerSeeHidden || video.user_status !== 'Hidden'
-            );
-  
-            fetchedVideos = sortProfileVideos(visibleVideos);
-            // Count totals AFTER filtering for visibility
-            generationCount = fetchedVideos.filter(v => v.metadata?.classification === 'generation').length;
-            artCount = fetchedVideos.filter(v => v.metadata?.classification === 'art').length;
+                creator: 'self',
+                classification: classification as 'art' | 'generation',
+                placeholder_image: video.placeholder_image,
+                assetId: associatedAssetId,
+              },
+              thumbnailUrl: video.placeholder_image,
+              title: video.title || '',
+              description: video.description || '',
+              is_primary: false,
+            };
+          }).filter(Boolean) as VideoEntry[];
 
-        } else {
-            // No videos found
-            generationCount = 0;
-            artCount = 0;
-        }
-  
-      } catch (err: any) {
-        logger.error('[fetchUserVideos] Error fetching user videos:', err);
-        toast.error("Failed to load videos.");
-      } finally {
-          setUserVideos(fetchedVideos); // Store ALL fetched+filtered+sorted videos for now
-          setTotalGenerationVideos(generationCount);
-          setTotalArtVideos(artCount);
-          setIsLoadingVideos(false); 
+          const isViewerOwner = currentViewerId === userId;
+          const canViewerSeeHidden = isViewerOwner || isViewerAdmin;
+          const visibleVideos = processedVideos.filter(video =>
+            canViewerSeeHidden || video.user_status !== 'Hidden'
+          );
+          fetchedVideos = sortProfileVideos(visibleVideos);
+          generationCount = fetchedVideos.filter(v => v.metadata?.classification === 'generation').length;
+          artCount = fetchedVideos.filter(v => v.metadata?.classification === 'art').length;
+      } else {
+          generationCount = 0;
+          artCount = 0;
       }
-    }, []); 
-
+    } catch (err: any) {
+      logger.error('[fetchUserVideos] Error fetching user videos:', err);
+      toast.error("Failed to load videos.");
+    } finally {
+        setUserVideos(fetchedVideos);
+        setTotalGenerationVideos(generationCount);
+        setTotalArtVideos(artCount);
+        setIsLoadingVideos(false); 
+    }
+  }, []); // Dependencies likely needed: supabase
 
   // --- Main Data Fetching Effect --- 
   useEffect(() => {
     const shouldForceLoggedOutView = searchParams.get('loggedOutView') === 'true';
     setForceLoggedOutView(shouldForceLoggedOutView);
-
     let isMounted = true;
-    
     const fetchProfileAndInitialData = async () => {
       if (!displayName) return;
-
       if (isMounted) {
         setIsLoadingProfile(true);
         setIsLoadingAssets(true); 
@@ -344,7 +303,6 @@ export default function UserProfilePage() {
         setArtPage(1);
         setLoraPage(1);
       }
-
       try {
         const decodedDisplayName = decodeURIComponent(displayName);
         const { data: profileData, error: profileError } = await supabase
@@ -352,46 +310,36 @@ export default function UserProfilePage() {
           .select('*')
           .or(`display_name.eq.${decodedDisplayName},username.eq.${decodedDisplayName}`)
           .maybeSingle();
-
         if (!isMounted) return;
-
         if (profileError || !profileData) {
             logger.error('Error fetching profile or profile not found:', profileError);
             if (isMounted) {
                 toast.error(profileError?.message || "Profile not found.");
-                setIsLoadingProfile(false); // Stop profile loading
-                setIsLoadingAssets(false);  // Stop other loaders too
+                setIsLoadingProfile(false);
+                setIsLoadingAssets(false);
                 setIsLoadingVideos(false);
-                navigate('/'); // Navigate away if profile critical
+                navigate('/');
             }
             return;
         }
-
-        // --- Step 3: Set Profile State & Permissions (Profile fetch succeeded) --- 
         const currentProfile = profileData as UserProfile;
         const ownerStatus = !shouldForceLoggedOutView && user?.id === currentProfile.id;
         const currentIsAdmin = !!isAdmin && !shouldForceLoggedOutView; 
         const editPermissions = ownerStatus || currentIsAdmin;
-
-        // Set states now that profile is confirmed
         if (isMounted) { 
             setProfile(currentProfile);
             setIsOwner(ownerStatus);
             setCanEdit(editPermissions);
-            setIsLoadingProfile(false); // Profile loaded successfully
+            setIsLoadingProfile(false);
         } else {
-            return; // Don't proceed if unmounted after profile fetch
+            return;
         }
-
-        // --- Step 4: Fetch Assets and Videos Concurrently (if profile ID exists) --- 
         if (currentProfile.id) {
-          const canSeeHidden = editPermissions; // Use calculated permission
-          // Use Promise.allSettled to let both complete
+          const canSeeHidden = editPermissions;
           await Promise.allSettled([
-            fetchUserAssets(currentProfile.id, canSeeHidden, 1), // Add page number 1
-            fetchUserVideos(currentProfile.id, user?.id, currentIsAdmin) // Pass necessary viewer context
+            fetchUserAssets(currentProfile.id, canSeeHidden, 1),
+            fetchUserVideos(currentProfile.id, user?.id, currentIsAdmin)
           ]);
-           // Loading states (Assets/Videos) are set to false within their respective fetch functions
         } else {
             logger.warn("Profile fetched but has no ID, skipping asset/video fetch.", currentProfile);
              if (isMounted) { 
@@ -399,9 +347,7 @@ export default function UserProfilePage() {
                 setIsLoadingVideos(false);
             }
         }
-
       } catch (err) {
-        // Catch unexpected errors not handled within specific fetch blocks
         logger.error('Unexpected error in fetchProfileAndData process:', err);
         if (isMounted) {
           toast.error("An unexpected error occurred loading profile data.");
@@ -411,15 +357,9 @@ export default function UserProfilePage() {
         }
       }
     };
-
     fetchProfileAndInitialData();
-
-    // Cleanup function
     return () => { isMounted = false }; 
-    
-  // Dependency array includes stable fetch functions wrapped in useCallback
-  }, [displayName, user, navigate, isAdmin, searchParams, fetchUserAssets, fetchUserVideos]); 
-
+  }, [displayName, user, navigate, isAdmin, searchParams, fetchUserAssets, fetchUserVideos]);
 
   // --- Derived State with useMemo --- 
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'generation'), [userVideos]);
@@ -434,34 +374,31 @@ export default function UserProfilePage() {
   const generationItemsForPage = useMemo(() => getPaginatedItems(generationVideos, generationPage, generationPageSize), [generationVideos, generationPage, generationPageSize]);
   const artItemsForPage = useMemo(() => getPaginatedItems(artVideos, artPage, artPageSize), [artVideos, artPage, artPageSize]);
 
-  // --- Helper Functions Defined Inside Component --- 
-  const getInitials = (name: string) => {
-    // Added safety for potentially null/undefined name
-    return name?.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2) || '??'; 
-  };
+  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
 
-  // --- UI Event Handlers --- 
-  const handleGenerationPageChange = (newPage: number) => setGenerationPage(newPage);
-  const handleArtPageChange = (newPage: number) => setArtPage(newPage);
-  const handleLoraPageChange = (newPage: number) => setLoraPage(newPage);
-  const handleOpenLightbox = (video: VideoEntry) => setLightboxVideo(video);
-  const handleCloseLightbox = () => setLightboxVideo(null);
-  const handleHoverChange = (videoId: string, isHovering: boolean) => {
-    // Simplified hover logic
-    setHoveredVideoId(isHovering ? videoId : (hoveredVideoId === videoId ? null : hoveredVideoId)); 
-  };
+  // === Early return if AuthProvider is still loading ===
+  if (isAuthLoading) {
+    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
+    return (
+      <div className="w-full min-h-screen flex flex-col text-foreground">
+        <Navigation />
+        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
+          {/* Render a top-level loader */}
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
 
-
-  // --- Data Update Handlers (useCallback with appropriate dependencies) ---
-
-  // Updates local state optimistically or after DB confirm
+  // --- Define Handlers AFTER hooks and conditional return, BEFORE render --- 
   const handleLocalVideoUserStatusUpdate = useCallback((videoId: string, newStatus: VideoDisplayStatus) => {
     logger.log(`[UserProfilePage] handleLocalVideoUserStatusUpdate called for video ${videoId} with status ${newStatus}`);
     setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === videoId ? { ...video, user_status: newStatus } : video)));
     logger.log(`[UserProfilePage] Local video state (userVideos) updated for ${videoId}`);
-  }, []); // Stable: uses state setter and stable sort function
+  }, []); 
 
-  // Handles status changes from Lightbox (updates DB then local state)
   const handleLightboxUserStatusChange = useCallback(async (newStatus: VideoDisplayStatus): Promise<void> => {
     if (!lightboxVideo) { toast.error("Cannot update status: Video info missing."); return; }
     const videoId = lightboxVideo.id;
@@ -469,16 +406,14 @@ export default function UserProfilePage() {
       const { error } = await supabase.from('media').update({ user_status: newStatus }).eq('id', videoId);
       if (error) throw error;
       toast.success(`Video status updated to ${newStatus}`);
-      handleLocalVideoUserStatusUpdate(videoId, newStatus); // Call local updater
-      setLightboxVideo(prev => prev ? { ...prev, user_status: newStatus } : null); // Update lightbox state
+      handleLocalVideoUserStatusUpdate(videoId, newStatus);
+      setLightboxVideo(prev => prev ? { ...prev, user_status: newStatus } : null);
     } catch (error) {
       logger.error(`Failed to update video user_status for media ID ${videoId}:`, error);
       toast.error('Failed to update video status');
-      // Ensure void return even on error
     }
-  }, [lightboxVideo, handleLocalVideoUserStatusUpdate]); // Depends on lightboxVideo and the stable local updater
+  }, [lightboxVideo, handleLocalVideoUserStatusUpdate]); 
 
-  // Handles admin status changes from Lightbox
   const handleLightboxAdminStatusChange = useCallback(async (newStatus: AdminStatus): Promise<void> => {
     if (!lightboxVideo) { toast.error("Cannot update status: Video info missing."); return; }
     if (!canEdit || !isAdmin) { toast.error("Unauthorized action."); return; } 
@@ -493,45 +428,36 @@ export default function UserProfilePage() {
       logger.error(`Failed to update video admin_status for media ID ${videoId}:`, error);
       toast.error('Failed to update video admin status');
     }
-     // Depends on lightboxVideo, permissions, and setUserVideos (stable)
-  }, [lightboxVideo, canEdit, isAdmin]); 
+  }, [lightboxVideo, canEdit, isAdmin, handleLocalVideoUserStatusUpdate]); // Added handleLocalVideoUserStatusUpdate dep
 
-  // Deletes video (DB and storage), then updates local state
   const deleteVideo = useCallback(async (videoId: string): Promise<void> => {
     if (!canEdit) { toast.error("Unauthorized action."); return; }
     try {
       const { data: mediaRecord, error: fetchError } = await supabase.from('media').select('url, placeholder_image').eq('id', videoId).single();
       if (fetchError || !mediaRecord) throw new Error(`Could not fetch media record ${videoId}.`);
-
       const extractRelativePath = (url: string | null | undefined, bucketName: string): string | null => { 
          if (!url) return null; try { const u = new URL(url); const p = u.pathname.split('/'); const i = p.findIndex(s => s === bucketName); if (i !== -1 && i + 1 < p.length) return p.slice(i + 1).join('/'); } catch (e) { /* ignore */ } return null;
        };
-
       const storagePromises = [];
       const videoPath = extractRelativePath(mediaRecord.url, 'videos');
       if (videoPath) storagePromises.push(supabase.storage.from('videos').remove([videoPath]));
       const thumbPath = extractRelativePath(mediaRecord.placeholder_image, 'thumbnails');
       if (thumbPath) storagePromises.push(supabase.storage.from('thumbnails').remove([thumbPath]));
-      
       Promise.allSettled(storagePromises).then(results => 
          results.forEach((result, index) => { if (result.status === 'rejected') logger.warn(`Storage deletion promise ${index} failed:`, result.reason); }) 
       );
-
       const { error: dbError } = await supabase.from('media').delete().eq('id', videoId);
       if (dbError) throw dbError;
-
       setUserVideos(prev => sortProfileVideos(prev.filter(video => video.id !== videoId)));
       toast.success('Video deleted successfully');
-
     } catch (error: any) {
       logger.error(`Error during deletion process for video ID ${videoId}:`, error);
       toast.error(`Failed to delete video: ${error.message || 'Unknown error'}`);
     }
-  }, [canEdit]); // Depends only on permission
+  }, [canEdit]); 
 
-  // Approve video from card controls
   const approveVideo = useCallback(async (id: string): Promise<void> => {
-    if (!isAdmin || !canEdit) return; // Check permissions
+    if (!isAdmin || !canEdit) return;
     try {
       await supabase.from('media').update({ admin_status: 'Curated', admin_reviewed: true }).eq('id', id);
       setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Curated' as AdminStatus } : video)));
@@ -540,25 +466,22 @@ export default function UserProfilePage() {
         logger.error('Error approving video:', error);
         toast.error("Failed to approve video."); 
     }
-  }, [isAdmin, canEdit]); // Depends on permissions
+  }, [isAdmin, canEdit]); 
 
-  // Reject video from card controls
   const rejectVideo = useCallback(async (id: string): Promise<void> => {
-    if (!isAdmin || !canEdit) return; // Check permissions
+    if (!isAdmin || !canEdit) return;
     try {
       await supabase.from('media').update({ admin_status: 'Rejected', admin_reviewed: true }).eq('id', id);
       setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Rejected' as AdminStatus } : video)));
       toast.success("Video Rejected");
     } catch (error) { 
-        logger.error('Error rejecting video:', error); 
+        logger.error('Error rejecting video:', error);
         toast.error("Failed to reject video."); 
     }
-  }, [isAdmin, canEdit]); // Depends on permissions
+  }, [isAdmin, canEdit]); 
 
-  // Update asset status (optimistic UI)
   const handleAssetStatusUpdate = useCallback(async (assetId: string, newStatus: UserAssetPreferenceStatus): Promise<void> => {
-    if (!user || !profile || user.id !== profile.id) { toast.error("Unauthorized action."); return; } // Check ownership
-    
+    if (!user || !profile || user.id !== profile.id) { toast.error("Unauthorized action."); return; }
     let optimisticPreviousStatus: UserAssetPreferenceStatus | null | undefined = undefined;
     setUserAssets(prevAssets => {
       const updatedAssets = prevAssets.map(asset => {
@@ -568,35 +491,46 @@ export default function UserProfilePage() {
         }
         return asset;
       });
-      return sortUserAssets(updatedAssets); // Re-sort optimistically
+      return sortUserAssets(updatedAssets);
     });
-    setIsUpdatingAssetStatus(prev => ({ ...prev, [assetId]: true })); // Show loading indicator
-    
+    setIsUpdatingAssetStatus(prev => ({ ...prev, [assetId]: true }));
     try {
       const { error } = await supabase.from('assets').update({ user_status: newStatus }).eq('id', assetId);
-      if (error) throw error; // Throw error to trigger catch block for rollback
-      toast.success(`Asset status updated to ${newStatus}`); // Success!
+      if (error) throw error;
+      toast.success(`Asset status updated to ${newStatus}`);
     } catch (error) {
       logger.error(`Error updating asset ${assetId} status to ${newStatus} in DB:`, error);
       toast.error(`Failed to update status to ${newStatus}. Reverting.`);
-      // Rollback optimistic update on error
       setUserAssets(prevAssets => 
         sortUserAssets(prevAssets.map(asset => 
           asset.id === assetId ? { ...asset, user_status: optimisticPreviousStatus } : asset
         ))
       );
     } finally {
-      setIsUpdatingAssetStatus(prev => ({ ...prev, [assetId]: false })); // Hide loading indicator
+      setIsUpdatingAssetStatus(prev => ({ ...prev, [assetId]: false }));
     }
-  }, [user, profile]); // Depends on user and profile for auth check
+  }, [user, profile]); 
 
+  // --- Helper Functions Defined Inside Component --- 
+  const getInitials = (name: string) => {
+    return name?.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2) || '??'; 
+  };
 
-  // --- Constants defined inside component --- 
+  // --- UI Event Handlers (Keep these) --- 
+  const handleGenerationPageChange = (newPage: number) => setGenerationPage(newPage);
+  const handleArtPageChange = (newPage: number) => setArtPage(newPage);
+  const handleLoraPageChange = (newPage: number) => setLoraPage(newPage);
+  const handleOpenLightbox = (video: VideoEntry) => setLightboxVideo(video);
+  const handleCloseLightbox = () => setLightboxVideo(null);
+  const handleHoverChange = (videoId: string, isHovering: boolean) => {
+    setHoveredVideoId(isHovering ? videoId : (hoveredVideoId === videoId ? null : hoveredVideoId)); 
+  };
+
+  // --- Constants defined inside component (Keep these) --- 
    const breakpointColumnsObj = { default: 4, 1100: 3, 700: 2, 500: 1 };
 
-  // --- Render Helper functions inside component --- 
+  // --- Render Helper functions inside component (Keep these) --- 
   const renderProfileLinks = () => {
-    // Keep implementation, ensure profile exists
     if (!profile?.links || profile.links.length === 0) return null; 
     return ( 
       <div className="flex flex-wrap gap-3 mt-4 justify-center"> 
@@ -614,7 +548,6 @@ export default function UserProfilePage() {
   };
 
  const renderPaginationControls = ( currentPage: number, totalPages: number, onPageChange: (page: number) => void ) => {
-    // Keep implementation
     if (totalPages <= 1) return null; 
     return ( 
       <Pagination className="mt-6"> <PaginationContent> 
@@ -631,7 +564,6 @@ export default function UserProfilePage() {
   // --- JSX Rendering --- 
   return (
     <div className="w-full min-h-screen flex flex-col text-foreground">
-       {/* Helmet remains unchanged */} 
        <Helmet>
          <title>{profile ? `${profile.display_name || profile.username}'s Profile` : 'User Profile'} | OpenMuse</title>
         <meta name="description" content={profile?.description ? profile.description.substring(0, 160) : `View the profile, LoRAs, and videos created by ${profile?.display_name || profile?.username || 'this user'} on OpenMuse.`} />
@@ -649,14 +581,12 @@ export default function UserProfilePage() {
       <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
         <PageHeader title="" description="" />
 
-        {/* Conditional Rendering: Profile Loading -> Not Found -> Content */} 
         {isLoadingProfile ? (
           <div className="flex justify-center items-center py-16"> <Loader2 className="h-16 w-16 animate-spin text-primary" /> </div>
         ) : !profile || !profile.id || !profile.username ? (
           <div className="text-center py-16 text-muted-foreground"> Profile not found or failed to load. </div>
         ) : (
           <>
-            {/* Profile Card / Settings */} 
             <div className="max-w-2xl mx-auto">
               {isOwner && !forceLoggedOutView ? ( <UserProfileSettings /> ) : ( 
                 <Card className="w-full overflow-hidden shadow-lg bg-white/10 backdrop-blur-sm border border-white/20 animate-scale-in"> 
@@ -680,7 +610,6 @@ export default function UserProfilePage() {
               )} 
             </div>
 
-            {/* LoRAs Card */} 
             <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-cream-light/70 backdrop-blur-sm border border-cream-dark/20 animate-fade-in">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-forest/10 to-olive/10">
                 <CardTitle className="text-forest-dark">LoRAs</CardTitle>
@@ -688,7 +617,6 @@ export default function UserProfilePage() {
                   <UploadModal 
                     trigger={<Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300"> Add new LoRA </Button>} 
                     initialUploadType="lora"
-                    // Pass stable fetchUserAssets wrapped in useCallback
                     onUploadSuccess={() => { if(profile?.id) fetchUserAssets(profile.id, canEdit, 1); }} /> 
                 )}
               </CardHeader>
@@ -703,7 +631,6 @@ export default function UserProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Generations Card */} 
             <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20 animate-fade-in">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-gold/10 to-cream/10">
                 <CardTitle className="text-gold-dark">Generations</CardTitle>
@@ -711,7 +638,6 @@ export default function UserProfilePage() {
                   <UploadModal 
                     trigger={<Button className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300"> Add new Generation </Button>} 
                     initialUploadType="video" 
-                    // Pass stable fetchUserVideos 
                     onUploadSuccess={() => { if(profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }} /> 
                 )}
               </CardHeader>
@@ -726,7 +652,6 @@ export default function UserProfilePage() {
               </CardContent>
             </Card>
 
-            {/* Art Card */} 
             <Card className="mt-8 mb-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20 animate-fade-in">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-olive/10 to-cream/10">
                 <CardTitle className="text-olive-dark">Art</CardTitle>
@@ -734,7 +659,6 @@ export default function UserProfilePage() {
                    <UploadModal 
                      trigger={<Button className="bg-gradient-to-r from-olive-dark to-olive hover:opacity-90 transition-all duration-300"> Add new Art </Button>} 
                      initialUploadType="video" 
-                     // Pass stable fetchUserVideos 
                      onUploadSuccess={() => { if(profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }}/> 
                 )}
               </CardHeader>
@@ -749,15 +673,10 @@ export default function UserProfilePage() {
               </CardContent>
             </Card>
 
-            {/* User Profile Settings - Always render, hide conditionally */}
-            <div className={cn({ hidden: !canEdit })}> 
-              <UserProfileSettings />
-            </div>
           </>
         )}
       </main>
 
-      {/* Lightbox */} 
       {lightboxVideo && (
         <VideoLightbox isOpen={!!lightboxVideo} onClose={handleCloseLightbox} videoUrl={lightboxVideo.url} videoId={lightboxVideo.id}
           title={lightboxVideo.metadata?.title} description={lightboxVideo.metadata?.description}
@@ -765,8 +684,7 @@ export default function UserProfilePage() {
           creator={lightboxVideo.user_id || lightboxVideo.metadata?.creatorName}
           thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
-          // Use stable fetchUserVideos in callback if full refresh desired, check profile exists
-          onVideoUpdate={() => { if (profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }} 
+          onVideoUpdate={() => { if (profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }}
           isAuthorized={canEdit} currentStatus={lightboxVideo.user_status} onStatusChange={handleLightboxUserStatusChange}
           adminStatus={lightboxVideo.admin_status} onAdminStatusChange={handleLightboxAdminStatusChange} />
       )}
