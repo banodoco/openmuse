@@ -146,6 +146,8 @@ const Admin: React.FC = () => {
   }, [user, loadEntries, loadAssets]);
 
   const applyVideoFilters = useCallback(() => {
+    logger.log('[adminview] applyVideoFilters called. Raw entries count:', entries.length);
+    logger.log('[adminview] Current videoFilters:', videoFilters);
     const newCounts: Record<VideoFilterKey | 'total', number> = {
       listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, total: entries.length
     };
@@ -159,17 +161,20 @@ const Admin: React.FC = () => {
         const status = entry.admin_status ?? 'Listed'; 
         currentFilterKey = statusConfig[status]?.filterKey as VideoFilterKey || 'listed';
       }
+      logger.log(`[adminview] Processing video ${entry.id}: StatusKey='${currentFilterKey}', Filtered In=${videoFilters[currentFilterKey]}`);
       
       newCounts[currentFilterKey]++;
       return videoFilters[currentFilterKey];
     });
     
+    logger.log('[adminview] Filtering complete. Filtered video entries count:', filtered.length);
     setFilteredEntries(filtered);
     setVideoStatusCounts(newCounts);
-    logger.log('Filtered video entries:', filtered.length, 'Filters:', videoFilters, 'Counts:', newCounts);
   }, [entries, videoFilters]);
   
   const applyAssetFilters = useCallback(() => {
+    logger.log('[adminview] applyAssetFilters called. Raw assets count:', assets.length);
+    logger.log('[adminview] Current assetFilters:', assetFilters);
     const newCounts: Record<AssetFilterKey | 'total', number> = {
       listed: 0, curated: 0, featured: 0, hidden: 0, total: assets.length
     };
@@ -178,13 +183,14 @@ const Admin: React.FC = () => {
       const status = asset.admin_status ?? 'Listed';
       const currentFilterKey = statusConfig[status]?.filterKey as AssetFilterKey || 'listed';
       
+      logger.log(`[adminview] Processing asset ${asset.id}: StatusKey='${currentFilterKey}', Filtered In=${assetFilters[currentFilterKey]}`);
       newCounts[currentFilterKey]++;
       return assetFilters[currentFilterKey];
     });
     
+    logger.log('[adminview] Filtering complete. Filtered assets count:', filtered.length);
     setFilteredAssets(filtered);
     setAssetStatusCounts(newCounts);
-    logger.log('Filtered assets:', filtered.length, 'Filters:', assetFilters, 'Counts:', newCounts);
   }, [assets, assetFilters]);
 
   useEffect(() => {
