@@ -1,5 +1,5 @@
 import { supabase } from '../supabase';
-import { VideoEntry } from '../types';
+import { VideoEntry, AdminStatus } from '../types';
 import { Logger } from '../logger';
 import { checkIsAdmin } from '../auth';
 
@@ -150,7 +150,7 @@ export class VideoEntryService {
     return this.updateEntry(id, { skipped: true });
   }
   
-  async setApprovalStatus(id: string, status: string): Promise<VideoEntry | null> {
+  async setApprovalStatus(id: string, status: AdminStatus): Promise<VideoEntry | null> {
     this.logger.log(`Setting admin status for entry ${id} to ${status}`);
     
     if (this.currentUserId) {

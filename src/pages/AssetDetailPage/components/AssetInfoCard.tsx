@@ -20,11 +20,13 @@ import {
   Trash,
   EyeOff,
   PinIcon,
-  List
+  List,
+  Flame,
+  ListChecks
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LoraAsset, UserAssetPreferenceStatus } from '@/lib/types';
+import { LoraAsset, UserAssetPreferenceStatus, AdminStatus } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import EditableLoraDetails from '@/components/lora/EditableLoraDetails';
 import { toast } from 'sonner';
@@ -52,10 +54,8 @@ interface AssetInfoCardProps {
   onStatusChange: (newStatus: UserAssetPreferenceStatus) => void;
   isAdmin: boolean;
   isAuthorized: boolean;
-  isApproving: boolean;
-  onCurate: () => Promise<void>;
-  onList: () => Promise<void>;
-  onReject: () => Promise<void>;
+  isUpdatingAdminStatus: boolean;
+  onAdminStatusChange: (newStatus: AdminStatus) => Promise<void>;
   onDelete: () => Promise<void>;
 }
 
@@ -67,10 +67,8 @@ const AssetInfoCard = ({
   onStatusChange,
   isAdmin,
   isAuthorized,
-  isApproving,
-  onCurate,
-  onList,
-  onReject,
+  isUpdatingAdminStatus,
+  onAdminStatusChange,
   onDelete
 }: AssetInfoCardProps) => {
   const { user } = useAuth();
@@ -189,40 +187,50 @@ const AssetInfoCard = ({
               <div className="w-full p-3 border border-yellow-500 rounded-md bg-yellow-50/50 space-y-3">
                 <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wider">Admin Controls</p>
                 
-                {/* Admin Moderation Buttons */}
-                <div className="grid grid-cols-3 gap-2 w-full">
-                  {/* Curate Button */}
+                {/* Admin Moderation Buttons - Updated to 4 options */}
+                <div className="grid grid-cols-2 gap-2 w-full">
+                  {/* Listed Button */}
                   <Button
                     size="sm"
-                    onClick={onCurate}
-                    className="gap-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
-                    disabled={isApproving || asset?.admin_status === 'Curated'}
-                  >
-                    <Check className="h-4 w-4" /> Curate
-                  </Button>
-                  {/* List Button */}
-                  <Button
-                    size="sm"
-                    onClick={onList}
-                    variant="secondary"
+                    variant={asset?.admin_status === 'Listed' ? "secondary" : "outline"}
+                    onClick={() => onAdminStatusChange('Listed')}
                     className="gap-1 h-8 text-xs"
-                    disabled={isApproving || asset?.admin_status === 'Listed'}
+                    disabled={isUpdatingAdminStatus || asset?.admin_status === 'Listed'}
                   >
-                    <Check className="h-4 w-4" /> List
+                    <List className="h-4 w-4" /> List
                   </Button>
-                  {/* Hide Admin Button */}
+                  {/* Curated Button */}
                   <Button
                     size="sm"
-                    onClick={onReject}
-                    variant="outline"
+                    variant={asset?.admin_status === 'Curated' ? "secondary" : "outline"}
+                    onClick={() => onAdminStatusChange('Curated')}
+                    className="gap-1 h-8 text-xs"
+                    disabled={isUpdatingAdminStatus || asset?.admin_status === 'Curated'}
+                  >
+                    <ListChecks className="h-4 w-4" /> Curate
+                  </Button>
+                  {/* Featured Button */}
+                  <Button
+                    size="sm"
+                    variant={asset?.admin_status === 'Featured' ? "secondary" : "outline"}
+                    onClick={() => onAdminStatusChange('Featured')}
+                    className="gap-1 h-8 text-xs"
+                    disabled={isUpdatingAdminStatus || asset?.admin_status === 'Featured'}
+                  >
+                    <Flame className="h-4 w-4" /> Feature
+                  </Button>
+                  {/* Hidden Button */}
+                  <Button
+                    size="sm"
+                    variant={asset?.admin_status === 'Hidden' ? "destructive" : "outline"}
+                    onClick={() => onAdminStatusChange('Hidden')}
                     className={cn(
                       "gap-1 h-8 text-xs",
-                      "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
-                      (isApproving || asset?.admin_status === 'Rejected') && "bg-orange-100 opacity-70 cursor-not-allowed"
+                      asset?.admin_status === 'Hidden' ? "" : "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
                     )}
-                    disabled={isApproving || asset?.admin_status === 'Rejected'}
+                    disabled={isUpdatingAdminStatus || asset?.admin_status === 'Hidden'}
                   >
-                    <EyeOff className="h-4 w-4" /> Hide Admin
+                    <EyeOff className="h-4 w-4" /> Hide
                   </Button>
                 </div>
               </div>

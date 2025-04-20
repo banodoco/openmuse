@@ -1,7 +1,11 @@
-import { VideoEntry } from '../types';
+import { VideoEntry, AdminStatus } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { BaseDatabase } from './BaseDatabase';
 import { videoUrlService } from '../services/videoUrlService';
+import { Logger } from '@/lib/logger';
+import { checkIsAdmin } from "@/lib/auth/userRoles";
+import { PostgrestError } from "@supabase/supabase-js";
+import { databaseSwitcher } from "@/lib/databaseSwitcher";
 
 /**
  * Supabase implementation of the video database
@@ -143,7 +147,7 @@ export class SupabaseDatabase extends BaseDatabase {
     return this.updateEntry(id, { skipped: true });
   }
   
-  async setApprovalStatus(id: string, status: string): Promise<VideoEntry | null> {
+  async setApprovalStatus(id: string, status: AdminStatus): Promise<VideoEntry | null> {
     this.logger.log(`Setting admin status for media ${id} to ${status}`);
     return this.updateEntry(id, { admin_status: status });
   }

@@ -33,6 +33,7 @@ function AssetDetailPage() {
     asset,
     videos,
     isLoading,
+    isUpdatingAdminStatus,
     creatorDisplayName,
     getCreatorName,
     fetchAssetDetails,
@@ -40,17 +41,11 @@ function AssetDetailPage() {
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
     removeVideoLocally,
-    updateAssetUserStatus
+    updateAssetUserStatus,
+    updateAssetAdminStatus
   } = useAssetDetails(id);
   
   const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
-  
-  const {
-    isApproving,
-    handleCurateAsset,
-    handleListAsset,
-    handleRejectAsset,
-  } = useAssetAdminActions(id, setAsset, fetchAssetDetails);
   
   const handleOpenLightbox = (video: VideoEntry) => {
     setCurrentVideo(video);
@@ -426,10 +421,8 @@ function AssetDetailPage() {
                   onStatusChange={updateAssetUserStatus}
                   isAdmin={isAdmin}
                   isAuthorized={isAuthorized}
-                  isApproving={isApproving}
-                  onCurate={handleCurateAsset}
-                  onList={handleListAsset}
-                  onReject={handleRejectAsset}
+                  isUpdatingAdminStatus={isUpdatingAdminStatus}
+                  onAdminStatusChange={updateAssetAdminStatus}
                   onDelete={handleDeleteAsset}
                 />
               </div>

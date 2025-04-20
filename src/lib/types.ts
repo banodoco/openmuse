@@ -23,13 +23,18 @@ export interface VideoMetadata {
 
 export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';
 
+// Define the possible admin statuses
+export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden';
+
+export type AssetType = 'lora' | 'other'; // Example, adjust as needed
+
 export interface VideoEntry {
   id: string;
   url: string;
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_status?: string | null;
+  admin_status?: AdminStatus | null; // Use the new AdminStatus type
   assetMediaDisplayStatus?: VideoDisplayStatus | null;
   user_status?: VideoDisplayStatus | null;
   user_id?: string | null;
@@ -80,7 +85,7 @@ export interface LoraAsset {
   created_at: string;
   user_id?: string;
   primary_media_id?: string;
-  admin_status?: string | null;
+  admin_status?: AdminStatus | null;
   user_status?: UserAssetPreferenceStatus | null;
   lora_type?: string;
   lora_base_model?: string;

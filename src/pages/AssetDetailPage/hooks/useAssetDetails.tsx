@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, VideoEntry, VideoDisplayStatus, VideoMetadata } from '@/lib/types';
+import { LoraAsset, VideoEntry, VideoDisplayStatus, VideoMetadata, AdminStatus, UserAssetPreferenceStatus } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
@@ -21,6 +21,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const [isLoading, setIsLoading] = useState(true);
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
   const { user, isAdmin } = useAuth();
 
   const fetchAssetDetails = useCallback(async () => {
@@ -267,7 +268,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
     return creatorDisplayName || asset?.creator || 'Unknown';
   };
   
-  const updateAssetUserStatus = useCallback(async (newStatus: string) => {
+  const updateAssetUserStatus = useCallback(async (newStatus: UserAssetPreferenceStatus) => {
       const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
 
       if (!isAuthorized) {
@@ -357,10 +358,47 @@ export const useAssetDetails = (assetId: string | undefined) => {
      logger.log(`[useAssetDetails] Video ${videoId} removed locally.`);
   }, []);
 
+  const updateAssetAdminStatus = useCallback(async (newStatus: AdminStatus) => {
+    if (!isAdmin) {
+        logger.warn('[updateAssetAdminStatus] Non-admin attempt to update asset admin status.');
+        toast.error("Only admins can change the administrative status.");
+        return;
+    }
+    if (!asset) {
+        logger.warn('[updateAssetAdminStatus] Asset data not available.');
+        return;
+    }
+
+    const optimisticPreviousStatus = asset.admin_status;
+    setIsUpdatingAdminStatus(true);
+    setAsset(prev => prev ? { ...prev, admin_status: newStatus } : null);
+
+    try {
+        logger.log(`[updateAssetAdminStatus] Updating assets table for ID ${asset.id}, setting admin_status to ${newStatus}`);
+        const { error } = await supabase
+            .from('assets')
+            .update({ admin_status: newStatus })
+            .eq('id', asset.id);
+
+        if (error) throw error;
+
+        toast.success(`Asset admin status updated to ${newStatus}`);
+
+    } catch (error) {
+        logger.error(`[updateAssetAdminStatus] Error setting admin status to ${newStatus}:`, error);
+        toast.error(`Failed to set admin status to ${newStatus}`);
+        // Revert optimistic update on error
+        setAsset(prev => prev ? { ...prev, admin_status: optimisticPreviousStatus } : null);
+    } finally {
+        setIsUpdatingAdminStatus(false);
+    }
+  }, [isAdmin, asset]);
+
   return {
     asset,
     videos,
     isLoading,
+    isUpdatingAdminStatus,
     dataFetchAttempted,
     creatorDisplayName,
     getCreatorName,
@@ -370,6 +408,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
     removeVideoLocally,
-    updateAssetUserStatus
+    updateAssetUserStatus,
+    updateAssetAdminStatus
   };
 };

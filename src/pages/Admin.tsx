@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Navigation from '@/components/Navigation';
 import { videoDB } from '@/lib/db';
-import { VideoEntry } from '@/lib/types';
+import { VideoEntry, AdminStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import StorageVideoPlayer from '@/components/StorageVideoPlayer';
@@ -12,11 +12,37 @@ import RequireAuth from '@/components/RequireAuth';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
 import { downloadEntriesAsCsv } from '@/lib/csvUtils';
-import { Download, CheckCircle, X, MessageCircle, SkipForward, MessageSquareOff } from 'lucide-react';
+import { 
+  Download, 
+  CheckCircle, 
+  X, 
+  SkipForward, 
+  EyeOff,
+  Flame,
+  ListChecks,
+  List,
+  ChevronDown,
+  Trash2
+} from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Logger } from '@/lib/logger';
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuTrigger 
+} from "@/components/ui/dropdown-menu";
 
 const logger = new Logger('AdminPage');
+
+const statusConfig: { [key in AdminStatus]: { label: string, icon: React.ReactNode, variant: 'default' | 'secondary' | 'destructive' | 'outline', filterKey: string } } = {
+  Listed: { label: 'Listed', icon: <List className="h-3 w-3 mr-1" />, variant: 'secondary', filterKey: 'listed' },
+  Curated: { label: 'Curated', icon: <ListChecks className="h-3 w-3 mr-1" />, variant: 'default', filterKey: 'curated' },
+  Featured: { label: 'Featured', icon: <Flame className="h-3 w-3 mr-1" />, variant: 'default', filterKey: 'featured' },
+  Hidden: { label: 'Hidden', icon: <EyeOff className="h-3 w-3 mr-1" />, variant: 'destructive', filterKey: 'hidden' },
+};
+
+type FilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'skipped';
 
 const Admin: React.FC = () => {
   const [entries, setEntries] = useState<VideoEntry[]>([]);
@@ -24,20 +50,20 @@ const Admin: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState('videos');
   
-  // Filter state
-  const [showApproved, setShowApproved] = useState(true);
-  const [showUnapproved, setShowUnapproved] = useState(true);
-  const [showResponded, setShowResponded] = useState(true);
-  const [showSkipped, setShowSkipped] = useState(true);
-  const [showUnresponded, setShowUnresponded] = useState(true);
+  const [filters, setFilters] = useState<Record<FilterKey, boolean>>({
+    listed: true,
+    curated: true,
+    featured: true,
+    hidden: true,
+    skipped: true,
+  });
 
-  // Status counts
-  const [statusCounts, setStatusCounts] = useState({
-    approved: 0,
-    unapproved: 0,
-    responded: 0,
+  const [statusCounts, setStatusCounts] = useState<Record<FilterKey | 'total', number>>({
+    listed: 0,
+    curated: 0,
+    featured: 0,
+    hidden: 0,
     skipped: 0,
-    unresponded: 0,
     total: 0
   });
 
@@ -51,70 +77,50 @@ const Admin: React.FC = () => {
 
   useEffect(() => {
     applyFilters();
-  }, [entries, showApproved, showUnapproved, showResponded, showSkipped, showUnresponded]);
+  }, [entries, filters]);
 
   const applyFilters = () => {
-    // Count entries by status for statistics
-    const counts = {
-      approved: 0,
-      unapproved: 0,
-      responded: 0,
-      skipped: 0,
-      unresponded: 0,
-      total: entries.length
+    const newCounts: Record<FilterKey | 'total', number> = {
+      listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, total: entries.length
     };
-    
+
     const filtered = entries.filter(entry => {
-      // Determine the single status for this entry
-      let status: 'approved' | 'skipped' | 'responded' | 'unapproved' | 'unresponded';
+      let currentFilterKey: FilterKey;
       
-      // Approved takes highest priority
-      if (entry.admin_status === 'Curated' || entry.admin_status === 'Featured') {
-        status = 'approved';
-        counts.approved++;
-      }
-      // Then Skipped
-      else if (entry.skipped) {
-        status = 'skipped';
-        counts.skipped++;
-      }
-      // Then any other video (Pending/Unapproved)
-      else {
-        status = 'unapproved';
-        counts.unapproved++;
+      if (entry.skipped) {
+        currentFilterKey = 'skipped';
+      } else if (entry.admin_status && statusConfig[entry.admin_status]) {
+        currentFilterKey = statusConfig[entry.admin_status].filterKey as FilterKey;
+      } else {
+        currentFilterKey = 'listed'; 
+        entry.admin_status = 'Listed';
       }
       
-      // Check if we should show this status
-      return (
-        (status === 'approved' && showApproved) ||
-        (status === 'unapproved' && showUnapproved) ||
-        (status === 'skipped' && showSkipped)
-      );
+      newCounts[currentFilterKey]++;
+      return filters[currentFilterKey];
     });
     
     setFilteredEntries(filtered);
-    setStatusCounts(counts);
-    console.log('Filtered entries:', filtered.length, 'Filters:', { 
-      showApproved, 
-      showUnapproved, 
-      showSkipped
-    });
+    setStatusCounts(newCounts);
+    logger.log('Filtered entries:', filtered.length, 'Filters:', filters, 'Counts:', newCounts);
   };
 
   const loadEntries = async () => {
     setIsLoading(true);
     try {
       const db = await databaseSwitcher.getDatabase();
-      let allEntries;
+      let allEntries = await db.getAllEntries();
       
-      allEntries = await db.getAllEntries();
-      
+      allEntries = allEntries.map(entry => ({
+        ...entry,
+        admin_status: entry.admin_status ?? 'Listed'
+      }));
+
       allEntries.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setEntries(allEntries);
-      
-      console.log('Loaded entries from database:', allEntries.length, 'entries');
+      logger.log('Loaded entries:', allEntries.length, 'entries');
     } catch (error) {
-      console.error('Error loading entries:', error);
+      logger.error('Error loading entries:', error);
       toast.error('Failed to load videos');
       setEntries([]);
     } finally {
@@ -122,25 +128,27 @@ const Admin: React.FC = () => {
     }
   };
 
-  const handleApproveToggle = async (entry: VideoEntry) => {
+  const handleSetAdminStatus = async (entryId: string, newStatus: AdminStatus) => {
     try {
       const db = await databaseSwitcher.getDatabase();
-      // Update to use admin_status and toggle between 'Curated' and 'Listed'
-      const newStatus = entry.admin_status === 'Curated' ? 'Listed' : 'Curated';
-      const updatedEntry = await db.setApprovalStatus(entry.id, newStatus);
+      const updatedEntry = await db.setApprovalStatus(entryId, newStatus);
       
       if (updatedEntry) {
-        setEntries(entries.map(e => e.id === entry.id ? updatedEntry : e));
-        toast.success(`Video ${updatedEntry.admin_status === 'Curated' ? 'approved' : 'unapproved'} successfully`);
+        setEntries(prevEntries => 
+          prevEntries.map(e => e.id === entryId ? { ...e, admin_status: newStatus } : e)
+        );
+        toast.success(`Video status updated to ${newStatus}`);
+      } else {
+         toast.error(`Failed to update status to ${newStatus}`);
       }
     } catch (error: any) {
-      console.error('Error toggling approval:', error);
-      toast.error(error.message || 'Failed to update approval status');
+      logger.error(`Error setting status to ${newStatus} for entry ${entryId}:`, error);
+      toast.error(error.message || `Failed to update status to ${newStatus}`);
     }
   };
 
   const handleDeleteEntry = async (entry: VideoEntry) => {
-    if (!window.confirm(`Are you sure you want to delete this video by ${entry.reviewer_name}?`)) {
+    if (!window.confirm(`Are you sure you want to delete this video by ${entry.reviewer_name} (ID: ${entry.id})?`)) {
       return;
     }
 
@@ -178,14 +186,10 @@ const Admin: React.FC = () => {
 
   const handleDownloadCsv = () => {
     try {
-      downloadEntriesAsCsv(filteredEntries, {
-        showApproved,
-        showUnapproved,
-        showSkipped
-      });
+      downloadEntriesAsCsv(filteredEntries, filters);
       toast.success('Download started');
     } catch (error) {
-      console.error('Error downloading CSV:', error);
+      logger.error('Error downloading CSV:', error);
       toast.error('Failed to download CSV');
     }
   };
@@ -195,35 +199,23 @@ const Admin: React.FC = () => {
     return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
   };
 
-  const getEntryStatus = (entry: VideoEntry): {
-    status: 'approved' | 'skipped' | 'unapproved',
-    label: string,
-    icon: React.ReactNode,
-    variant: 'default' | 'secondary' | 'destructive' | 'outline'
-  } => {
-    // Check admin_status for 'Curated' or 'Featured'
-    if (entry.admin_status === 'Curated' || entry.admin_status === 'Featured') {
-      return {
-        status: 'approved',
-        label: entry.admin_status, // Display the actual status
-        icon: <CheckCircle className="h-3 w-3 mr-1" />,
-        variant: 'default'
-      };
-    } else if (entry.skipped) {
-      return {
-        status: 'skipped',
-        label: 'Skipped',
-        icon: <SkipForward className="h-3 w-3 mr-1" />,
-        variant: 'secondary'
-      };
-    } else {
-      return {
-        status: 'unapproved',
-        label: 'Unapproved',
-        icon: <X className="h-3 w-3 mr-1" />,
-        variant: 'destructive'
-      };
+  const getEntryStatusDetails = (entry: VideoEntry): { label: string, icon: React.ReactNode, variant: 'default' | 'secondary' | 'destructive' | 'outline', key: FilterKey } => {
+    if (entry.skipped) {
+      return { label: 'Skipped', icon: <SkipForward className="h-3 w-3 mr-1" />, variant: 'secondary', key: 'skipped' };
     }
+    const status = entry.admin_status ?? 'Listed';
+    if (statusConfig[status]) {
+      return { ...statusConfig[status], key: statusConfig[status].filterKey as FilterKey };
+    }
+    logger.warn(`Unexpected admin_status found: ${status} for entry ${entry.id}. Defaulting to Listed.`);
+    return { ...statusConfig.Listed, key: 'listed' }; 
+  };
+
+  const handleFilterChange = (key: FilterKey, checked: boolean) => {
+    setFilters(prevFilters => ({
+      ...prevFilters,
+      [key]: checked
+    }));
   };
 
   return (
@@ -259,7 +251,7 @@ const Admin: React.FC = () => {
                       onClick={handleDownloadCsv}
                     >
                       <Download className="mr-1" size={16} />
-                      Download CSV
+                      Download CSV ({filteredEntries.length})
                     </Button>
                   )}
                   {entries.length > 0 && (
@@ -268,60 +260,49 @@ const Admin: React.FC = () => {
                       onClick={handleClearAll}
                       size="sm"
                     >
-                      Delete All
+                      Delete All ({entries.length})
                     </Button>
                   )}
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-6 mb-2 p-4 bg-muted/50 rounded-lg">
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="filter-approved" 
-                    checked={showApproved} 
-                    onCheckedChange={(checked) => setShowApproved(checked as boolean)} 
-                  />
-                  <Label htmlFor="filter-approved">Approved</Label>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="filter-unapproved" 
-                    checked={showUnapproved} 
-                    onCheckedChange={(checked) => setShowUnapproved(checked as boolean)} 
-                  />
-                  <Label htmlFor="filter-unapproved">Unapproved</Label>
-                </div>
+              <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
+                {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                  <div key={status} className="flex items-center space-x-2">
+                    <Checkbox 
+                      id={`filter-${statusConfig[status].filterKey}`}
+                      checked={filters[statusConfig[status].filterKey as FilterKey]}
+                      onCheckedChange={(checked) => handleFilterChange(statusConfig[status].filterKey as FilterKey, checked as boolean)} 
+                    />
+                    <Label htmlFor={`filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
+                  </div>
+                ))}
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="filter-skipped" 
-                    checked={showSkipped} 
-                    onCheckedChange={(checked) => setShowSkipped(checked as boolean)} 
+                    checked={filters.skipped}
+                    onCheckedChange={(checked) => handleFilterChange('skipped', checked as boolean)} 
                   />
                   <Label htmlFor="filter-skipped">Skipped</Label>
                 </div>
               </div>
 
-              {/* Video count statistics */}
               <div className="flex flex-wrap gap-4 mb-6 px-4 py-2 text-sm text-muted-foreground">
                 <div>
                   Showing <span className="font-medium text-foreground">{filteredEntries.length}</span> of <span className="font-medium text-foreground">{statusCounts.total}</span> videos
                 </div>
-                <div className="flex gap-3">
-                  {showApproved && (
+                <div className="flex gap-3 flex-wrap">
+                  {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                    filters[statusConfig[status].filterKey as FilterKey] && (
+                      <span key={status} className="flex items-center">
+                        {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-3 w-3 mr-1" })}
+                        {statusCounts[statusConfig[status].filterKey as FilterKey]} {statusConfig[status].filterKey}
+                      </span>
+                    )
+                  ))}
+                  {filters.skipped && (
                     <span className="flex items-center">
-                      <CheckCircle className="h-3 w-3 mr-1 text-primary" />
-                      {statusCounts.approved} approved
-                    </span>
-                  )}
-                  {showUnapproved && (
-                    <span className="flex items-center">
-                      <X className="h-3 w-3 mr-1 text-destructive" />
-                      {statusCounts.unapproved} unapproved
-                    </span>
-                  )}
-                  {showSkipped && (
-                    <span className="flex items-center">
-                      <SkipForward className="h-3 w-3 mr-1 text-secondary-foreground" />
+                      <SkipForward className="h-3 w-3 mr-1" />
                       {statusCounts.skipped} skipped
                     </span>
                   )}
@@ -337,35 +318,50 @@ const Admin: React.FC = () => {
               ) : (
                 <div className="space-y-8">
                   {filteredEntries.map(entry => {
-                    const { label, icon, variant } = getEntryStatus(entry);
+                    const { label, icon, variant, key } = getEntryStatusDetails(entry);
                     
                     return (
                       <div key={entry.id} className="border rounded-lg overflow-hidden bg-card">
-                        <div className="p-4 border-b flex justify-between items-center">
-                          <div className="flex items-center gap-3">
-                            <Badge variant={variant} className="flex items-center">
+                        <div className="p-4 border-b flex justify-between items-start">
+                          <div className="flex items-start gap-3 flex-1 mr-4">
+                            <Badge variant={variant} className="flex items-center mt-1 whitespace-nowrap">
                               {icon}
                               {label}
                             </Badge>
-                            <div>
+                            <div className="flex-grow">
                               <h3 className="font-medium">{entry.reviewer_name}</h3>
                               <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
+                              <p className="text-xs text-muted-foreground">ID: {entry.id}</p>
                             </div>
                           </div>
                           <div className="flex space-x-2">
-                            <Button 
-                              variant={entry.admin_status === 'Curated' ? "outline" : "default"}
-                              size="sm"
-                              onClick={() => handleApproveToggle(entry)}
-                            >
-                              {entry.admin_status === 'Curated' ? "Unapprove" : "Approve"}
-                            </Button>
+                             <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <Button variant="outline" size="sm">
+                                  Set Status <ChevronDown className="ml-1 h-4 w-4" />
+                                </Button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end">
+                                {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                                  <DropdownMenuItem 
+                                    key={status}
+                                    onClick={() => handleSetAdminStatus(entry.id, status)}
+                                    disabled={entry.admin_status === status}
+                                  >
+                                    {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4 mr-2" })}
+                                    {statusConfig[status].label}
+                                  </DropdownMenuItem>
+                                ))}
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                            
                             <Button 
                               variant="destructive" 
                               size="sm"
                               onClick={() => handleDeleteEntry(entry)}
+                              title="Delete Video"
                             >
-                              Delete
+                              <Trash2 className="h-4 w-4" />
                             </Button>
                           </div>
                         </div>
