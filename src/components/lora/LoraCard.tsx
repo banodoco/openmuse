@@ -48,7 +48,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
   hideCreatorInfo = false,
   isUpdatingStatus = false,
 }) => {
-  console.log(`[LoraCard] Rendering card for Lora ID: ${lora.id}. Received isOwnProfile: ${isOwnProfile}`);
   const navigate = useNavigate();
   const location = useLocation();
   const [isDeleting, setIsDeleting] = useState(false);
@@ -277,7 +276,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
         </CardFooter>
       )}
       
-      {isAdmin && !isOwnProfile && (
+      {isAdmin && !isOwnProfile && location.pathname !== '/' && (
          <CardFooter className="p-3 border-t bg-red-50 dark:bg-red-900/20" onClick={(e) => e.stopPropagation()}>
              <AlertDialog>
                <AlertDialogTrigger asChild>

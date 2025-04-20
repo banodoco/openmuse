@@ -102,11 +102,10 @@ export default function UserProfilePage() {
   const [loraPage, setLoraPage] = useState(1);
 
   useEffect(() => {
-    setForceLoggedOutView(searchParams.get('loggedOutView') === 'true');
-    console.log('[UserProfilePage] forceLoggedOutView set to:', searchParams.get('loggedOutView') === 'true'); 
-  }, [searchParams]);
+    // Determine forceLoggedOutView directly inside the effect that uses it
+    const shouldForceLoggedOutView = searchParams.get('loggedOutView') === 'true';
+    setForceLoggedOutView(shouldForceLoggedOutView);
 
-  useEffect(() => {
     const fetchProfileByDisplayName = async () => {
       if (!displayName) return;
       
@@ -140,11 +139,11 @@ export default function UserProfilePage() {
         
         if (data) {
           setProfile(data as UserProfile);
-          const ownerStatus = !forceLoggedOutView && user?.id === data.id;
-          const currentIsAdmin = !!isAdmin && !forceLoggedOutView;
+          // Use the locally determined shouldForceLoggedOutView for immediate accuracy
+          const ownerStatus = !shouldForceLoggedOutView && user?.id === data.id;
+          const currentIsAdmin = !!isAdmin && !shouldForceLoggedOutView;
           setIsOwner(ownerStatus);
           setCanEdit(ownerStatus || currentIsAdmin);
-          console.log(`[UserProfilePage] Profile fetched for ${data.display_name}. forceLoggedOutView: ${forceLoggedOutView}, user?.id: ${user?.id}, data.id: ${data.id}, Calculated isOwner: ${ownerStatus}`); 
           const canSeeHidden = ownerStatus || currentIsAdmin; // Calculate permission
           
           if (data.id) {
@@ -162,7 +161,7 @@ export default function UserProfilePage() {
     };
     
     fetchProfileByDisplayName();
-  }, [displayName, user, navigate, isAdmin, forceLoggedOutView]);
+  }, [displayName, user, navigate, isAdmin, searchParams]);
 
   // Reset pagination when profile/videos change
   useEffect(() => {

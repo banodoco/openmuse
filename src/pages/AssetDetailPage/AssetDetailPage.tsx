@@ -28,11 +28,10 @@ function AssetDetailPage() {
   const { user, isAdmin } = useAuth();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
-  const [videos, setVideos] = useState<VideoEntry[]>([]);
   
   const {
     asset,
-    videos: fetchedVideos,
+    videos,
     isLoading,
     isUpdatingAdminStatus,
     creatorDisplayName,
@@ -366,23 +365,10 @@ function AssetDetailPage() {
       if (error) throw error;
 
       toast.success(`Video admin status updated to ${newStatus}`);
-      // Update local state or refetch
-      // Find the video in the current state and update its admin_status
-      const updatedVideo = videos.find(v => v.id === videoId);
-      if (updatedVideo) {
-        updatedVideo.admin_status = newStatus;
-        updatedVideo.admin_reviewed = true; // Keep local state consistent
-        // If the lightbox is open for this video, update its state too
-        if (currentVideo && currentVideo.id === videoId) {
-          setCurrentVideo(prev => prev ? { ...prev, admin_status: newStatus, admin_reviewed: true } : null);
-        }
-         // Force a re-render/re-sort if necessary by creating a new array reference
-        setVideos(prevVideos => [...prevVideos]); 
-      } else {
-        // If not found locally (unlikely), refetch
-        await fetchAssetDetails(); 
-      }
-
+      // The component will re-render with updated videos from the hook.
+      // If the currently open lightbox video (currentVideo) was the one updated,
+      // its details might be stale until the user closes and reopens it, or we could 
+      // add more complex state management here if needed later.
     } catch (error: any) {
       logger.error(`[AssetDetailPage] Error setting video admin status:`, error);
       toast.error(`Failed to update video admin status: ${error.message}`);
