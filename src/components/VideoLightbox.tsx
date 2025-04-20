@@ -453,7 +453,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   >
                     <span className="text-xs font-medium text-white/80 px-1">Admin Status</span>
                     <div className="flex gap-1">
-                      {(['Listed', 'Curated', 'Featured', 'Hidden'] as AdminStatus[]).map(status => {
+                      {(['Hidden', 'Listed', 'Curated', 'Featured'] as AdminStatus[]).map(status => {
                         const Icon = adminStatusIcons[status];
                         const isActive = adminStatus === status;
                         return (
@@ -467,7 +467,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                 className={cn(
                                   "h-7 w-7 rounded-sm",
                                   isActive 
-                                    ? "bg-primary/70 text-primary-foreground hover:bg-primary/80"
+                                    ? "bg-white/20 text-white"
                                     : "bg-black/30 text-white/70 hover:bg-white/20 hover:text-white",
                                   isUpdatingAdminStatus && "animate-pulse"
                                 )}
