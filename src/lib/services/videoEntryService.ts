@@ -26,7 +26,7 @@ export class VideoEntryService {
       // Query media table instead of video_entries
       const { data, error } = await supabase
         .from('media')
-        .select('*, assets!asset_media(id, name, description, type, creator, primary_media_id)')
+        .select('*')
         .eq('type', 'video')
         .order('created_at', { ascending: false });
       
@@ -40,8 +40,8 @@ export class VideoEntryService {
       // Transform the data to our VideoEntry type
       const entries: VideoEntry[] = data.map(media => {
         // Find associated asset (if any)
-        const assets = media.assets as any[] || [];
-        const asset = assets.length > 0 ? assets[0] : null;
+        // const assets = media.assets as any[] || [];
+        // const asset = assets.length > 0 ? assets[0] : null;
         
         const entry: VideoEntry = {
           id: media.id,
@@ -57,10 +57,10 @@ export class VideoEntryService {
             description: '',
             creator: 'self',
             classification: media.classification || 'art',
-            loraName: asset?.name,
-            loraDescription: asset?.description,
-            assetId: asset?.id,
-            isPrimary: asset?.primary_media_id === media.id
+            loraName: undefined,
+            loraDescription: undefined,
+            assetId: undefined,
+            isPrimary: false
           }
         };
         
@@ -87,7 +87,7 @@ export class VideoEntryService {
           description: update.metadata?.description
         })
         .eq('id', id)
-        .select('*, assets!asset_media(id, name, description, type, creator, primary_media_id)')
+        .select('*')
         .single();
       
       if (error) {
@@ -95,25 +95,9 @@ export class VideoEntryService {
         return null;
       }
       
-      // If there's an asset ID in metadata, update the asset too
-      if (update.metadata?.assetId) {
-        const { error: assetError } = await supabase
-          .from('assets')
-          .update({
-            name: update.metadata.loraName,
-            description: update.metadata.loraDescription,
-            creator: update.metadata.creatorName || update.reviewer_name
-          })
-          .eq('id', update.metadata.assetId);
-        
-        if (assetError) {
-          this.logger.error(`Error updating asset ${update.metadata.assetId}:`, assetError);
-        }
-      }
-      
       // Find associated asset (if any)
-      const assets = data.assets as any[] || [];
-      const asset = assets.length > 0 ? assets[0] : null;
+      // const assets = data.assets as any[] || [];
+      // const asset = assets.length > 0 ? assets[0] : null;
       
       // Construct the updated VideoEntry object
       const updatedEntry: VideoEntry = {
@@ -130,10 +114,10 @@ export class VideoEntryService {
           description: update.metadata?.description || '',
           creator: update.metadata?.creator || 'self',
           classification: data.classification || 'art',
-          loraName: asset?.name || update.metadata?.loraName,
-          loraDescription: asset?.description || update.metadata?.loraDescription,
-          assetId: asset?.id || update.metadata?.assetId,
-          isPrimary: asset?.primary_media_id === data.id || update.metadata?.isPrimary || false
+          loraName: update.metadata?.loraName,
+          loraDescription: update.metadata?.loraDescription,
+          assetId: update.metadata?.assetId,
+          isPrimary: update.metadata?.isPrimary || false
         }
       };
       
