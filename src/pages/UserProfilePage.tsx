@@ -30,6 +30,7 @@ import {
 import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
 import { Helmet } from 'react-helmet-async';
+import { cn } from '@/lib/utils';
 
 const logger = new Logger('UserProfilePage');
 
@@ -747,6 +748,11 @@ export default function UserProfilePage() {
                  ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't added any art videos yet. </div> )} 
               </CardContent>
             </Card>
+
+            {/* User Profile Settings - Always render, hide conditionally */}
+            <div className={cn({ hidden: !canEdit })}> 
+              <UserProfileSettings />
+            </div>
           </>
         )}
       </main>

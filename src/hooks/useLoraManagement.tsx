@@ -90,16 +90,11 @@ export const useLoraManagement = (filters: LoraFilters) => {
          query = query.ilike('lora_base_model', modelFilter);
       }
 
-      // Apply approval status filter if not 'all'
-      if (approvalFilter && approvalFilter !== 'all') {
-          logger.log(`[loadAllLoras] Applying approval filter: ${approvalFilter}`);
-          // Construct the status string with correct capitalization
-          const statusFilterValue = approvalFilter.charAt(0).toUpperCase() + approvalFilter.slice(1);
-          // Use the new admin_status field
-          query = query.eq('admin_status', statusFilterValue);
-      }
+      // Fetch 'Featured' and 'Curated' LoRAs for the homepage/default view
+      logger.log(`[loadAllLoras] Applying status filter: Fetching 'Featured' and 'Curated'`);
+      query = query.in('admin_status', ['Featured', 'Curated']);
 
-      // Add ordering
+      // Keep original ordering by date (will be re-sorted client-side later)
       query = query.order('created_at', { ascending: false });
 
       const { data: loraAssets, error } = await query;
@@ -185,7 +180,24 @@ export const useLoraManagement = (filters: LoraFilters) => {
         } as LoraAsset;
       }) || [];
 
-      logger.log("[loadAllLoras] Final processed LoRAs count:", processedLoras.length);
+      logger.log("[loadAllLoras] Applying sorting: Featured first, then by date...");
+      // Sort: Featured first, then by creation date descending
+      processedLoras.sort((a, b) => {
+        const aIsFeatured = a.admin_status === 'Featured';
+        const bIsFeatured = b.admin_status === 'Featured';
+
+        if (aIsFeatured && !bIsFeatured) {
+          return -1; // a comes first
+        }
+        if (!aIsFeatured && bIsFeatured) {
+          return 1; // b comes first
+        }
+
+        // If both are featured or both are not, sort by date descending
+        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+      });
+
+      logger.log("[loadAllLoras] Final sorted LoRAs count:", processedLoras.length);
 
       if (isMounted.current) {
         logger.log("[loadAllLoras] Setting loras state and isLoading = false");

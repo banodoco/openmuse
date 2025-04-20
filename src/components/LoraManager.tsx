@@ -16,11 +16,12 @@ interface LoraManagerProps {
   isLoading?: boolean;
   lorasAreLoading?: boolean;
   filterText: string;
-  approvalFilter: string;
   modelFilter: string;
   onFilterTextChange: (value: string) => void;
-  onApprovalFilterChange: (value: string) => void;
   onModelFilterChange: (value: string) => void;
+  isAdmin?: boolean;
+  onNavigateToUpload?: () => void;
+  onRefreshData?: () => void;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
@@ -28,15 +29,16 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   isLoading = false,
   lorasAreLoading = false,
   filterText,
-  approvalFilter,
   modelFilter,
   onFilterTextChange,
-  onApprovalFilterChange,
   onModelFilterChange,
+  isAdmin,
+  onNavigateToUpload,
+  onRefreshData,
 }) => {
-  logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, modelFilter=${modelFilter}, approvalFilter=${approvalFilter}, filterText=${filterText}`);
+  logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, modelFilter=${modelFilter}, filterText=${filterText}, isAdmin=${isAdmin}`);
 
-  const { isAdmin } = useAuth();
+  const { isAdmin: authIsAdmin } = useAuth();
   
   const uniqueModels = useMemo(() => {
     if (!loras) return [];
@@ -49,13 +51,11 @@ const LoraManager: React.FC<LoraManagerProps> = ({
       <LoraFilters
         filterText={filterText}
         onFilterTextChange={onFilterTextChange}
-        approvalFilter={approvalFilter}
-        onApprovalFilterChange={onApprovalFilterChange}
         modelFilter={modelFilter}
         onModelFilterChange={onModelFilterChange}
         uniqueModels={uniqueModels}
         isLoading={isLoading || lorasAreLoading}
-        isAdmin={isAdmin}
+        isAdmin={isAdmin || authIsAdmin}
       />
 
       {isLoading ? (

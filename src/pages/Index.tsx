@@ -40,16 +40,15 @@ const Index: React.FC = () => {
   // logger.log(`Index: Model filter from URL: ${modelFilterFromUrl}`);
   
   // LIFTED STATE:
-  const [approvalFilter, setApprovalFilter] = useState('curated');
   const [currentModelFilter, setCurrentModelFilter] = useState(modelFilterFromUrl);
   const [filterText, setFilterText] = useState('');
 
-  // Pass filters to the hook
+  // Pass filters to the hook - approvalFilter is no longer needed here
   const { 
     loras, 
     isLoading: lorasLoading, 
     refetchLoras
-  } = useLoraManagement({ modelFilter: currentModelFilter, approvalFilter });
+  } = useLoraManagement({ modelFilter: currentModelFilter, approvalFilter: 'all' }); // Pass 'all' or similar, hook logic ignores it now
   // logger.log(`Index: useLoraManagement() state - lorasLoading: ${lorasLoading}, loras count: ${loras?.length || 0}`);
   
   // Client-side filtering for TEXT only
@@ -262,17 +261,17 @@ const Index: React.FC = () => {
             buttonDisabled={isActionDisabled} // Use combined disabled state
           />
           
-          <LoraManager 
-            loras={displayLoras} // Pass loras filtered by backend + text filter
-            isLoading={isPageLoading} 
-            lorasAreLoading={lorasLoading} 
-            // Pass down lifted state and setters
+          <LoraManager
+            loras={displayLoras}
+            isLoading={isPageLoading}
+            lorasAreLoading={lorasLoading}
             filterText={filterText}
-            approvalFilter={approvalFilter}
+            onFilterTextChange={setFilterText} 
             modelFilter={currentModelFilter}
-            onFilterTextChange={setFilterText}
-            onApprovalFilterChange={setApprovalFilter}
             onModelFilterChange={setCurrentModelFilter}
+            isAdmin={isAdmin || false}
+            onNavigateToUpload={handleNavigateToUpload}
+            onRefreshData={handleRefreshData}
           />
         </div>
       </div>

@@ -11,8 +11,6 @@ const logger = new Logger('LoraFilters');
 interface LoraFiltersProps {
   filterText: string;
   onFilterTextChange: (value: string) => void;
-  approvalFilter: string;
-  onApprovalFilterChange: (value: string) => void;
   modelFilter: string;
   onModelFilterChange: (value: string) => void;
   uniqueModels: string[];
@@ -23,23 +21,12 @@ interface LoraFiltersProps {
 export const LoraFilters: React.FC<LoraFiltersProps> = ({
   filterText,
   onFilterTextChange,
-  approvalFilter,
-  onApprovalFilterChange,
   modelFilter,
   onModelFilterChange,
   uniqueModels,
   isLoading = false,
   isAdmin = false,
 }) => {
-  const getFilterButtonClass = (filter: string) => {
-    return cn(
-      "px-4 py-2 rounded-md text-sm font-medium transition-colors",
-      approvalFilter === filter 
-        ? "!bg-[#FEF7CD] !text-forest-dark hover:!bg-[#FEF7CD]" 
-        : "bg-muted hover:bg-muted/80"
-    );
-  };
-
   // Format model name for display
   const formatModelName = (model: string) => {
     switch (model.toLowerCase()) {
@@ -90,57 +77,6 @@ export const LoraFilters: React.FC<LoraFiltersProps> = ({
             </>
           )}
         </div>
-      </div>
-      
-      <div className="flex gap-2 mb-4">
-        {isLoading ? (
-          <>
-            <Skeleton className="h-10 w-[100px]" /> {/* Curated button skeleton */}
-            <Skeleton className="h-10 w-[100px]" /> {/* Listed button skeleton */}
-            {isAdmin && <Skeleton className="h-10 w-[100px]" />} {/* Rejected button skeleton (admin only) */}
-          </>
-        ) : (
-          <>
-            <Button
-              type="button"
-              onClick={() => onApprovalFilterChange('curated')}
-              className={getFilterButtonClass('curated')}
-              style={{
-                backgroundColor: approvalFilter === 'curated' ? '#FEF7CD' : '',
-                color: approvalFilter === 'curated' ? '#1A2D10' : ''
-              }}
-              variant="outline"
-            >
-              Curated
-            </Button>
-            <Button
-              type="button"
-              onClick={() => onApprovalFilterChange('listed')}
-              className={getFilterButtonClass('listed')}
-              style={{
-                backgroundColor: approvalFilter === 'listed' ? '#FEF7CD' : '',
-                color: approvalFilter === 'listed' ? '#1A2D10' : ''
-              }}
-              variant="outline"
-            >
-              Listed
-            </Button>
-            {isAdmin && (
-              <Button
-                type="button"
-                onClick={() => onApprovalFilterChange('rejected')}
-                className={getFilterButtonClass('rejected')}
-                style={{
-                  backgroundColor: approvalFilter === 'rejected' ? '#FEF7CD' : '',
-                  color: approvalFilter === 'rejected' ? '#1A2D10' : ''
-                }}
-                variant="outline"
-              >
-                Rejected
-              </Button>
-            )}
-          </>
-        )}
       </div>
     </div>
   );

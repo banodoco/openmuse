@@ -129,6 +129,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── VideoManager.tsx # High-level component for managing video assets
 │   │   ├── VideoPreview.tsx # Component for showing a preview of a video (potentially distinct from VideoCard)
 │   │   └── WebcamRecorder.tsx # Component for recording video directly from the user's webcam
+│   │   └── ErrorBoundary.tsx # Catches React errors in its child component tree and displays a fallback UI
 │   ├── contexts/           # React Context definitions for global state management
 │   │   └── AuthContext.tsx # Context specifically for providing authentication state (user, session) and functions
 │   ├── hooks/              # Custom React hooks for encapsulating reusable stateful logic
@@ -231,5 +232,4 @@ This document outlines the directory structure of the openmuse` project, providi
 ├── tsconfig.json           # Root TypeScript configuration file, often extended by other tsconfig files
 ├── tsconfig.node.json      # TypeScript configuration for Node.js environments (e.g., for Vite config, scripts)
 └── vite.config.ts          # Configuration file for the Vite build tool (defining plugins, server options, build settings)
-```
 ```
