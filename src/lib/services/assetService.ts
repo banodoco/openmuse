@@ -28,20 +28,18 @@ export class AssetService {
         .from('assets')
         .select(`
           *,
-          primaryVideo:primary_media_id(*),
-          profile:user_id(username, display_name) 
-        `) // Select related profile data
+          primaryVideo:primary_media_id(*)
+        `) // Temporarily removed profile join
         .order('created_at', { ascending: false });
 
       if (error) {
-        this.logger.error('[adminview] Supabase query error in getAllAssets:', error); // Log the specific error
+        this.logger.error('[adminview] Supabase query error in getAllAssets:', JSON.stringify(error, null, 2)); // Log full error
         throw error; // Re-throw the error
       }
 
       this.logger.log(`[adminview] Retrieved ${data?.length || 0} assets from Supabase raw query.`);
 
       const assets: LoraAsset[] = data.map(asset => {
-        const profile = asset.profile as { username: string; display_name: string } | null;
         const pVideo = asset.primaryVideo;
         
         // Basic transformation, might need more details later
@@ -50,7 +48,7 @@ export class AssetService {
           name: asset.name,
           description: asset.description,
           creator: asset.creator, // Use the creator column if available
-          creatorDisplayName: profile?.display_name || profile?.username, // Get display name from profile
+          creatorDisplayName: asset.creator, // Fallback to creator column since profile is removed
           type: asset.type,
           created_at: asset.created_at,
           user_id: asset.user_id,
@@ -81,7 +79,7 @@ export class AssetService {
       return assets;
     } catch (error) {
       // Log the caught error in detail
-      this.logger.error('[adminview] Error caught in getAllAssets catch block:', error);
+      this.logger.error('[adminview] Error caught in getAllAssets catch block:', JSON.stringify(error, null, 2)); // Log full error
       return [];
     }
   }
@@ -107,17 +105,15 @@ export class AssetService {
         .eq('id', assetId)
         .select(`
             *,
-            primaryVideo:primary_media_id(*),
-            profile:user_id(username, display_name)
-        `)
+            primaryVideo:primary_media_id(*)
+        `) // Temporarily removed profile join
         .single();
 
       if (error) {
-        this.logger.error(`Error updating asset ${assetId} status:`, error);
+        this.logger.error(`Error updating asset ${assetId} status:`, JSON.stringify(error, null, 2)); // Log full error
         throw error;
       }
 
-      const profile = data.profile as { username: string; display_name: string } | null;
       const pVideo = data.primaryVideo;
       
       // Basic transformation after update
@@ -126,7 +122,7 @@ export class AssetService {
           name: data.name,
           description: data.description,
           creator: data.creator,
-          creatorDisplayName: profile?.display_name || profile?.username,
+          creatorDisplayName: data.creator, // Fallback to creator column
           type: data.type,
           created_at: data.created_at,
           user_id: data.user_id,
@@ -155,7 +151,7 @@ export class AssetService {
 
       return updatedAsset;
     } catch (error) {
-      this.logger.error(`Error setting admin status for asset ${assetId}:`, error);
+      this.logger.error(`Error setting admin status for asset ${assetId}:`, JSON.stringify(error, null, 2)); // Log full error
       return null;
     }
   }
@@ -286,7 +282,7 @@ export class AssetService {
       this.logger.log(`Successfully deleted asset ${assetId}`);
       return true;
     } catch (error) {
-      this.logger.error(`Error deleting asset ${assetId}:`, error);
+      this.logger.error(`Error deleting asset ${assetId}:`, JSON.stringify(error, null, 2)); // Log full error
       return false;
     }
   }
