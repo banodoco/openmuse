@@ -160,8 +160,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               id: item.id,
               name: item.name
             }));
-            setAvailableLoras(formattedLoras);
-            console.log('[VideoLightboxDebug] LoRA fetch success:', formattedLoras);
+            
+            // Filter out the specific LoRA ID
+            const filteredLoras = formattedLoras.filter(lora => lora.id !== '3f7885ef-389d-4208-bf20-0e4df29388d2');
+            
+            setAvailableLoras(filteredLoras);
+            console.log('[VideoLightboxDebug] LoRA fetch success (after filtering):', filteredLoras);
           } else {
             setAvailableLoras([]);
             console.log('[VideoLightboxDebug] LoRA fetch success: No LoRAs found.');
