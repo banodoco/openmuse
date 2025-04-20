@@ -187,8 +187,21 @@ const AssetInfoCard = ({
               <div className="w-full p-3 border border-yellow-500 rounded-md bg-yellow-50/50 space-y-3">
                 <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wider">Admin Controls</p>
                 
-                {/* Admin Moderation Buttons - Updated to 4 options */}
+                {/* Admin Moderation Buttons - Reordered to Hidden, Listed, Curated, Featured */}
                 <div className="grid grid-cols-2 gap-2 w-full">
+                  {/* Hidden Button */}
+                  <Button
+                    size="sm"
+                    variant={asset?.admin_status === 'Hidden' ? "destructive" : "outline"}
+                    onClick={() => onAdminStatusChange('Hidden')}
+                    className={cn(
+                      "gap-1 h-8 text-xs",
+                      asset?.admin_status === 'Hidden' ? "" : "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
+                    )}
+                    disabled={isUpdatingAdminStatus || asset?.admin_status === 'Hidden'}
+                  >
+                    <EyeOff className="h-4 w-4" /> Hide
+                  </Button>
                   {/* Listed Button */}
                   <Button
                     size="sm"
@@ -218,19 +231,6 @@ const AssetInfoCard = ({
                     disabled={isUpdatingAdminStatus || asset?.admin_status === 'Featured'}
                   >
                     <Flame className="h-4 w-4" /> Feature
-                  </Button>
-                  {/* Hidden Button */}
-                  <Button
-                    size="sm"
-                    variant={asset?.admin_status === 'Hidden' ? "destructive" : "outline"}
-                    onClick={() => onAdminStatusChange('Hidden')}
-                    className={cn(
-                      "gap-1 h-8 text-xs",
-                      asset?.admin_status === 'Hidden' ? "" : "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
-                    )}
-                    disabled={isUpdatingAdminStatus || asset?.admin_status === 'Hidden'}
-                  >
-                    <EyeOff className="h-4 w-4" /> Hide
                   </Button>
                 </div>
               </div>

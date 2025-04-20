@@ -65,7 +65,7 @@ const statusConfig: { [key in AdminStatus]: { label: string, icon: React.ReactNo
 type VideoFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'reviewed';
 type AssetFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'reviewed';
 
-const filterableStatuses: Exclude<AdminStatus, 'Rejected'>[] = ['Listed', 'Curated', 'Featured', 'Hidden'];
+const filterableStatuses: Exclude<AdminStatus, 'Rejected'>[] = ['Hidden', 'Listed', 'Curated', 'Featured'];
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
