@@ -201,6 +201,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
           .from('asset_media')
           .update({ status: newStatus })
           .eq('asset_id', assetId)
+          .eq('media_id', video.id)
           .select();
 
         if (error) {
@@ -311,7 +312,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
           {/* Status controls at bottom left */}
           {isAuthorized && (
-            <div className="absolute bottom-2 left-2 z-50 group-hover:opacity-100 transition-opacity duration-200" onClick={e => {
+            <div className={cn(
+              "absolute bottom-2 left-2 z-50 transition-opacity duration-200",
+              !isMobile && "opacity-0 group-hover:opacity-100" // Apply hover effect only on desktop
+            )} onClick={e => {
               e.stopPropagation();
               e.preventDefault();
             }} style={{ pointerEvents: 'all' }}>
@@ -328,6 +332,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             <div 
               className={cn(
                 "absolute top-2 right-2 z-50 flex gap-2",
+                !isMobile && "opacity-0 group-hover:opacity-100 transition-opacity duration-200", // Apply hover effect only on desktop
                 isMobile && "right-8" // Move slightly left if mobile expand icon is shown
               )}
               onClick={e => {
