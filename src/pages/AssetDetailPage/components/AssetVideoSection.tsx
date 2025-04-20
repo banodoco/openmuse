@@ -68,7 +68,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const { pathname } = useLocation();
   const isLoraPage = pathname.includes('/assets/loras/');
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
-  const [classification, setClassification] = useState<'all' | 'generation' | 'art'>('all');
+  const [classification, setClassification] = useState<'all' | 'gen' | 'art'>('all');
   
   // State to track the ID of the video currently in view for autoplay
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
@@ -199,14 +199,14 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         <h2 className="text-xl font-bold text-muted-foreground">Videos made with this:</h2>
         <Select 
           value={classification} 
-          onValueChange={(value: string) => setClassification(value as 'all' | 'generation' | 'art')}
+          onValueChange={(value: string) => setClassification(value as 'all' | 'gen' | 'art')}
         >
           <SelectTrigger className="w-[180px]">
             <SelectValue placeholder="Filter by type" />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="all">All Videos</SelectItem>
-            <SelectItem value="generation">Generation</SelectItem>
+            <SelectItem value="gen">Generation</SelectItem>
             <SelectItem value="art">Art</SelectItem>
           </SelectContent>
         </Select>

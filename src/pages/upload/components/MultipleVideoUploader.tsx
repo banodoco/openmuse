@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
@@ -15,7 +14,7 @@ interface VideoItem {
   metadata: {
     title: string;
     description: string;
-    classification: 'art' | 'generation';
+    classification: 'art' | 'gen';
     creator: 'self' | 'someone_else';
     creatorName: string;
     isPrimary?: boolean;
@@ -53,7 +52,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     metadata: {
       title: '',
       description: '',
-      classification: 'generation',
+      classification: 'gen',
       creator: 'self',
       creatorName: user?.email || '',
       isPrimary: videos.length === 0
@@ -85,7 +84,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'generation' as 'art' | 'generation',
+            classification: 'gen' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst
@@ -121,7 +120,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         metadata: {
           title: '',
           description: '',
-          classification: 'generation',
+          classification: 'gen',
           creator: 'self',
           creatorName: user?.email || '',
           isPrimary: isFirst
@@ -160,7 +159,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'generation' as 'art' | 'generation',
+            classification: 'gen' as 'art' | 'gen',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst

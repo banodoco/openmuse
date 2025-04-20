@@ -5,7 +5,7 @@ export interface VideoMetadata {
   description?: string;
   creator?: 'self' | 'someone_else';
   creatorName?: string;
-  classification?: 'art' | 'generation'; 
+  classification?: 'art' | 'gen';
   isPrimary?: boolean;
   loraName?: string;
   loraDescription?: string;
@@ -114,7 +114,7 @@ export interface LoraManagerProps {
 export interface VideoMetadataForm {
   title: string;
   description: string;
-  classification: 'art' | 'generation';
+  classification: 'art' | 'gen';
   creator: 'self' | 'someone_else';
   creatorName: string;
   isPrimary?: boolean;

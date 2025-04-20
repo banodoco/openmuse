@@ -459,6 +459,7 @@ function AssetDetailPage() {
                   handleDeleteVideo={handleDeleteVideo}
                   handleSetPrimaryMedia={handleSetPrimaryMedia}
                   onStatusChange={updateLocalVideoStatus}
+                  refetchVideos={fetchAssetDetails}
                 />
               </div>
             </div>

@@ -31,7 +31,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [classification, setClassification] = useState<'art' | 'generation'>('generation');
+  const [classification, setClassification] = useState<'art' | 'gen'>('gen');
   const [creator, setCreator] = useState<'self' | 'someone_else'>('self');
   const [creatorName, setCreatorName] = useState('');
   const [model, setModel] = useState<'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'>('wan');
@@ -223,13 +223,13 @@ const UploadContent: React.FC<UploadContentProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="classification">Classification</Label>
-              <Select value={classification} onValueChange={(value) => setClassification(value as 'art' | 'generation')} disabled={isPending}>
+              <Select value={classification} onValueChange={(value) => setClassification(value as 'art' | 'gen')} disabled={isPending}>
                 <SelectTrigger className="w-full mt-1">
-                  <SelectValue placeholder="Select Classification" />
+                  <SelectValue placeholder="Select classification" />
                 </SelectTrigger>
                 <SelectContent>
+                  <SelectItem value="gen">Generation</SelectItem>
                   <SelectItem value="art">Art</SelectItem>
-                  <SelectItem value="generation">Generation</SelectItem>
                 </SelectContent>
               </Select>
             </div>
