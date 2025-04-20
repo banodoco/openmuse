@@ -23,7 +23,8 @@ import {
   ChevronDown,
   Trash2,
   RefreshCw,
-  Package
+  Package,
+  CheckCheck
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Logger } from '@/lib/logger';
@@ -55,10 +56,13 @@ const statusConfig: { [key in AdminStatus]: { label: string, icon: React.ReactNo
   Curated: { label: 'Curated', icon: <ListChecks className="h-3 w-3 mr-1" />, variant: 'default', filterKey: 'curated' },
   Featured: { label: 'Featured', icon: <Flame className="h-3 w-3 mr-1" />, variant: 'default', filterKey: 'featured' },
   Hidden: { label: 'Hidden', icon: <EyeOff className="h-3 w-3 mr-1" />, variant: 'destructive', filterKey: 'hidden' },
+  Rejected: { label: 'Rejected', icon: <X className="h-3 w-3 mr-1"/>, variant: 'destructive', filterKey: 'rejected' },
 };
 
-type VideoFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'skipped';
-type AssetFilterKey = 'listed' | 'curated' | 'featured' | 'hidden';
+type VideoFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'skipped' | 'reviewed';
+type AssetFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'reviewed';
+
+const filterableStatuses: Exclude<AdminStatus, 'Rejected'>[] = ['Listed', 'Curated', 'Featured', 'Hidden'];
 
 const Admin: React.FC = () => {
   const { user } = useAuth();
@@ -72,9 +76,10 @@ const Admin: React.FC = () => {
     featured: true,
     hidden: true,
     skipped: true,
+    reviewed: false,
   });
   const [videoStatusCounts, setVideoStatusCounts] = useState<Record<VideoFilterKey | 'total', number>>({
-    listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, total: 0
+    listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, reviewed: 0, total: 0
   });
 
   const [assets, setAssets] = useState<LoraAsset[]>([]);
@@ -85,9 +90,10 @@ const Admin: React.FC = () => {
     curated: true,
     featured: true,
     hidden: true,
+    reviewed: false,
   });
   const [assetStatusCounts, setAssetStatusCounts] = useState<Record<AssetFilterKey | 'total', number>>({
-    listed: 0, curated: 0, featured: 0, hidden: 0, total: 0
+    listed: 0, curated: 0, featured: 0, hidden: 0, reviewed: 0, total: 0
   });
   
   const [activeTab, setActiveTab] = useState('videos');
@@ -101,7 +107,8 @@ const Admin: React.FC = () => {
       
       const processedEntries = allEntries.map(entry => ({
         ...entry,
-        admin_status: entry.admin_status ?? 'Listed'
+        admin_status: entry.admin_status ?? 'Listed',
+        admin_reviewed: entry.admin_reviewed ?? false
       })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
       logger.log('[adminview] Processed entries:', processedEntries.length);
@@ -127,7 +134,8 @@ const Admin: React.FC = () => {
       
       const processedAssets = allAssets.map(asset => ({
         ...asset,
-        admin_status: asset.admin_status ?? 'Listed'
+        admin_status: asset.admin_status ?? 'Listed',
+        admin_reviewed: asset.admin_reviewed ?? false
       })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
       logger.log('[adminview] Processed assets:', processedAssets.length);
@@ -161,10 +169,19 @@ const Admin: React.FC = () => {
     logger.log('[adminview] applyVideoFilters called. Raw entries count:', entries.length);
     logger.log('[adminview] Current videoFilters:', videoFilters);
     const newCounts: Record<VideoFilterKey | 'total', number> = {
-      listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, total: entries.length
+      listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, reviewed: 0, total: entries.length
     };
     
     const filtered = entries.filter(entry => {
+      if (entry.admin_reviewed) {
+        newCounts.reviewed++;
+      }
+
+      if (entry.admin_reviewed && !videoFilters.reviewed) {
+        logger.log(`[adminview] Filtering out video ${entry.id}: Reviewed and 'Show Reviewed' is false.`);
+        return false;
+      }
+
       let currentFilterKey: VideoFilterKey;
       
       if (entry.skipped) {
@@ -188,10 +205,19 @@ const Admin: React.FC = () => {
     logger.log('[adminview] applyAssetFilters called. Raw assets count:', assets.length);
     logger.log('[adminview] Current assetFilters:', assetFilters);
     const newCounts: Record<AssetFilterKey | 'total', number> = {
-      listed: 0, curated: 0, featured: 0, hidden: 0, total: assets.length
+      listed: 0, curated: 0, featured: 0, hidden: 0, reviewed: 0, total: assets.length
     };
     
     const filtered = assets.filter(asset => {
+      if (asset.admin_reviewed) {
+        newCounts.reviewed++;
+      }
+
+      if (asset.admin_reviewed && !assetFilters.reviewed) {
+        logger.log(`[adminview] Filtering out asset ${asset.id}: Reviewed and 'Show Reviewed' is false.`);
+        return false;
+      }
+
       const status = asset.admin_status ?? 'Listed';
       const currentFilterKey = statusConfig[status]?.filterKey as AssetFilterKey || 'listed';
       
@@ -218,7 +244,7 @@ const Admin: React.FC = () => {
       const updatedEntry = await videoEntryService.setApprovalStatus(entryId, newStatus);
       if (updatedEntry) {
         setEntries(prevEntries => 
-          prevEntries.map(e => e.id === entryId ? { ...e, admin_status: newStatus } : e)
+          prevEntries.map(e => e.id === entryId ? { ...e, admin_status: newStatus, admin_reviewed: true } : e)
         );
         toast.success(`Video status updated to ${newStatus}`);
       } else {
@@ -227,6 +253,23 @@ const Admin: React.FC = () => {
     } catch (error: any) {
       logger.error(`Error setting video status to ${newStatus} for entry ${entryId}:`, error);
       toast.error(error.message || `Failed to update video status`);
+    }
+  };
+
+  const handleSetVideoReviewedStatus = async (entryId: string, reviewed: boolean) => {
+    try {
+      const updatedEntry = await videoEntryService.setReviewedStatus(entryId, reviewed);
+      if (updatedEntry) {
+        setEntries(prevEntries =>
+          prevEntries.map(e => e.id === entryId ? { ...e, admin_reviewed: reviewed } : e)
+        );
+        toast.success(`Video reviewed status set to ${reviewed}`);
+      } else {
+        toast.error(`Failed to update video reviewed status`);
+      }
+    } catch (error: any) {
+      logger.error(`Error setting video reviewed status for ${entryId}:`, error);
+      toast.error(error.message || `Failed to update reviewed status`);
     }
   };
 
@@ -271,7 +314,7 @@ const Admin: React.FC = () => {
       const updatedAsset = await assetService.setAssetAdminStatus(assetId, newStatus);
       if (updatedAsset) {
         setAssets(prevAssets =>
-          prevAssets.map(a => a.id === assetId ? { ...a, admin_status: newStatus } : a)
+          prevAssets.map(a => a.id === assetId ? { ...a, admin_status: newStatus, admin_reviewed: true } : a)
         );
         toast.success(`Asset status updated to ${newStatus}`);
       } else {
@@ -280,6 +323,23 @@ const Admin: React.FC = () => {
     } catch (error: any) {
       logger.error(`Error setting asset status to ${newStatus} for asset ${assetId}:`, error);
       toast.error(error.message || `Failed to update asset status`);
+    }
+  };
+
+  const handleSetAssetReviewedStatus = async (assetId: string, reviewed: boolean) => {
+    try {
+      const updatedAsset = await assetService.setAssetReviewedStatus(assetId, reviewed);
+      if (updatedAsset) {
+        setAssets(prevAssets =>
+          prevAssets.map(a => a.id === assetId ? { ...a, admin_reviewed: reviewed } : a)
+        );
+        toast.success(`Asset reviewed status set to ${reviewed}`);
+      } else {
+        toast.error(`Failed to update asset reviewed status`);
+      }
+    } catch (error: any) {
+      logger.error(`Error setting asset reviewed status for ${assetId}:`, error);
+      toast.error(error.message || `Failed to update reviewed status`);
     }
   };
 
@@ -365,7 +425,7 @@ const Admin: React.FC = () => {
               </div>
               
               <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
-                {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                {filterableStatuses.map(status => (
                   <div key={`asset-filter-${status}`} className="flex items-center space-x-2">
                     <Checkbox 
                       id={`asset-filter-${statusConfig[status].filterKey}`}
@@ -375,6 +435,14 @@ const Admin: React.FC = () => {
                     <Label htmlFor={`asset-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
                   </div>
                 ))}
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="asset-filter-reviewed"
+                    checked={assetFilters.reviewed}
+                    onCheckedChange={(checked) => handleAssetFilterChange('reviewed', checked as boolean)} 
+                  />
+                  <Label htmlFor="asset-filter-reviewed">Show Reviewed</Label>
+                </div>
               </div>
 
               <div className="flex flex-wrap gap-4 mb-6 px-4 py-2 text-sm text-muted-foreground">
@@ -382,7 +450,7 @@ const Admin: React.FC = () => {
                   Showing <span className="font-medium text-foreground">{filteredAssets.length}</span> of <span className="font-medium text-foreground">{assetStatusCounts.total}</span> assets
                 </div>
                 <div className="flex gap-3 flex-wrap">
-                  {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                  {filterableStatuses.map(status => (
                     assetFilters[statusConfig[status].filterKey as AssetFilterKey] && (
                       <span key={`asset-count-${status}`} className="flex items-center">
                         {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-3 w-3 mr-1" })}
@@ -390,6 +458,10 @@ const Admin: React.FC = () => {
                       </span>
                     )
                   ))}
+                  <span className="flex items-center">
+                    <CheckCheck className="h-3 w-3 mr-1 text-green-600" />
+                    {assetStatusCounts.reviewed} reviewed
+                  </span>
                 </div>
               </div>
               
@@ -453,7 +525,7 @@ const Admin: React.FC = () => {
 
                           {/* Bottom part: Actions */}
                           <div className="grid grid-cols-2 gap-2 mb-2">
-                            {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                            {filterableStatuses.map(status => (
                               <Button
                                 key={`asset-action-${status}`}
                                 size="sm"
@@ -528,7 +600,7 @@ const Admin: React.FC = () => {
               </div>
               
               <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
-                {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                {filterableStatuses.map(status => (
                   <div key={`video-filter-${status}`} className="flex items-center space-x-2">
                   <Checkbox 
                       id={`video-filter-${statusConfig[status].filterKey}`}
@@ -553,7 +625,7 @@ const Admin: React.FC = () => {
                   Showing <span className="font-medium text-foreground">{filteredEntries.length}</span> of <span className="font-medium text-foreground">{videoStatusCounts.total}</span> videos
                 </div>
                 <div className="flex gap-3 flex-wrap">
-                  {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                  {filterableStatuses.map(status => (
                     videoFilters[statusConfig[status].filterKey as VideoFilterKey] && (
                       <span key={`video-count-${status}`} className="flex items-center">
                         {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-3 w-3 mr-1" })}
@@ -609,18 +681,18 @@ const Admin: React.FC = () => {
                             </div>
 
                             <div className="grid grid-cols-2 gap-2">
-                              {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
-                            <Button 
+                              {filterableStatuses.map(status => (
+                                <Button
                                   key={`video-action-${status}`}
-                              size="sm"
+                                  size="sm"
                                   variant={entry.skipped ? 'outline' : (entry.admin_status === status ? statusConfig[status].variant : 'outline')}
                                   onClick={() => handleSetVideoAdminStatus(entry.id, status)}
                                   disabled={entry.skipped || entry.admin_status === status}
                                   className="gap-1 h-8 text-xs"
-                            >
+                                >
                                   {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4" })}
                                   {statusConfig[status].label}
-                            </Button>
+                                </Button>
                               ))}
                             </div>
 

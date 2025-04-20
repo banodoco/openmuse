@@ -68,6 +68,7 @@ export class AssetService {
           user_id: asset.user_id,
           primary_media_id: asset.primary_media_id,
           admin_status: asset.admin_status || 'Listed',
+          admin_reviewed: asset.admin_reviewed || false,
           user_status: asset.user_status || null,
           lora_type: asset.lora_type,
           lora_base_model: asset.lora_base_model,
@@ -101,7 +102,7 @@ export class AssetService {
   }
 
   async setAssetAdminStatus(assetId: string, status: AdminStatus): Promise<LoraAsset | null> {
-    this.logger.log(`Setting admin status for asset ${assetId} to ${status}`);
+    this.logger.log(`Setting admin status for asset ${assetId} to ${status} and marking as reviewed.`);
 
     if (this.currentUserId) {
       const isAdmin = await checkIsAdmin(this.currentUserId);
@@ -117,7 +118,7 @@ export class AssetService {
     try {
       const { data, error } = await supabase
         .from('assets')
-        .update({ admin_status: status })
+        .update({ admin_status: status, admin_reviewed: true })
         .eq('id', assetId)
         .select(`
             *,
@@ -144,6 +145,7 @@ export class AssetService {
           user_id: data.user_id,
           primary_media_id: data.primary_media_id,
           admin_status: data.admin_status || 'Listed', 
+          admin_reviewed: data.admin_reviewed || false,
           user_status: data.user_status || null,
           lora_type: data.lora_type,
           lora_base_model: data.lora_base_model,
@@ -168,6 +170,79 @@ export class AssetService {
       return updatedAsset;
     } catch (error) {
       this.logger.error(`Error setting admin status for asset ${assetId}:`, JSON.stringify(error, null, 2)); // Log full error
+      return null;
+    }
+  }
+
+  async setAssetReviewedStatus(assetId: string, reviewed: boolean): Promise<LoraAsset | null> {
+    this.logger.log(`Setting reviewed status for asset ${assetId} to ${reviewed}.`);
+
+    if (this.currentUserId) {
+      const isAdmin = await checkIsAdmin(this.currentUserId);
+      if (!isAdmin) {
+        this.logger.error('Non-admin user attempted to set asset reviewed status');
+        throw new Error('Permission denied: Only admins can change reviewed status');
+      }
+    } else {
+      this.logger.error('Unauthenticated user attempted to set asset reviewed status');
+      throw new Error('Authentication required to change reviewed status');
+    }
+
+    try {
+      const { data, error } = await supabase
+        .from('assets')
+        .update({ admin_reviewed: reviewed })
+        .eq('id', assetId)
+        .select(`
+            *,
+            primaryVideo:primary_media_id(*)
+        `) // Re-select needed data
+        .single();
+
+      if (error) {
+        this.logger.error(`Error updating asset ${assetId} reviewed status:`, JSON.stringify(error, null, 2));
+        throw error;
+      }
+
+      const pVideo = data.primaryVideo;
+      
+      // Map back to LoraAsset (similar to setAssetAdminStatus)
+      const updatedAsset: LoraAsset = {
+          id: data.id,
+          name: data.name,
+          description: data.description,
+          creator: data.creator,
+          creatorDisplayName: data.creator,
+          type: data.type,
+          created_at: data.created_at,
+          user_id: data.user_id,
+          primary_media_id: data.primary_media_id,
+          admin_status: data.admin_status || 'Listed',
+          admin_reviewed: data.admin_reviewed || false,
+          user_status: data.user_status || null,
+          lora_type: data.lora_type,
+          lora_base_model: data.lora_base_model,
+          model_variant: data.model_variant,
+          lora_link: data.lora_link,
+          primaryVideo: pVideo ? {
+            id: pVideo.id,
+            url: pVideo.url,
+            reviewer_name: '',
+            skipped: false,
+            created_at: pVideo.created_at,
+            admin_status: pVideo.admin_status,
+            user_status: pVideo.user_status,
+            user_id: pVideo.user_id,
+            placeholder_image: pVideo.placeholder_image,
+            thumbnailUrl: pVideo.placeholder_image,
+            title: pVideo.title,
+            description: pVideo.description,
+          } : undefined,
+        };
+
+      return updatedAsset;
+    } catch (error) {
+      this.logger.error(`Error setting reviewed status for asset ${assetId}:`, JSON.stringify(error, null, 2));
       return null;
     }
   }

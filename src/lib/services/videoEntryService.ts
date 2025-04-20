@@ -52,6 +52,7 @@ export class VideoEntryService {
           admin_status: media.admin_status || 'Listed',
           user_status: media.user_status || null,
           user_id: media.user_id,
+          admin_reviewed: media.admin_reviewed || false,
           metadata: {
             title: media.title,
             description: '',
@@ -76,16 +77,38 @@ export class VideoEntryService {
   
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
     try {
+      // Prepare the update object for the 'media' table
+      const mediaUpdate: Record<string, any> = {};
+      if (update.metadata?.title !== undefined) mediaUpdate.title = update.metadata.title;
+      if (update.metadata?.classification !== undefined) mediaUpdate.classification = update.metadata.classification;
+      if (update.metadata?.creatorName !== undefined || update.reviewer_name !== undefined) {
+         mediaUpdate.creator = update.metadata?.creatorName || update.reviewer_name;
+      }
+      if (update.admin_status !== undefined) mediaUpdate.admin_status = update.admin_status;
+      if (update.user_status !== undefined) mediaUpdate.user_status = update.user_status;
+      if (update.metadata?.description !== undefined) mediaUpdate.description = update.metadata.description;
+      if (update.admin_reviewed !== undefined) mediaUpdate.admin_reviewed = update.admin_reviewed;
+
+      // Only proceed if there's something to update
+      if (Object.keys(mediaUpdate).length === 0) {
+        this.logger.log(`No fields to update for media ${id}. Returning existing data.`);
+        // Fetch existing data if nothing to update, to return consistent object
+         const { data: existingData, error: fetchError } = await supabase
+           .from('media')
+           .select('*')
+           .eq('id', id)
+           .single();
+         if (fetchError || !existingData) {
+           this.logger.error(`Error fetching existing media ${id}:`, fetchError);
+           return null;
+         }
+         // Map existing data back (simplified for brevity)
+         return { ...existingData, admin_status: existingData.admin_status || 'Listed' } as VideoEntry; // Cast needed
+      }
+      
       const { data, error } = await supabase
         .from('media')
-        .update({
-          title: update.metadata?.title,
-          classification: update.metadata?.classification,
-          creator: update.metadata?.creatorName || update.reviewer_name,
-          admin_status: update.admin_status,
-          user_status: update.user_status,
-          description: update.metadata?.description
-        })
+        .update(mediaUpdate)
         .eq('id', id)
         .select('*')
         .single();
@@ -95,11 +118,7 @@ export class VideoEntryService {
         return null;
       }
       
-      // Find associated asset (if any)
-      // const assets = data.assets as any[] || [];
-      // const asset = assets.length > 0 ? assets[0] : null;
-      
-      // Construct the updated VideoEntry object
+      // Construct the updated VideoEntry object from the response
       const updatedEntry: VideoEntry = {
         id: data.id,
         url: data.url,
@@ -109,9 +128,10 @@ export class VideoEntryService {
         admin_status: data.admin_status || 'Listed',
         user_status: data.user_status || null,
         user_id: data.user_id,
+        admin_reviewed: data.admin_reviewed || false,
         metadata: {
           title: data.title,
-          description: update.metadata?.description || '',
+          description: data.description || update.metadata?.description || '',
           creator: update.metadata?.creator || 'self',
           classification: data.classification || 'art',
           loraName: update.metadata?.loraName,
@@ -129,13 +149,12 @@ export class VideoEntryService {
   }
   
   async markAsSkipped(id: string): Promise<VideoEntry | null> {
-    // Implement skipped status differently since video_entries is gone
-    // Just pass through to updateEntry for now
+    this.logger.warn(`markAsSkipped called for ${id}, but 'skipped' is not a DB field. No DB update performed.`);
     return this.updateEntry(id, { skipped: true });
   }
   
   async setApprovalStatus(id: string, status: AdminStatus): Promise<VideoEntry | null> {
-    this.logger.log(`Setting admin status for entry ${id} to ${status}`);
+    this.logger.log(`Setting admin status for entry ${id} to ${status} and marking as reviewed.`);
     
     if (this.currentUserId) {
       const isAdmin = await checkIsAdmin(this.currentUserId);
@@ -148,8 +167,24 @@ export class VideoEntryService {
       throw new Error('Authentication required to change admin status');
     }
     
-    // Pass through to updateEntry to update admin_status
-    return this.updateEntry(id, { admin_status: status });
+    return this.updateEntry(id, { admin_status: status, admin_reviewed: true });
+  }
+  
+  async setReviewedStatus(id: string, reviewed: boolean): Promise<VideoEntry | null> {
+    this.logger.log(`Setting reviewed status for entry ${id} to ${reviewed}.`);
+
+    if (this.currentUserId) {
+      const isAdmin = await checkIsAdmin(this.currentUserId);
+      if (!isAdmin) {
+        this.logger.error('Non-admin user attempted to set reviewed status');
+        throw new Error('Permission denied: Only admins can change reviewed status');
+      }
+    } else {
+      this.logger.error('Unauthenticated user attempted to set reviewed status');
+      throw new Error('Authentication required to change reviewed status');
+    }
+    
+    return this.updateEntry(id, { admin_reviewed: reviewed });
   }
   
   async deleteEntry(id: string): Promise<boolean> {
