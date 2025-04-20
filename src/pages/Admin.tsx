@@ -511,7 +511,18 @@ const Admin: React.FC = () => {
                         {/* Right Column: Details and Actions (spans 2 columns on md) */}
                         <div className="md:col-span-2 flex flex-col justify-between h-full">
                           {/* Top part: Details */}
-                          <div className="mb-4">
+                          <div className="mb-4 relative">
+                            <Button
+                              size="sm"
+                              variant={asset.admin_reviewed ? "outline" : "secondary"}
+                              onClick={() => handleSetAssetReviewedStatus(asset.id, !asset.admin_reviewed)}
+                              className="absolute top-0 right-0 gap-1 h-7 text-xs"
+                              title={asset.admin_reviewed ? "Mark as Unreviewed" : "Mark as Reviewed"}
+                            >
+                              <CheckCheck className="h-4 w-4" />
+                              {asset.admin_reviewed ? "Reviewed" : "Mark Reviewed"}
+                            </Button>
+
                             <Badge variant={variant} className="flex items-center whitespace-nowrap w-fit mb-2">
                               {icon}
                               {label}
@@ -670,7 +681,18 @@ const Admin: React.FC = () => {
                             )}
                           </div>
                           <div className="space-y-4">
-                            <div className="space-y-2">
+                            <div className="space-y-2 relative">
+                              <Button
+                                size="sm"
+                                variant={entry.admin_reviewed ? "outline" : "secondary"}
+                                onClick={() => handleSetVideoReviewedStatus(entry.id, !entry.admin_reviewed)}
+                                className="absolute top-0 right-0 gap-1 h-7 text-xs"
+                                title={entry.admin_reviewed ? "Mark as Unreviewed" : "Mark as Reviewed"}
+                              >
+                                <CheckCheck className="h-4 w-4" />
+                                {entry.admin_reviewed ? "Reviewed" : "Mark Reviewed"}
+                              </Button>
+
                               <Badge variant={variant} className="flex items-center whitespace-nowrap w-fit">
                               {icon}
                               {label}
