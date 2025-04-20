@@ -31,7 +31,7 @@ export class VideoEntryService {
         .order('created_at', { ascending: false });
       
       if (error) {
-        this.logger.error('Error getting entries from Supabase:', error);
+        this.logger.error('Error getting entries from Supabase:', JSON.stringify(error, null, 2));
         throw error;
       }
       
@@ -69,7 +69,7 @@ export class VideoEntryService {
       
       return entries;
     } catch (error) {
-      this.logger.error('Error getting entries from Supabase:', error);
+      this.logger.error('Error getting entries from Supabase:', JSON.stringify(error, null, 2));
       return [];
     }
   }
@@ -91,7 +91,7 @@ export class VideoEntryService {
         .single();
       
       if (error) {
-        this.logger.error(`Error updating media ${id}:`, error);
+        this.logger.error(`Error updating media ${id}:`, JSON.stringify(error, null, 2));
         return null;
       }
       
@@ -139,7 +139,7 @@ export class VideoEntryService {
       
       return updatedEntry;
     } catch (error) {
-      this.logger.error(`Error updating entry ${id}:`, error);
+      this.logger.error(`Error updating entry ${id}:`, JSON.stringify(error, null, 2));
       return null;
     }
   }
@@ -251,14 +251,14 @@ export class VideoEntryService {
         .eq('id', id);
       
       if (deleteError) {
-        this.logger.error(`Error deleting media ${id}:`, deleteError);
+        this.logger.error(`Error deleting media ${id}:`, JSON.stringify(deleteError, null, 2));
         return false;
       }
       
       this.logger.log(`Deleted media entry: ${id}`);
       return true;
     } catch (error) {
-      this.logger.error(`Error deleting entry ${id}:`, error);
+      this.logger.error(`Error deleting entry ${id}:`, JSON.stringify(error, null, 2));
       return false;
     }
   }
@@ -318,7 +318,7 @@ export class VideoEntryService {
       
       this.logger.log('Cleared all entries');
     } catch (error) {
-      this.logger.error('Error clearing entries from Supabase:', error);
+      this.logger.error('Error clearing entries from Supabase:', JSON.stringify(error, null, 2));
     }
   }
 }
