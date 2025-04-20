@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { Play } from 'lucide-react';
@@ -8,6 +8,7 @@ import VideoOverlay from './VideoOverlay';
 import LazyPosterImage from './LazyPosterImage';
 import { useVideoLoader } from '@/hooks/useVideoLoader';
 import { useVideoPlayback } from '@/hooks/useVideoPlayback';
+import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 const logger = new Logger('VideoPlayer');
 
@@ -55,6 +56,10 @@ interface VideoPlayerProps {
   preventLoadingFlicker?: boolean;
   preload?: 'none' | 'metadata' | 'auto';
   showFirstFrameAsPoster?: boolean;
+  onVisibilityChange?: (isVisible: boolean) => void;
+  intersectionOptions?: IntersectionObserverInit;
+  onEnterPreloadArea?: (isInPreloadArea: boolean) => void;
+  preloadMargin?: string;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -101,6 +106,10 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   preventLoadingFlicker = true,
   preload: preloadProp,
   showFirstFrameAsPoster = false,
+  onVisibilityChange,
+  intersectionOptions = { threshold: 0.25 },
+  onEnterPreloadArea,
+  preloadMargin = '0px 0px 600px 0px',
 }) => {
   const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
   logger.log(`[${componentId}] Rendering. src: ${src?.substring(0,30)}..., poster: ${!!poster}, lazyLoad: ${lazyLoad}, preventLoadingFlicker: ${preventLoadingFlicker}`);
@@ -278,6 +287,73 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [showFirstFrameAsPoster, initialFrameLoaded, onLoadedData, videoRef, componentId]);
 
+  // Setup Intersection Observer using the hook
+  const isIntersecting = useIntersectionObserver(containerRef, intersectionOptions);
+
+  // Notify parent component when visibility changes
+  useEffect(() => {
+    if (onVisibilityChange && !unmountedRef.current) {
+      logger.log(`[${componentId}] Visibility changed: ${isIntersecting}`);
+      onVisibilityChange(isIntersecting);
+    }
+  }, [isIntersecting, onVisibilityChange]);
+
+  // Don't show poster if the initial frame is loaded (and flag is set)
+  const shouldShowPoster = poster && !(showFirstFrameAsPoster && initialFrameLoaded);
+
+  // Add event listener for initial frame loading
+  const handleLoadedMetadataInternal = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    if (!unmountedRef.current) {
+      logger.log(`[${componentId}] Loaded metadata.`);
+      if (showFirstFrameAsPoster) {
+        setInitialFrameLoaded(true);
+        logger.log(`[${componentId}] Marked initial frame as loaded.`);
+      }
+      if (onLoadedMetadata) onLoadedMetadata(e);
+    }
+  };
+
+  // Internal handler for the video element's onError event
+  const handleVideoError = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    if (!unmountedRef.current) {
+      logger.error(`[${componentId}] Video element reported error event:`, event);
+      const videoElement = event.currentTarget;
+      let errorMessage = 'An unknown video error occurred.';
+      if (videoElement.error) {
+        switch (videoElement.error.code) {
+          case MediaError.MEDIA_ERR_ABORTED:
+            errorMessage = 'Video playback aborted.';
+            break;
+          case MediaError.MEDIA_ERR_NETWORK:
+            errorMessage = 'A network error caused video download to fail.';
+            break;
+          case MediaError.MEDIA_ERR_DECODE:
+            errorMessage = 'Video playback failed due to a decoding error.';
+            break;
+          case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+            errorMessage = 'The video source is not supported.';
+            break;
+          default:
+            errorMessage = `An error occurred: ${videoElement.error.message} (Code: ${videoElement.error.code})`;
+        }
+      }
+      // Call the prop onError with the formatted message
+      if (onError) {
+        onError(errorMessage);
+      }
+    }
+  }, [onError, componentId]);
+
+  // --- Intersection Observer for Preloading --- 
+  const preloadObserverOptions = useMemo(() => ({ rootMargin: preloadMargin, threshold: 0 }), [preloadMargin]);
+  const isInPreloadArea = useIntersectionObserver(containerRef, preloadObserverOptions);
+  useEffect(() => {
+    if (onEnterPreloadArea && !unmountedRef.current) {
+      logger.log(`[${componentId}] Preload Area Visibility changed: ${isInPreloadArea}`);
+      onEnterPreloadArea(isInPreloadArea);
+    }
+  }, [isInPreloadArea, onEnterPreloadArea]);
+
   return (
     <div 
       ref={containerRef} 
@@ -330,6 +406,26 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onLoadedData={handleLoadedDataInternal}
         onTimeUpdate={onTimeUpdate}
         onEnded={onEnded}
+        onError={handleVideoError}
+        onLoadStart={onLoadStart}
+        onPause={onPause}
+        onPlay={onPlay}
+        onPlaying={onPlaying}
+        onProgress={onProgress}
+        onSeeked={onSeeked}
+        onSeeking={onSeeking}
+        onWaiting={onWaiting}
+        onDurationChange={onDurationChange}
+        onVolumeChange={onVolumeChange}
+        onLoadedMetadata={handleLoadedMetadataInternal}
+        onAbort={onAbort}
+        onCanPlay={onCanPlay}
+        onCanPlayThrough={onCanPlayThrough}
+        onEmptied={onEmptied}
+        onEncrypted={onEncrypted}
+        onStalled={onStalled}
+        onSuspend={onSuspend}
+        onRateChange={onRateChange}
       >
         Your browser does not support the video tag.
       </video>

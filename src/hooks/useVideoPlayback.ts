@@ -69,6 +69,7 @@ export const useVideoPlayback = ({
       } else if (!isHovering && !video.paused) {
         logger.log(`${logPrefix}VideoPlayer: External hover ended - pausing video`);
         video.pause();
+        setPlayAttempted(false);
       }
     }
   }, [isHovering, externallyControlled, videoRef, muted, isMobile, playAttempted, setPlayAttempted, forcedPlay, componentId]);

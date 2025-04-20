@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
@@ -105,11 +105,32 @@ export default function UserProfilePage() {
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [isUpdatingAssetStatus, setIsUpdatingAssetStatus] = useState<Record<string, boolean>>({});
+  // State for autoplay on scroll
+  const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
+  // Ref for debouncing visibility changes
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Refs for scrolling pagination sections
+  const generationsGridRef = useRef<HTMLDivElement>(null);
+  const artGridRef = useRef<HTMLDivElement>(null);
+  const lorasGridRef = useRef<HTMLDivElement>(null); // Add ref for LoRAs too
 
   // Pagination State
   const [generationPage, setGenerationPage] = useState(1);
   const [artPage, setArtPage] = useState(1);
   const [loraPage, setLoraPage] = useState(1);
+
+  // Add a ref to track mounted state for cleanup
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      // Clear any pending timeout on unmount
+      if (visibilityTimeoutRef.current) {
+        clearTimeout(visibilityTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // --- Data Fetching Functions defined using useCallback --- 
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
@@ -516,6 +537,36 @@ export default function UserProfilePage() {
     // Dependencies: user (context), profile (state), setUserAssets (stable state setter)
   }, [user, profile]); 
 
+  // Callback for video visibility changes - with debounce
+  const handleVideoVisibilityChange = useCallback((videoId: string, isVisible: boolean) => {
+    logger.log(`UserProfilePage: Visibility change reported for ${videoId}: ${isVisible}`);
+    
+    // Clear any existing timeout when visibility changes for *any* card
+    if (visibilityTimeoutRef.current) {
+      clearTimeout(visibilityTimeoutRef.current);
+      visibilityTimeoutRef.current = null;
+    }
+
+    if (isVisible) {
+      // If a video becomes visible, set a timeout to make it the active one
+      visibilityTimeoutRef.current = setTimeout(() => {
+        if (!unmountedRef.current) { // Check if component is still mounted
+          logger.log(`UserProfilePage: Debounced - Setting visible video to ${videoId}`);
+          setVisibleVideoId(videoId);
+        }
+      }, 150); // 150ms debounce delay
+    } else {
+      // If a video becomes hidden, check if it was the currently active one
+      setVisibleVideoId(prevVisibleId => {
+        if (prevVisibleId === videoId) {
+          logger.log(`UserProfilePage: Clearing visible video ${videoId} (became hidden)`);
+          return null; // Clear the active video ID immediately
+        }
+        return prevVisibleId; // Otherwise, keep the current state
+      });
+    }
+  }, []); // Empty dependency array as it uses refs and state setters
+
   logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
 
   // === Early return if AuthProvider is still loading ===
@@ -540,9 +591,18 @@ export default function UserProfilePage() {
   };
 
   // --- UI Event Handlers (Keep these) --- 
-  const handleGenerationPageChange = (newPage: number) => setGenerationPage(newPage);
-  const handleArtPageChange = (newPage: number) => setArtPage(newPage);
-  const handleLoraPageChange = (newPage: number) => setLoraPage(newPage);
+  const handleGenerationPageChange = (newPage: number) => {
+    generationsGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => { if (!unmountedRef.current) setGenerationPage(newPage); }, 300);
+  };
+  const handleArtPageChange = (newPage: number) => {
+    artGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => { if (!unmountedRef.current) setArtPage(newPage); }, 300);
+  };
+  const handleLoraPageChange = (newPage: number) => {
+    lorasGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    setTimeout(() => { if (!unmountedRef.current) setLoraPage(newPage); }, 300);
+  };
   const handleOpenLightbox = (video: VideoEntry) => setLightboxVideo(video);
   const handleCloseLightbox = () => setLightboxVideo(null);
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
@@ -570,17 +630,21 @@ export default function UserProfilePage() {
       </div> ); 
   };
 
- const renderPaginationControls = ( currentPage: number, totalPages: number, onPageChange: (page: number) => void ) => {
+  const renderPaginationControls = ( 
+    currentPage: number, 
+    totalPages: number, 
+    onPageChange: (page: number) => void, 
+  ) => {
     if (totalPages <= 1) return null; 
     return ( 
       <Pagination className="mt-6"> <PaginationContent> 
-          <PaginationItem> <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (currentPage > 1) onPageChange(currentPage - 1); }} aria-disabled={currentPage === 1} className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
+          <PaginationItem> <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (currentPage > 1) { onPageChange(currentPage - 1); } }} aria-disabled={currentPage === 1} className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
           {[...Array(totalPages)].map((_, i) => { const page = i + 1; 
             if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) { return ( <PaginationItem key={page}> <PaginationLink href="#" onClick={(e) => { e.preventDefault(); onPageChange(page); }} isActive={page === currentPage}> {page} </PaginationLink> </PaginationItem> ); } 
             else if (Math.abs(page - currentPage) === 2) { return <PaginationEllipsis key={`ellipsis-${page}`} />; } 
             return null; 
           })} 
-          <PaginationItem> <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) onPageChange(currentPage + 1); }} aria-disabled={currentPage === totalPages} className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
+          <PaginationItem> <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) { onPageChange(currentPage + 1); } }} aria-disabled={currentPage === totalPages} className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
       </PaginationContent> </Pagination> ); 
   };
 
@@ -646,8 +710,20 @@ export default function UserProfilePage() {
               <CardContent>
                 {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                  userAssets.length > 0 ? ( <> 
-                    <div className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
-                        {loraItemsForPage.map(item => ( <LoraCard key={item.id} lora={item} isAdmin={isAdmin && !forceLoggedOutView} isOwnProfile={isOwner} userStatus={item.user_status} onUserStatusChange={handleAssetStatusUpdate} hideCreatorInfo={true} isUpdatingStatus={isUpdatingAssetStatus[item.id]} /> ))} 
+                    <div ref={lorasGridRef} className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
+                        {loraItemsForPage.map(item => ( <LoraCard 
+                            key={item.id} 
+                            lora={item} 
+                            isAdmin={isAdmin && !forceLoggedOutView} 
+                            isOwnProfile={isOwner} 
+                            userStatus={item.user_status} 
+                            onUserStatusChange={handleAssetStatusUpdate} 
+                            hideCreatorInfo={true} 
+                            isUpdatingStatus={isUpdatingAssetStatus[item.id]} 
+                            // Add autoplay props
+                            onVisibilityChange={handleVideoVisibilityChange} 
+                            shouldBePlaying={item.id === visibleVideoId}
+                          /> ))} 
                     </Masonry> </div> 
                     {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)} </> 
                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't created any LoRAs yet. </div> )} 
@@ -667,8 +743,23 @@ export default function UserProfilePage() {
               <CardContent>
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                   generationVideos.length > 0 ? ( <> 
-                     <div className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
-                         {generationItemsForPage.map((item) => ( <VideoCard key={item.id} video={item} isAdmin={canEdit} isAuthorized={canEdit} onOpenLightbox={handleOpenLightbox} onApproveVideo={approveVideo} onRejectVideo={rejectVideo} onDeleteVideo={deleteVideo} isHovering={hoveredVideoId === item.id} onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)} onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} /> ))} 
+                     <div ref={generationsGridRef} className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
+                         {generationItemsForPage.map((item) => ( <VideoCard 
+                            key={item.id} 
+                            video={item} 
+                            isAdmin={canEdit} 
+                            isAuthorized={canEdit} 
+                            onOpenLightbox={handleOpenLightbox} 
+                            onApproveVideo={approveVideo} 
+                            onRejectVideo={rejectVideo} 
+                            onDeleteVideo={deleteVideo} 
+                            isHovering={hoveredVideoId === item.id} 
+                            onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)} 
+                            onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} 
+                            // Autoplay props
+                            onVisibilityChange={handleVideoVisibilityChange}
+                            shouldBePlaying={item.id === visibleVideoId}
+                          /> ))} 
                      </Masonry> </div> 
                      {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 
                  ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't generated any videos yet. </div> )} 
@@ -688,8 +779,23 @@ export default function UserProfilePage() {
               <CardContent>
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
                   artVideos.length > 0 ? ( <> 
-                     <div className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
-                         {artItemsForPage.map((item) => ( <VideoCard key={item.id} video={item} isAdmin={canEdit} isAuthorized={canEdit} onOpenLightbox={handleOpenLightbox} onApproveVideo={approveVideo} onRejectVideo={rejectVideo} onDeleteVideo={deleteVideo} isHovering={hoveredVideoId === item.id} onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)} onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} /> ))} 
+                     <div ref={artGridRef} className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
+                         {artItemsForPage.map((item) => ( <VideoCard 
+                            key={item.id} 
+                            video={item} 
+                            isAdmin={canEdit} 
+                            isAuthorized={canEdit} 
+                            onOpenLightbox={handleOpenLightbox} 
+                            onApproveVideo={approveVideo} 
+                            onRejectVideo={rejectVideo} 
+                            onDeleteVideo={deleteVideo} 
+                            isHovering={hoveredVideoId === item.id} 
+                            onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)} 
+                            onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} 
+                            // Autoplay props
+                            onVisibilityChange={handleVideoVisibilityChange}
+                            shouldBePlaying={item.id === visibleVideoId}
+                          /> ))} 
                      </Masonry> </div> 
                      {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)} </> 
                  ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't added any art videos yet. </div> )} 

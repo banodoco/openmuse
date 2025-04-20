@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { VideoEntry, LoraAsset, VideoDisplayStatus } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
 import VideoCard from '@/components/video/VideoCard';
@@ -48,6 +48,7 @@ interface AssetVideoSectionProps {
   handleSetPrimaryMedia: (mediaId: string) => Promise<void>;
   isAuthorized: boolean;
   onStatusChange: (videoId: string, newStatus: VideoDisplayStatus, type: 'assetMedia' | 'user') => void;
+  refetchVideos: () => void;
 }
 
 const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
@@ -60,7 +61,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   handleRejectVideo,
   handleSetPrimaryMedia,
   isAuthorized,
-  onStatusChange
+  onStatusChange,
+  refetchVideos
 }) => {
   const { user } = useAuth();
   const { pathname } = useLocation();
@@ -68,6 +70,13 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [classification, setClassification] = useState<'all' | 'generation' | 'art'>('all');
   
+  // State to track the ID of the video currently in view for autoplay
+  const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
+  // Ref for the container holding the video grid
+  const gridContainerRef = useRef<HTMLDivElement>(null);
+  // Ref for debouncing the visibility change
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   // Pagination state
   const itemsPerPage = 15; // Or make this a prop
   const [currentPage, setCurrentPage] = useState(1);
@@ -139,6 +148,49 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     setCurrentPage(1);
   }, [classification, videos]); // Also reset if base videos change
 
+  // Add a ref to track mounted state for cleanup
+  const unmountedRef = useRef(false);
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      // Clear any pending timeout on unmount
+      if (visibilityTimeoutRef.current) {
+        clearTimeout(visibilityTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Callback from VideoCard when its visibility changes - with debounce
+  const handleVideoVisibilityChange = useCallback((videoId: string, isVisible: boolean) => {
+    logger.log(`AssetVideoSection: Visibility change reported for ${videoId}: ${isVisible}`);
+
+    // Clear any existing timeout when visibility changes for *any* card
+    if (visibilityTimeoutRef.current) {
+      clearTimeout(visibilityTimeoutRef.current);
+      visibilityTimeoutRef.current = null;
+    }
+
+    if (isVisible) {
+      // If a video becomes visible, set a timeout to make it the active one
+      visibilityTimeoutRef.current = setTimeout(() => {
+        if (!unmountedRef.current) { // Check if component is still mounted
+            logger.log(`AssetVideoSection: Debounced - Setting visible video to ${videoId}`);
+            setVisibleVideoId(videoId);
+        }
+      }, 150); // 150ms debounce delay
+    } else {
+      // If a video becomes hidden, check if it was the currently active one
+      setVisibleVideoId(prevVisibleId => {
+        if (prevVisibleId === videoId) {
+          logger.log(`AssetVideoSection: Clearing visible video ${videoId} (became hidden)`);
+          return null; // Clear the active video ID immediately
+        }
+        return prevVisibleId; // Otherwise, keep the current state
+      });
+    }
+  }, []); // Empty dependency array as it uses refs and state setters
+
   const itemsToDisplay = useMemo(() => getItemsWithDummies(paginatedVideos), [paginatedVideos]); // Paginate before adding dummies
   
   return (
@@ -164,13 +216,13 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         <LoRAVideoUploader 
           assetId={asset?.id || ''} 
           assetName={asset?.name || ''} 
-          onUploadsComplete={() => { /* TODO: Consider refetch or update */ }}
+          onUploadsComplete={refetchVideos}
           isLoggedIn={!!user}
         />
       </div>
       
       {videosToDisplay.length > 0 ? (
-        <div className="relative pt-6">
+        <div ref={gridContainerRef} className="relative pt-6">
           <Masonry
             breakpointCols={breakpointColumnsObj}
             className="my-masonry-grid"
@@ -192,6 +244,9 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     isHovering={hoveredVideoId === item.id}
                     onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
                     onUpdateLocalVideoStatus={onStatusChange}
+                    // Pass down visibility callback and play state
+                    onVisibilityChange={handleVideoVisibilityChange}
+                    shouldBePlaying={item.id === visibleVideoId} // Only true if this video is the visible one
                   />
                 );
               } else {
@@ -211,7 +266,16 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               <PaginationContent>
                 <PaginationItem>
                   <PaginationPrevious
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    onClick={() => {
+                      // Scroll first
+                      gridContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      // Then update page after a delay
+                      setTimeout(() => {
+                        if (!unmountedRef.current) {
+                            setCurrentPage((p) => Math.max(1, p - 1));
+                        }
+                      }, 300); // Changed to 300ms
+                    }}
                     className={
                       currentPage === 1
                         ? 'pointer-events-none opacity-50'
@@ -223,7 +287,18 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                 {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
                   <PaginationItem key={page}>
                     <PaginationLink
-                      onClick={() => setCurrentPage(page)}
+                      onClick={() => {
+                        if (page !== currentPage) {
+                          // Scroll first
+                          gridContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                          // Then update page after a delay
+                          setTimeout(() => {
+                            if (!unmountedRef.current) {
+                                setCurrentPage(page);
+                            }
+                          }, 300); // Changed to 300ms
+                        }
+                      }}
                       isActive={currentPage === page}
                       className="cursor-pointer hover:bg-muted/50 transition-colors"
                     >
@@ -234,7 +309,16 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 
                 <PaginationItem>
                   <PaginationNext
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() => {
+                      // Scroll first
+                      gridContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                      // Then update page after a delay
+                      setTimeout(() => {
+                        if (!unmountedRef.current) {
+                            setCurrentPage((p) => Math.min(totalPages, p + 1));
+                        }
+                      }, 300); // Changed to 300ms
+                    }}
                     className={
                       currentPage === totalPages
                         ? 'pointer-events-none opacity-50'

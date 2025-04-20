@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload as UploadIcon, Link as LinkIcon, X } from 'lucide-react';
@@ -43,7 +42,10 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
       }
     },
     accept: {
-      'video/*': []
+      'video/mp4': ['.mp4'],
+      'video/quicktime': ['.mov'],
+      'video/ogg': ['.ogv'],
+      'video/*': [] // Fallback for other video types, but explicitly list common ones
     },
     maxSize: 100 * 1024 * 1024, // 100MB max size
     multiple: multiple, // Allow multiple files to be selected
@@ -117,7 +119,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
           </div>
         </div>
         <p className="text-xs text-muted-foreground mt-3">
-          Supported: YouTube, Vimeo, or direct video links (.mp4, .webm, etc.)
+          Supported: YouTube, Vimeo, or direct video links (.mp4, .mov, .ogv, etc.)
         </p>
       </div>
     );

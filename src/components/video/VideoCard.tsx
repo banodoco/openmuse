@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
@@ -39,6 +39,8 @@ interface VideoCardProps {
   onHoverChange?: (isHovering: boolean) => void;
   onStatusUpdateComplete?: () => Promise<void>;
   onUpdateLocalVideoStatus?: (videoId: string, newStatus: VideoDisplayStatus, type: 'user' | 'assetMedia') => void;
+  onVisibilityChange?: (videoId: string, isVisible: boolean) => void;
+  shouldBePlaying?: boolean;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -53,7 +55,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   isHovering = false,
   onHoverChange,
   onStatusUpdateComplete,
-  onUpdateLocalVideoStatus
+  onUpdateLocalVideoStatus,
+  onVisibilityChange,
+  shouldBePlaying = false,
 }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -65,6 +69,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+  const [isVisible, setIsVisible] = useState(false);
   
   // Determine context based on URL
   const pageContext = location.pathname.includes('/profile/') ? 'profile' : 'asset';
@@ -249,6 +254,15 @@ const VideoCard: React.FC<VideoCardProps> = ({
     // logger.log(`{ITEMSHOWINGBUG} VideoCard Rendering with video prop (ID: ${video.id}) (user_status: ${video.user_status}, assetMediaDisplayStatus: ${video.assetMediaDisplayStatus}):`, video);
   }, [video]); // Rerun if video object changes
   
+  // Callback from VideoPlayer (via VideoPreview)
+  const handleVisibilityChange = useCallback((visible: boolean) => {
+    logger.log(`VideoCard ${video.id}: Visibility changed to ${visible}`);
+    setIsVisible(visible);
+    if (onVisibilityChange) {
+      onVisibilityChange(video.id, visible);
+    }
+  }, [video.id, onVisibilityChange]);
+  
   // Determine the relevant status to pass to the controls
   const currentRelevantStatus = isProfilePage ? video.user_status : video.assetMediaDisplayStatus;
 
@@ -281,6 +295,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
             lazyLoad={false}
             thumbnailUrl={thumbnailUrl}
             onLoadedData={handleVideoLoad}
+            onVisibilityChange={handleVisibilityChange}
+            shouldBePlaying={shouldBePlaying}
           />
 
           {/* Status controls at bottom left */}

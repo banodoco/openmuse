@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import Masonry from 'react-masonry-css';
 import { LoraAsset } from '@/lib/types';
 import { FileVideo } from 'lucide-react';
@@ -24,6 +24,11 @@ interface LoraListProps {
 const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   const { isAdmin } = useAuth();
   
+  // Add state and refs for autoplay
+  const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
+  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const unmountedRef = useRef(false);
+  
   useEffect(() => {
     logger.log("LoraList received loras:", loras?.length || 0);
   }, [loras]);
@@ -44,6 +49,50 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
     setCurrentPage(1);
   }, [loras]);
 
+  // Cleanup effect for timeout
+  useEffect(() => {
+    unmountedRef.current = false;
+    return () => {
+      unmountedRef.current = true;
+      if (visibilityTimeoutRef.current) {
+        clearTimeout(visibilityTimeoutRef.current);
+      }
+    };
+  }, []);
+
+  // Debounced visibility handler
+  const handleVideoVisibilityChange = useCallback((loraId: string, isVisible: boolean) => {
+    // logger.log(`LoraList: Visibility change reported for ${loraId}: ${isVisible}`);
+    if (visibilityTimeoutRef.current) {
+      clearTimeout(visibilityTimeoutRef.current);
+      visibilityTimeoutRef.current = null;
+    }
+    if (isVisible) {
+      visibilityTimeoutRef.current = setTimeout(() => {
+        if (!unmountedRef.current) {
+          // logger.log(`LoraList: Debounced - Setting visible video to ${loraId}`);
+          setVisibleVideoId(loraId);
+        }
+      }, 150); // 150ms debounce
+    } else {
+      setVisibleVideoId(prevVisibleId => {
+        if (prevVisibleId === loraId) {
+          // logger.log(`LoraList: Clearing visible video ${loraId} (became hidden)`);
+          return null;
+        }
+        return prevVisibleId;
+      });
+    }
+  }, []);
+
+  // Handler for preload area entry (optional, could just trigger in card)
+  const handleEnterPreloadArea = useCallback((loraId: string, isInArea: boolean) => {
+    if (isInArea) {
+      // logger.log(`LoraList: Preload area entered for ${loraId}. (Handled in StorageVideoPlayer)`);
+      // Preloading is initiated within StorageVideoPlayer based on this callback triggering
+    }
+  }, []);
+
   const paginatedLoras = React.useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     return loras.slice(start, start + itemsPerPage);
@@ -59,7 +108,15 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
         >
           {paginatedLoras.map((lora) => (
             <div key={lora.id} className="mb-4">
-              <LoraCard lora={lora} isAdmin={isAdmin} />
+              <LoraCard 
+                lora={lora} 
+                isAdmin={isAdmin} 
+                // Pass autoplay props
+                onVisibilityChange={handleVideoVisibilityChange}
+                shouldBePlaying={lora.id === visibleVideoId}
+                // Pass preload prop
+                onEnterPreloadArea={handleEnterPreloadArea}
+              />
             </div>
           ))}
         </Masonry>

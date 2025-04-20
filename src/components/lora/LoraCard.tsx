@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Trash, Check, X, ExternalLink, ArrowUpRight, PinIcon, List, EyeOff, Loader2 } from 'lucide-react';
@@ -37,6 +37,9 @@ interface LoraCardProps {
   onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
   hideCreatorInfo?: boolean;
   isUpdatingStatus?: boolean;
+  onVisibilityChange?: (loraId: string, isVisible: boolean) => void;
+  shouldBePlaying?: boolean;
+  onEnterPreloadArea?: (loraId: string, isInPreloadArea: boolean) => void;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
@@ -47,6 +50,9 @@ const LoraCard: React.FC<LoraCardProps> = ({
   onUserStatusChange,
   hideCreatorInfo = false,
   isUpdatingStatus = false,
+  onVisibilityChange,
+  shouldBePlaying = false,
+  onEnterPreloadArea,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -57,6 +63,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [currentStatus, setCurrentStatus] = useState(userStatus);
   const { user } = useAuth();
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const [isVisible, setIsVisible] = useState(false);
+  const [isInPreloadArea, setIsInPreloadArea] = useState(false);
   
   useEffect(() => {
     setCurrentStatus(userStatus);
@@ -170,6 +178,20 @@ const LoraCard: React.FC<LoraCardProps> = ({
     }
   };
 
+  const handleVisibilityChange = useCallback((visible: boolean) => {
+    setIsVisible(visible);
+    if (onVisibilityChange) {
+      onVisibilityChange(lora.id, visible);
+    }
+  }, [lora.id, onVisibilityChange]);
+
+  const handleEnterPreloadArea = useCallback((inArea: boolean) => {
+    setIsInPreloadArea(inArea);
+    if (onEnterPreloadArea) {
+      onEnterPreloadArea(lora.id, inArea);
+    }
+  }, [lora.id, onEnterPreloadArea]);
+
   return (
     <Card 
       className={cn(
@@ -192,6 +214,9 @@ const LoraCard: React.FC<LoraCardProps> = ({
                 lazyLoad={true}
                 thumbnailUrl={thumbnailUrl}
                 onLoadedData={handleVideoLoad}
+                onVisibilityChange={handleVisibilityChange}
+                shouldBePlaying={shouldBePlaying}
+                onEnterPreloadArea={handleEnterPreloadArea}
               />
             </div>
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />

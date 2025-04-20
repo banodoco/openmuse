@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, memo } from 'react';
+import React, { useState, useEffect, useRef, memo, useCallback } from 'react';
 import VideoPlayer from './video/VideoPlayer';
 import { Logger } from '@/lib/logger';
 import VideoPreviewError from './video/VideoPreviewError';
@@ -26,6 +26,9 @@ interface StorageVideoPlayerProps {
   isMobile?: boolean;
   preventLoadingFlicker?: boolean;
   allowControlInteraction?: boolean;
+  onVisibilityChange?: (isVisible: boolean) => void;
+  shouldBePlaying?: boolean;
+  onEnterPreloadArea?: (isInPreloadArea: boolean) => void;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -46,6 +49,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   isMobile = false,
   preventLoadingFlicker = true,
   allowControlInteraction = false,
+  onVisibilityChange,
+  shouldBePlaying = false,
+  onEnterPreloadArea,
 }) => {
   const componentId = useRef(`storage_video_${Math.random().toString(36).substring(2, 9)}`).current;
   const logPrefix = `[SVP_DEBUG][${componentId}]`;
@@ -62,6 +68,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [hasHovered, setHasHovered] = useState(forcePreload || (!isMobile && autoPlay));
   const [shouldPlay, setShouldPlay] = useState(isMobile ? false : (forcePreload || autoPlay));
   const prevVideoLocationRef = useRef<string | null>(null);
+  const [preloadTriggered, setPreloadTriggered] = useState(false);
 
   // logger.log(`${logPrefix} Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}`);
 
@@ -201,6 +208,35 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     };
   }, [videoLocation, retryCount, previewMode, isBlobUrl, shouldLoadVideo, videoUrl, error]);
 
+  // Callback from VideoPlayer when entering/leaving the preload area
+  const handleEnterPreloadArea = useCallback((isInPreloadArea: boolean) => {
+    if (isInPreloadArea && !preloadTriggered && !unmountedRef.current) {
+      logger.log(`${logPrefix} Entered preload area. Triggering video load.`);
+      setPreloadTriggered(true);
+      // Ensure video loading starts
+      if (!videoUrl && videoLocation && !error) {
+         const loadVideo = async () => {
+            if (unmountedRef.current || !videoLocation) return;
+            setIsLoadingVideoUrl(true);
+            setError(null);
+            try {
+                let url = isBlobUrl ? videoLocation : await videoUrlService.getVideoUrl(videoLocation, previewMode);
+                if (!url) throw new Error('Could not resolve video URL');
+                if (!unmountedRef.current) setVideoUrl(url);
+            } catch (err) {
+                if (!unmountedRef.current) {
+                    setError(`Failed to load video: ${err instanceof Error ? err.message : String(err)}`);
+                    setIsLoadingVideoUrl(false); 
+                }
+            }
+         };
+         loadVideo();
+      } // else: video is already loading or loaded, or has errored.
+    }
+    // We might want logic here if isInPreloadArea becomes false, e.g., cancel loading?
+    // For now, just trigger load on first entry.
+  }, [preloadTriggered, videoUrl, videoLocation, isBlobUrl, previewMode, error]);
+
   const handleVideoError = (message: string) => {
     if (!unmountedRef.current) {
       // logger.error(`${logPrefix} Video player reported error:`, message);
@@ -248,7 +284,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Determine visibility states
   const showThumbnail = !!thumbnailUrl && ((!hasHovered && !isMobile) || isLoadingVideoUrl || !isVideoLoaded);
   const showVideo = !!videoUrl && !error;
-  const showLoadingSpinner = !!thumbnailUrl && ((hasHovered || isMobile) && !isVideoLoaded && !error && isLoadingVideoUrl);
+  const showLoadingSpinner = isLoadingVideoUrl && !error && !(isMobile && !thumbnailUrl);
 
   // logger.log(`${logPrefix} Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
 
@@ -333,9 +369,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             )}
             controls={controls && !previewMode} 
             autoPlay={false}
-            triggerPlay={shouldPlay}
+            triggerPlay={shouldBePlaying}
             muted={muted}
-            loop={(playOnHover && isHovering) || loop}
+            loop={shouldBePlaying || (playOnHover && isHovering) || loop}
             playOnHover={playOnHover && !isMobile}
             onError={handleVideoError}
             showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}
@@ -347,10 +383,11 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             lazyLoad={!forcePreload} // Only lazy load if not forced to preload
             preventLoadingFlicker={preventLoadingFlicker}
             onLoadedData={handleVideoLoadedData}
-            onError={handleVideoError}
             onLoadStart={onVideoLoadStart} // Set loading state on video loadstart
             isMobile={isMobile}
             preload="auto"
+            onVisibilityChange={onVisibilityChange}
+            onEnterPreloadArea={handleEnterPreloadArea}
           />
         )}
 

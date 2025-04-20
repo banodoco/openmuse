@@ -24,6 +24,9 @@ interface VideoPreviewProps {
   preventLoadingFlicker?: boolean;
   previewMode?: boolean;
   onLoadedData?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+  onVisibilityChange?: (isVisible: boolean) => void;
+  shouldBePlaying?: boolean;
+  onEnterPreloadArea?: (isInPreloadArea: boolean) => void;
 }
 
 /**
@@ -41,7 +44,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   thumbnailUrl,
   preventLoadingFlicker = true,
   previewMode = false,
-  onLoadedData
+  onLoadedData,
+  onVisibilityChange,
+  shouldBePlaying = false,
+  onEnterPreloadArea,
 }) => {
   const { user } = useAuth();
   const isMobile = useIsMobile();
@@ -227,6 +233,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isMobile={isMobile}
           preventLoadingFlicker={preventLoadingFlicker}
           onLoadedData={onLoadedData}
+          onVisibilityChange={onVisibilityChange}
+          shouldBePlaying={shouldBePlaying}
+          onEnterPreloadArea={onEnterPreloadArea}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -244,6 +253,9 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isMobile={isMobile}
           preventLoadingFlicker={preventLoadingFlicker}
           onLoadedData={onLoadedData}
+          onVisibilityChange={onVisibilityChange}
+          shouldBePlaying={shouldBePlaying}
+          onEnterPreloadArea={onEnterPreloadArea}
         />
       ) : null}
 
