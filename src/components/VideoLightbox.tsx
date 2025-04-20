@@ -27,6 +27,12 @@ import { cn } from '@/lib/utils';
 import { VideoDisplayStatus, AdminStatus } from '@/lib/types';
 import VideoStatusControls from '@/components/video/VideoStatusControls';
 import { useAuth } from '@/hooks/useAuth';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from '@/components/ui/tooltip';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -92,6 +98,14 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   const canEdit = isAdmin || (user?.id && user.id === creatorId);
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
+
+  const adminStatusIcons: Record<AdminStatus, React.ElementType> = {
+    Listed: List,
+    Curated: ListChecks,
+    Featured: Flame,
+    Hidden: EyeOff,
+    Rejected: XCircle, // Keep for mapping, though button won't be shown
+  };
 
   useEffect(() => {
     setEditableTitle(initialTitle || '');
@@ -378,224 +392,220 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   return (
     <AlertDialog>
-      <Dialog open={isOpen} onOpenChange={(open) => {
-          if (!open) {
-              if (isEditing) handleCancelEdit();
-              onClose();
-          }
-      }}>
-        <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 [&>button.absolute.right-4.top-4]:hidden flex flex-col">
-          <div className="relative flex flex-col h-full">
-            <button
-              onClick={() => {
-                  if (isEditing) handleCancelEdit();
-                  onClose();
-              }}
-              className="absolute top-2 right-2 z-30 bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
-              aria-label="Close"
-            >
-              <X size={24} />
-            </button>
-            
-            <div className={cn(
-              "relative p-4 flex-shrink-0",
-              "bg-white",
-              isEditing ? "h-[40vh]" : "h-[75vh]"
-            )}>
-              <VideoPlayer
-                src={videoUrl}
-                poster={thumbnailUrl}
-                className="absolute inset-0 w-full h-full object-contain"
-                controls
-                autoPlay
-              />
+      <TooltipProvider delayDuration={100}>
+        <Dialog open={isOpen} onOpenChange={(open) => {
+            if (!open) {
+                if (isEditing) handleCancelEdit();
+                onClose();
+            }
+        }}>
+          <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 [&>button.absolute.right-4.top-4]:hidden flex flex-col">
+            <div className="relative flex flex-col h-full">
+              <button
+                onClick={() => {
+                    if (isEditing) handleCancelEdit();
+                    onClose();
+                }}
+                className="absolute top-2 right-2 z-[60] bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
+                aria-label="Close"
+              >
+                <X size={24} />
+              </button>
+              
+              <div className={cn(
+                "relative p-4 flex-shrink-0",
+                "bg-white",
+                isEditing ? "h-[40vh]" : "h-[75vh]"
+              )}>
+                <VideoPlayer
+                  src={videoUrl}
+                  poster={thumbnailUrl}
+                  className="absolute inset-0 w-full h-full object-contain"
+                  controls
+                  autoPlay
+                />
 
-              {isAuthorized && currentStatus && onStatusChange && (
-                <div
-                  className="absolute top-2 left-2 z-50"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    e.preventDefault();
-                  }}
-                  style={{ pointerEvents: 'all' }}
-                >
-                  <VideoStatusControls
-                    status={currentStatus}
-                    onStatusChange={handleStatusInternal}
-                    className=""
-                  />
-                </div>
-              )}
-            </div>
-            
-            <div className="p-4 pt-0 flex-grow overflow-y-auto min-h-0">
-              {isEditing ? (() => { 
-                  console.log(`[VideoLightboxDebug] Rendering Edit Form. Current editableAssetId state: '${editableAssetId}'`);
-                  const selectValue = editableAssetId || "";
-                  console.log(`[VideoLightboxDebug] Rendering Select component with value: '${selectValue}'`);
-                  console.log('[VideoLightboxDebug] availableLoras:', availableLoras);
-                  return (
-                    <div className="space-y-3">
-                      <div>
-                          <label htmlFor="videoTitle" className="text-sm font-medium text-muted-foreground">Title</label>
-                          <Input
-                              id="videoTitle"
-                              value={editableTitle}
-                              onChange={(e) => setEditableTitle(e.target.value)}
-                              placeholder="Video Title"
-                              disabled={isSaving}
-                          />
-                      </div>
-                       <div>
-                          <label htmlFor="videoDesc" className="text-sm font-medium text-muted-foreground">Description</label>
-                          <Textarea
-                              id="videoDesc"
-                              value={editableDescription}
-                              onChange={(e) => setEditableDescription(e.target.value)}
-                              placeholder="Video Description"
-                              rows={3}
-                              disabled={isSaving}
-                          />
-                      </div>
-                       <div>
-                         <Label htmlFor="videoLora" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA (Optional)</Label>
-                         {isFetchingLoras ? (
-                            <Skeleton className="h-10 w-full" />
-                         ) : (
-                           <Select
-                             value={selectValue}
-                             onValueChange={(value) => {
-                               console.log(`[VideoLightboxDebug] LoRA Select onValueChange: new value selected: '${value}'`);
-                               setEditableAssetId(value === "__NONE__" ? "" : value);
-                             }}
-                             disabled={isSaving}
-                             name="videoLora"
-                           >
-                             <SelectTrigger id="videoLora">
-                               <SelectValue placeholder="Select a LoRA..." />
-                             </SelectTrigger>
-                             <SelectContent>
-                               <SelectItem value="__NONE__">-- None --</SelectItem>
-                               {availableLoras.map((lora) => (
-                                 <SelectItem key={lora.id} value={lora.id}>
-                                   {lora.name}
-                                 </SelectItem>
-                               ))}
-                             </SelectContent>
-                           </Select>
-                         )}
-                       </div>
-                      <div className="flex justify-end space-x-2 pt-2">
-                         <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                             <XCircle className="mr-2 h-4 w-4" /> Cancel
-                         </Button>
-                         <Button
-                            onClick={(e) => {
-                                console.log('[VideoLightboxDebug] Save Changes button clicked!');
-                                handleSaveEdit();
-                            }}
-                            disabled={isSaving}
-                         >
-                             <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
-                         </Button>
-                      </div>
-                    </div>
-                  );
-                })() : (
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      {displayTitle ? (
-                        <h2 className="text-xl font-semibold truncate flex-1">
-                           {displayTitle}
-                        </h2>
-                      ) : (
-                        <div className="flex-1" />
-                      )}
-                      {canEdit && (
-                        <div className="flex items-center space-x-1 flex-shrink-0">
-                            <Button 
-                              variant="ghost" 
-                              size="icon" 
-                              onClick={(e) => { 
-                                e.stopPropagation(); // Prevent event bubbling
-                                handleToggleEdit(); 
-                              }} 
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                            >
-                               <Pencil size={16} />
-                               <span className="sr-only">Edit</span>
-                            </Button>
-                            <AlertDialogTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10">
-                                   <Trash size={16} />
-                                   <span className="sr-only">Delete</span>
-                                </Button>
-                             </AlertDialogTrigger>
-                        </div>
-                      )}
-                    </div>
-                    {displayCreator && (
-                       <p className="text-sm text-muted-foreground">{displayCreator}</p>
-                    )}
-                    {initialDescription && (
-                        <p className="text-sm mt-2 whitespace-pre-wrap">{initialDescription}</p>
-                    )}
+                {isAuthorized && currentStatus && onStatusChange && (
+                  <div
+                    className="absolute top-2 left-2 z-50"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }}
+                    style={{ pointerEvents: 'all' }}
+                  >
+                    <VideoStatusControls
+                      status={currentStatus}
+                      onStatusChange={handleStatusInternal}
+                      className=""
+                    />
                   </div>
                 )}
-            </div>
 
-            {/* --- Admin Status Section (Moved Inside DialogContent) --- */}
-            {isAdmin && (
-              <div className="p-4">
-                <div className="mt-4 border-t border-border/20">
-                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Admin Status</h4>
-                  <div className="flex gap-2 flex-wrap">
-                    {(['Listed', 'Curated', 'Featured', 'Hidden', 'Rejected'] as AdminStatus[]).map(status => (
-                      <Button
-                        key={status}
-                        variant={adminStatus === status ? 'default' : 'outline'}
-                        size="sm"
-                        onClick={() => handleAdminStatusInternal(status)}
-                        disabled={isUpdatingAdminStatus}
-                        className={cn(
-                          "text-xs h-8 flex-1 min-w-[80px]",
-                          adminStatus === status && status === 'Featured' && "bg-yellow-500 text-white hover:bg-yellow-600",
-                          adminStatus === status && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
-                          adminStatus === status && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
-                          adminStatus === status && status === 'Hidden' && "bg-gray-500 text-white hover:bg-gray-600",
-                          adminStatus === status && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
-                        )}
-                      >
-                        {isUpdatingAdminStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : status}
-                      </Button>
-                    ))}
+                {isAdmin && (
+                  <div 
+                    className="absolute top-14 left-2 z-50 flex flex-col items-start gap-1 bg-black/30 backdrop-blur-sm p-1.5 rounded-md"
+                    style={{ pointerEvents: 'all' }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      e.preventDefault();
+                    }}
+                  >
+                    <span className="text-xs font-medium text-white/80 px-1">Admin Status</span>
+                    <div className="flex gap-1">
+                      {(['Listed', 'Curated', 'Featured', 'Hidden'] as AdminStatus[]).map(status => {
+                        const Icon = adminStatusIcons[status];
+                        const isActive = adminStatus === status;
+                        return (
+                          <Tooltip key={status}>
+                            <TooltipTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleAdminStatusInternal(status)}
+                                disabled={isUpdatingAdminStatus}
+                                className={cn(
+                                  "h-7 w-7 rounded-sm",
+                                  isActive 
+                                    ? "bg-primary/70 text-primary-foreground hover:bg-primary/80"
+                                    : "bg-black/30 text-white/70 hover:bg-white/20 hover:text-white",
+                                  isUpdatingAdminStatus && "animate-pulse"
+                                )}
+                              >
+                                {isUpdatingAdminStatus && isActive ? <Loader2 className="h-4 w-4 animate-spin" /> : <Icon className="h-4 w-4" />}
+                              </Button>
+                            </TooltipTrigger>
+                            <TooltipContent side="bottom">
+                              <p>{status}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                )}
               </div>
-            )}
-          </div>
-        </DialogContent>
-
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the video data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-                onClick={handleDeleteVideo}
-                disabled={isDeleting}
-                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-             >
-              {isDeleting ? 'Deleting...' : 'Yes, delete video'}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </Dialog>
-     </AlertDialog>
+              
+              <div className="p-4 pt-0 flex-grow overflow-y-auto min-h-0">
+                {isEditing ? (() => { 
+                    console.log(`[VideoLightboxDebug] Rendering Edit Form. Current editableAssetId state: '${editableAssetId}'`);
+                    const selectValue = editableAssetId || "";
+                    console.log(`[VideoLightboxDebug] Rendering Select component with value: '${selectValue}'`);
+                    console.log('[VideoLightboxDebug] availableLoras:', availableLoras);
+                    return (
+                      <div className="space-y-3">
+                        <div>
+                            <label htmlFor="videoTitle" className="text-sm font-medium text-muted-foreground">Title</label>
+                            <Input
+                                id="videoTitle"
+                                value={editableTitle}
+                                onChange={(e) => setEditableTitle(e.target.value)}
+                                placeholder="Video Title"
+                                disabled={isSaving}
+                            />
+                        </div>
+                         <div>
+                            <label htmlFor="videoDesc" className="text-sm font-medium text-muted-foreground">Description</label>
+                            <Textarea
+                                id="videoDesc"
+                                value={editableDescription}
+                                onChange={(e) => setEditableDescription(e.target.value)}
+                                placeholder="Video Description"
+                                rows={3}
+                                disabled={isSaving}
+                            />
+                        </div>
+                         <div>
+                           <Label htmlFor="videoLora" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA (Optional)</Label>
+                           {isFetchingLoras ? (
+                              <Skeleton className="h-10 w-full" />
+                           ) : (
+                             <Select
+                               value={selectValue}
+                               onValueChange={(value) => {
+                                 console.log(`[VideoLightboxDebug] LoRA Select onValueChange: new value selected: '${value}'`);
+                                 setEditableAssetId(value === "__NONE__" ? "" : value);
+                               }}
+                               disabled={isSaving}
+                               name="videoLora"
+                             >
+                               <SelectTrigger id="videoLora">
+                                 <SelectValue placeholder="Select a LoRA..." />
+                               </SelectTrigger>
+                               <SelectContent>
+                                 <SelectItem value="__NONE__">-- None --</SelectItem>
+                                 {availableLoras.map((lora) => (
+                                   <SelectItem key={lora.id} value={lora.id}>
+                                     {lora.name}
+                                   </SelectItem>
+                                 ))}
+                               </SelectContent>
+                             </Select>
+                           )}
+                         </div>
+                        <div className="flex justify-end space-x-2 pt-2">
+                           <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
+                               <XCircle className="mr-2 h-4 w-4" /> Cancel
+                           </Button>
+                           <Button
+                              onClick={(e) => {
+                                  console.log('[VideoLightboxDebug] Save Changes button clicked!');
+                                  handleSaveEdit();
+                              }}
+                              disabled={isSaving}
+                           >
+                               <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
+                           </Button>
+                        </div>
+                      </div>
+                    );
+                  })() : (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        {displayTitle ? (
+                          <h2 className="text-xl font-semibold truncate flex-1">
+                             {displayTitle}
+                          </h2>
+                        ) : (
+                          <div className="flex-1" />
+                        )}
+                        {canEdit && (
+                          <div className="flex items-center space-x-1 flex-shrink-0">
+                              <Button 
+                                variant="ghost" 
+                                size="icon" 
+                                onClick={(e) => { 
+                                  e.stopPropagation(); // Prevent event bubbling
+                                  handleToggleEdit(); 
+                                }} 
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                              >
+                                 <Pencil size={16} />
+                                 <span className="sr-only">Edit</span>
+                              </Button>
+                              <AlertDialogTrigger asChild>
+                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10">
+                                     <Trash size={16} />
+                                     <span className="sr-only">Delete</span>
+                                  </Button>
+                               </AlertDialogTrigger>
+                          </div>
+                        )}
+                      </div>
+                      {displayCreator && (
+                         <p className="text-sm text-muted-foreground">{displayCreator}</p>
+                      )}
+                      {initialDescription && (
+                          <p className="text-sm mt-2 whitespace-pre-wrap">{initialDescription}</p>
+                      )}
+                    </div>
+                  )}
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      </TooltipProvider>
+    </AlertDialog>
   );
 };
 

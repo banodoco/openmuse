@@ -1099,7 +1099,7 @@ export default function UserProfilePage() {
                             key={item.id}
                             video={item}
                             isAdmin={canEdit}
-                            isAuthorized={isOwner || !!isAdmin}
+                            isAuthorized={canEdit}
                             onOpenLightbox={handleOpenLightbox}
                             onApproveVideo={approveVideo}
                             onRejectVideo={rejectVideo}
@@ -1153,7 +1153,7 @@ export default function UserProfilePage() {
                             key={item.id}
                             video={item}
                             isAdmin={canEdit}
-                            isAuthorized={isOwner || !!isAdmin}
+                            isAuthorized={canEdit}
                             onOpenLightbox={handleOpenLightbox}
                             onApproveVideo={approveVideo}
                             onRejectVideo={rejectVideo}
