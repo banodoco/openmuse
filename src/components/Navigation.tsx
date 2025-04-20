@@ -89,8 +89,8 @@ export { Navigation, NavLink };
 export const Footer = () => {
   return (
     <div className="w-full border-t border-border">
-      <footer className="w-full max-w-screen-2xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground flex flex-col items-center justify-center space-y-2">
-        <div>
+      <footer className="w-full max-w-screen-2xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground flex flex-col items-center justify-center space-y-1">
+        <div className="pt-1">
           Made with 🦾 by <a 
             href="https://banodoco.ai/" 
             target="_blank" 
@@ -100,8 +100,8 @@ export const Footer = () => {
             Banodoco
           </a>
         </div>
-        <hr className="w-[12.5%] my-2 border-t-2 border-border/50" />
-        <div className="flex items-center text-xs pt-1">
+        <hr className="w-[12.5%] border-t-2 border-border/50" />
+        <div className="flex items-center text-xs pb-1">
           <a 
             href="https://github.com/peteromallet/openmuse" 
             target="_blank" 
