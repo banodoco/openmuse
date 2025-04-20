@@ -4,7 +4,7 @@ import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
 import { ArrowLeft } from 'lucide-react';
-import { LoraAsset, VideoEntry, VideoDisplayStatus, UserAssetPreferenceStatus } from '@/lib/types';
+import { LoraAsset, VideoEntry, VideoDisplayStatus, UserAssetPreferenceStatus, AdminStatus } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import AssetHeader from './components/AssetHeader';
@@ -28,10 +28,11 @@ function AssetDetailPage() {
   const { user, isAdmin } = useAuth();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
+  const [videos, setVideos] = useState<VideoEntry[]>([]);
   
   const {
     asset,
-    videos,
+    videos: fetchedVideos,
     isLoading,
     isUpdatingAdminStatus,
     creatorDisplayName,
@@ -352,6 +353,43 @@ function AssetDetailPage() {
   };
   // --- End Add missing handlers --- 
 
+  // --- Add new handler for video admin status --- 
+  const handleSetVideoAdminStatus = async (videoId: string, newStatus: AdminStatus) => {
+    logger.log(`[AssetDetailPage] Setting video ${videoId} admin status to ${newStatus}`);
+    try {
+      // Assuming media table stores admin_status for individual videos
+      const { error } = await supabase
+        .from('media')
+        .update({ admin_status: newStatus, admin_reviewed: true }) // Also mark as reviewed
+        .eq('id', videoId);
+
+      if (error) throw error;
+
+      toast.success(`Video admin status updated to ${newStatus}`);
+      // Update local state or refetch
+      // Find the video in the current state and update its admin_status
+      const updatedVideo = videos.find(v => v.id === videoId);
+      if (updatedVideo) {
+        updatedVideo.admin_status = newStatus;
+        updatedVideo.admin_reviewed = true; // Keep local state consistent
+        // If the lightbox is open for this video, update its state too
+        if (currentVideo && currentVideo.id === videoId) {
+          setCurrentVideo(prev => prev ? { ...prev, admin_status: newStatus, admin_reviewed: true } : null);
+        }
+         // Force a re-render/re-sort if necessary by creating a new array reference
+        setVideos(prevVideos => [...prevVideos]); 
+      } else {
+        // If not found locally (unlikely), refetch
+        await fetchAssetDetails(); 
+      }
+
+    } catch (error: any) {
+      logger.error(`[AssetDetailPage] Error setting video admin status:`, error);
+      toast.error(`Failed to update video admin status: ${error.message}`);
+    }
+  };
+  // --- End Add new handler for video admin status --- 
+
   // Log component state before conditional returns
   logger.log(`[AssetDetailPage Render] isLoading: ${isLoading}, asset exists: ${!!asset}`);
 
@@ -459,6 +497,8 @@ function AssetDetailPage() {
               currentStatus={currentVideo.assetMediaDisplayStatus} 
               onStatusChange={handleLightboxAssetStatusChange} 
               isAuthorized={isAuthorized}
+              adminStatus={currentVideo.admin_status}
+              onAdminStatusChange={(newStatus) => handleSetVideoAdminStatus(currentVideo.id, newStatus)}
             />
           )}
           

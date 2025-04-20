@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useCallback, useContext } from 'react';
 import { Dialog, DialogContent } from '@/components/ui/dialog';
-import { X, Pencil, Save, XCircle, Trash } from 'lucide-react';
+import { X, Pencil, Save, XCircle, Trash, List, ListChecks, Flame, EyeOff } from 'lucide-react';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -24,8 +24,9 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
-import { VideoDisplayStatus } from '@/lib/types';
+import { VideoDisplayStatus, AdminStatus } from '@/lib/types';
 import VideoStatusControls from '@/components/video/VideoStatusControls';
+import { useAuth } from '@/hooks/useAuth';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -42,6 +43,8 @@ interface VideoLightboxProps {
   isAuthorized?: boolean;
   currentStatus?: VideoDisplayStatus | null;
   onStatusChange?: (newStatus: VideoDisplayStatus) => Promise<void>;
+  adminStatus?: AdminStatus | null;
+  onAdminStatusChange?: (newStatus: AdminStatus) => Promise<void>;
 }
 
 interface LoraOption {
@@ -63,14 +66,14 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   onVideoUpdate,
   isAuthorized = false,
   currentStatus = null,
-  onStatusChange
+  onStatusChange,
+  adminStatus = null,
+  onAdminStatusChange
 }) => {
   console.log('[VideoLightboxDebug] Component Rendered. Initial videoId prop:', videoId);
   console.log('[VideoLightboxDebug] Component Version: 2024-07-30_10:00'); // Updated version log
 
-  const authContext = useContext(AuthContext);
-  const user = authContext?.user;
-  const isAdmin = authContext?.isAdmin ?? false;
+  const { user, isAdmin } = useAuth();
 
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -88,6 +91,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [isFetchingLoras, setIsFetchingLoras] = useState(false);
 
   const canEdit = isAdmin || (user?.id && user.id === creatorId);
+  const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
 
   useEffect(() => {
     setEditableTitle(initialTitle || '');
@@ -352,6 +356,23 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       }
     } else {
         console.warn("VideoLightbox: onStatusChange prop is missing.");
+    }
+  };
+
+  const handleAdminStatusInternal = async (newStatus: AdminStatus) => {
+    if (onAdminStatusChange && isAdmin) {
+      setIsUpdatingAdminStatus(true);
+      try {
+        await onAdminStatusChange(newStatus);
+        // Parent should handle toast/state update
+      } catch (error) {
+        console.error("Error handling admin status change in lightbox:", error);
+        toast({ title: "Error", description: "Failed to update admin status.", variant: "destructive" });
+      } finally {
+        setIsUpdatingAdminStatus(false);
+      }
+    } else {
+        console.warn("VideoLightbox: onAdminStatusChange prop is missing or user is not admin.");
     }
   };
 

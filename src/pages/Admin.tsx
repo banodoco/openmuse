@@ -52,6 +52,8 @@ import { Link } from 'react-router-dom';
 
 const logger = new Logger('AdminPage');
 
+const ITEMS_PER_PAGE = 20; // Define items per page
+
 const statusConfig: { [key in AdminStatus]: { label: string, icon: React.ReactNode, variant: 'default' | 'secondary' | 'destructive' | 'outline', filterKey: string } } = {
   Listed: { label: 'Listed', icon: <List className="h-3 w-3 mr-1" />, variant: 'secondary', filterKey: 'listed' },
   Curated: { label: 'Curated', icon: <ListChecks className="h-3 w-3 mr-1" />, variant: 'default', filterKey: 'curated' },
@@ -96,6 +98,8 @@ const Admin: React.FC = () => {
     listed: 0, curated: 0, featured: 0, hidden: 0, reviewed: 0, total: 0
   });
   
+  const [assetCurrentPage, setAssetCurrentPage] = useState(1);
+  const [videoCurrentPage, setVideoCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState('videos');
   
   const loadEntries = useCallback(async () => {
@@ -384,6 +388,18 @@ const Admin: React.FC = () => {
     setAssetFilters(prevFilters => ({ ...prevFilters, [key]: checked }));
   };
 
+  // --- Asset Pagination Calculations ---
+  const assetTotalPages = Math.ceil(filteredAssets.length / ITEMS_PER_PAGE);
+  const assetStartIndex = (assetCurrentPage - 1) * ITEMS_PER_PAGE;
+  const assetEndIndex = assetStartIndex + ITEMS_PER_PAGE;
+  const paginatedAssets = filteredAssets.slice(assetStartIndex, assetEndIndex);
+
+  // --- Video Pagination Calculations ---
+  const videoTotalPages = Math.ceil(filteredEntries.length / ITEMS_PER_PAGE);
+  const videoStartIndex = (videoCurrentPage - 1) * ITEMS_PER_PAGE;
+  const videoEndIndex = videoStartIndex + ITEMS_PER_PAGE;
+  const paginatedEntries = filteredEntries.slice(videoStartIndex, videoEndIndex);
+
   return (
     <RequireAuth requireAdmin>
       <div className="min-h-screen bg-background flex flex-col">
@@ -442,7 +458,7 @@ const Admin: React.FC = () => {
 
               <div className="flex flex-wrap gap-4 mb-6 px-4 py-2 text-sm text-muted-foreground">
                 <div>
-                  Showing <span className="font-medium text-foreground">{filteredAssets.length}</span> of <span className="font-medium text-foreground">{assetStatusCounts.total}</span> assets
+                  Showing <span className="font-medium text-foreground">{paginatedAssets.length}</span> of <span className="font-medium text-foreground">{assetStatusCounts.total}</span> assets
                 </div>
                 <div className="flex gap-3 flex-wrap">
                   {filterableStatuses.map(status => (
@@ -462,13 +478,14 @@ const Admin: React.FC = () => {
               
               {isLoadingAssets ? (
                 <p>Loading assets...</p>
-              ) : filteredAssets.length === 0 ? (
+              ) : paginatedAssets.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-lg text-muted-foreground">No assets match your current filters</p>
                 </div>
               ) : (
+                <>
                 <div className="space-y-4">
-                  {filteredAssets.map(asset => {
+                  {paginatedAssets.map(asset => {
                     const { label, icon, variant } = getStatusDetails(asset.admin_status);
                     const creatorName = asset.creatorDisplayName || asset.creator || 'Unknown User';
                     
@@ -486,7 +503,8 @@ const Admin: React.FC = () => {
                             <StorageVideoPlayer
                                   videoLocation={media.url}
                                   className="w-full h-full object-cover"
-                              controls
+                                  controls={false}
+                                  playOnHover={true}
                             />
                               ) : media?.thumbnailUrl ? (
                                 <img src={media.thumbnailUrl} alt={`Asset thumbnail ${index + 1}`} className="object-cover w-full h-full" />
@@ -526,9 +544,14 @@ const Admin: React.FC = () => {
                             <p className="text-sm text-muted-foreground mt-1">{asset.description || 'No description available.'}</p>
                             <p className="text-sm text-muted-foreground">Type: {asset.lora_type || asset.type || 'N/A'}</p>
                             <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
-                              <Link to={`/assets/loras/${asset.id}`} className="hover:underline text-blue-600 dark:text-blue-400">
+                              <a 
+                                href={`/assets/loras/${asset.id}`} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="hover:underline text-blue-600 dark:text-blue-400"
+                              >
                                 LoRA page
-                              </Link>
+                              </a>
                               <span>|</span>
                               {asset.lora_link ? (
                                 <a 
@@ -592,6 +615,32 @@ const Admin: React.FC = () => {
                     );
                   })}
                 </div>
+                {/* --- START: Asset Pagination Controls --- */}
+                {assetTotalPages > 1 && (
+                  <div className="flex items-center justify-center space-x-4 mt-6">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAssetCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={assetCurrentPage <= 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {assetCurrentPage} of {assetTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setAssetCurrentPage(prev => Math.min(prev + 1, assetTotalPages))}
+                      disabled={assetCurrentPage >= assetTotalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+                {/* --- END: Asset Pagination Controls --- */}
+                </>
               )}
             </TabsContent>
 
@@ -648,7 +697,7 @@ const Admin: React.FC = () => {
 
               <div className="flex flex-wrap gap-4 mb-6 px-4 py-2 text-sm text-muted-foreground">
                 <div>
-                  Showing <span className="font-medium text-foreground">{filteredEntries.length}</span> of <span className="font-medium text-foreground">{videoStatusCounts.total}</span> videos
+                  Showing <span className="font-medium text-foreground">{paginatedEntries.length}</span> of <span className="font-medium text-foreground">{videoStatusCounts.total}</span> videos
                 </div>
                 <div className="flex gap-3 flex-wrap">
                   {filterableStatuses.map(status => (
@@ -664,13 +713,14 @@ const Admin: React.FC = () => {
 
               {isLoadingEntries ? (
                 <p>Loading videos...</p>
-              ) : filteredEntries.length === 0 ? (
+              ) : paginatedEntries.length === 0 ? (
                 <div className="text-center py-12">
                   <p className="text-lg text-muted-foreground">No videos match your current filters</p>
                 </div>
               ) : (
+                <>
                 <div className="space-y-8">
-                  {filteredEntries.map(entry => {
+                  {paginatedEntries.map(entry => {
                     const { label, icon, variant } = getVideoStatusDetails(entry);
                     
                     return (
@@ -755,6 +805,32 @@ const Admin: React.FC = () => {
                     );
                   })}
                 </div>
+                {/* --- START: Video Pagination Controls --- */}
+                {videoTotalPages > 1 && (
+                   <div className="flex items-center justify-center space-x-4 mt-8">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVideoCurrentPage(prev => Math.max(prev - 1, 1))}
+                      disabled={videoCurrentPage <= 1}
+                    >
+                      Previous
+                    </Button>
+                    <span className="text-sm text-muted-foreground">
+                      Page {videoCurrentPage} of {videoTotalPages}
+                    </span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setVideoCurrentPage(prev => Math.min(prev + 1, videoTotalPages))}
+                      disabled={videoCurrentPage >= videoTotalPages}
+                    >
+                      Next
+                    </Button>
+                  </div>
+                )}
+                {/* --- END: Video Pagination Controls --- */}
+                </>
               )}
             </TabsContent>
           </Tabs>

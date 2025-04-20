@@ -103,6 +103,7 @@ export default function UserProfilePage() {
 
   useEffect(() => {
     setForceLoggedOutView(searchParams.get('loggedOutView') === 'true');
+    console.log('[UserProfilePage] forceLoggedOutView set to:', searchParams.get('loggedOutView') === 'true'); 
   }, [searchParams]);
 
   useEffect(() => {
@@ -143,6 +144,7 @@ export default function UserProfilePage() {
           const currentIsAdmin = !!isAdmin && !forceLoggedOutView;
           setIsOwner(ownerStatus);
           setCanEdit(ownerStatus || currentIsAdmin);
+          console.log(`[UserProfilePage] Profile fetched for ${data.display_name}. forceLoggedOutView: ${forceLoggedOutView}, user?.id: ${user?.id}, data.id: ${data.id}, Calculated isOwner: ${ownerStatus}`); 
           const canSeeHidden = ownerStatus || currentIsAdmin; // Calculate permission
           
           if (data.id) {

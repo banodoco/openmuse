@@ -48,6 +48,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   hideCreatorInfo = false,
   isUpdatingStatus = false,
 }) => {
+  console.log(`[LoraCard] Rendering card for Lora ID: ${lora.id}. Received isOwnProfile: ${isOwnProfile}`);
   const navigate = useNavigate();
   const location = useLocation();
   const [isDeleting, setIsDeleting] = useState(false);
