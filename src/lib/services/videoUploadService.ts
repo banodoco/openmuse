@@ -50,12 +50,14 @@ class VideoUploadService {
       logger.log('Generating thumbnail for video');
       const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
       
-      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : 'Untitled Video';
+      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : '';
+      const videoDescription = videoFile.metadata?.description ? videoFile.metadata.description : '';
 
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
           title: videoTitle,
+          description: videoDescription,
           url: videoUrl,
           type: 'video',
           classification: videoFile.metadata?.classification || 'art',
@@ -106,6 +108,7 @@ class VideoUploadService {
         metadata: {
           ...(videoFile.metadata || {}),
           title: mediaData.title,
+          description: mediaData.description,
           assetId
         }
       };
@@ -159,12 +162,14 @@ class VideoUploadService {
       logger.log(`Generating thumbnail for video associated with asset ${assetId}`);
       const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
 
-      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : 'Untitled Video';
+      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : '';
+      const videoDescription = videoFile.metadata?.description ? videoFile.metadata.description : '';
 
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
           title: videoTitle,
+          description: videoDescription,
           url: videoUrl,
           type: 'video',
           classification: videoFile.metadata?.classification || 'art',
@@ -197,6 +202,7 @@ class VideoUploadService {
         metadata: {
           ...(videoFile.metadata || {}),
           title: mediaData.title,
+          description: mediaData.description,
           assetId
         }
       };
@@ -326,7 +332,8 @@ class VideoUploadService {
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
-          title: entryData.metadata?.title || 'Untitled',
+          title: entryData.metadata?.title || '',
+          description: entryData.metadata?.description || '',
           url: entryData.url,
           type: 'video',
           classification: entryData.metadata?.classification || 'art',
@@ -374,6 +381,7 @@ class VideoUploadService {
         metadata: {
           ...(entryData.metadata || {}),
           title: mediaData.title,
+          description: mediaData.description,
           assetId
         }
       };
@@ -407,7 +415,8 @@ class VideoUploadService {
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
-          title: entryData.metadata?.title || 'Untitled Video',
+          title: entryData.metadata?.title || '',
+          description: entryData.metadata?.description || '',
           url: entryData.url,
           type: 'video',
           classification: entryData.metadata?.classification || 'art',
@@ -440,6 +449,7 @@ class VideoUploadService {
         metadata: {
           ...(entryData.metadata || {}),
           title: mediaData.title,
+          description: mediaData.description,
           assetId
         }
       };

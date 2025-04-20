@@ -380,6 +380,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             externallyControlled={isHoveringExternally !== undefined} 
             isHovering={isHovering} 
             poster={showThumbnail ? thumbnailUrl : undefined}
+            showFirstFrameAsPoster={isMobile && !thumbnailUrl && !shouldBePlaying}
             lazyLoad={!forcePreload} // Only lazy load if not forced to preload
             preventLoadingFlicker={preventLoadingFlicker}
             onLoadedData={handleVideoLoadedData}

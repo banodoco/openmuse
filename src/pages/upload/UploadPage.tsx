@@ -191,7 +191,7 @@ const UploadPage: React.FC = () => {
           const { data: mediaData, error: mediaError } = await supabase
             .from('media')
             .insert({
-              title: video.metadata.title || 'Untitled Video',
+              title: video.metadata.title || '',
               url: videoUrl,
               type: 'video',
               model_variant: loraDetails.modelVariant,

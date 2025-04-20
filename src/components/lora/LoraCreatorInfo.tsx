@@ -6,6 +6,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset, UserProfile } from '@/lib/types';
 import { User as UserIcon } from 'lucide-react';
 import { Logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 
 const logger = new Logger('LoraCreatorInfo');
 
@@ -14,13 +15,15 @@ interface LoraCreatorInfoProps {
   className?: string; // Optional className prop
   avatarSize?: string; // e.g., "h-6 w-6"
   textSize?: string; // e.g., "text-sm"
+  overrideTextColor?: string; // New prop for specific text color
 }
 
 const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
   asset,
   className = "",
   avatarSize = "h-6 w-6",
-  textSize = "text-sm"
+  textSize = "text-sm",
+  overrideTextColor
 }) => {
   const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
@@ -99,7 +102,10 @@ const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
             {fallbackChar || <UserIcon className={iconSizeClass} />}
           </AvatarFallback>
         </Avatar>
-        <span className={`font-medium group-hover:text-primary transition-colors ${textSize}`}>
+        <span className={cn(
+          `font-medium ${textSize}`,
+          overrideTextColor ? overrideTextColor : 'group-hover:text-primary transition-colors'
+        )}>
           {displayName}
         </span>
       </Link>
@@ -116,7 +122,12 @@ const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
              <UserIcon className={iconSizeClass} />
           </AvatarFallback>
         </Avatar>
-        <span className={`font-medium text-muted-foreground ${textSize}`}>{creatorName}</span>
+        <span className={cn(
+          `font-medium ${textSize}`,
+          overrideTextColor ? overrideTextColor : 'text-muted-foreground'
+        )}>
+          {creatorName}
+        </span>
       </div>
     );
   }
@@ -127,7 +138,12 @@ const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
         <Avatar className={avatarSize}>
           <AvatarFallback><UserIcon className={iconSizeClass} /></AvatarFallback>
         </Avatar>
-        <span className={`font-medium text-muted-foreground ${textSize}`}>Unknown Creator</span>
+        <span className={cn(
+          `font-medium ${textSize}`,
+          overrideTextColor ? overrideTextColor : 'text-muted-foreground'
+        )}>
+          Unknown Creator
+        </span>
       </div>
   );
 };

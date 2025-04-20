@@ -39,6 +39,7 @@ import {
   TooltipTrigger 
 } from '@/components/ui/tooltip';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+import LoraCreatorInfo from './lora/LoraCreatorInfo';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -86,7 +87,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
   const [isEditing, setIsEditing] = useState(false);
@@ -116,30 +116,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setEditableAssetId(initialAssetId || '');
     setIsEditing(false);
   }, [videoId, initialTitle, initialDescription, initialAssetId]);
-
-  useEffect(() => {
-    const fetchCreatorDisplayName = async () => {
-      if (creatorId) {
-        try {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('display_name, username')
-            .eq('id', creatorId)
-            .maybeSingle();
-          
-          if (profile && !error) {
-            setCreatorDisplayName(profile.display_name || profile.username);
-          }
-        } catch (error) {
-          console.error('Error fetching creator profile:', error);
-        }
-      }
-    };
-
-    if (isOpen) {
-      fetchCreatorDisplayName();
-    }
-  }, [creatorId, isOpen]);
 
   useEffect(() => {
     const fetchLoras = async () => {
@@ -332,7 +308,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   };
 
   const displayTitle = isEditing ? '' : (initialTitle || '');
-  const displayCreator = creatorDisplayName ? `By ${creatorDisplayName}` : '';
 
   const loraDisplayText = initialAssetId
     ? availableLoras.find(l => l.id === initialAssetId)?.name ?? initialAssetId
@@ -576,8 +551,14 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                           </div>
                         )}
                       </div>
-                      {displayCreator && (
-                         <p className="text-sm text-muted-foreground">{displayCreator}</p>
+                      {creatorId && (
+                        <div className="mt-1.5">
+                          <LoraCreatorInfo 
+                            asset={{ user_id: creatorId } as any} 
+                            avatarSize="h-5 w-5"
+                            textSize="text-sm" 
+                          />
+                        </div>
                       )}
                       {initialDescription && (
                           <p className="text-sm mt-2 whitespace-pre-wrap">{initialDescription}</p>

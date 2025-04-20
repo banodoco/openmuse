@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/alert-dialog";
 import { toast } from 'sonner';
 import VideoStatusControls from './VideoStatusControls';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import LoraCreatorInfo from '../lora/LoraCreatorInfo';
 
 const logger = new Logger('VideoCard');
 
@@ -62,7 +64,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const location = useLocation();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(isHovering);
@@ -81,30 +82,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
   }, [isHovering, video.id]);
   
   useEffect(() => {
-    const fetchCreatorProfile = async () => {
-      if (video.user_id) {
-        try {
-          const { data: profile, error } = await supabase
-            .from('profiles')
-            .select('display_name, username')
-            .eq('id', video.user_id)
-            .maybeSingle();
-            
-          if (profile && !error) {
-            setCreatorDisplayName(profile.display_name || profile.username);
-          }
-        } catch (error) {
-          console.error('Error fetching creator profile:', error);
-        }
-      }
-    };
-    
     if (video.metadata?.placeholder_image) {
       setThumbnailUrl(video.metadata.placeholder_image);
     }
-    
-    fetchCreatorProfile();
-  }, [video.user_id, video.metadata]);
+  }, [video.metadata]);
   
   const handleVideoLoad = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     const videoElement = event.target as HTMLVideoElement;
@@ -134,10 +115,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   const getCreatorName = () => {
-    if (creatorDisplayName) {
-      return creatorDisplayName;
-    }
-    
     if (video.metadata?.creatorName) {
       if (video.metadata.creatorName.includes('@')) {
         return video.metadata.creatorName.split('@')[0];
@@ -299,6 +276,39 @@ const VideoCard: React.FC<VideoCardProps> = ({
             shouldBePlaying={shouldBePlaying}
           />
 
+          {/* Expand Icon for Mobile - Top Right */}
+          {isMobile && (
+            <div 
+              className="absolute top-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none"
+              title="Tap to expand"
+            >
+              <ArrowUpRight className="h-3 w-3 text-white/80" />
+            </div>
+          )}
+
+          {/* Title and creator info for mobile (always visible) */}
+          {isMobile && !isProfilePage && (
+            <div
+              className="absolute top-2 left-2 z-20 bg-black/40 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
+            >
+              {video.metadata?.title && (
+                <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
+                  {video.metadata.title}
+                </span>
+              )}
+              {video.user_id && (
+                <div className="mt-0.5">
+                  <LoraCreatorInfo
+                    asset={{ user_id: video.user_id } as any}
+                    avatarSize="h-4 w-4"
+                    textSize="text-xs"
+                    overrideTextColor="text-white/80"
+                  />
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Status controls at bottom left */}
           {isAuthorized && (
             <div className="absolute bottom-2 left-2 z-50 group-hover:opacity-100 transition-opacity duration-200" onClick={e => {
@@ -313,10 +323,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Delete and primary buttons at top right */}
+          {/* Delete and primary buttons at top right (Adjust positioning if mobile expand icon is present) */}
           {isAuthorized && (
             <div 
-              className="absolute top-2 right-2 z-50 flex gap-2"
+              className={cn(
+                "absolute top-2 right-2 z-50 flex gap-2",
+                isMobile && "right-8" // Move slightly left if mobile expand icon is shown
+              )}
               onClick={e => {
                 e.stopPropagation();
                 e.preventDefault();
@@ -357,7 +370,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                       {isDeleting ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Trash className="h-4 w-4" />}
                     </Button>
                   </AlertDialogTrigger>
-                  <AlertDialogContent onClick={(e) => e.stopPropagation()}>
+                  <AlertDialogContent onClick={(e) => e.stopPropagation()}> 
                     <AlertDialogHeader>
                       <AlertDialogTitle>Delete this video?</AlertDialogTitle>
                       <AlertDialogDescription>
@@ -380,10 +393,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
+          {/* Play Button overlay (only shown on hover on non-mobile) */}
           {!isMobile && (
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none
-                ${isHovering ? 'opacity-0' : 'opacity-100'}
+                ${isHovering ? 'opacity-0' : 'opacity-100'} 
               `}
             >
               <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm shadow-md">
@@ -392,18 +406,28 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
+          {/* Gradient overlay and text (only shown on hover on non-mobile) */}
           {!isMobile && (
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none flex flex-col justify-between p-2 z-10">
               <div className="flex flex-col items-start">
                 {video.metadata?.title && (
-                  <span className="text-white text-sm font-medium line-clamp-2 mr-2">
+                  <span className="text-white text-sm font-medium line-clamp-2 mr-2 pointer-events-auto">
                     {video.metadata.title}
                   </span>
                 )}
                 {!isProfilePage && video.user_id && (
-                  <span className="text-white/80 text-xs">
-                    By: {getCreatorName()}
-                  </span>
+                  <div 
+                    style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }} 
+                    className="mt-0.5" 
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <LoraCreatorInfo
+                      asset={{ user_id: video.user_id } as any}
+                      avatarSize="h-4 w-4"
+                      textSize="text-xs"
+                      overrideTextColor="text-white/80"
+                    />
+                  </div>
                 )}
               </div>
               <div /> {/* Empty div to maintain flex spacing */}

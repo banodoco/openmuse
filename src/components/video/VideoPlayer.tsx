@@ -12,6 +12,10 @@ import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 const logger = new Logger('VideoPlayer');
 
+// Timeout constants
+const INITIAL_PLAY_TIMEOUT_MS = 2500; // 5 seconds
+const WAITING_TIMEOUT_MS = 2500; // 10 seconds
+
 interface VideoPlayerProps {
   src: string;
   autoPlay?: boolean;
@@ -77,12 +81,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   onError,
   onLoadStart,
   onPause,
-  onPlay,
+  onPlay: onPlayProp,
   onPlaying,
   onProgress,
   onSeeked,
   onSeeking,
-  onWaiting,
+  onWaiting: onWaitingProp,
   onDurationChange,
   onVolumeChange,
   onLoadedMetadata,
@@ -124,6 +128,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [forcedPlay, setForcedPlay] = useState(false);
   const unmountedRef = useRef(false);
   const [initialFrameLoaded, setInitialFrameLoaded] = useState(false);
+  const initialPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const waitingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   
   const {
     error,
@@ -262,17 +269,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  // Avoid showing an endless loader on mobile devices where no poster image exists.
-  // On many mobile browsers the video won't begin loading until user interaction,
-  // which means `isLoading` can stay true forever. In that scenario the user just
-  // sees a spinner. To improve UX we skip the loader entirely on mobile and rely
-  // on the overlay/play‑tap interaction instead.
-  const shouldShowLoading = !isMobile && isLoading && (!preventLoadingFlicker || !poster);
+  const effectivePreventLoadingFlicker = isMobile ? false : preventLoadingFlicker;
+  const shouldShowLoading = !isMobile && isLoading && (!effectivePreventLoadingFlicker || !poster);
   logger.log(`[${componentId}] State: isLoading=${isLoading}, error=${!!error}, hasInteracted=${hasInteracted}, posterLoaded=${posterLoaded}, externallyControlled=${externallyControlled}`);
   logger.log(`[${componentId}] Visibility: shouldShowLoading=${shouldShowLoading}, videoOpacity=${(lazyLoad && poster && !hasInteracted && !externallyControlled) ? 0 : 1}`);
 
   const effectivePreload = showFirstFrameAsPoster ? 'metadata' : (preloadProp || 'auto');
-  const effectiveAutoPlay = showFirstFrameAsPoster || autoPlay;
+  const effectiveAutoPlay = showFirstFrameAsPoster ? false : autoPlay;
 
   const handleLoadedDataInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event> | Event) => {
     logger.log(`[${componentId}] onLoadedData triggered. showFirstFrameAsPoster: ${showFirstFrameAsPoster}, initialFrameLoaded: ${initialFrameLoaded}`);
@@ -287,8 +290,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [showFirstFrameAsPoster, initialFrameLoaded, onLoadedData, videoRef, componentId]);
 
-  // Setup Intersection Observer using the hook
-  const isIntersecting = useIntersectionObserver(containerRef, intersectionOptions);
+  // Setup Intersection Observer using the hook - use a more sensitive threshold on mobile so that playback is triggered even when a small part is visible.
+  const effectiveIntersectionOptions = useMemo<IntersectionObserverInit>(() => {
+    if (isMobile) {
+      return { rootMargin: '0px', threshold: 0 }; // Trigger as soon as any part becomes visible
+    }
+    return intersectionOptions;
+  }, [isMobile, intersectionOptions]);
+
+  const isIntersecting = useIntersectionObserver(containerRef, effectiveIntersectionOptions);
 
   // Notify parent component when visibility changes
   useEffect(() => {
@@ -363,6 +373,156 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isIntersecting, isMobile, videoRef]);
 
+  // --- Timeout Reset Logic ---
+  const attemptReset = useCallback(() => {
+    if (videoRef.current && !unmountedRef.current && !error) {
+      const video = videoRef.current;
+      logger.warn(`[${componentId}] Video stalled, attempting reset. Current time: ${video.currentTime}, Ready state: ${video.readyState}, Paused: ${video.paused}`);
+      // Store current time to restore position after load
+      const currentTime = video.currentTime;
+      video.load(); // Force reload of the video source
+      video.play().then(() => {
+        // Restore position slightly after play starts to ensure it takes effect
+        setTimeout(() => {
+          if (videoRef.current && !unmountedRef.current && video.currentTime === 0 && currentTime > 0) {
+             video.currentTime = currentTime;
+             logger.log(`[${componentId}] Reset successful, restored time to ${currentTime}`);
+          } else if (videoRef.current) {
+             logger.log(`[${componentId}] Reset play successful, current time is now ${video.currentTime}`);
+          }
+        }, 100);
+      }).catch(err => {
+        logger.error(`[${componentId}] Error playing after reset:`, err);
+      });
+    }
+  }, [videoRef, componentId, error]);
+
+  // --- Timeout Clearing ---
+  const clearInitialPlayTimeout = useCallback(() => {
+    if (initialPlayTimeoutRef.current) {
+      clearTimeout(initialPlayTimeoutRef.current);
+      initialPlayTimeoutRef.current = null;
+      // logger.log(`[${componentId}] Cleared initial play timeout.`);
+    }
+  }, []);
+
+  const clearWaitingTimeout = useCallback(() => {
+    if (waitingTimeoutRef.current) {
+      clearTimeout(waitingTimeoutRef.current);
+      waitingTimeoutRef.current = null;
+      // logger.log(`[${componentId}] Cleared waiting timeout.`);
+    }
+  }, []);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      clearInitialPlayTimeout();
+      clearWaitingTimeout();
+      // logger.log(`[${componentId}] Unmounting, cleared timeouts.`);
+      unmountedRef.current = true; // Ensure unmountedRef is set here as well
+    };
+  }, [clearInitialPlayTimeout, clearWaitingTimeout]);
+
+  // --- Initial Play Timeout Logic ---
+  useEffect(() => {
+    if (isIntersecting && isMobile && videoRef.current && videoRef.current.paused && !hasPlayedOnce && !error && !unmountedRef.current) {
+      logger.log(`[${componentId}] Mobile intersection detected, starting initial play timeout (${INITIAL_PLAY_TIMEOUT_MS}ms).`);
+      clearInitialPlayTimeout(); // Clear any previous timeout just in case
+      initialPlayTimeoutRef.current = setTimeout(() => {
+        if (videoRef.current && videoRef.current.paused && !hasPlayedOnce && !error && !unmountedRef.current) {
+          logger.warn(`[${componentId}] Initial play timeout expired, video hasn't played.`);
+          attemptReset();
+        } else {
+           logger.log(`[${componentId}] Initial play timeout expired, but video state changed (played, errored, or unmounted). No reset needed.`);
+        }
+      }, INITIAL_PLAY_TIMEOUT_MS);
+
+      // Also attempt immediate play
+       logger.log(`[${componentId}] Mobile intersection detected, attempting immediate autoplay.`);
+       videoRef.current.play().catch(err => {
+         logger.error(`[${componentId}] Mobile immediate autoplay failed:`, err);
+         // Don't reset immediately on fail, let the timeout handle it
+       });
+
+    } else if (!isIntersecting || hasPlayedOnce) {
+      // Clear timeout if no longer intersecting or if it has played
+      clearInitialPlayTimeout();
+    }
+  }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, clearInitialPlayTimeout, attemptReset, componentId]);
+
+
+  // --- Video Event Handlers ---
+  const handlePlayInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
+    logger.log(`[${componentId}] onPlay event fired.`);
+    setHasPlayedOnce(true);
+    clearInitialPlayTimeout();
+    clearWaitingTimeout();
+    if (onPlayProp) onPlayProp(event);
+  }, [onPlayProp, clearInitialPlayTimeout, clearWaitingTimeout, componentId]);
+
+  const handlePauseInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
+    // logger.log(`[${componentId}] onPause event fired.`);
+    clearWaitingTimeout(); // Clear waiting timeout if paused
+    if (onPause) onPause(event);
+
+    // Attempt to resume if paused unexpectedly while visible on mobile
+    if (isMobile && isIntersecting && videoRef.current && !videoRef.current.ended && !unmountedRef.current) {
+      logger.log(`[${componentId}] Paused while intersecting on mobile, attempting to resume shortly.`);
+      setTimeout(() => {
+        if (videoRef.current && videoRef.current.paused && isIntersecting && !videoRef.current.ended && !unmountedRef.current) {
+          logger.log(`[${componentId}] Resuming play after pause.`);
+          videoRef.current.play().catch(err => {
+            logger.error(`[${componentId}] Error resuming play after pause:`, err);
+          });
+        }
+      }, 200); // Short delay before resuming
+    }
+  }, [onPause, clearWaitingTimeout, isMobile, isIntersecting, videoRef, componentId]);
+
+  const handleWaitingInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
+    logger.warn(`[${componentId}] onWaiting event fired.`);
+    clearWaitingTimeout(); // Clear previous waiting timeout
+    waitingTimeoutRef.current = setTimeout(() => {
+      if (videoRef.current && videoRef.current.readyState < 3 && !videoRef.current.paused && !error && !unmountedRef.current) { // readyState < 3 means not enough data
+         logger.warn(`[${componentId}] Waiting timeout expired, video still buffering.`);
+         attemptReset();
+      } else {
+         logger.log(`[${componentId}] Waiting timeout expired, but video state changed (loaded, paused, errored, or unmounted). No reset needed.`);
+      }
+    }, WAITING_TIMEOUT_MS);
+    if (onWaitingProp) onWaitingProp(event);
+  }, [onWaitingProp, clearWaitingTimeout, attemptReset, error, videoRef, componentId]);
+
+  // --- Ended Event Handler ---
+  const handleEndedInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
+    logger.log(`[${componentId}] onEnded event fired.`);
+
+    // Forward to consumer if they provided a handler
+    if (onEnded) onEnded(event);
+
+    if (!videoRef.current || unmountedRef.current) return;
+
+    // If the video should loop (loop prop true) the browser will normally handle it, but there are
+    // scenarios on mobile where the loop attribute might have changed dynamically while the video
+    // was already playing. Additionally, if the video is still visible (intersecting) on mobile we
+    // want to keep it playing even when the loop attribute is false.
+    const shouldManuallyLoop = loop || (isMobile && isIntersecting);
+
+    if (shouldManuallyLoop) {
+      try {
+        videoRef.current.currentTime = 0;
+        // Play returns a promise – ignore the rejection here because user interaction
+        // requirements have already been satisfied if the video just ended.
+        videoRef.current.play().catch(err => {
+          logger.error(`[${componentId}] Error attempting to replay video after end:`, err);
+        });
+      } catch (err) {
+        logger.error(`[${componentId}] Failed to reset and replay video after end:`, err);
+      }
+    }
+  }, [onEnded, loop, isMobile, isIntersecting, videoRef, componentId]);
+
   return (
     <div 
       ref={containerRef} 
@@ -400,7 +560,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         className={cn(
           "w-full h-full object-cover rounded-md transition-opacity duration-300",
           className,
-          (preventLoadingFlicker && (!posterLoaded && !initialFrameLoaded && !error && isLoading)) ? 'opacity-0' : 'opacity-100'
+          (effectivePreventLoadingFlicker && (!posterLoaded && !initialFrameLoaded && !error && isLoading)) ? 'opacity-0' : 'opacity-100'
         )}
         autoPlay={effectiveAutoPlay}
         muted={muted}
@@ -414,16 +574,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         onClick={handleVideoClick}
         onLoadedData={handleLoadedDataInternal}
         onTimeUpdate={onTimeUpdate}
-        onEnded={onEnded}
+        onEnded={handleEndedInternal}
         onError={handleVideoError}
         onLoadStart={onLoadStart}
-        onPause={onPause}
-        onPlay={onPlay}
+        onPause={handlePauseInternal}
+        onPlay={handlePlayInternal}
         onPlaying={onPlaying}
         onProgress={onProgress}
         onSeeked={onSeeked}
         onSeeking={onSeeking}
-        onWaiting={onWaiting}
+        onWaiting={handleWaitingInternal}
         onDurationChange={onDurationChange}
         onVolumeChange={onVolumeChange}
         onLoadedMetadata={handleLoadedMetadataInternal}
