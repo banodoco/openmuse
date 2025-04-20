@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Logger } from '@/lib/logger';
 import LoraCreatorInfo from './LoraCreatorInfo';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('LoraCard');
 
@@ -65,6 +66,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [isVisible, setIsVisible] = useState(false);
   const [isInPreloadArea, setIsInPreloadArea] = useState(false);
+  const isMobile = useIsMobile();
   
   useEffect(() => {
     setCurrentStatus(userStatus);
@@ -220,16 +222,33 @@ const LoraCard: React.FC<LoraCardProps> = ({
               />
             </div>
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors duration-300 pointer-events-none" />
-            <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-              <div className="bg-white/90 backdrop-blur-sm rounded-full p-2 shadow-lg group-hover:animate-subtle-pulse">
-                <ArrowUpRight className="h-4 w-4 text-primary" />
+            
+            {/* --- Top Right Open Icon --- */}
+            <div className="absolute top-3 right-3 z-10">
+              <div className={cn(
+                "transition-opacity duration-300",
+                !isMobile && "opacity-0 group-hover:opacity-100" // Only fade on non-mobile
+              )}>
+                <div className="bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-md border border-white/20 group-hover:animate-subtle-pulse">
+                  <ArrowUpRight className="h-3 w-3 text-primary" />
+                </div>
               </div>
             </div>
+
+            {/* --- Top Left LoRA Type Badge --- */}
             {lora.lora_type && (
-              <div className="absolute bottom-3 left-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-                <Badge variant="secondary" className="bg-white/90 backdrop-blur-sm shadow-lg">
-                  {lora.lora_type}
-                </Badge>
+              <div className="absolute top-3 left-3 z-10">
+                <div className={cn(
+                  "transition-opacity duration-300",
+                  !isMobile && "opacity-0 group-hover:opacity-100" // Only fade on non-mobile
+                )}>
+                  <Badge 
+                    variant="secondary" 
+                    className="bg-white/80 backdrop-blur-sm shadow-md border border-white/20 text-xs px-1.5 py-0.5 h-auto"
+                  >
+                    {lora.lora_type}
+                  </Badge>
+                </div>
               </div>
             )}
           </>

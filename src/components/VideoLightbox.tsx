@@ -353,7 +353,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 onClose();
             }
         }}>
-          <DialogContent className="max-w-5xl p-0 bg-background top-[5vh] h-[90vh] translate-y-0 [&>button.absolute.right-4.top-4]:hidden flex flex-col">
+          <DialogContent className="max-w-5xl p-0 bg-background max-h-[90vh] flex flex-col">
             <DialogHeader className="p-4 border-b">
               <DialogTitle>
                 {isEditing ? editableTitle : initialTitle || 'Video'}
@@ -365,28 +365,17 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               </VisuallyHidden>
             </DialogHeader>
             <div className="relative flex flex-col h-full">
-              <button
-                onClick={() => {
-                    if (isEditing) handleCancelEdit();
-                    onClose();
-                }}
-                className="absolute top-2 right-2 z-[60] bg-black/50 rounded-full p-2 text-white hover:bg-black/70 transition-all"
-                aria-label="Close"
-              >
-                <X size={24} />
-              </button>
-              
-              <div className="relative flex-shrink-0 h-[65vh]">
+              <div className="relative w-full max-h-[65vh] aspect-video bg-black flex-shrink-0">
                 <VideoPlayer
                   src={videoUrl}
                   poster={thumbnailUrl}
                   className="absolute inset-0 w-full h-full object-contain"
                   controls
                   autoPlay={!isMobile}
-                  muted
                   isMobile={isMobile}
                   externallyControlled={isMobile}
                   isHovering={isMobile}
+                  lazyLoad={false}
                 />
 
                 {isAuthorized && currentStatus && onStatusChange && (
@@ -521,13 +510,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   })() : (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between gap-2">
-                        {displayTitle ? (
-                          <h2 className="text-xl font-semibold truncate flex-1">
-                             {displayTitle}
-                          </h2>
-                        ) : (
-                          <div className="flex-1" />
-                        )}
+                        <div className="flex-1" />
                         {canEdit && (
                           <div className="flex items-center space-x-1 flex-shrink-0">
                               <Button 

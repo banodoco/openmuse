@@ -282,14 +282,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
               className="absolute top-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none"
               title="Tap to expand"
             >
-              <ArrowUpRight className="h-3 w-3 text-white/80" />
+              <ArrowUpRight className="h-4 w-4 text-white/80" />
             </div>
           )}
 
           {/* Title and creator info for mobile (always visible) */}
           {isMobile && !isProfilePage && (
             <div
-              className="absolute top-2 left-2 z-20 bg-black/40 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
+              className="absolute bottom-2 left-2 z-20 bg-black/40 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
             >
               {video.metadata?.title && (
                 <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
