@@ -354,6 +354,15 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [isInPreloadArea, onEnterPreloadArea]);
 
+  useEffect(() => {
+    if (isIntersecting && isMobile && videoRef.current && videoRef.current.paused && !unmountedRef.current) {
+      logger.log(`[${componentId}] Mobile intersection detected, attempting autoplay.`);
+      videoRef.current.play().catch(err => {
+        logger.error(`[${componentId}] Mobile autoplay failed:`, err);
+      });
+    }
+  }, [isIntersecting, isMobile, videoRef]);
+
   return (
     <div 
       ref={containerRef} 

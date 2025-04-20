@@ -18,18 +18,20 @@ const logger = new Logger('UploadContent');
 interface UploadContentProps {
   onSuccess?: () => void;
   onCancel?: () => void;
+  refetchVideos?: () => Promise<void> | void;
   initialUploadType?: 'lora' | 'video';
 }
 
 const UploadContent: React.FC<UploadContentProps> = ({ 
   onSuccess,
   onCancel,
+  refetchVideos,
   initialUploadType = 'lora'
 }) => {
   const [videoFile, setVideoFile] = useState<File | null>(null);
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
-  const [classification, setClassification] = useState<'art' | 'generation'>('art');
+  const [classification, setClassification] = useState<'art' | 'generation'>('generation');
   const [creator, setCreator] = useState<'self' | 'someone_else'>('self');
   const [creatorName, setCreatorName] = useState('');
   const [model, setModel] = useState<'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'>('wan');
@@ -41,7 +43,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
     if (!user) {
       throw new Error("User not authenticated");
     }
-    
+    logger.log('Starting video upload...');
     const fileExt = file.name.split('.').pop();
     const fileName = `${user.id}-${Date.now()}.${fileExt}`;
     
@@ -54,19 +56,20 @@ const UploadContent: React.FC<UploadContentProps> = ({
       });
     
     if (error) {
-      logger.error('Error uploading video:', error);
+      logger.error('Error uploading video to storage:', error);
       throw error;
     }
     
+    logger.log('Video uploaded to storage successfully:', data);
     const videoUrl = `https://bvtvmocwczjyljqqtbca.supabase.co/storage/v1/object/public/videos/${fileName}`;
     return videoUrl;
   };
   
   const createVideoEntry = async (videoUrl: string) => {
     if (!user) {
-      throw new Error("User not authenticated");
+      throw new Error("User not authenticated for creating entry");
     }
-    
+    logger.log('Creating video entry in database...');
     const metadata: VideoMetadata = {
       model,
       modelVariant,
@@ -79,42 +82,84 @@ const UploadContent: React.FC<UploadContentProps> = ({
     };
     
     const db = await databaseSwitcher.getDatabase();
-    return await db.addEntry({
+    const result = await db.addEntry({
       url: videoUrl,
       reviewer_name: creatorName || 'Unknown',
       skipped: false,
       user_id: user.id,
       metadata: metadata
     });
+    logger.log('Video entry created:', result);
+    return result;
   };
   
   const { mutate: uploadAndCreate, isPending } = useMutation({
     mutationFn: async () => {
+      logger.log('Mutation function started.');
       if (!videoFile) {
         throw new Error("No video file selected");
       }
       
       const videoUrl = await uploadVideo(videoFile);
-      return createVideoEntry(videoUrl);
+      const entryResult = await createVideoEntry(videoUrl);
+      logger.log('Mutation function completed successfully.');
+      return entryResult;
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      logger.log('Mutation onSuccess started. Data:', data);
       toast.success("Video uploaded and entry created successfully!");
+      logger.log('Resetting form state...');
       setTitle('');
       setDescription('');
       setVideoFile(null);
+      setCreator('self');
+      setCreatorName('');
+      // Add other resets if needed
+      logger.log('Form state reset.');
+
+      // Call the passed-in onSuccess callback if it exists
       if (onSuccess) {
+        logger.log('Calling external onSuccess callback...');
         onSuccess();
+        logger.log('External onSuccess callback finished.');
       }
+      
+      // Call refetchVideos if it exists
+      if (refetchVideos) {
+          logger.log('Calling refetchVideos...');
+          Promise.resolve(refetchVideos()).catch(err => {
+              logger.error('Error calling refetchVideos:', err);
+          }).finally(() => {
+              logger.log('refetchVideos call finished.');
+          });
+      } else {
+          logger.warn('refetchVideos prop was not provided.');
+      }
+      logger.log('Mutation onSuccess finished.');
     },
     onError: (error: any) => {
-      logger.error('Error during upload and create:', error);
-      toast.error(`Error uploading video: ${error.message}`);
+      logger.error('Mutation onError triggered. Error:', error);
+      // Check if it's an AbortError which might be less critical sometimes
+      if (error.name === 'AbortError') {
+        toast.warning("Upload cancelled or interrupted.");
+      } else {
+        toast.error(`Error uploading video: ${error.message || 'Unknown error'}`);
+      }
+      logger.error('Mutation onError finished.');
+    },
+    onSettled: () => {
+       logger.log('Mutation onSettled triggered (runs after onSuccess or onError).');
+       // This is a good place to ensure loading states are *always* reset,
+       // regardless of success or failure, though isPending should handle this.
     }
   });
   
   const onDrop = useCallback((acceptedFiles: File[]) => {
     if (acceptedFiles.length > 0) {
+      logger.log('File dropped:', acceptedFiles[0].name);
       setVideoFile(acceptedFiles[0]);
+    } else {
+      logger.log('Invalid file dropped or drop cancelled.');
     }
   }, []);
   
@@ -123,133 +168,156 @@ const UploadContent: React.FC<UploadContentProps> = ({
     accept: {
       'video/*': ['.mp4', '.mov', '.avi', '.mkv'],
     },
-    maxFiles: 1
+    maxFiles: 1,
+    disabled: isPending
   });
   
   return (
-    <div className="max-w-md mx-auto mt-8 p-6 bg-white rounded-md shadow-md">
-      <div {...getRootProps()} className="relative border-2 border-dashed rounded-md p-4 cursor-pointer">
-        <input {...getInputProps()} />
-        {
-          isDragActive ?
-            <p className="text-center text-gray-600">Drop the files here ...</p> :
-            <p className="text-center text-gray-600">Drag 'n' drop a video file here, or click to select files</p>
-        }
-        {videoFile && (
-          <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center bg-white/70 backdrop-blur-sm">
-            <p className="text-center text-gray-600">Selected file: {videoFile.name}</p>
-          </div>
-        )}
-      </div>
-      
-      <div className="mt-4">
-        <Label htmlFor="title">Title</Label>
-        <Input
-          type="text"
-          id="title"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Video Title"
-          className="mt-1"
-        />
-      </div>
-      
-      <div className="mt-4">
-        <Label htmlFor="description">Description</Label>
-        <Textarea
-          id="description"
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          placeholder="Video Description"
-          className="mt-1"
-        />
-      </div>
-      
-      <div className="mt-4">
-        <Label htmlFor="classification">Classification</Label>
-        <Select value={classification} onValueChange={(value) => setClassification(value as 'art' | 'generation')}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select Classification" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="art">Art</SelectItem>
-            <SelectItem value="generation">Generation</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      
-      <div className="mt-4">
-        <Label htmlFor="creator">Creator</Label>
-        <Select value={creator} onValueChange={(value) => setCreator(value as 'self' | 'someone_else')}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select Creator" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="self">Self</SelectItem>
-            <SelectItem value="someone_else">Someone Else</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-      
-      {creator === 'someone_else' && (
-        <div className="mt-4">
-          <Label htmlFor="creatorName">Creator Name</Label>
-          <Input
-            type="text"
-            id="creatorName"
-            value={creatorName}
-            onChange={(e) => setCreatorName(e.target.value)}
-            placeholder="Creator Name"
-            className="mt-1"
-          />
+    <div className="max-w-md mx-auto mt-8 p-6 bg-card text-card-foreground rounded-lg shadow-md border">
+      <form onSubmit={(e) => { e.preventDefault(); uploadAndCreate(); }}>
+        <div {...getRootProps()} 
+             className={`relative border-2 border-dashed rounded-md p-6 text-center cursor-pointer transition-colors duration-200 ease-in-out ${isDragActive ? 'border-primary bg-primary/10' : 'border-border hover:border-muted-foreground/50'} ${isPending ? 'cursor-not-allowed opacity-50' : ''}`}>
+          <input {...getInputProps()} />
+          {
+            videoFile ? (
+              <p className="text-sm font-medium text-foreground">Selected: {videoFile.name}</p>
+            ) : isDragActive ? (
+              <p className="text-sm text-muted-foreground">Drop the video file here...</p>
+            ) : (
+              <p className="text-sm text-muted-foreground">Drag & drop video, or click to select</p>
+            )
+          }
         </div>
-      )}
-
-      <div className="mt-4">
-        <Label htmlFor="model">Base Model</Label>
-        <Select value={model} onValueChange={(value) => setModel(value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Select Model" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="wan">Wan</SelectItem>
-            <SelectItem value="hunyuan">Hunyuan</SelectItem>
-            <SelectItem value="ltxv">LTXV</SelectItem>
-            <SelectItem value="cogvideox">CogVideoX</SelectItem>
-            <SelectItem value="animatediff">AnimateDiff</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div className="mt-4">
-        <Label htmlFor="modelVariant">Model Variant</Label>
-        <Input
-          type="text"
-          id="modelVariant"
-          value={modelVariant}
-          onChange={(e) => setModelVariant(e.target.value)}
-          placeholder="Model Variant"
-          className="mt-1"
-        />
-      </div>
-      
-      <div className="flex justify-end gap-2 mt-6">
-        {onCancel && (
-          <Button
-            variant="outline"
-            onClick={onCancel}
-          >
-            Cancel
-          </Button>
+        
+        {videoFile && !isPending && (
+             <Button variant="link" size="sm" className="mt-2 text-xs" onClick={() => setVideoFile(null)}>Clear selection</Button>
         )}
-        <Button
-          className="w-full"
-          onClick={() => uploadAndCreate()}
-          disabled={isPending || !videoFile}
-        >
-          {isPending ? 'Uploading...' : 'Upload Video'}
-        </Button>
-      </div>
+
+        <div className="mt-4 space-y-4">
+          <div>
+            <Label htmlFor="title">Title <span className="text-destructive">*</span></Label>
+            <Input
+              type="text"
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Video Title"
+              className="mt-1"
+              required
+              disabled={isPending}
+            />
+          </div>
+          
+          <div>
+            <Label htmlFor="description">Description</Label>
+            <Textarea
+              id="description"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder="Video Description"
+              className="mt-1"
+              disabled={isPending}
+            />
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="classification">Classification</Label>
+              <Select value={classification} onValueChange={(value) => setClassification(value as 'art' | 'generation')} disabled={isPending}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Select Classification" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="art">Art</SelectItem>
+                  <SelectItem value="generation">Generation</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div>
+              <Label htmlFor="creator">Creator</Label>
+              <Select value={creator} onValueChange={(value) => setCreator(value as 'self' | 'someone_else')} disabled={isPending}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Select Creator" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="self">Self</SelectItem>
+                  <SelectItem value="someone_else">Someone Else</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          
+          {creator === 'someone_else' && (
+            <div>
+              <Label htmlFor="creatorName">Creator Name</Label>
+              <Input
+                type="text"
+                id="creatorName"
+                value={creatorName}
+                onChange={(e) => setCreatorName(e.target.value)}
+                placeholder="Creator Name"
+                className="mt-1"
+                disabled={isPending}
+              />
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="model">Base Model</Label>
+              <Select value={model} onValueChange={(value) => setModel(value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')} disabled={isPending}>
+                <SelectTrigger className="w-full mt-1">
+                  <SelectValue placeholder="Select Model" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="wan">Wan</SelectItem>
+                  <SelectItem value="hunyuan">Hunyuan</SelectItem>
+                  <SelectItem value="ltxv">LTXV</SelectItem>
+                  <SelectItem value="cogvideox">CogVideoX</SelectItem>
+                  <SelectItem value="animatediff">AnimateDiff</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="modelVariant">Model Variant</Label>
+              <Input
+                type="text"
+                id="modelVariant"
+                value={modelVariant}
+                onChange={(e) => setModelVariant(e.target.value)}
+                placeholder="Optional variant details"
+                className="mt-1"
+                disabled={isPending}
+              />
+            </div>
+         </div>
+          
+          {/* Add isPrimary checkbox if needed */}
+
+        </div>
+        
+        <div className="flex justify-end gap-2 mt-6">
+          {onCancel && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={onCancel}
+              disabled={isPending}
+            >
+              Cancel
+            </Button>
+          )}
+          <Button
+            type="submit"
+            className="min-w-[120px]"
+            disabled={isPending || !videoFile || !title}
+          >
+            {isPending ? 'Uploading...' : 'Upload Video'}
+          </Button>
+        </div>
+      </form>
     </div>
   );
 };

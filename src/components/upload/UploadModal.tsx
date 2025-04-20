@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from '@/components/ui/button';
 import UploadContent from '@/components/upload/UploadContent';
+import { useVideoManagement } from '@/hooks/useVideoManagement';
 
 interface UploadModalProps {
   trigger: React.ReactNode; // The element that opens the modal
@@ -23,6 +24,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
   onUploadSuccess
 }) => {
   const [isOpen, setIsOpen] = useState(false);
+  const { refetchVideos } = useVideoManagement();
 
   const handleSuccess = () => {
     setIsOpen(false); // Close modal on success
@@ -48,6 +50,7 @@ const UploadModal: React.FC<UploadModalProps> = ({
             initialUploadType={initialUploadType}
             onSuccess={handleSuccess}
             onCancel={handleCancel}
+            refetchVideos={refetchVideos}
           />
         </div>
       </DialogContent>
