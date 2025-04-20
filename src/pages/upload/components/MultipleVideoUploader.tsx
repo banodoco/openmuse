@@ -7,30 +7,33 @@ import VideoDropzone from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
-import { VideoItem } from '@/lib/types';
 
-// Define LoraOption locally
-type LoraOption = {
+interface VideoItem {
+  file: File | null;
+  url: string | null;
+  metadata: {
+    title: string;
+    description: string;
+    classification: 'art' | 'generation';
+    creator: 'self' | 'someone_else';
+    creatorName: string;
+    isPrimary?: boolean;
+  };
   id: string;
-  name: string;
-};
+}
 
 interface MultipleVideoUploaderProps {
   videos: VideoItem[];
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
   disabled?: boolean;
-  allowPrimarySelection?: boolean;
-  availableLoras: LoraOption[];
-  uploadContext: 'lora' | 'video';
+  hideIsPrimary?: boolean;
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
   videos, 
   setVideos,
   disabled = false,
-  allowPrimarySelection = true,
-  availableLoras,
-  uploadContext
+  hideIsPrimary = false
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -48,8 +51,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       creatorName: user?.email || '',
       isPrimary: videos.length === 0
     },
-    id: uuidv4(),
-    associatedLoraIds: [],
+    id: uuidv4()
   });
   
   const handleFileDrop = (acceptedFiles: File[]) => {
@@ -76,13 +78,12 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'generation',
+            classification: 'generation' as 'art' | 'generation',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst
           },
-          id: uuidv4(),
-          associatedLoraIds: [],
+          id: uuidv4()
         } as VideoItem;
       });
       
@@ -113,13 +114,12 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         metadata: {
           title: '',
           description: '',
-          classification: 'generation',
+          classification: 'generation' as 'art' | 'generation',
           creator: 'self' as 'self' | 'someone_else',
           creatorName: user?.email || '',
           isPrimary: isFirst
         },
-        id: uuidv4(),
-        associatedLoraIds: [],
+        id: uuidv4()
       }
     ]);
     
@@ -153,13 +153,12 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'generation',
+            classification: 'generation' as 'art' | 'generation',
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
             isPrimary: isFirst
           },
-          id: uuidv4(),
-          associatedLoraIds: [],
+          id: uuidv4()
         }
       ]);
       
@@ -178,58 +177,44 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   };
   
   const updateVideoMetadata = (id: string, field: string, value: any) => {
-    console.log(`MultipleVideoUploader: updateVideoMetadata received -> id: ${id}, field: ${field}, value:`, value);
     if (disabled) return;
     
     setVideos(prev => {
       const updated = prev.map(video => {
         if (video.id === id) {
-          if (field === 'associatedLoraIds') {
+          if (field === 'isPrimary' && value === true) {
             return {
               ...video,
-              associatedLoraIds: value
+              metadata: { ...video.metadata, isPrimary: true }
             };
           }
-          
           return {
             ...video,
-            metadata: {
-              ...video.metadata,
-              [field]: value,
-              ...(field === 'isPrimary' && value === true ? { isPrimary: true } : {})
-            }
+            metadata: { ...video.metadata, [field]: value }
           };
         }
         
         if (field === 'isPrimary' && value === true) {
-          return {
-            ...video,
-            metadata: {
-              ...video.metadata,
-              isPrimary: false
-            }
-          };
+          return { ...video, metadata: { ...video.metadata, isPrimary: false } };
         }
         
         return video;
       });
       
+      const primaryIndex = updated.findIndex(v => v.metadata.isPrimary);
+      if (primaryIndex !== -1) {
+          return updated.map((v, idx) => ({
+              ...v,
+              metadata: { ...v.metadata, isPrimary: idx === primaryIndex }
+          }));
+      } else if (updated.length > 0) {
+          updated[0].metadata.isPrimary = true;
+      }
+
       return updated;
     });
   };
   
-  const applyLorasToAllVideos = (loraIdsToApply: string[]) => {
-    console.log(`[MultipleVideoUploader] Applying LoRA IDs to all videos:`, loraIdsToApply);
-    if (disabled) return;
-
-    setVideos(prevVideos => 
-      prevVideos.map(video => ({
-        ...video,
-        associatedLoraIds: [...loraIdsToApply]
-      }))
-    );
-  };
-
   const removeVideo = (id: string) => {
     if (disabled) return;
     
@@ -237,19 +222,11 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       const removingPrimary = prev.find(v => v.id === id)?.metadata.isPrimary;
       const filtered = prev.filter(video => video.id !== id);
       
-      if (removingPrimary && filtered.length > 0) {
-        return filtered.map((video, index) => {
-          if (index === 0) {
-            return {
-              ...video,
-              metadata: {
-                ...video.metadata,
-                isPrimary: true
-              }
-            };
-          }
-          return video;
-        });
+      if (removingPrimary && filtered.length > 0 && !filtered.some(v => v.metadata.isPrimary)) {
+        return filtered.map((video, index) => ({
+          ...video,
+          metadata: { ...video.metadata, isPrimary: index === 0 }
+        }));
       }
       
       return filtered;
@@ -286,74 +263,63 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           </div>
           
           <div className="grid gap-4 md:grid-cols-1">
-            {videos.map((video, index) => {
-              console.log(`MultipleVideoUploader: Rendering VideoMetadataForm for video ${video.id} with associatedLoraIds:`, video.associatedLoraIds);
-              return (
-                <Card key={video.id} className="relative overflow-hidden">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="absolute top-2 right-2 z-10 bg-background/80 rounded-full"
-                    onClick={() => removeVideo(video.id)}
-                    disabled={disabled}
-                  >
-                    <XCircle size={18} />
-                    <span className="sr-only">Remove</span>
-                  </Button>
-                  
-                  <CardContent className="p-4 grid md:grid-cols-2 gap-6">
-                    <div className="flex flex-col space-y-2">
-                      <div className="aspect-video bg-muted rounded-md overflow-hidden">
-                        {video.url ? (
-                          <video
-                            src={video.url}
-                            controls
-                            className="w-full h-full object-contain"
-                            preload="metadata"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center">
-                            <span className="text-muted-foreground">No video selected</span>
-                          </div>
-                        )}
-                      </div>
-                      
-                      {!video.url && !video.file && (
-                        <div className="flex justify-center gap-2 mt-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => fileInputRef.current?.click()}
-                            disabled={disabled}
-                          >
-                            <Upload size={16} className="mr-2" />
-                            Upload
-                          </Button>
+            {videos.map((video) => (
+              <Card key={video.id} className="relative overflow-hidden">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 z-10 bg-background/80 rounded-full"
+                  onClick={() => removeVideo(video.id)}
+                  disabled={disabled}
+                >
+                  <XCircle size={18} />
+                  <span className="sr-only">Remove</span>
+                </Button>
+                
+                <CardContent className="p-4 grid md:grid-cols-2 gap-6">
+                  <div className="flex flex-col space-y-2">
+                    <div className="aspect-video bg-muted rounded-md overflow-hidden">
+                      {video.url ? (
+                        <video
+                          src={video.url}
+                          controls
+                          className="w-full h-full object-contain"
+                          preload="metadata"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <span className="text-muted-foreground">No video selected</span>
                         </div>
                       )}
                     </div>
                     
-                    <div>
-                      <VideoMetadataForm
-                        videoId={video.id}
-                        metadata={video.metadata}
-                        associatedLoraIds={video.associatedLoraIds || []}
-                        availableLoras={availableLoras}
-                        onMetadataChange={(receivedId, receivedField, receivedValue) => {
-                          console.log(`[MultipleVideoUploader Shim] Received -> id: ${receivedId}, field: ${receivedField}, value:`, receivedValue);
-                          updateVideoMetadata(receivedId, receivedField, receivedValue);
-                        }}
-                        disabled={disabled}
-                        allowPrimarySelection={allowPrimarySelection}
-                        uploadContext={uploadContext}
-                        totalVideoCount={videos.length}
-                        onApplyLorasToAll={applyLorasToAllVideos}
-                      />
-                    </div>
-                  </CardContent>
-                </Card>
-              );
-            })}
+                    {!video.url && !video.file && (
+                      <div className="flex justify-center gap-2 mt-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => fileInputRef.current?.click()}
+                          disabled={disabled}
+                        >
+                          <Upload size={16} className="mr-2" />
+                          Upload
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                  
+                  <div>
+                    <VideoMetadataForm
+                      videoId={video.id}
+                      metadata={video.metadata}
+                      updateMetadata={updateVideoMetadata}
+                      canSetPrimary={!hideIsPrimary}
+                      disabled={disabled}
+                    />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
           </div>
         </div>
       )}

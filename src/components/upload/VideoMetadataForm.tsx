@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -7,48 +6,30 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
-import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
-import { Button } from '@/components/ui/button';
-import { Link } from 'lucide-react';
-import { VideoMetadataForm as VideoMetadataFormType } from '@/lib/types';
-
-type LoraOption = {
-  id: string;
-  name: string;
-};
 
 interface VideoMetadataFormProps {
   videoId: string;
-  metadata: VideoMetadataFormType;
-  associatedLoraIds: string[];
-  availableLoras: LoraOption[];
-  onMetadataChange: (id: string, field: string, value: any) => void;
-  allowPrimarySelection?: boolean;
+  metadata: {
+    title: string;
+    description: string;
+    classification: 'art' | 'gen'; // Expects 'gen'
+    creator: 'self' | 'someone_else';
+    creatorName: string;
+    isPrimary?: boolean;
+  };
+  updateMetadata: (id: string, field: string, value: any) => void; // Expects this prop
+  canSetPrimary?: boolean;
   disabled?: boolean;
-  uploadContext: 'lora' | 'video';
-  totalVideoCount: number;
-  onApplyLorasToAll?: (loraIds: string[]) => void;
 }
 
 const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ 
   videoId, 
   metadata, 
-  associatedLoraIds,
-  availableLoras, 
-  onMetadataChange, 
-  allowPrimarySelection = true,
-  disabled = false,
-  uploadContext,
-  totalVideoCount,
-  onApplyLorasToAll,
+  updateMetadata, 
+  canSetPrimary = true,
+  disabled = false
 }) => {
   const { user } = useAuth();
-  
-  const showApplyToAll = 
-    uploadContext === 'video' &&
-    totalVideoCount > 1 && 
-    associatedLoraIds.length > 0 && 
-    typeof onApplyLorasToAll === 'function';
   
   return (
     <Card>
@@ -66,7 +47,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 id={`title-${videoId}`}
                 placeholder="Optional video title"
                 value={metadata.title}
-                onChange={(e) => onMetadataChange(videoId, 'title', e.target.value)}
+                onChange={(e) => updateMetadata(videoId, 'title', e.target.value)}
                 disabled={disabled}
               />
             </div>
@@ -79,7 +60,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                 id={`description-${videoId}`}
                 placeholder="Optional video description"
                 value={metadata.description}
-                onChange={(e) => onMetadataChange(videoId, 'description', e.target.value)}
+                onChange={(e) => updateMetadata(videoId, 'description', e.target.value)}
                 disabled={disabled}
                 className="min-h-[80px]"
               />
@@ -87,61 +68,20 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
           </div>
           
           <div className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start">
-              {/* Conditionally render LoRA Association based on context */}
-              {uploadContext === 'video' && (
-                <div>
-                  <Label className="text-sm font-medium mb-2 block">
-                    Which LoRA did you make this with? (Optional)
-                  </Label>
-                  <LoraMultiSelectCombobox
-                    loras={availableLoras}
-                    selectedIds={associatedLoraIds}
-                    setSelectedIds={(ids) => {
-                      console.log(`[VideoMetadataForm] setSelectedIds callback received. Video ID: ${videoId}, New IDs:`, ids);
-                      console.log(`[VideoMetadataForm] Current associatedLoraIds before update:`, associatedLoraIds); 
-                      
-                      onMetadataChange(videoId, 'associatedLoraIds', ids);
-                      
-                      console.log(`[VideoMetadataForm] Called onMetadataChange for 'associatedLoraIds'.`);
-                    }}
-                    disabled={disabled || availableLoras.length === 0}
-                    placeholder="Select LoRA(s)..."
-                    searchPlaceholder="Search LoRAs..."
-                    noResultsText="No LoRAs found."
-                    triggerClassName="min-h-[58px]"
-                  />
-                  {availableLoras.length === 0 && !disabled && (
-                    <p className="text-xs text-muted-foreground mt-1">No LoRAs available to select.</p>
-                  )}
-
-                  {showApplyToAll && (
-                    <Button
-                      variant="link"
-                      size="sm"
-                      type="button"
-                      className="mt-2 px-0 h-auto text-muted-foreground hover:text-primary"
-                      onClick={() => onApplyLorasToAll(associatedLoraIds)}
-                      disabled={disabled}
-                    >
-                      <Link size={14} className="mr-1.5" />
-                      Apply selected LoRA(s) to all {totalVideoCount} videos
-                    </Button>
-                  )}
-                </div>
-              )}
-
+            <h3 className="text-lg font-semibold text-foreground">Classification</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div>
                 <Label className="text-sm font-medium mb-2 block">Video Classification</Label>
                 <RadioGroup 
                   value={metadata.classification}
-                  onValueChange={(value) => onMetadataChange(videoId, 'classification', value)}
+                  onValueChange={(value) => updateMetadata(videoId, 'classification', value)}
                   className="flex flex-col space-y-2"
                   disabled={disabled}
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="generation" id={`classification-generation-${videoId}`} />
-                    <Label htmlFor={`classification-generation-${videoId}`} className="cursor-pointer">Generation</Label>
+                    <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} /> {/* Uses 'gen' */}
+                    <Label htmlFor={`classification-gen-${videoId}`} className="cursor-pointer">Generation</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="art" id={`classification-art-${videoId}`} />
@@ -149,16 +89,52 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   </div>
                 </RadioGroup>
               </div>
+              
+              <div>
+                <Label className="text-sm font-medium mb-2 block">Creator</Label>
+                <RadioGroup 
+                  value={metadata.creator}
+                  onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
+                  className="flex flex-col space-y-2"
+                  disabled={disabled}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="self" id={`creator-self-${videoId}`} />
+                    <Label htmlFor={`creator-self-${videoId}`} className="cursor-pointer">Me</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="someone_else" id={`creator-someone-else-${videoId}`} />
+                    <Label htmlFor={`creator-someone-else-${videoId}`} className="cursor-pointer">Someone else</Label>
+                  </div>
+                </RadioGroup>
+              </div>
             </div>
+            
+            {metadata.creator === 'someone_else' && (
+              <div>
+                <Label htmlFor={`creator-name-${videoId}`} className="text-sm font-medium mb-1.5 block">
+                  Creator Username <span className="text-destructive">*</span>
+                </Label>
+                <Input
+                  type="text"
+                  id={`creator-name-${videoId}`}
+                  placeholder="Username of the creator"
+                  value={metadata.creatorName}
+                  onChange={(e) => updateMetadata(videoId, 'creatorName', e.target.value)}
+                  required
+                  disabled={disabled}
+                />
+              </div>
+            )}
           </div>
           
-          {allowPrimarySelection && (
+          {canSetPrimary && (
             <div className="pt-2">
               <div className="flex items-center space-x-3">
                 <Switch
                   id={`is-primary-${videoId}`}
                   checked={metadata.isPrimary}
-                  onCheckedChange={(checked) => onMetadataChange(videoId, 'isPrimary', checked)}
+                  onCheckedChange={(checked) => updateMetadata(videoId, 'isPrimary', checked)}
                   disabled={disabled}
                 />
                 <Label htmlFor={`is-primary-${videoId}`} className="font-medium cursor-pointer">
