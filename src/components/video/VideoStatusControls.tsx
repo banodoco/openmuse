@@ -1,7 +1,6 @@
-
 import React, { useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Eye, EyeOff, Bookmark } from 'lucide-react';
+import { Eye, EyeOff, Pin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { VideoDisplayStatus } from '@/lib/types';
@@ -54,7 +53,7 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
         onClick={handleButtonClick('Pinned')}
         title="Pin this video"
       >
-        <Bookmark className="h-4 w-4" />
+        <Pin className="h-4 w-4" />
       </Button>
 
       <Button
