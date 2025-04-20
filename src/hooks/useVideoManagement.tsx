@@ -1,5 +1,6 @@
+
 import { useState, useCallback, useEffect, useRef, useContext } from 'react';
-import { VideoEntry } from '@/lib/types';
+import { VideoEntry, AdminStatus } from '@/lib/types';
 import { databaseSwitcher } from '@/lib/databaseSwitcher';
 import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
@@ -130,7 +131,7 @@ export const useVideoManagement = () => {
       if (updatedVideo) {
         logger.log(`[approveVideo] Successfully approved, updating state for ID: ${id}`);
         setVideos(prev => prev.map(video =>
-          video.id === id ? { ...video, admin_status: "Curated" } : video
+          video.id === id ? { ...video, admin_status: "Curated" as AdminStatus } : video
         ));
       }
       return updatedVideo;
@@ -148,7 +149,7 @@ export const useVideoManagement = () => {
       if (updatedVideo) {
          logger.log(`[rejectVideo] Successfully rejected, updating state for ID: ${id}`);
         setVideos(prev => prev.map(video =>
-          video.id === id ? { ...video, admin_status: "Rejected" } : video
+          video.id === id ? { ...video, admin_status: "Rejected" as AdminStatus } : video
         ));
       }
       return updatedVideo;

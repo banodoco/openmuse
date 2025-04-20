@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { MultipleVideoUploader } from '@/pages/upload/components';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -179,6 +178,7 @@ const LoRAVideoUploader: React.FC<LoRAVideoUploaderProps> = ({
                   allowPrimarySelection={false}
                   availableLoras={[]}
                   uploadContext="lora"
+                  hideIsPrimary={true}
                 />
                 
                 <div className="flex justify-end space-x-2 pt-4">

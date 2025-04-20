@@ -1,3 +1,4 @@
+
 import React, { useState, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import { Button } from '@/components/ui/button';
@@ -27,13 +28,19 @@ interface MultipleVideoUploaderProps {
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
   disabled?: boolean;
   hideIsPrimary?: boolean;
+  allowPrimarySelection?: boolean; // Add this prop
+  availableLoras?: any[]; // Add this prop
+  uploadContext?: string; // Add this prop
 }
 
-const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({ 
-  videos, 
+const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
+  videos,
   setVideos,
   disabled = false,
-  hideIsPrimary = false
+  hideIsPrimary = false,
+  allowPrimarySelection = true,
+  availableLoras = [],
+  uploadContext = ''
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -114,8 +121,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         metadata: {
           title: '',
           description: '',
-          classification: 'generation' as 'art' | 'generation',
-          creator: 'self' as 'self' | 'someone_else',
+          classification: 'generation',
+          creator: 'self',
           creatorName: user?.email || '',
           isPrimary: isFirst
         },

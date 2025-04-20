@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { VideoEntry } from '@/lib/types';
+import { VideoEntry, AdminStatus } from '@/lib/types';
 import { Check, X, Filter } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -39,7 +40,7 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
 
   const filteredVideos = videos.filter(video => {
     if (assetFilter.approved && video.admin_status === "Curated") return true;
-    if (assetFilter.notApproved && (video.admin_status === "Rejected" || video.admin_status === "Listed")) return true;
+    if (assetFilter.notApproved && (video.admin_status === ("Rejected" as AdminStatus) || video.admin_status === "Listed")) return true;
     return false;
   });
 
@@ -120,9 +121,9 @@ const RelatedVideos: React.FC<RelatedVideosProps> = ({ videos, assetId, navigate
                           Curated
                         </Badge>
                       ) : (
-                        <Badge variant={video.admin_status === "Rejected" ? "destructive" : "outline"} className="gap-1">
-                          {video.admin_status === "Rejected" && <X className="h-3 w-3" />}
-                          {video.admin_status === "Rejected" ? "Rejected" : "Listed"}
+                        <Badge variant={video.admin_status === ("Rejected" as AdminStatus) ? "destructive" : "outline"} className="gap-1">
+                          {video.admin_status === ("Rejected" as AdminStatus) && <X className="h-3 w-3" />}
+                          {video.admin_status === ("Rejected" as AdminStatus) ? "Rejected" : "Listed"}
                         </Badge>
                       )}
                     </TableCell>

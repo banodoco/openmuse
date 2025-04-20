@@ -1,6 +1,7 @@
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, AdminStatus } from '@/lib/types';
 import { toast } from 'sonner';
 
 export const useAssetAdminActions = (
@@ -23,7 +24,7 @@ export const useAssetAdminActions = (
       if (error) throw error;
       
       toast.success('LoRA curated successfully');
-      setAsset(prev => prev ? { ...prev, admin_status: 'Curated' } : null);
+      setAsset(prev => prev ? { ...prev, admin_status: 'Curated' as AdminStatus } : null);
     } catch (error) {
       console.error('Error curating LoRA:', error);
       toast.error('Failed to curate LoRA');
@@ -45,7 +46,7 @@ export const useAssetAdminActions = (
       if (error) throw error;
       
       toast.success('LoRA listed successfully');
-      setAsset(prev => prev ? { ...prev, admin_status: 'Listed' } : null);
+      setAsset(prev => prev ? { ...prev, admin_status: 'Listed' as AdminStatus } : null);
     } catch (error) {
       console.error('Error listing LoRA:', error);
       toast.error('Failed to list LoRA');
@@ -67,7 +68,7 @@ export const useAssetAdminActions = (
       if (error) throw error;
       
       toast.success('LoRA rejected');
-      setAsset(prev => prev ? { ...prev, admin_status: 'Rejected' } : null);
+      setAsset(prev => prev ? { ...prev, admin_status: 'Rejected' as AdminStatus } : null);
     } catch (error) {
       console.error('Error rejecting LoRA:', error);
       toast.error('Failed to reject LoRA');
@@ -89,7 +90,7 @@ export const useAssetAdminActions = (
       if (error) throw error;
       
       toast.success('LoRA featured successfully');
-      setAsset(prev => prev ? { ...prev, admin_status: 'Featured' } : null);
+      setAsset(prev => prev ? { ...prev, admin_status: 'Featured' as AdminStatus } : null);
     } catch (error) {
       console.error('Error featuring LoRA:', error);
       toast.error('Failed to feature LoRA');

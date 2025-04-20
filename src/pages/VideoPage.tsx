@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { VideoEntry } from '@/lib/types';
+import { VideoEntry, AdminStatus } from '@/lib/types';
 import { Button } from '@/components/ui/button';
 import Navigation from '@/components/Navigation';
 import VideoPlayer from '@/components/video/VideoPlayer';
@@ -118,7 +118,7 @@ const VideoPage: React.FC = () => {
 
   const filteredRelatedVideos = validRelatedVideos.filter(video => {
     if (assetFilter.approved && video.admin_status === 'Curated') return true;
-    if (assetFilter.notApproved && (video.admin_status === 'Rejected' || video.admin_status === 'Listed' || video.admin_status === null)) return true;
+    if (assetFilter.notApproved && (video.admin_status === ('Rejected' as AdminStatus) || video.admin_status === 'Listed' || video.admin_status === null)) return true;
     return false;
   });
 
@@ -348,7 +348,7 @@ const VideoPage: React.FC = () => {
                         ) : (
                           <Badge variant="destructive" className="gap-1">
                             <X className="h-3 w-3" />
-                            {relatedVideo.admin_status === 'Rejected' ? 'Rejected' : 'Listed'}
+                            {relatedVideo.admin_status === ('Rejected' as AdminStatus) ? 'Rejected' : 'Listed'}
                           </Badge>
                         )}
                       </TableCell>

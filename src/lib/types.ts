@@ -23,8 +23,8 @@ export interface VideoMetadata {
 
 export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';
 
-// Define the possible admin statuses
-export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden';
+// Update AdminStatus to include 'Rejected'
+export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Rejected';
 
 export type AssetType = 'lora' | 'other'; // Example, adjust as needed
 

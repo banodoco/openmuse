@@ -1,5 +1,6 @@
+
 import React, { useState } from 'react';
-import { VideoEntry } from '@/lib/types';
+import { VideoEntry, AdminStatus } from '@/lib/types';
 import VideoList from './VideoList';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -48,14 +49,14 @@ const VideoManager: React.FC<VideoManagerProps> = ({
     } else if (videoFilter === 'listed') {
       return sortedVideos.filter(video => video.admin_status === 'Listed');
     } else if (videoFilter === 'rejected') {
-      return sortedVideos.filter(video => video.admin_status === 'Rejected');
+      return sortedVideos.filter(video => video.admin_status === 'Rejected' as AdminStatus);
     }
     return sortedVideos;
   }, [sortedVideos, videoFilter]);
   
   const curatedVideos = sortedVideos.filter(video => video.admin_status === 'Curated');
   const listedVideos = sortedVideos.filter(video => video.admin_status === 'Listed');
-  const rejectedVideos = sortedVideos.filter(video => video.admin_status === 'Rejected');
+  const rejectedVideos = sortedVideos.filter(video => video.admin_status === ('Rejected' as AdminStatus));
   
   const handleDelete = async (id: string) => {
     try {
