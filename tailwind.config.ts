@@ -1,4 +1,3 @@
-
 import type { Config } from "tailwindcss";
 
 export default {
@@ -105,13 +104,18 @@ export default {
         'pulse-opacity': {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.7' }
-        }
+        },
+        'fade-in-fast': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
       },
       animation: {
         'accordion-down': 'accordion-down 0.2s ease-out',
         'accordion-up': 'accordion-up 0.2s ease-out',
         'float': 'float 6s ease-in-out infinite',
-        'pulse-opacity': 'pulse-opacity 3s ease-in-out infinite'
+        'pulse-opacity': 'pulse-opacity 3s ease-in-out infinite',
+        'fade-in-fast': 'fade-in-fast 1.5s ease-out 0.2s forwards',
       },
       boxShadow: {
         'subtle': '0 2px 10px rgba(0, 0, 0, 0.05)',

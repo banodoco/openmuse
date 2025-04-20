@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import Masonry from 'react-masonry-css';
 import { DummyCard, generateDummyItems } from '@/components/common/DummyCard';
+import { useLocation } from 'react-router-dom';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -54,6 +55,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   onStatusChange
 }) => {
   const { user } = useAuth();
+  const { pathname } = useLocation();
+  const isLoraPage = pathname.includes('/assets/loras/');
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [classification, setClassification] = useState<'all' | 'generation' | 'art'>('all');
   
@@ -187,7 +190,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               }
             })}
           </Masonry>
-          <div className="fade-overlay-element"></div>
+          {!isLoraPage && <div className="fade-overlay-element"></div>}
         </div>
       ) : (
         <EmptyState 

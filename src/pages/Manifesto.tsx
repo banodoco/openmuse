@@ -1,11 +1,10 @@
-
 import React from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 
 const ManifestoPage: React.FC = () => {
   return (
-    <div className="flex flex-col min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen">
       <Navigation />
       
       <div className="flex-1 w-full">
