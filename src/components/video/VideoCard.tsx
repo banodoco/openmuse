@@ -277,20 +277,20 @@ const VideoCard: React.FC<VideoCardProps> = ({
             shouldBePlaying={shouldBePlaying}
           />
 
-          {/* Expand Icon for Mobile - Top Right */}
+          {/* Expand Icon for Mobile - Now Bottom Right */}
           {isMobile && (
             <div 
-              className="absolute top-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none"
+              className="absolute bottom-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none"
               title="Tap to expand"
             >
               <ArrowUpRight className="h-4 w-4 text-white/80" />
             </div>
           )}
 
-          {/* Title and creator info for mobile (always visible) */}
+          {/* Title and creator info for mobile (now top left) */}
           {isMobile && !isProfilePage && (
             <div
-              className="absolute bottom-2 left-2 z-20 bg-black/40 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
+              className="absolute top-2 left-2 z-20 bg-black/40 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
             >
               {video.metadata?.title && (
                 <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
@@ -440,6 +440,19 @@ const VideoCard: React.FC<VideoCardProps> = ({
           )}
         </div>
       </div>
+
+      {/* Desktop Click Indicator - Bottom Right */}
+      {!isMobile && (
+        <div 
+          className={cn(
+            "absolute bottom-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none",
+            "opacity-0 group-hover:opacity-100 transition-opacity duration-300" // Only show on hover
+          )}
+          title="Click to view details"
+        >
+          <ArrowUpRight className="h-4 w-4 text-white/80" />
+        </div>
+      )}
     </div>
   );
 };
