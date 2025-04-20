@@ -7,10 +7,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Loader2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, UserProfile, VideoEntry, VideoDisplayStatus } from '@/lib/types';
+import { LoraAsset, UserProfile, VideoEntry, VideoDisplayStatus, UserAssetPreferenceStatus, AdminStatus } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
-import LoraCard, { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
+import LoraCard from '@/components/lora/LoraCard';
 import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
 import UploadModal from '@/components/upload/UploadModal';
 import { Button } from '@/components/ui/button';
@@ -48,14 +48,17 @@ const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
     // Use user_status for profile page sorting
     const statusA = a.user_status || 'View';
     const statusB = b.user_status || 'View';
-    const orderA = statusOrder[statusA] || 2;
-    const orderB = statusOrder[statusB] || 2;
+    const orderA = statusOrder[statusA] || 2; // Default to 'View' order if null/undefined
+    const orderB = statusOrder[statusB] || 2; // Default to 'View' order if null/undefined
 
     if (orderA !== orderB) {
       return orderA - orderB;
     }
-    // Fallback to creation date
-    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    // Fallback to creation date if statuses are the same
+    // Ensure created_at is valid before comparing
+    const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return dateB - dateA;
   });
 };
 
@@ -387,7 +390,7 @@ export default function UserProfilePage() {
 
       // Step 5: Sort videos using the helper function before setting state
       const sortedVideos = sortProfileVideos(visibleVideos); 
-      logger.log(`[fetchUserVideos] Sorted visible videos:`, sortedVideos.map(v => `${v.id} (Status: ${v.user_status})`));
+      logger.log(`[fetchUserVideos] Sorted visible videos:`, sortedVideos.map(v => `${v.id} (UserStatus: ${v.user_status}, AdminStatus: ${v.admin_status})`)); // Log both statuses
 
       // Step 6: Separate into Generation and Art, then set state
       const genVids = sortedVideos.filter(v => v.metadata?.classification === 'generation');
@@ -545,8 +548,8 @@ export default function UserProfilePage() {
   // --- New Handler for Lightbox Status Changes (Profile Context) ---
   const handleLightboxUserStatusChange = async (newStatus: VideoDisplayStatus) => {
     if (!lightboxVideo) {
-      logger.error('[UserProfilePage] Cannot update status: lightboxVideo is null.');
-      toast.error("Cannot update status: Video information missing.");
+      logger.error('[UserProfilePage] Cannot update user status: lightboxVideo is null.');
+      toast.error("Cannot update user status: Video information missing.");
       return;
     }
 
@@ -574,6 +577,60 @@ export default function UserProfilePage() {
     }
   };
   // --- End New Handler ---
+
+  // --- Add Handler for Lightbox Admin Status Changes (Profile Context) ---
+  const handleLightboxAdminStatusChange = async (newStatus: AdminStatus) => {
+    if (!lightboxVideo) {
+      logger.error('[UserProfilePage] Cannot update admin status: lightboxVideo is null.');
+      toast.error("Cannot update admin status: Video information missing.");
+      return;
+    }
+    if (!isAdmin) {
+      logger.warn('[UserProfilePage] Unauthorized attempt to update admin status.');
+      toast.error("You don't have permission to change the admin status.");
+      return;
+    }
+
+    const videoId = lightboxVideo.id;
+    logger.log(`[UserProfilePage] handleLightboxAdminStatusChange called for video ${videoId} with admin status ${newStatus}`);
+
+    try {
+      const { data, error } = await supabase
+        .from('media')
+        .update({ admin_status: newStatus, admin_reviewed: true }) // Also mark as reviewed
+        .eq('id', videoId)
+        .select(); // Select to confirm update
+
+      if (error) throw error;
+
+      if (!data || data.length === 0) {
+         logger.warn(`[UserProfilePage] Update seemed successful but no data returned for media ID ${videoId}.`);
+         // Decide if this is an error or just informational
+      }
+
+      toast.success(`Video admin status updated to ${newStatus}`);
+
+      // Update local state for all video lists
+      const updateAdminStatusInVideo = (video: VideoEntry) => 
+        video.id === videoId ? { ...video, admin_status: newStatus } : video;
+
+      // Update the main userVideos list (might not be strictly necessary if using derived lists)
+      setUserVideos(prev => prev.map(updateAdminStatusInVideo));
+      // Update the derived lists (generation and art)
+      setGenerationVideos(prev => prev.map(updateAdminStatusInVideo));
+      setArtVideos(prev => prev.map(updateAdminStatusInVideo));
+      
+      // Update the status in the currently open lightbox video state as well
+      setLightboxVideo(prev => prev ? { ...prev, admin_status: newStatus } : null);
+
+      logger.log(`[UserProfilePage] Local video states updated with new admin status for ${videoId}`);
+
+    } catch (error) {
+      logger.error(`[UserProfilePage] Failed to update video admin_status for media ID ${videoId}:`, error);
+      toast.error('Failed to update video admin status');
+    }
+  };
+  // --- End Add Handler for Lightbox Admin Status Changes ---
 
   // Delete video (already handles local state update correctly)
   const deleteVideo = async (videoId: string) => {
@@ -706,7 +763,7 @@ export default function UserProfilePage() {
     try {
       await supabase
         .from('media')
-        .update({ admin_status: 'Curated' })
+        .update({ admin_status: 'Curated', admin_reviewed: true }) // Add admin_reviewed
         .eq('id', id);
       
       setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Curated' } : video)));
@@ -721,7 +778,7 @@ export default function UserProfilePage() {
     try {
       await supabase
         .from('media')
-        .update({ admin_status: 'Rejected' })
+        .update({ admin_status: 'Rejected', admin_reviewed: true }) // Add admin_reviewed
         .eq('id', id);
       
       setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Rejected' } : video)));
@@ -1145,6 +1202,8 @@ export default function UserProfilePage() {
           isAuthorized={canEdit}
           currentStatus={lightboxVideo.user_status}
           onStatusChange={handleLightboxUserStatusChange}
+          adminStatus={lightboxVideo.admin_status}
+          onAdminStatusChange={handleLightboxAdminStatusChange}
         />
       )}
 

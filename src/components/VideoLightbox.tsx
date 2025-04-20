@@ -546,8 +546,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
             {/* --- Admin Status Section (Moved Inside DialogContent) --- */}
             {isAdmin && (
-              <div className="p-4 pt-0">
-                <div className="mt-4 pt-4 border-t border-border/20">
+              <div className="p-4">
+                <div className="mt-4 border-t border-border/20">
                   <h4 className="text-sm font-medium mb-2 text-muted-foreground">Admin Status</h4>
                   <div className="flex gap-2 flex-wrap">
                     {(['Listed', 'Curated', 'Featured', 'Hidden', 'Rejected'] as AdminStatus[]).map(status => (
