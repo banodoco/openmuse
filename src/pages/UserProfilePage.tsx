@@ -59,22 +59,18 @@ const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
   });
 };
 
-// Helper function to sort LoRA assets based on user_preference_status
+// Helper function to sort LoRA assets based on user_status
 const sortUserAssets = (assets: LoraAsset[]): LoraAsset[] => {
-  // Define the desired order for statuses
   const statusOrder: { [key in UserAssetPreferenceStatus]: number } = { 'Pinned': 1, 'Listed': 2, 'Hidden': 4 };
   return [...assets].sort((a, b) => {
-    // Use assets.user_status for sorting
-    const statusA = a.user_status; 
-    const statusB = b.user_status; 
-    // Assign default order 3 (after Pinned and Listed, before Hidden) if status is null or undefined
-    const orderA = statusA ? (statusOrder[statusA] ?? 3) : 3; 
+    const statusA = a.user_status;
+    const statusB = b.user_status;
+    const orderA = statusA ? (statusOrder[statusA] ?? 3) : 3;
     const orderB = statusB ? (statusOrder[statusB] ?? 3) : 3;
 
     if (orderA !== orderB) {
       return orderA - orderB;
     }
-    // Fallback to creation date for items with the same status or default status
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 };
@@ -98,6 +94,7 @@ export default function UserProfilePage() {
   const [generationVideos, setGenerationVideos] = useState<VideoEntry[]>([]);
   const [artVideos, setArtVideos] = useState<VideoEntry[]>([]);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
+  const [isUpdatingAssetStatus, setIsUpdatingAssetStatus] = useState<Record<string, boolean>>({});
 
   // Pagination State
   const [generationPage, setGenerationPage] = useState(1);
@@ -809,20 +806,63 @@ export default function UserProfilePage() {
     );
   };
 
-  // --- New Handler for LoraCard Preference Changes ---
-  const handleLocalAssetPreferenceChange = useCallback((assetId: string, newStatus: UserAssetPreferenceStatus) => {
-    logger.log(`[UserProfilePage] handleLocalAssetPreferenceChange called for asset ${assetId} with status ${newStatus}`);
-    
+  // --- Handler for LoraCard Preference Changes with DB Update ---
+  const handleAssetStatusUpdate = useCallback(async (assetId: string, newStatus: UserAssetPreferenceStatus) => {
+    logger.log(`[UserProfilePage] handleAssetStatusUpdate called for asset ${assetId} with status ${newStatus}`);
+    if (!user || !profile || user.id !== profile.id) {
+      logger.warn('[UserProfilePage] Unauthorized attempt to update asset status.');
+      toast.error("You don't have permission to change this status.");
+      return;
+    }
+
+    let optimisticPreviousStatus: UserAssetPreferenceStatus | null | undefined = null;
+
+    // Optimistic UI Update
     setUserAssets(prevAssets => {
-      const updatedAssets = prevAssets.map(asset => 
-        asset.id === assetId ? { ...asset, user_preference_status: newStatus } : asset
-      );
-      // Re-sort the assets after updating the status
+      const updatedAssets = prevAssets.map(asset => {
+        if (asset.id === assetId) {
+          optimisticPreviousStatus = asset.user_status; // Store previous status for rollback
+          return { ...asset, user_status: newStatus }; // Update user_status
+        }
+        return asset;
+      });
+      // Re-sort based on the optimistic update
       return sortUserAssets(updatedAssets);
     });
-    
-    logger.log(`[UserProfilePage] Local asset state updated and sorted for ${assetId}`);
-  }, [logger]); // Dependencies managed by useCallback
+    setIsUpdatingAssetStatus(prev => ({ ...prev, [assetId]: true }));
+
+    logger.log(`[UserProfilePage] Optimistically updated asset ${assetId} to ${newStatus}`);
+
+    try {
+      // Persist change to DB
+      const { error } = await supabase
+        .from('assets')
+        .update({ user_status: newStatus }) // Update user_status in DB
+        .eq('id', assetId);
+
+      if (error) throw error;
+
+      toast.success(`Asset status updated to ${newStatus}`);
+      logger.log(`[UserProfilePage] Successfully updated asset ${assetId} status to ${newStatus} in DB.`);
+      // Optional: Refetch assets if sorting/filtering might change drastically,
+      // but optimistic update + sort should handle most cases.
+      // await fetchUserAssets(profile.id);
+
+    } catch (error) {
+      logger.error(`[UserProfilePage] Error updating asset ${assetId} status to ${newStatus} in DB:`, error);
+      toast.error(`Failed to update status to ${newStatus}. Reverting.`);
+
+      // Rollback optimistic update on error
+      setUserAssets(prevAssets => {
+        const revertedAssets = prevAssets.map(asset =>
+          asset.id === assetId ? { ...asset, user_status: optimisticPreviousStatus } : asset // Revert to previous status
+        );
+        return sortUserAssets(revertedAssets); // Re-sort after reverting
+      });
+    } finally {
+      setIsUpdatingAssetStatus(prev => ({ ...prev, [assetId]: false }));
+    }
+  }, [user, profile, logger]); // Add dependencies
 
   return (
     <div className="w-full min-h-screen flex flex-col text-foreground">
@@ -945,8 +985,9 @@ export default function UserProfilePage() {
                             isAdmin={isAdmin && !forceLoggedOutView}
                             isOwnProfile={isOwner}
                             userStatus={item.user_status}
-                            onUserStatusChange={handleLocalAssetPreferenceChange}
+                            onUserStatusChange={handleAssetStatusUpdate}
                             hideCreatorInfo={true}
+                            isUpdatingStatus={isUpdatingAssetStatus[item.id]}
                           />
                         ))}
                       </Masonry>

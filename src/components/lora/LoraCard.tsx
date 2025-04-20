@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink, ArrowUpRight, PinIcon, List, EyeOff } from 'lucide-react';
+import { Trash, Check, X, ExternalLink, ArrowUpRight, PinIcon, List, EyeOff, Loader2 } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -34,8 +34,9 @@ interface LoraCardProps {
   isAdmin?: boolean;
   isOwnProfile?: boolean;
   userStatus?: UserAssetPreferenceStatus | null;
-  onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => void;
+  onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
   hideCreatorInfo?: boolean;
+  isUpdatingStatus?: boolean;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
@@ -44,7 +45,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
   isOwnProfile = false,
   userStatus = null,
   onUserStatusChange,
-  hideCreatorInfo = false
+  hideCreatorInfo = false,
+  isUpdatingStatus = false,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -242,10 +244,10 @@ const LoraCard: React.FC<LoraCardProps> = ({
               variant="outline" 
               size="sm" 
               onClick={handlePin}
-              disabled={isPinning || isListing || isHiding}
+              disabled={isPinning || isListing || isHiding || isUpdatingStatus}
               className={getStatusButtonStyle('Pinned')}
             >
-              <PinIcon className="h-3 w-3 mr-1" /> 
+              {isUpdatingStatus && currentStatus === 'Pinned' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PinIcon className="mr-2 h-4 w-4" />}
               Pin
             </Button>
             
@@ -253,10 +255,10 @@ const LoraCard: React.FC<LoraCardProps> = ({
               variant="outline" 
               size="sm" 
               onClick={handleSetListed}
-              disabled={isPinning || isListing || isHiding}
+              disabled={isPinning || isListing || isHiding || isUpdatingStatus}
               className={getStatusButtonStyle('Listed')}
             >
-              <List className="h-3 w-3 mr-1" />
+              {isUpdatingStatus && currentStatus === 'Listed' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <List className="mr-2 h-4 w-4" />}
               List
             </Button>
             
@@ -264,10 +266,10 @@ const LoraCard: React.FC<LoraCardProps> = ({
               variant="outline" 
               size="sm" 
               onClick={handleHide}
-              disabled={isPinning || isListing || isHiding}
+              disabled={isPinning || isListing || isHiding || isUpdatingStatus}
               className={getStatusButtonStyle('Hidden')}
             >
-              <EyeOff className="h-3 w-3 mr-1" /> 
+              {isUpdatingStatus && currentStatus === 'Hidden' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <EyeOff className="mr-2 h-4 w-4" />} 
               Hide
             </Button>
           </div>
