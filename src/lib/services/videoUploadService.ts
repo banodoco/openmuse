@@ -2,10 +2,9 @@ import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
 import { Logger } from '../logger';
-import ThumbnailService from './thumbnailService';
+import { thumbnailService } from './thumbnailService';
 
 const logger = new Logger('VideoUploadService');
-const thumbnailService = new ThumbnailService();
 
 class VideoUploadService {
   private currentUserId: string | null = null;
