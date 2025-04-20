@@ -29,15 +29,15 @@ export class AssetService {
         .select(`
           *,
           primaryVideo:primary_media_id(*),
-          asset_media!inner(
-            media!inner(id, placeholder_image)
+          asset_media(
+            media(id, url, placeholder_image, title)
           )
         `)
         .order('created_at', { ascending: false });
 
       if (error) {
-        this.logger.error('[adminview] Supabase query error in getAllAssets:', JSON.stringify(error, null, 2)); // Log full error
-        throw error; // Re-throw the error
+        this.logger.error('[adminview] Supabase query error in getAllAssets:', JSON.stringify(error, null, 2));
+        throw error;
       }
 
       this.logger.log(`[adminview] Retrieved ${data?.length || 0} assets from Supabase raw query.`);
@@ -45,24 +45,29 @@ export class AssetService {
       const assets: LoraAsset[] = data.map(asset => {
         const pVideo = asset.primaryVideo;
         
-        // Extract up to 4 thumbnails from the joined asset_media data
-        const associatedThumbnails = (asset.asset_media || [])
+        // Extract media information including videos and thumbnails
+        const associatedMedia = (asset.asset_media || [])
           .slice(0, 4) // Limit to 4
-          .map((am: any) => am.media?.placeholder_image) // Get placeholder_image from nested media
-          .filter(Boolean); // Remove any null/undefined entries
+          .map((am: any) => ({
+            id: am.media?.id,
+            url: am.media?.url,
+            thumbnailUrl: am.media?.placeholder_image,
+            title: am.media?.title
+          }))
+          .filter(m => m.id && (m.url || m.thumbnailUrl)); // Remove entries without id or either url
 
         // Basic transformation, might need more details later
         return {
           id: asset.id,
           name: asset.name,
           description: asset.description,
-          creator: asset.creator, // Use the creator column if available
-          creatorDisplayName: asset.creator, // Fallback to creator column since profile is removed
+          creator: asset.creator,
+          creatorDisplayName: asset.creator,
           type: asset.type,
           created_at: asset.created_at,
           user_id: asset.user_id,
           primary_media_id: asset.primary_media_id,
-          admin_status: asset.admin_status || 'Listed', // Default to 'Listed'
+          admin_status: asset.admin_status || 'Listed',
           user_status: asset.user_status || null,
           lora_type: asset.lora_type,
           lora_base_model: asset.lora_base_model,
@@ -71,7 +76,7 @@ export class AssetService {
           primaryVideo: pVideo ? {
             id: pVideo.id,
             url: pVideo.url,
-            reviewer_name: '', // Adjust if needed
+            reviewer_name: '',
             skipped: false,
             created_at: pVideo.created_at,
             admin_status: pVideo.admin_status,
@@ -82,7 +87,8 @@ export class AssetService {
             title: pVideo.title,
             description: pVideo.description,
           } : undefined,
-          associatedThumbnails: associatedThumbnails // Add the new field
+          associatedMedia,
+          associatedThumbnails: associatedMedia.map(m => m.thumbnailUrl).filter(Boolean)
         };
       });
 

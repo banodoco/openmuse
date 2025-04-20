@@ -91,7 +91,7 @@ const Admin: React.FC = () => {
   });
   
   const [activeTab, setActiveTab] = useState('videos');
-
+  
   const loadEntries = useCallback(async () => {
     setIsLoadingEntries(true);
     try {
@@ -163,7 +163,7 @@ const Admin: React.FC = () => {
     const newCounts: Record<VideoFilterKey | 'total', number> = {
       listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, total: entries.length
     };
-
+    
     const filtered = entries.filter(entry => {
       let currentFilterKey: VideoFilterKey;
       
@@ -301,8 +301,8 @@ const Admin: React.FC = () => {
   const formatDate = (dateString: string | undefined) => {
     if (!dateString) return 'N/A';
     try {
-      const date = new Date(dateString);
-      return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    const date = new Date(dateString);
+    return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
     } catch (e) {
       return 'Invalid Date';
     }
@@ -377,13 +377,13 @@ const Admin: React.FC = () => {
               <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
                 {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
                   <div key={`video-filter-${status}`} className="flex items-center space-x-2">
-                    <Checkbox 
+                  <Checkbox 
                       id={`video-filter-${statusConfig[status].filterKey}`}
                       checked={videoFilters[statusConfig[status].filterKey as VideoFilterKey]}
                       onCheckedChange={(checked) => handleVideoFilterChange(statusConfig[status].filterKey as VideoFilterKey, checked as boolean)} 
                     />
                     <Label htmlFor={`video-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
-                  </div>
+                </div>
                 ))}
                 <div className="flex items-center space-x-2">
                   <Checkbox 
@@ -405,7 +405,7 @@ const Admin: React.FC = () => {
                       <span key={`video-count-${status}`} className="flex items-center">
                         {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-3 w-3 mr-1" })}
                         {videoStatusCounts[statusConfig[status].filterKey as VideoFilterKey]} {statusConfig[status].filterKey}
-                      </span>
+                    </span>
                     )
                   ))}
                   {videoFilters.skipped && (
@@ -444,52 +444,56 @@ const Admin: React.FC = () => {
                               </div>
                             )}
                           </div>
-                          <div className="space-y-2">
-                            <Badge variant={variant} className="flex items-center whitespace-nowrap w-fit">
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Badge variant={variant} className="flex items-center whitespace-nowrap w-fit">
                               {icon}
                               {label}
                             </Badge>
-                            <h3 className="font-medium">{entry.reviewer_name}</h3>
-                            <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
-                            <p className="text-xs text-muted-foreground">ID: {entry.id}</p>
+                              <h3 className="font-medium">{entry.reviewer_name}</h3>
+                              <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
+                              <p className="text-xs text-muted-foreground">ID: {entry.id}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                            <Button 
+                                  key={`video-action-${status}`}
+                              size="sm"
+                                  variant={entry.skipped ? 'outline' : (entry.admin_status === status ? statusConfig[status].variant : 'outline')}
+                                  onClick={() => handleSetVideoAdminStatus(entry.id, status)}
+                                  disabled={entry.skipped || entry.admin_status === status}
+                                  className="gap-1 h-8 text-xs"
+                            >
+                                  {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4" })}
+                                  {statusConfig[status].label}
+                            </Button>
+                              ))}
+                            </div>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm" className="w-full">
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Video
+                            </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Video?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this video submission by {entry.reviewer_name || 'Unknown User'} (ID: {entry.id})? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteVideoEntry(entry)} className="bg-destructive hover:bg-destructive/90">
+                                    Confirm Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           </div>
                         </div>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
-                          {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
-                            <Button
-                              key={`video-action-${status}`}
-                              size="sm"
-                              variant={entry.skipped ? 'outline' : (entry.admin_status === status ? statusConfig[status].variant : 'outline')}
-                              onClick={() => handleSetVideoAdminStatus(entry.id, status)}
-                              disabled={entry.skipped || entry.admin_status === status}
-                              className="gap-1 h-8 text-xs"
-                            >
-                              {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4" })}
-                              {statusConfig[status].label}
-                            </Button>
-                          ))}
-                        </div>
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button variant="destructive" size="sm" className="w-full">
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete Video
-                            </Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>Delete Video?</AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete this video submission by {entry.reviewer_name || 'Unknown User'} (ID: {entry.id})? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction onClick={() => handleDeleteVideoEntry(entry)} className="bg-destructive hover:bg-destructive/90">
-                                Confirm Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
                       </div>
                     );
                   })}
@@ -555,20 +559,32 @@ const Admin: React.FC = () => {
                     const creatorName = asset.creatorDisplayName || asset.creator || 'Unknown User';
                     
                     // Prepare thumbnails for the grid, ensuring 4 items
-                    const thumbnails = asset.associatedThumbnails || [];
-                    const displayThumbnails = Array(4).fill(null).map((_, index) => thumbnails[index] || null);
+                    const thumbnails = asset.associatedMedia || [];
+                    const displayMedia = Array(4).fill(null).map((_, index) => thumbnails[index] || null);
                     
                     return (
                       <div key={asset.id} className="border rounded-lg p-4 bg-card grid grid-cols-1 md:grid-cols-3 gap-4 items-start">
-                        {/* Left Column: Thumbnail Grid (spans 1 column on md) */}
+                        {/* Left Column: Video/Thumbnail Grid (spans 1 column on md) */}
                         <div className="grid grid-cols-2 gap-2 md:col-span-1">
-                          {displayThumbnails.map((thumbUrl, index) => (
-                            <div key={index} className="aspect-square bg-muted rounded overflow-hidden flex items-center justify-center">
-                              {thumbUrl ? (
-                                <img src={thumbUrl} alt={`Asset thumbnail ${index + 1}`} className="object-cover w-full h-full" />
+                          {displayMedia.map((media, index) => (
+                            <div key={media?.id || index} className="aspect-square bg-muted rounded overflow-hidden flex items-center justify-center">
+                              {media?.url ? (
+                            <StorageVideoPlayer
+                                  videoLocation={media.url}
+                                  className="w-full h-full object-cover"
+                              controls
+                            />
+                              ) : media?.thumbnailUrl ? (
+                                <img src={media.thumbnailUrl} alt={`Asset thumbnail ${index + 1}`} className="object-cover w-full h-full" />
                               ) : (
-                                <span className="text-xs text-muted-foreground">No Video</span>
+                                <span className="text-xs text-muted-foreground">No Media</span>
                               )}
+                            </div>
+                          ))}
+                          {/* Fill remaining slots with empty placeholders */}
+                          {Array(4 - (displayMedia.length || 0)).fill(null).map((_, index) => (
+                            <div key={`empty-${index}`} className="aspect-square bg-muted rounded flex items-center justify-center">
+                              <span className="text-xs text-muted-foreground">No Media</span>
                             </div>
                           ))}
                         </div>
@@ -589,49 +605,47 @@ const Admin: React.FC = () => {
                           </div>
 
                           {/* Bottom part: Actions */}
-                          <div className="flex flex-col sm:flex-row gap-2 items-center">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="outline" size="sm" className="flex-1 w-full sm:w-auto">
-                                  Set Status <ChevronDown className="ml-1 h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
-                                  <DropdownMenuItem 
-                                    key={`asset-action-${status}`}
-                                    onClick={() => handleSetAssetAdminStatus(asset.id, status)}
-                                    disabled={asset.admin_status === status} 
-                                  >
-                                    {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4 mr-2" })}
-                                    {statusConfig[status].label}
-                                  </DropdownMenuItem>
-                                ))}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                            
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm" title="Delete Asset" className="flex-shrink-0 w-full sm:w-auto">
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Asset?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete the asset "{asset.name}" (ID: {asset.id})? This will also delete all associated media files and cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteAsset(asset)} className="bg-destructive hover:bg-destructive/90">
-                                    Confirm Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
+                          <div className="grid grid-cols-2 gap-2 mb-2">
+                            {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                              <Button
+                                key={`asset-action-${status}`}
+                                size="sm"
+                                variant={asset.admin_status === status 
+                                          ? (status === 'Hidden' ? 'destructive' : 'secondary') 
+                                          : 'outline'}
+                                onClick={() => handleSetAssetAdminStatus(asset.id, status)}
+                                disabled={asset.admin_status === status} 
+                                className={`gap-1 h-8 text-xs ${
+                                  asset.admin_status === status && status === 'Hidden' ? '' :
+                                  asset.admin_status !== status && status === 'Hidden' ? 'border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700' : ''}`}
+                              >
+                                {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4" })}
+                                {statusConfig[status].label}
+                              </Button>
+                            ))}
                           </div>
+                          
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button variant="destructive" size="sm" title="Delete Asset" className="w-full">
+                                <Trash2 className="mr-2 h-4 w-4" /> Delete Asset
+                              </Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>Delete Asset?</AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  Are you sure you want to delete the asset "{asset.name}" (ID: {asset.id})? This will also delete all associated media files and cannot be undone.
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+                              <AlertDialogFooter>
+                                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                <AlertDialogAction onClick={() => handleDeleteAsset(asset)} className="bg-destructive hover:bg-destructive/90">
+                                  Confirm Delete
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
                         </div>
                       </div>
                     );

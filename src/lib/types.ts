@@ -95,6 +95,12 @@ export interface LoraAsset {
   videos?: VideoEntry[];
   user_preference_status?: UserAssetPreferenceStatus | null;
   associatedThumbnails?: (string | null)[];
+  associatedMedia?: Array<{
+    id: string;
+    url?: string;
+    thumbnailUrl?: string;
+    title?: string;
+  }>;
 }
 
 export interface LoraManagerProps {
