@@ -467,7 +467,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                 className={cn(
                                   "h-7 w-7 rounded-sm",
                                   isActive 
-                                    ? "bg-white/20 text-white"
+                                    ? "bg-white/30 text-white ring-1 ring-white/50"
                                     : "bg-black/30 text-white/70 hover:bg-white/20 hover:text-white",
                                   isUpdatingAdminStatus && "animate-pulse"
                                 )}

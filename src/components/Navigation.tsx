@@ -89,8 +89,8 @@ export { Navigation, NavLink };
 export const Footer = () => {
   return (
     <div className="w-full border-t border-border">
-      <footer className="w-full max-w-screen-2xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground">
-        <div className="pt-4">
+      <footer className="w-full max-w-screen-2xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground flex items-center justify-center">
+        <div className="">
           Made with 🦾 by <a 
             href="https://banodoco.ai/" 
             target="_blank" 
