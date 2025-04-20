@@ -3,7 +3,7 @@ import { VideoEntry, AdminStatus } from './types';
 import { format } from 'date-fns';
 
 // Define the filter keys based on the AdminStatus and skipped status
-type FilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'skipped';
+type FilterKey = 'listed' | 'curated' | 'featured' | 'hidden';
 
 /**
  * Convert video entries to CSV format, respecting the new AdminStatus
@@ -14,7 +14,6 @@ export const convertToCSV = (videos: VideoEntry[]): string => {
     'ID',
     'Reviewer',
     'Admin Status',
-    'Skipped',
     'Creation Date',
     'Video URL',
     'Title',
@@ -29,13 +28,11 @@ export const convertToCSV = (videos: VideoEntry[]): string => {
     
     // Get admin status, defaulting to 'Listed' if null/undefined
     const adminStatus = video.admin_status ?? 'Listed';
-    const skippedStatus = video.skipped ? 'Yes' : 'No';
         
     return [
       `"${video.id}"`,
       `"${video.reviewer_name.replace(/"/g, '""')}"`,
       adminStatus,
-      skippedStatus,
       formattedDate,
       `"${video.url}"`,
       `"${(video.metadata?.title || 'No title').replace(/"/g, '""')}"`,

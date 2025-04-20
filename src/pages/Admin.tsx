@@ -6,7 +6,6 @@ import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 import StorageVideoPlayer from '@/components/StorageVideoPlayer';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import StorageSettings from '@/components/StorageSettings';
 import RequireAuth from '@/components/RequireAuth';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -24,7 +23,8 @@ import {
   Trash2,
   RefreshCw,
   Package,
-  CheckCheck
+  CheckCheck,
+  ExternalLink
 } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Logger } from '@/lib/logger';
@@ -48,6 +48,7 @@ import {
 import { useAuth } from '@/hooks/useAuth';
 import { videoEntryService } from '@/lib/services/videoEntryService';
 import { assetService } from '@/lib/services/assetService';
+import { Link } from 'react-router-dom';
 
 const logger = new Logger('AdminPage');
 
@@ -59,7 +60,7 @@ const statusConfig: { [key in AdminStatus]: { label: string, icon: React.ReactNo
   Rejected: { label: 'Rejected', icon: <X className="h-3 w-3 mr-1"/>, variant: 'destructive', filterKey: 'rejected' },
 };
 
-type VideoFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'skipped' | 'reviewed';
+type VideoFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'reviewed';
 type AssetFilterKey = 'listed' | 'curated' | 'featured' | 'hidden' | 'reviewed';
 
 const filterableStatuses: Exclude<AdminStatus, 'Rejected'>[] = ['Listed', 'Curated', 'Featured', 'Hidden'];
@@ -75,11 +76,10 @@ const Admin: React.FC = () => {
     curated: true,
     featured: true,
     hidden: true,
-    skipped: true,
     reviewed: false,
   });
   const [videoStatusCounts, setVideoStatusCounts] = useState<Record<VideoFilterKey | 'total', number>>({
-    listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, reviewed: 0, total: 0
+    listed: 0, curated: 0, featured: 0, hidden: 0, reviewed: 0, total: 0
   });
 
   const [assets, setAssets] = useState<LoraAsset[]>([]);
@@ -169,7 +169,7 @@ const Admin: React.FC = () => {
     logger.log('[adminview] applyVideoFilters called. Raw entries count:', entries.length);
     logger.log('[adminview] Current videoFilters:', videoFilters);
     const newCounts: Record<VideoFilterKey | 'total', number> = {
-      listed: 0, curated: 0, featured: 0, hidden: 0, skipped: 0, reviewed: 0, total: entries.length
+      listed: 0, curated: 0, featured: 0, hidden: 0, reviewed: 0, total: entries.length
     };
     
     const filtered = entries.filter(entry => {
@@ -182,14 +182,9 @@ const Admin: React.FC = () => {
         return false;
       }
 
-      let currentFilterKey: VideoFilterKey;
+      const status = entry.admin_status ?? 'Listed';
+      const currentFilterKey = statusConfig[status]?.filterKey as VideoFilterKey || 'listed';
       
-      if (entry.skipped) {
-        currentFilterKey = 'skipped';
-      } else {
-        const status = entry.admin_status ?? 'Listed'; 
-        currentFilterKey = statusConfig[status]?.filterKey as VideoFilterKey || 'listed';
-      }
       logger.log(`[adminview] Processing video ${entry.id}: StatusKey='${currentFilterKey}', Filtered In=${videoFilters[currentFilterKey]}`);
       
       newCounts[currentFilterKey]++;
@@ -378,9 +373,6 @@ const Admin: React.FC = () => {
   };
 
   const getVideoStatusDetails = (entry: VideoEntry): { label: string, icon: React.ReactNode, variant: 'default' | 'secondary' | 'destructive' | 'outline', key: VideoFilterKey } => {
-    if (entry.skipped) {
-      return { label: 'Skipped', icon: <SkipForward className="h-3 w-3 mr-1" />, variant: 'secondary', key: 'skipped' };
-    }
     return getStatusDetails(entry.admin_status) as { label: string, icon: React.ReactNode, variant: 'default' | 'secondary' | 'destructive' | 'outline', key: VideoFilterKey };
   };
 
@@ -405,7 +397,6 @@ const Admin: React.FC = () => {
             <TabsList className="mb-6">
               <TabsTrigger value="assets">Assets</TabsTrigger>
               <TabsTrigger value="videos">Videos</TabsTrigger>
-              <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
 
             <TabsContent value="assets">
@@ -424,17 +415,21 @@ const Admin: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
-                {filterableStatuses.map(status => (
-                  <div key={`asset-filter-${status}`} className="flex items-center space-x-2">
-                    <Checkbox 
-                      id={`asset-filter-${statusConfig[status].filterKey}`}
-                      checked={assetFilters[statusConfig[status].filterKey as AssetFilterKey]}
-                      onCheckedChange={(checked) => handleAssetFilterChange(statusConfig[status].filterKey as AssetFilterKey, checked as boolean)} 
-                    />
-                    <Label htmlFor={`asset-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
-                  </div>
-                ))}
+              <div className="flex flex-wrap justify-between items-center gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
+                {/* Status Filters Group */}
+                <div className="flex flex-wrap gap-x-6 gap-y-3">
+                  {filterableStatuses.map(status => (
+                    <div key={`asset-filter-${status}`} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`asset-filter-${statusConfig[status].filterKey}`}
+                        checked={assetFilters[statusConfig[status].filterKey as AssetFilterKey]}
+                        onCheckedChange={(checked) => handleAssetFilterChange(statusConfig[status].filterKey as AssetFilterKey, checked as boolean)} 
+                      />
+                      <Label htmlFor={`asset-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
+                    </div>
+                  ))}
+                </div>
+                {/* Reviewed Filter (Right Aligned) */}
                 <div className="flex items-center space-x-2">
                   <Checkbox 
                     id="asset-filter-reviewed"
@@ -528,10 +523,26 @@ const Admin: React.FC = () => {
                               {label}
                             </Badge>
                             <h3 className="font-semibold text-lg break-words">{asset.name}</h3>
-                            <p className="text-sm text-muted-foreground">Creator: {creatorName}</p>
+                            <p className="text-sm text-muted-foreground mt-1">{asset.description || 'No description available.'}</p>
                             <p className="text-sm text-muted-foreground">Type: {asset.lora_type || asset.type || 'N/A'}</p>
-                            <p className="text-sm text-muted-foreground">Created: {formatDate(asset.created_at)}</p>
-                            <p className="text-xs text-muted-foreground truncate">ID: {asset.id}</p>
+                            <p className="text-sm text-muted-foreground flex items-center gap-2 mt-1">
+                              <Link to={`/assets/loras/${asset.id}`} className="hover:underline text-blue-600 dark:text-blue-400">
+                                LoRA page
+                              </Link>
+                              <span>|</span>
+                              {asset.lora_link ? (
+                                <a 
+                                  href={asset.lora_link} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer" 
+                                  className="flex items-center gap-1 hover:underline text-blue-600 dark:text-blue-400"
+                                >
+                                  LoRA Link <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ) : (
+                                <span>No external link</span>
+                              )}
+                            </p>
                           </div>
 
                           {/* Bottom part: Actions */}
@@ -610,24 +621,28 @@ const Admin: React.FC = () => {
                 </div>
               </div>
               
-              <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
-                {filterableStatuses.map(status => (
-                  <div key={`video-filter-${status}`} className="flex items-center space-x-2">
-                  <Checkbox 
-                      id={`video-filter-${statusConfig[status].filterKey}`}
-                      checked={videoFilters[statusConfig[status].filterKey as VideoFilterKey]}
-                      onCheckedChange={(checked) => handleVideoFilterChange(statusConfig[status].filterKey as VideoFilterKey, checked as boolean)} 
-                    />
-                    <Label htmlFor={`video-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
+              <div className="flex flex-wrap justify-between items-center gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
+                {/* Status Filters Group */}
+                <div className="flex flex-wrap gap-x-6 gap-y-3">
+                  {filterableStatuses.map(status => (
+                    <div key={`video-filter-${status}`} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`video-filter-${statusConfig[status].filterKey}`}
+                        checked={videoFilters[statusConfig[status].filterKey as VideoFilterKey]}
+                        onCheckedChange={(checked) => handleVideoFilterChange(statusConfig[status].filterKey as VideoFilterKey, checked as boolean)} 
+                      />
+                      <Label htmlFor={`video-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
+                    </div>
+                  ))}
                 </div>
-                ))}
+                {/* Reviewed Filter (Right Aligned) */}
                 <div className="flex items-center space-x-2">
                   <Checkbox 
-                    id="video-filter-skipped" 
-                    checked={videoFilters.skipped}
-                    onCheckedChange={(checked) => handleVideoFilterChange('skipped', checked as boolean)} 
+                    id="video-filter-reviewed"
+                    checked={videoFilters.reviewed}
+                    onCheckedChange={(checked) => handleVideoFilterChange('reviewed', checked as boolean)} 
                   />
-                  <Label htmlFor="video-filter-skipped">Skipped</Label>
+                  <Label htmlFor="video-filter-reviewed">Show Reviewed</Label>
                 </div>
               </div>
 
@@ -644,12 +659,6 @@ const Admin: React.FC = () => {
                     </span>
                     )
                   ))}
-                  {videoFilters.skipped && (
-                    <span className="flex items-center">
-                      <SkipForward className="h-3 w-3 mr-1" />
-                      {videoStatusCounts.skipped} skipped
-                    </span>
-                  )}
                 </div>
               </div>
 
@@ -673,6 +682,7 @@ const Admin: React.FC = () => {
                                 videoLocation={entry.url}
                                 className="w-full h-full"
                                 controls
+                                allowControlInteraction={true}
                               />
                             ) : (
                               <div className="flex items-center justify-center h-full text-muted-foreground bg-muted">
@@ -707,9 +717,9 @@ const Admin: React.FC = () => {
                                 <Button
                                   key={`video-action-${status}`}
                                   size="sm"
-                                  variant={entry.skipped ? 'outline' : (entry.admin_status === status ? statusConfig[status].variant : 'outline')}
+                                  variant={entry.admin_status === status ? statusConfig[status].variant : 'outline'}
                                   onClick={() => handleSetVideoAdminStatus(entry.id, status)}
-                                  disabled={entry.skipped || entry.admin_status === status}
+                                  disabled={entry.admin_status === status}
                                   className="gap-1 h-8 text-xs"
                                 >
                                   {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4" })}
@@ -746,11 +756,6 @@ const Admin: React.FC = () => {
                   })}
                 </div>
               )}
-            </TabsContent>
-
-            <TabsContent value="settings">
-              <h2 className="text-2xl font-semibold mb-6">Application Settings</h2>
-              <StorageSettings onSettingsSaved={() => { loadEntries(); /* Consider loadAssets() too? */ }} />
             </TabsContent>
           </Tabs>
         </main>
