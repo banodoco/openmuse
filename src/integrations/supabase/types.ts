@@ -53,6 +53,7 @@ export type Database = {
       }
       assets: {
         Row: {
+          admin_reviewed: boolean
           admin_status: string | null
           created_at: string
           creator: string | null
@@ -69,6 +70,7 @@ export type Database = {
           user_status: string | null
         }
         Insert: {
+          admin_reviewed?: boolean
           admin_status?: string | null
           created_at?: string
           creator?: string | null
@@ -85,6 +87,7 @@ export type Database = {
           user_status?: string | null
         }
         Update: {
+          admin_reviewed?: boolean
           admin_status?: string | null
           created_at?: string
           creator?: string | null
@@ -112,6 +115,7 @@ export type Database = {
       }
       media: {
         Row: {
+          admin_reviewed: boolean
           admin_status: string | null
           classification: string | null
           created_at: string
@@ -127,6 +131,7 @@ export type Database = {
           user_status: string | null
         }
         Insert: {
+          admin_reviewed?: boolean
           admin_status?: string | null
           classification?: string | null
           created_at?: string
@@ -142,6 +147,7 @@ export type Database = {
           user_status?: string | null
         }
         Update: {
+          admin_reviewed?: boolean
           admin_status?: string | null
           classification?: string | null
           created_at?: string

@@ -25,6 +25,7 @@ export interface Database {
           admin_status?: string | null
           user_status?: string | null
           description?: string | null
+          admin_reviewed: boolean
         }
       }
       assets: {
@@ -42,6 +43,7 @@ export interface Database {
           lora_type?: string | null
           lora_base_model?: string | null
           lora_link?: string | null
+          admin_reviewed: boolean
         }
       }
       asset_media: {

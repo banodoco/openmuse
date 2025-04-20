@@ -45,6 +45,7 @@ export interface VideoEntry {
   thumbnailUrl?: string;
   title?: string;
   description?: string;
+  admin_reviewed?: boolean;  // Add optional boolean field
 }
 
 export interface RecordedVideo {
@@ -101,6 +102,7 @@ export interface LoraAsset {
     thumbnailUrl?: string;
     title?: string;
   }>;
+  admin_reviewed?: boolean;  // Add optional boolean field
 }
 
 export interface LoraManagerProps {
