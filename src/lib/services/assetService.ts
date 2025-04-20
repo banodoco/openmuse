@@ -14,6 +14,14 @@ export class AssetService {
 
   async getAllAssets(): Promise<LoraAsset[]> {
     try {
+      this.logger.log("[adminview] getAllAssets: Fetching session status...");
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      if (sessionError) {
+        this.logger.error("[adminview] getAllAssets: Error fetching session:", sessionError);
+      } else {
+        this.logger.log(`[adminview] getAllAssets: User authenticated: ${!!session?.user}, User ID: ${session?.user?.id || 'N/A'}`);
+      }
+
       this.logger.log("Getting all assets from assets table");
 
       const { data, error } = await supabase
@@ -26,11 +34,11 @@ export class AssetService {
         .order('created_at', { ascending: false });
 
       if (error) {
-        this.logger.error('Error getting assets from Supabase:', error);
-        throw error;
+        this.logger.error('[adminview] Supabase query error in getAllAssets:', error); // Log the specific error
+        throw error; // Re-throw the error
       }
 
-      this.logger.log(`Retrieved ${data?.length || 0} assets from Supabase`);
+      this.logger.log(`[adminview] Retrieved ${data?.length || 0} assets from Supabase raw query.`);
 
       const assets: LoraAsset[] = data.map(asset => {
         const profile = asset.profile as { username: string; display_name: string } | null;
@@ -72,7 +80,8 @@ export class AssetService {
 
       return assets;
     } catch (error) {
-      this.logger.error('Error getting assets:', error);
+      // Log the caught error in detail
+      this.logger.error('[adminview] Error caught in getAllAssets catch block:', error);
       return [];
     }
   }
@@ -188,30 +197,36 @@ export class AssetService {
       const thumbnailPaths: string[] = [];
       const mediaIds: string[] = [];
 
-      // Define the expected type for the nested media object
-      type FetchedMedia = { 
-        id: unknown; 
-        url: unknown; 
-        placeholder_image: unknown; 
-      } | null;
+      // Define the expected type for the single nested media object
+      type FetchedMedia = {
+        id: string;
+        url?: string | null;
+        placeholder_image?: string | null;
+      };
 
       // 2. Process fetched media data safely
       if (associatedMedia) {
         for (const am of associatedMedia) {
-            // Assert the type of the nested media object
-            const media = am.media as FetchedMedia;
-            
-            // Check if media is not null and has an id
-            if (media && media.id) { 
-                mediaIds.push(String(media.id)); // Add ID to list
-                // Check for url and placeholder_image properties before accessing
-                if (media.url) {
-                    videoPaths.push(String(media.url)); // Add URL if it exists
-                }
-                if (media.placeholder_image) {
-                    thumbnailPaths.push(String(media.placeholder_image)); // Add placeholder if it exists
-                }
+          let mediaData: FetchedMedia | null = null;
+
+          // Check if am.media exists and is an array (as linter suggests) or object (expected)
+          if (Array.isArray(am.media) && am.media.length > 0) {
+            mediaData = am.media[0] as FetchedMedia; // Take the first element if array
+          } else if (am.media && typeof am.media === 'object' && !Array.isArray(am.media)) {
+            mediaData = am.media as FetchedMedia; // Cast directly if object
+          }
+
+          // Check if mediaData is not null and has an id
+          if (mediaData && mediaData.id) {
+            mediaIds.push(mediaData.id); // Add ID to list
+            // Check for url and placeholder_image properties before accessing
+            if (mediaData.url) {
+              videoPaths.push(mediaData.url); // Add URL if it exists
             }
+            if (mediaData.placeholder_image) {
+              thumbnailPaths.push(mediaData.placeholder_image); // Add placeholder if it exists
+            }
+          }
         }
       }
       this.logger.log(`Found ${mediaIds.length} associated media records to process for deletion.`);
