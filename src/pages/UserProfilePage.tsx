@@ -374,25 +374,7 @@ export default function UserProfilePage() {
   const generationItemsForPage = useMemo(() => getPaginatedItems(generationVideos, generationPage, generationPageSize), [generationVideos, generationPage, generationPageSize]);
   const artItemsForPage = useMemo(() => getPaginatedItems(artVideos, artPage, artPageSize), [artVideos, artPage, artPageSize]);
 
-  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
-
-  // === Early return if AuthProvider is still loading ===
-  if (isAuthLoading) {
-    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
-    return (
-      <div className="w-full min-h-screen flex flex-col text-foreground">
-        <Navigation />
-        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
-          {/* Render a top-level loader */}
-          <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
-
-  // --- Define Handlers AFTER hooks and conditional return, BEFORE render --- 
+  // --- Define ALL useCallback Handlers BEFORE conditional return --- 
   const handleLocalVideoUserStatusUpdate = useCallback((videoId: string, newStatus: VideoDisplayStatus) => {
     logger.log(`[UserProfilePage] handleLocalVideoUserStatusUpdate called for video ${videoId} with status ${newStatus}`);
     setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === videoId ? { ...video, user_status: newStatus } : video)));
@@ -416,22 +398,36 @@ export default function UserProfilePage() {
 
   const handleLightboxAdminStatusChange = useCallback(async (newStatus: AdminStatus): Promise<void> => {
     if (!lightboxVideo) { toast.error("Cannot update status: Video info missing."); return; }
-    if (!canEdit || !isAdmin) { toast.error("Unauthorized action."); return; } 
+    // Note: We use profile.id for ownership checks, but isAdmin comes directly from useAuth context
+    // Check if the *current logged-in user* (from useAuth) is an admin, regardless of profile ownership
+    const loggedInUserIsAdmin = isAdmin; 
+    // Allow edit if owner OR if the logged-in user is admin (and not forced logged out view)
+    const canPerformAdminAction = (isOwner || loggedInUserIsAdmin) && !forceLoggedOutView;
+
+    if (!canPerformAdminAction) { 
+      toast.error("Unauthorized action."); 
+      return; 
+    } 
     const videoId = lightboxVideo.id;
     try {
       const { error } = await supabase.from('media').update({ admin_status: newStatus, admin_reviewed: true }).eq('id', videoId);
       if (error) throw error;
       toast.success(`Video admin status updated to ${newStatus}`);
+      // Update local state using setUserVideos (which is stable)
       setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === videoId ? { ...video, admin_status: newStatus } : video)));
       setLightboxVideo(prev => prev ? { ...prev, admin_status: newStatus } : null);
     } catch (error) {
       logger.error(`Failed to update video admin_status for media ID ${videoId}:`, error);
       toast.error('Failed to update video admin status');
     }
-  }, [lightboxVideo, canEdit, isAdmin, handleLocalVideoUserStatusUpdate]); // Added handleLocalVideoUserStatusUpdate dep
+    // Dependencies: lightboxVideo (state), isAdmin (context), isOwner (state), forceLoggedOutView (state), setUserVideos (stable state setter)
+  }, [lightboxVideo, isAdmin, isOwner, forceLoggedOutView]); 
 
   const deleteVideo = useCallback(async (videoId: string): Promise<void> => {
-    if (!canEdit) { toast.error("Unauthorized action."); return; }
+    // Allow delete if owner OR admin (and not forced logged out view)
+    const loggedInUserIsAdmin = isAdmin; 
+    const canPerformDelete = (isOwner || loggedInUserIsAdmin) && !forceLoggedOutView;
+    if (!canPerformDelete) { toast.error("Unauthorized action."); return; }
     try {
       const { data: mediaRecord, error: fetchError } = await supabase.from('media').select('url, placeholder_image').eq('id', videoId).single();
       if (fetchError || !mediaRecord) throw new Error(`Could not fetch media record ${videoId}.`);
@@ -454,10 +450,13 @@ export default function UserProfilePage() {
       logger.error(`Error during deletion process for video ID ${videoId}:`, error);
       toast.error(`Failed to delete video: ${error.message || 'Unknown error'}`);
     }
-  }, [canEdit]); 
+    // Dependencies: isAdmin (context), isOwner (state), forceLoggedOutView (state), setUserVideos (stable state setter)
+  }, [isAdmin, isOwner, forceLoggedOutView]); 
 
   const approveVideo = useCallback(async (id: string): Promise<void> => {
-    if (!isAdmin || !canEdit) return;
+    const loggedInUserIsAdmin = isAdmin; 
+    const canPerformAdminAction = loggedInUserIsAdmin && !forceLoggedOutView;
+    if (!canPerformAdminAction) return;
     try {
       await supabase.from('media').update({ admin_status: 'Curated', admin_reviewed: true }).eq('id', id);
       setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Curated' as AdminStatus } : video)));
@@ -466,10 +465,13 @@ export default function UserProfilePage() {
         logger.error('Error approving video:', error);
         toast.error("Failed to approve video."); 
     }
-  }, [isAdmin, canEdit]); 
+    // Dependencies: isAdmin (context), forceLoggedOutView (state), setUserVideos (stable state setter)
+  }, [isAdmin, forceLoggedOutView]); 
 
   const rejectVideo = useCallback(async (id: string): Promise<void> => {
-    if (!isAdmin || !canEdit) return;
+    const loggedInUserIsAdmin = isAdmin; 
+    const canPerformAdminAction = loggedInUserIsAdmin && !forceLoggedOutView;
+    if (!canPerformAdminAction) return;
     try {
       await supabase.from('media').update({ admin_status: 'Rejected', admin_reviewed: true }).eq('id', id);
       setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === id ? { ...video, admin_status: 'Rejected' as AdminStatus } : video)));
@@ -478,10 +480,12 @@ export default function UserProfilePage() {
         logger.error('Error rejecting video:', error);
         toast.error("Failed to reject video."); 
     }
-  }, [isAdmin, canEdit]); 
+    // Dependencies: isAdmin (context), forceLoggedOutView (state), setUserVideos (stable state setter)
+  }, [isAdmin, forceLoggedOutView]); 
 
   const handleAssetStatusUpdate = useCallback(async (assetId: string, newStatus: UserAssetPreferenceStatus): Promise<void> => {
-    if (!user || !profile || user.id !== profile.id) { toast.error("Unauthorized action."); return; }
+    // Check ownership based on the fetched profile and the logged-in user
+    if (!user || !profile || user.id !== profile.id) { toast.error("Unauthorized action."); return; } 
     let optimisticPreviousStatus: UserAssetPreferenceStatus | null | undefined = undefined;
     setUserAssets(prevAssets => {
       const updatedAssets = prevAssets.map(asset => {
@@ -509,7 +513,26 @@ export default function UserProfilePage() {
     } finally {
       setIsUpdatingAssetStatus(prev => ({ ...prev, [assetId]: false }));
     }
+    // Dependencies: user (context), profile (state), setUserAssets (stable state setter)
   }, [user, profile]); 
+
+  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
+
+  // === Early return if AuthProvider is still loading ===
+  if (isAuthLoading) {
+    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
+    return (
+      <div className="w-full min-h-screen flex flex-col text-foreground">
+        <Navigation />
+        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
+          {/* Render a top-level loader */}
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
 
   // --- Helper Functions Defined Inside Component --- 
   const getInitials = (name: string) => {
