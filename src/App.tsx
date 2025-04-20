@@ -18,7 +18,7 @@ const ManifestoPage = lazy(() => import('./pages/Manifesto'));
 function App() {
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-green-50 to-lime-800/70">
+      <div className="min-h-screen bg-gradient-to-br from-[#FEFDF4] via-[#FEFDF4] to-[#C3C6AD]">
         <Router>
           <Suspense fallback={<LoadingState />}>
             <Routes>
