@@ -1,14 +1,18 @@
 import React, { useState, useEffect } from 'react';
 import Masonry from 'react-masonry-css';
 import { LoraAsset } from '@/lib/types';
-import { Input } from '@/components/ui/input';
 import { FileVideo } from 'lucide-react';
 import LoraCard from './LoraCard';
-import { Button } from "@/components/ui/button";
-import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 const logger = new Logger('LoraList');
 
@@ -27,23 +31,35 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   const breakpointColumnsObj = {
     default: 3,
     1024: 2,
-    640: 1
+    640: 1,
   };
 
+  // Pagination logic
+  const itemsPerPage = 15;
+  const [currentPage, setCurrentPage] = useState(1);
+  const totalPages = Math.ceil(loras.length / itemsPerPage);
+
+  useEffect(() => {
+    // Reset to page 1 whenever the list of LoRAs changes
+    setCurrentPage(1);
+  }, [loras]);
+
+  const paginatedLoras = React.useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return loras.slice(start, start + itemsPerPage);
+  }, [loras, currentPage]);
+
   return (
-    <div className="flex-1 overflow-auto">
-      {loras.length > 0 ? (
+    <div className="space-y-4">
+      {paginatedLoras.length > 0 ? (
         <Masonry
           breakpointCols={breakpointColumnsObj}
           className="my-masonry-grid flex w-auto -ml-4"
           columnClassName="my-masonry-grid_column pl-4 bg-clip-padding"
         >
-          {loras.map((lora) => (
+          {paginatedLoras.map((lora) => (
             <div key={lora.id} className="mb-4">
-              <LoraCard 
-                lora={lora} 
-                isAdmin={isAdmin} 
-              />
+              <LoraCard lora={lora} isAdmin={isAdmin} />
             </div>
           ))}
         </Masonry>
@@ -51,10 +67,48 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
         <div className="col-span-full text-center py-8">
           <FileVideo className="h-12 w-12 mx-auto text-muted-foreground" />
           <h3 className="mt-2 text-lg font-medium">No LoRAs found</h3>
-          <p className="text-muted-foreground">
-            Try different filter settings
-          </p>
+          <p className="text-muted-foreground">Try different filter settings</p>
         </div>
+      )}
+
+      {totalPages > 1 && (
+        <Pagination className="mt-4">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                className={
+                  currentPage === 1
+                    ? 'pointer-events-none opacity-50'
+                    : 'cursor-pointer hover:bg-muted/50 transition-colors'
+                }
+              />
+            </PaginationItem>
+
+            {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              <PaginationItem key={page}>
+                <PaginationLink
+                  onClick={() => setCurrentPage(page)}
+                  isActive={currentPage === page}
+                  className="cursor-pointer hover:bg-muted/50 transition-colors"
+                >
+                  {page}
+                </PaginationLink>
+              </PaginationItem>
+            ))}
+
+            <PaginationItem>
+              <PaginationNext
+                onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                className={
+                  currentPage === totalPages
+                    ? 'pointer-events-none opacity-50'
+                    : 'cursor-pointer hover:bg-muted/50 transition-colors'
+                }
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
     </div>
   );

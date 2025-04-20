@@ -15,6 +15,14 @@ import {
 import Masonry from 'react-masonry-css';
 import { DummyCard, generateDummyItems } from '@/components/common/DummyCard';
 import { useLocation } from 'react-router-dom';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from '@/components/ui/pagination';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -60,46 +68,38 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [classification, setClassification] = useState<'all' | 'generation' | 'art'>('all');
   
+  // Pagination state
+  const itemsPerPage = 15; // Or make this a prop
+  const [currentPage, setCurrentPage] = useState(1);
+
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
     // logger.log(`Hover change: ${videoId}, ${isHovering}`);
     setHoveredVideoId(isHovering ? videoId : null);
   };
   
   const sortedAndFilteredVideos = useMemo(() => {
+    // logger.log(`Filtering videos. Initial count: ${videos?.length || 0}, classification: ${classification}`);
     if (!videos) return [];
-    
-    let currentVideos = videos;
+    let filtered = videos;
     if (classification !== 'all') {
-      currentVideos = videos.filter(video => {
-        const videoClassification = video.metadata?.classification?.toLowerCase();
-        if (classification === 'generation') {
-          return videoClassification === 'generation';
-        }
-        if (classification === 'art') {
-          return videoClassification === 'art';
-        }
-        return false;
-      });
+      filtered = videos.filter(v => v.metadata?.classification === classification);
     }
+    // logger.log(`Videos after classification filter: ${filtered.length}`);
 
-    return currentVideos.sort((a, b) => {
-      if (a.is_primary && !b.is_primary) return -1;
-      if (!a.is_primary && b.is_primary) return 1;
-      
-      const statusOrder: Record<VideoDisplayStatus, number> = { 'Pinned': 1, 'View': 2, 'Hidden': 3 };
-      const statusA = a.assetMediaDisplayStatus || 'View';
-      const statusB = b.assetMediaDisplayStatus || 'View';
-      
-      const orderA = statusOrder[statusA] ?? 2;
-      const orderB = statusOrder[statusB] ?? 2;
+    // Sort: primary first, then featured, then by date
+    filtered.sort((a, b) => {
+      const aIsPrimary = a.id === asset?.primary_media_id;
+      const bIsPrimary = b.id === asset?.primary_media_id;
+      const aIsFeatured = a.admin_status === 'Featured';
+      const bIsFeatured = b.admin_status === 'Featured';
 
-      if (orderA !== orderB) {
-        return orderA - orderB;
-      }
-      
+      if (aIsPrimary !== bIsPrimary) return aIsPrimary ? -1 : 1;
+      if (aIsFeatured !== bIsFeatured) return aIsFeatured ? -1 : 1;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
-  }, [videos, classification]);
+    // logger.log(`Videos after sorting: ${filtered.length}`);
+    return filtered;
+  }, [videos, classification, asset?.primary_media_id]);
 
   const getItemsWithDummies = <T extends VideoEntry>(
     allItems: T[]
@@ -113,8 +113,9 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   };
 
   const videosToDisplay = useMemo(() => {
+    // logger.log(`Filtering by authorization. isAuthorized: ${isAuthorized}`);
     if (isAuthorized) {
-      // logger.log(`Authorized user, showing all videos: ${sortedAndFilteredVideos.length}`);
+      // logger.log(`Authorized user, returning all sorted videos: ${sortedAndFilteredVideos.length}`);
       return sortedAndFilteredVideos;
     } else {
       // logger.log(`Non-authorized user, filtering out hidden videos`);
@@ -124,7 +125,21 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     }
   }, [sortedAndFilteredVideos, isAuthorized]);
 
-  const itemsToDisplay = useMemo(() => getItemsWithDummies(videosToDisplay), [videosToDisplay]);
+  // Calculate total pages based on the videos to display
+  const totalPages = Math.ceil(videosToDisplay.length / itemsPerPage);
+
+  // Paginate the videos
+  const paginatedVideos = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return videosToDisplay.slice(start, start + itemsPerPage);
+  }, [videosToDisplay, currentPage]);
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [classification, videos]); // Also reset if base videos change
+
+  const itemsToDisplay = useMemo(() => getItemsWithDummies(paginatedVideos), [paginatedVideos]); // Paginate before adding dummies
   
   return (
     <div className="md:col-span-2">
@@ -155,7 +170,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       </div>
       
       {videosToDisplay.length > 0 ? (
-        <div className="relative masonry-fade-container pt-6 max-h-[85vh] md:max-h-[70vh] lg:max-h-[85vh]">
+        <div className="relative pt-6">
           <Masonry
             breakpointCols={breakpointColumnsObj}
             className="my-masonry-grid"
@@ -190,7 +205,46 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               }
             })}
           </Masonry>
-          {!isLoraPage && <div className="fade-overlay-element"></div>}
+          {/* Pagination Controls */} 
+          {totalPages > 1 && (
+            <Pagination className="mt-6">
+              <PaginationContent>
+                <PaginationItem>
+                  <PaginationPrevious
+                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                    className={
+                      currentPage === 1
+                        ? 'pointer-events-none opacity-50'
+                        : 'cursor-pointer hover:bg-muted/50 transition-colors'
+                    }
+                  />
+                </PaginationItem>
+
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+                  <PaginationItem key={page}>
+                    <PaginationLink
+                      onClick={() => setCurrentPage(page)}
+                      isActive={currentPage === page}
+                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                    >
+                      {page}
+                    </PaginationLink>
+                  </PaginationItem>
+                ))}
+
+                <PaginationItem>
+                  <PaginationNext
+                    onClick={() => setCurrentPage((p) => Math.min(totalPages, p + 1))}
+                    className={
+                      currentPage === totalPages
+                        ? 'pointer-events-none opacity-50'
+                        : 'cursor-pointer hover:bg-muted/50 transition-colors'
+                    }
+                  />
+                </PaginationItem>
+              </PaginationContent>
+            </Pagination>
+          )}
         </div>
       ) : (
         <EmptyState 

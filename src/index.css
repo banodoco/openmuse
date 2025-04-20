@@ -184,7 +184,7 @@
   position: relative;
   /* Remove fixed max-height here, apply via Tailwind classes instead */
   /* max-height: 85vh; */ 
-  overflow: hidden; /* Ensures clipping */
+  /* overflow: hidden; */ /* REMOVED: Ensures clipping */
 }
 
 /* NEW: Styles for the dedicated fade overlay element */
