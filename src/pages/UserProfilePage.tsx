@@ -140,12 +140,14 @@ export default function UserProfilePage() {
         if (data) {
           setProfile(data as UserProfile);
           const ownerStatus = !forceLoggedOutView && user?.id === data.id;
+          const currentIsAdmin = !!isAdmin && !forceLoggedOutView;
           setIsOwner(ownerStatus);
-          setCanEdit(ownerStatus || (!!isAdmin && !forceLoggedOutView));
+          setCanEdit(ownerStatus || currentIsAdmin);
+          const canSeeHidden = ownerStatus || currentIsAdmin; // Calculate permission
           
           if (data.id) {
-            fetchUserAssets(data.id);
-            fetchUserVideos(data.id, user?.id, !!isAdmin);
+            fetchUserAssets(data.id, canSeeHidden); // Pass permission flag
+            fetchUserVideos(data.id, user?.id, currentIsAdmin);
           }
         } else {
           navigate('/');
@@ -167,8 +169,8 @@ export default function UserProfilePage() {
     setLoraPage(1);
   }, [profile?.id]);
 
-  const fetchUserAssets = async (profileUserId: string) => {
-    logger.log('[profiledisplaybug] fetchUserAssets entered.', { profileUserId });
+  const fetchUserAssets = async (profileUserId: string, canViewerSeeHiddenAssets: boolean) => {
+    logger.log('[profiledisplaybug] fetchUserAssets entered.', { profileUserId, canViewerSeeHiddenAssets });
     setIsLoadingAssets(true);
     try {
       const { data: assetsData, error: assetsError } = await supabase
@@ -248,12 +250,18 @@ export default function UserProfilePage() {
           };
         });
         
+        // Filter assets based on viewer permission BEFORE sorting/setting state
+        const visibleAssets = canViewerSeeHiddenAssets
+          ? processedAssets
+          : processedAssets.filter(asset => asset.user_status !== 'Hidden');
+        logger.log(`[fetchUserAssets] Filtered to ${visibleAssets.length} visible assets (canViewerSeeHidden: ${canViewerSeeHiddenAssets})`);
+
         // Logging before/after sort remains
-        logger.log('[profiledisplaybug] Assets BEFORE sorting:', processedAssets.map(a => ({ id: a.id, name: a.name, user_status: a.user_status })));
-        const sortedAssets = sortUserAssets(processedAssets);
+        logger.log('[profiledisplaybug] Assets BEFORE sorting:', visibleAssets.map(a => ({ id: a.id, name: a.name, user_status: a.user_status })));
+        const sortedAssets = sortUserAssets(visibleAssets); // Sort the filtered list
         logger.log('[profiledisplaybug] Assets AFTER sorting:', sortedAssets.map(a => ({ id: a.id, name: a.name, user_status: a.user_status })));
         
-        setUserAssets(sortedAssets);
+        setUserAssets(sortedAssets); // Set state with the filtered and sorted list
       } else {
         logger.log('[profiledisplaybug] No assetsData found or assetsData is empty.');
         setUserAssets([]);
@@ -963,7 +971,7 @@ export default function UserProfilePage() {
                       </Button>
                     }
                     initialUploadType="lora"
-                    onUploadSuccess={() => fetchUserAssets(profile.id)}
+                    onUploadSuccess={() => fetchUserAssets(profile.id, true)}
                   />
                 )}
               </CardHeader>
