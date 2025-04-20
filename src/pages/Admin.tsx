@@ -96,15 +96,21 @@ const Admin: React.FC = () => {
     setIsLoadingEntries(true);
     try {
       const allEntries = await videoEntryService.getAllEntries(); 
+      logger.log('[adminview] Raw entries from service:', allEntries.length);
+      logger.log('[adminview] First entry sample:', allEntries[0]);
+      
       const processedEntries = allEntries.map(entry => ({
         ...entry,
         admin_status: entry.admin_status ?? 'Listed'
       })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
+      logger.log('[adminview] Processed entries:', processedEntries.length);
+      logger.log('[adminview] First processed entry sample:', processedEntries[0]);
+      
       setEntries(processedEntries);
       logger.log('Loaded video entries:', processedEntries.length);
     } catch (error) {
-      logger.error('Error loading video entries:', error);
+      logger.error('[adminview] Error loading video entries:', error);
       toast.error('Failed to load videos');
       setEntries([]);
     } finally {
@@ -116,15 +122,21 @@ const Admin: React.FC = () => {
     setIsLoadingAssets(true);
     try {
       const allAssets = await assetService.getAllAssets();
+      logger.log('[adminview] Raw assets from service:', allAssets.length);
+      logger.log('[adminview] First asset sample:', allAssets[0]);
+      
       const processedAssets = allAssets.map(asset => ({
         ...asset,
         admin_status: asset.admin_status ?? 'Listed'
       })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
+      logger.log('[adminview] Processed assets:', processedAssets.length);
+      logger.log('[adminview] First processed asset sample:', processedAssets[0]);
+      
       setAssets(processedAssets);
       logger.log('Loaded assets:', processedAssets.length);
     } catch (error) {
-      logger.error('Error loading assets:', error);
+      logger.error('[adminview] Error loading assets:', error);
       toast.error('Failed to load assets');
       setAssets([]);
     } finally {
