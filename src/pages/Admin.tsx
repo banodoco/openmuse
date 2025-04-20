@@ -341,165 +341,12 @@ const Admin: React.FC = () => {
           <h1 className="text-4xl font-bold mb-2">Admin Dashboard</h1>
           <p className="text-muted-foreground mb-8">Manage video submissions, assets, and settings</p>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <Tabs defaultValue="assets" value={activeTab} onValueChange={setActiveTab} className="w-full">
             <TabsList className="mb-6">
-              <TabsTrigger value="videos">Videos</TabsTrigger>
               <TabsTrigger value="assets">Assets</TabsTrigger>
+              <TabsTrigger value="videos">Videos</TabsTrigger>
               <TabsTrigger value="settings">Settings</TabsTrigger>
             </TabsList>
-
-            <TabsContent value="videos">
-              <div className="flex justify-between items-center mb-6">
-                <h2 className="text-2xl font-semibold">All Videos</h2>
-                <div className="flex gap-2">
-                  <Button 
-                    variant="outline" 
-                    onClick={loadEntries}
-                    size="sm"
-                    disabled={isLoadingEntries}
-                  >
-                    <RefreshCw className={`mr-1 h-4 w-4 ${isLoadingEntries ? 'animate-spin' : ''}`} />
-                    Refresh
-                  </Button>
-                  {filteredEntries.length > 0 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDownloadCsv}
-                    >
-                      <Download className="mr-1" size={16} />
-                      Download CSV ({filteredEntries.length})
-                    </Button>
-                  )}
-                </div>
-              </div>
-              
-              <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
-                {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
-                  <div key={`video-filter-${status}`} className="flex items-center space-x-2">
-                  <Checkbox 
-                      id={`video-filter-${statusConfig[status].filterKey}`}
-                      checked={videoFilters[statusConfig[status].filterKey as VideoFilterKey]}
-                      onCheckedChange={(checked) => handleVideoFilterChange(statusConfig[status].filterKey as VideoFilterKey, checked as boolean)} 
-                    />
-                    <Label htmlFor={`video-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
-                </div>
-                ))}
-                <div className="flex items-center space-x-2">
-                  <Checkbox 
-                    id="video-filter-skipped" 
-                    checked={videoFilters.skipped}
-                    onCheckedChange={(checked) => handleVideoFilterChange('skipped', checked as boolean)} 
-                  />
-                  <Label htmlFor="video-filter-skipped">Skipped</Label>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-4 mb-6 px-4 py-2 text-sm text-muted-foreground">
-                <div>
-                  Showing <span className="font-medium text-foreground">{filteredEntries.length}</span> of <span className="font-medium text-foreground">{videoStatusCounts.total}</span> videos
-                </div>
-                <div className="flex gap-3 flex-wrap">
-                  {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
-                    videoFilters[statusConfig[status].filterKey as VideoFilterKey] && (
-                      <span key={`video-count-${status}`} className="flex items-center">
-                        {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-3 w-3 mr-1" })}
-                        {videoStatusCounts[statusConfig[status].filterKey as VideoFilterKey]} {statusConfig[status].filterKey}
-                    </span>
-                    )
-                  ))}
-                  {videoFilters.skipped && (
-                    <span className="flex items-center">
-                      <SkipForward className="h-3 w-3 mr-1" />
-                      {videoStatusCounts.skipped} skipped
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {isLoadingEntries ? (
-                <p>Loading videos...</p>
-              ) : filteredEntries.length === 0 ? (
-                <div className="text-center py-12">
-                  <p className="text-lg text-muted-foreground">No videos match your current filters</p>
-                </div>
-              ) : (
-                <div className="space-y-8">
-                  {filteredEntries.map(entry => {
-                    const { label, icon, variant } = getVideoStatusDetails(entry);
-                    
-                    return (
-                      <div key={entry.id} className="border rounded-lg p-4 bg-card">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                          <div className="rounded overflow-hidden bg-black aspect-video">
-                            {entry.url ? (
-                              <StorageVideoPlayer
-                                videoLocation={entry.url}
-                                className="w-full h-full"
-                                controls
-                              />
-                            ) : (
-                              <div className="flex items-center justify-center h-full text-muted-foreground bg-muted">
-                                Video URL missing or invalid.
-                              </div>
-                            )}
-                          </div>
-                          <div className="space-y-4">
-                            <div className="space-y-2">
-                              <Badge variant={variant} className="flex items-center whitespace-nowrap w-fit">
-                              {icon}
-                              {label}
-                            </Badge>
-                              <h3 className="font-medium">{entry.reviewer_name}</h3>
-                              <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
-                              <p className="text-xs text-muted-foreground">ID: {entry.id}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-2">
-                              {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
-                            <Button 
-                                  key={`video-action-${status}`}
-                              size="sm"
-                                  variant={entry.skipped ? 'outline' : (entry.admin_status === status ? statusConfig[status].variant : 'outline')}
-                                  onClick={() => handleSetVideoAdminStatus(entry.id, status)}
-                                  disabled={entry.skipped || entry.admin_status === status}
-                                  className="gap-1 h-8 text-xs"
-                            >
-                                  {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4" })}
-                                  {statusConfig[status].label}
-                            </Button>
-                              ))}
-                            </div>
-
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button variant="destructive" size="sm" className="w-full">
-                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Video
-                            </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>Delete Video?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete this video submission by {entry.reviewer_name || 'Unknown User'} (ID: {entry.id})? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction onClick={() => handleDeleteVideoEntry(entry)} className="bg-destructive hover:bg-destructive/90">
-                                    Confirm Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                          </div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              )}
-            </TabsContent>
 
             <TabsContent value="assets">
               <div className="flex justify-between items-center mb-6">
@@ -646,6 +493,159 @@ const Admin: React.FC = () => {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="videos">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-2xl font-semibold">All Videos</h2>
+                <div className="flex gap-2">
+                  <Button 
+                    variant="outline" 
+                    onClick={loadEntries}
+                    size="sm"
+                    disabled={isLoadingEntries}
+                  >
+                    <RefreshCw className={`mr-1 h-4 w-4 ${isLoadingEntries ? 'animate-spin' : ''}`} />
+                    Refresh
+                  </Button>
+                  {filteredEntries.length > 0 && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleDownloadCsv}
+                    >
+                      <Download className="mr-1" size={16} />
+                      Download CSV ({filteredEntries.length})
+                    </Button>
+                  )}
+                </div>
+              </div>
+              
+              <div className="flex flex-wrap gap-x-6 gap-y-3 mb-2 p-4 bg-muted/50 rounded-lg">
+                {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                  <div key={`video-filter-${status}`} className="flex items-center space-x-2">
+                  <Checkbox 
+                      id={`video-filter-${statusConfig[status].filterKey}`}
+                      checked={videoFilters[statusConfig[status].filterKey as VideoFilterKey]}
+                      onCheckedChange={(checked) => handleVideoFilterChange(statusConfig[status].filterKey as VideoFilterKey, checked as boolean)} 
+                    />
+                    <Label htmlFor={`video-filter-${statusConfig[status].filterKey}`}>{statusConfig[status].label}</Label>
+                </div>
+                ))}
+                <div className="flex items-center space-x-2">
+                  <Checkbox 
+                    id="video-filter-skipped" 
+                    checked={videoFilters.skipped}
+                    onCheckedChange={(checked) => handleVideoFilterChange('skipped', checked as boolean)} 
+                  />
+                  <Label htmlFor="video-filter-skipped">Skipped</Label>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-4 mb-6 px-4 py-2 text-sm text-muted-foreground">
+                <div>
+                  Showing <span className="font-medium text-foreground">{filteredEntries.length}</span> of <span className="font-medium text-foreground">{videoStatusCounts.total}</span> videos
+                </div>
+                <div className="flex gap-3 flex-wrap">
+                  {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                    videoFilters[statusConfig[status].filterKey as VideoFilterKey] && (
+                      <span key={`video-count-${status}`} className="flex items-center">
+                        {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-3 w-3 mr-1" })}
+                        {videoStatusCounts[statusConfig[status].filterKey as VideoFilterKey]} {statusConfig[status].filterKey}
+                    </span>
+                    )
+                  ))}
+                  {videoFilters.skipped && (
+                    <span className="flex items-center">
+                      <SkipForward className="h-3 w-3 mr-1" />
+                      {videoStatusCounts.skipped} skipped
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {isLoadingEntries ? (
+                <p>Loading videos...</p>
+              ) : filteredEntries.length === 0 ? (
+                <div className="text-center py-12">
+                  <p className="text-lg text-muted-foreground">No videos match your current filters</p>
+                </div>
+              ) : (
+                <div className="space-y-8">
+                  {filteredEntries.map(entry => {
+                    const { label, icon, variant } = getVideoStatusDetails(entry);
+                    
+                    return (
+                      <div key={entry.id} className="border rounded-lg p-4 bg-card">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                          <div className="rounded overflow-hidden bg-black aspect-video">
+                            {entry.url ? (
+                              <StorageVideoPlayer
+                                videoLocation={entry.url}
+                                className="w-full h-full"
+                                controls
+                              />
+                            ) : (
+                              <div className="flex items-center justify-center h-full text-muted-foreground bg-muted">
+                                Video URL missing or invalid.
+                              </div>
+                            )}
+                          </div>
+                          <div className="space-y-4">
+                            <div className="space-y-2">
+                              <Badge variant={variant} className="flex items-center whitespace-nowrap w-fit">
+                              {icon}
+                              {label}
+                            </Badge>
+                              <h3 className="font-medium">{entry.reviewer_name}</h3>
+                              <p className="text-sm text-muted-foreground">Uploaded: {formatDate(entry.created_at)}</p>
+                              <p className="text-xs text-muted-foreground">ID: {entry.id}</p>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-2">
+                              {(Object.keys(statusConfig) as AdminStatus[]).map(status => (
+                            <Button 
+                                  key={`video-action-${status}`}
+                              size="sm"
+                                  variant={entry.skipped ? 'outline' : (entry.admin_status === status ? statusConfig[status].variant : 'outline')}
+                                  onClick={() => handleSetVideoAdminStatus(entry.id, status)}
+                                  disabled={entry.skipped || entry.admin_status === status}
+                                  className="gap-1 h-8 text-xs"
+                            >
+                                  {React.cloneElement(statusConfig[status].icon as React.ReactElement, { className: "h-4 w-4" })}
+                                  {statusConfig[status].label}
+                            </Button>
+                              ))}
+                            </div>
+
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button variant="destructive" size="sm" className="w-full">
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete Video
+                            </Button>
+                              </AlertDialogTrigger>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>Delete Video?</AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to delete this video submission by {entry.reviewer_name || 'Unknown User'} (ID: {entry.id})? This action cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                                  <AlertDialogAction onClick={() => handleDeleteVideoEntry(entry)} className="bg-destructive hover:bg-destructive/90">
+                                    Confirm Delete
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </div>
                         </div>
                       </div>
                     );

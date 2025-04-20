@@ -261,21 +261,17 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       data-is-hovering={isHovering ? "true" : "false"}
       data-video-loaded={isVideoLoaded ? "true" : "false"}
       data-has-hovered={hasHovered ? "true" : "false"}
-      style={{ pointerEvents: 'none' }}
     >
       {/* Hover detection layer - only handles hover events */}
       <div
         className="absolute inset-0 z-50"
         onMouseEnter={handleManualHoverStart}
         onMouseLeave={handleManualHoverEnd}
-        style={{ 
-          pointerEvents: previewMode ? 'auto' : 'none',
-          cursor: 'pointer'
-        }}
+        style={{ cursor: 'pointer' }}
       />
 
-      {/* Content wrapper - allows clicks to pass through to parent */}
-      <div className="relative w-full h-full" style={{ pointerEvents: 'none' }}>
+      {/* Content wrapper - allows interaction with video */}
+      <div className="relative w-full h-full">
         {/* Error Display */}
         {error && (
           <div className="absolute inset-0 z-30">
@@ -318,8 +314,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             src={videoUrl}
             className={cn(
               "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
-              isVideoLoaded ? "opacity-100" : "opacity-0",
-              "pointer-events-none"
+              isVideoLoaded ? "opacity-100" : "opacity-0"
             )}
             controls={controls && !previewMode} 
             autoPlay={false}
