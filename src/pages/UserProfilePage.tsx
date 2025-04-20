@@ -250,9 +250,9 @@ export default function UserProfilePage() {
             }
           }
           const processedVideos: VideoEntry[] = videosData.map(video => {
-            let classification = video.classification || 'generation';
-            if (classification !== 'art' && classification !== 'generation') {
-              classification = 'generation';
+            let classification = video.classification || 'gen';
+            if (classification !== 'art' && classification !== 'gen') {
+              classification = 'gen';
             }
             const associatedAssetId = mediaIdToAssetId.get(video.id) || null;
             return {
@@ -270,7 +270,7 @@ export default function UserProfilePage() {
                 title: video.title || '',
                 description: video.description || '',
                 creator: 'self',
-                classification: classification as 'art' | 'generation',
+                classification: classification as 'art' | 'gen',
                 placeholder_image: video.placeholder_image,
                 assetId: associatedAssetId,
               },
@@ -287,7 +287,7 @@ export default function UserProfilePage() {
             canViewerSeeHidden || video.user_status !== 'Hidden'
           );
           fetchedVideos = sortProfileVideos(visibleVideos);
-          generationCount = fetchedVideos.filter(v => v.metadata?.classification === 'generation').length;
+          generationCount = fetchedVideos.filter(v => v.metadata?.classification === 'gen').length;
           artCount = fetchedVideos.filter(v => v.metadata?.classification === 'art').length;
       } else {
           generationCount = 0;
@@ -383,7 +383,7 @@ export default function UserProfilePage() {
   }, [displayName, user, navigate, isAdmin, searchParams, fetchUserAssets, fetchUserVideos]);
 
   // --- Derived State with useMemo --- 
-  const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'generation'), [userVideos]);
+  const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
   const artVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'art'), [userVideos]);
   const loraPageSize = useMemo(() => calculatePageSize(userAssets.length), [userAssets.length]);
   const generationPageSize = useMemo(() => calculatePageSize(generationVideos.length), [generationVideos.length]);
