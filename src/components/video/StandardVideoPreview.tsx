@@ -1,4 +1,3 @@
-
 import React, { useRef, useState, useEffect } from 'react';
 import { Play, FileVideo, Eye, RefreshCw } from 'lucide-react';
 import VideoPlayer from './VideoPlayer';
@@ -55,9 +54,9 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
     };
   }, []);
   
-  // Handle poster image loading
+  // Handle poster image loading (only if not mobile and poster exists)
   useEffect(() => {
-    if (posterUrl) {
+    if (!isMobile && posterUrl) {
       const img = new Image();
       img.onload = () => {
         if (!unmountedRef.current) {
@@ -73,7 +72,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
       };
       img.src = posterUrl;
     }
-  }, [posterUrl]);
+  }, [posterUrl, isMobile]);
   
   // Check URL validity on mount and when URL changes
   useEffect(() => {
@@ -148,19 +147,14 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
 
   // If URL is not valid, return null instead of showing empty player
   if (!isValidUrl || !currentUrl) {
+    logger.log('StandardVideoPreview: Invalid or null URL, rendering null.', { isValidUrl, currentUrl });
     return null;
   }
 
+  const shouldShowFirstFrame = isMobile && !posterUrl;
+
   return (
     <div ref={containerRef} className="w-full h-full relative">
-      {/* Always show poster explicitly for mobile */}
-      {isMobile && posterUrl && !currentError && (
-        <div 
-          className="absolute inset-0 bg-cover bg-center z-10"
-          style={{ backgroundImage: `url(${posterUrl})` }} 
-        />
-      )}
-      
       {currentError ? (
         <VideoPreviewError
           error={currentError}
@@ -184,6 +178,7 @@ const StandardVideoPreview: React.FC<StandardVideoPreviewProps> = ({
           onLoadedData={handleVideoLoaded}
           isMobile={isMobile}
           preventLoadingFlicker={preventLoadingFlicker}
+          showFirstFrameAsPoster={shouldShowFirstFrame}
         />
       )}
       

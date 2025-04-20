@@ -2,9 +2,10 @@ import { VideoEntry, VideoFile } from '../types';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
 import { Logger } from '../logger';
-import { thumbnailService } from './thumbnailService';
+import ThumbnailService from './thumbnailService';
 
 const logger = new Logger('VideoUploadService');
+const thumbnailService = new ThumbnailService();
 
 class VideoUploadService {
   private currentUserId: string | null = null;
@@ -155,6 +156,10 @@ class VideoUploadService {
       
       const videoUrl = publicUrlData.publicUrl;
 
+      // Generate thumbnail for the uploaded video
+      logger.log(`Generating thumbnail for video associated with asset ${assetId}`);
+      const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
+
       const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : 'Untitled Video';
 
       const { data: mediaData, error: mediaError } = await supabase
@@ -166,7 +171,8 @@ class VideoUploadService {
           classification: videoFile.metadata?.classification || 'art',
           creator: videoFile.metadata?.creatorName || reviewerName,
           user_id: userId || this.currentUserId,
-          admin_status: 'Listed'
+          admin_status: 'Listed',
+          placeholder_image: thumbnailUrl
         })
         .select()
         .single();
@@ -384,28 +390,36 @@ class VideoUploadService {
     entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status'>,
     assetId: string,
     isPrimary: boolean = false
-  ): Promise<VideoEntry> {
+  ): Promise<VideoEntry | null> {
+    if (!entryData.url || !assetId) {
+      logger.error('Attempted to add an entry without URL or asset ID');
+      throw new Error('Invalid entry data or asset ID');
+    }
+
     try {
-      logger.log(`Adding new entry to existing asset ${assetId}: ${JSON.stringify(entryData)}`);
-      
-      if (!entryData.reviewer_name) {
-        throw new Error('Reviewer name is required for video entries');
+      logger.log(`Adding media entry for URL to asset ${assetId}`);
+
+      let thumbnailUrl = entryData.metadata?.placeholder_image;
+      if (!thumbnailUrl) {
+        logger.log(`No placeholder image provided for URL entry, generating thumbnail.`);
+        thumbnailUrl = await thumbnailService.generateThumbnail(entryData.url);
       }
-      
+
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
-          title: entryData.metadata?.title || 'Untitled',
+          title: entryData.metadata?.title || 'Untitled Video',
           url: entryData.url,
           type: 'video',
           classification: entryData.metadata?.classification || 'art',
           creator: entryData.metadata?.creatorName || entryData.reviewer_name,
           user_id: entryData.user_id || this.currentUserId,
-          admin_status: 'Listed'
+          admin_status: 'Listed',
+          placeholder_image: thumbnailUrl
         })
         .select()
         .single();
-      
+
       if (mediaError) {
         logger.error('Error creating media entry:', mediaError);
         throw mediaError;

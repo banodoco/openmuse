@@ -1,4 +1,3 @@
-
 import { useEffect, useRef, useState } from 'react';
 import { getYoutubeVideoId } from '@/lib/utils/videoPreviewUtils';
 import { supabase } from '@/integrations/supabase/client';
@@ -146,8 +145,20 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
           
           URL.revokeObjectURL(fileUrl);
         } catch (e) {
-          logger.error('Error generating thumbnail:', e);
-          URL.revokeObjectURL(fileUrl);
+          logger.error('Error generating thumbnail from file:', e);
+          URL.revokeObjectURL(fileUrl); // Ensure cleanup even on error
+
+          // Only retry if component is still mounted and retries are left
+          if (!unmountedRef.current && retryCount < maxRetries) {
+            logger.log(`Retrying file thumbnail generation (${retryCount + 1}/${maxRetries})...`);
+            // Use a small delay before retrying
+            setTimeout(() => {
+              if (!unmountedRef.current) {
+                // Re-trigger the effect that calls generateFileThumbnail by updating retryCount
+                setRetryCount(prev => prev + 1); 
+              }
+            }, 500 * (retryCount + 1)); // Exponential backoff might be better, but simple delay for now
+          }
         }
       };
       
@@ -240,14 +251,14 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
             
             // Only retry if component is still mounted
             if (!unmountedRef.current && retryCount < maxRetries) {
-              logger.log(`Retrying thumbnail generation (${retryCount + 1}/${maxRetries})...`);
+              logger.log(`Retrying video load (${retryCount + 1}/${maxRetries})...`);
               setRetryCount(prev => prev + 1);
-              // Use a small delay before retrying
               setTimeout(() => {
                 if (!unmountedRef.current) {
-                  tempVideo.currentTime = 0.1;
+                  tempVideo.src = url;
+                  tempVideo.load();
                 }
-              }, 500);
+              }, 1000);
             } else {
               tempVideo.pause();
               tempVideo.src = '';

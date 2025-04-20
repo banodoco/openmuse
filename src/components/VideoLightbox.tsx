@@ -401,17 +401,17 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 <X size={24} />
               </button>
               
-              <div className={cn(
-                "relative p-4 flex-shrink-0",
-                "bg-white",
-                isEditing ? "h-[40vh]" : "h-[75vh]"
-              )}>
+              <div className="relative flex-shrink-0 h-[65vh]">
                 <VideoPlayer
                   src={videoUrl}
                   poster={thumbnailUrl}
                   className="absolute inset-0 w-full h-full object-contain"
                   controls
-                  autoPlay
+                  autoPlay={!isMobile}
+                  muted
+                  isMobile={isMobile}
+                  externallyControlled={isMobile}
+                  isHovering={isMobile}
                 />
 
                 {isAuthorized && currentStatus && onStatusChange && (

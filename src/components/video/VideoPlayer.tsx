@@ -54,6 +54,7 @@ interface VideoPlayerProps {
   isMobile?: boolean;
   preventLoadingFlicker?: boolean;
   preload?: 'none' | 'metadata' | 'auto';
+  showFirstFrameAsPoster?: boolean;
 }
 
 const VideoPlayer: React.FC<VideoPlayerProps> = ({
@@ -98,6 +99,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   lazyLoad = true,
   isMobile = false,
   preventLoadingFlicker = true,
+  preload: preloadProp,
+  showFirstFrameAsPoster = false,
 }) => {
   const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
   logger.log(`[${componentId}] Rendering. src: ${src?.substring(0,30)}..., poster: ${!!poster}, lazyLoad: ${lazyLoad}, preventLoadingFlicker: ${preventLoadingFlicker}`);
@@ -111,6 +114,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [posterLoaded, setPosterLoaded] = useState(false);
   const [forcedPlay, setForcedPlay] = useState(false);
   const unmountedRef = useRef(false);
+  const [initialFrameLoaded, setInitialFrameLoaded] = useState(false);
   
   const {
     error,
@@ -132,43 +136,6 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     isHovering: externallyControlled ? isHovering : isInternallyHovering,
     isMobile
   });
-  
-  useEffect(() => {
-    if (isMobile && videoRef.current && !autoPlay) {
-      const video = videoRef.current;
-      
-      const handleLoadedData = (nativeEvent: Event) => {
-        if (!unmountedRef.current) {
-          video.pause();
-          video.currentTime = 0;
-          if (onLoadedData) {
-            const syntheticEvent: React.SyntheticEvent<HTMLVideoElement, Event> = {
-              nativeEvent,
-              currentTarget: video,
-              target: video,
-              bubbles: false,
-              cancelable: false,
-              defaultPrevented: false,
-              eventPhase: 0,
-              isTrusted: true,
-              preventDefault: () => {},
-              stopPropagation: () => {},
-              isPropagationStopped: () => false,
-              isDefaultPrevented: () => false,
-              persist: () => {},
-              timeStamp: Date.now(),
-              type: 'loadeddata',
-            } as React.SyntheticEvent<HTMLVideoElement, Event>;
-            
-            onLoadedData(syntheticEvent);
-          }
-        }
-      };
-      
-      video.addEventListener('loadeddata', handleLoadedData as EventListener);
-      return () => video.removeEventListener('loadeddata', handleLoadedData as EventListener);
-    }
-  }, [isMobile, autoPlay, onLoadedData]);
   
   useEffect(() => {
     if (triggerPlay && videoRef.current && videoRef.current.paused && !unmountedRef.current) {
@@ -286,9 +253,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  const shouldShowLoading = isLoading && (!preventLoadingFlicker || !poster);
+  // Avoid showing an endless loader on mobile devices where no poster image exists.
+  // On many mobile browsers the video won't begin loading until user interaction,
+  // which means `isLoading` can stay true forever. In that scenario the user just
+  // sees a spinner. To improve UX we skip the loader entirely on mobile and rely
+  // on the overlay/play‑tap interaction instead.
+  const shouldShowLoading = !isMobile && isLoading && (!preventLoadingFlicker || !poster);
   logger.log(`[${componentId}] State: isLoading=${isLoading}, error=${!!error}, hasInteracted=${hasInteracted}, posterLoaded=${posterLoaded}, externallyControlled=${externallyControlled}`);
   logger.log(`[${componentId}] Visibility: shouldShowLoading=${shouldShowLoading}, videoOpacity=${(lazyLoad && poster && !hasInteracted && !externallyControlled) ? 0 : 1}`);
+
+  const effectivePreload = showFirstFrameAsPoster ? 'metadata' : (preloadProp || 'auto');
+  const effectiveAutoPlay = showFirstFrameAsPoster || autoPlay;
+
+  const handleLoadedDataInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event> | Event) => {
+    logger.log(`[${componentId}] onLoadedData triggered. showFirstFrameAsPoster: ${showFirstFrameAsPoster}, initialFrameLoaded: ${initialFrameLoaded}`);
+    if (videoRef.current && showFirstFrameAsPoster && !initialFrameLoaded) {
+      logger.log(`[${componentId}] Pausing on first frame.`);
+      videoRef.current.pause();
+      videoRef.current.currentTime = 0;
+      setInitialFrameLoaded(true);
+    }
+    if (onLoadedData) {
+      onLoadedData(event);
+    }
+  }, [showFirstFrameAsPoster, initialFrameLoaded, onLoadedData, videoRef, componentId]);
 
   return (
     <div 
@@ -324,19 +312,24 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       
       <video
         ref={videoRef}
-        className={cn("w-full h-full object-cover", className, {
-          'opacity-0': (lazyLoad && poster && !hasInteracted && !externallyControlled) 
-        })}
-        autoPlay={autoPlay}
+        className={cn(
+          "w-full h-full object-cover rounded-md transition-opacity duration-300",
+          className,
+          (preventLoadingFlicker && (!posterLoaded && !initialFrameLoaded && !error && isLoading)) ? 'opacity-0' : 'opacity-100'
+        )}
+        autoPlay={effectiveAutoPlay}
         muted={muted}
         loop={loop}
         controls={controls}
         playsInline
-        poster={poster || undefined}
-        preload={(hasInteracted || externallyControlled || preventLoadingFlicker) ? "auto" : "metadata"}
+        poster={poster}
+        preload={effectivePreload}
         src={src}
         crossOrigin="anonymous"
         onClick={handleVideoClick}
+        onLoadedData={handleLoadedDataInternal}
+        onTimeUpdate={onTimeUpdate}
+        onEnded={onEnded}
       >
         Your browser does not support the video tag.
       </video>
