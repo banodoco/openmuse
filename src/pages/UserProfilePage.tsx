@@ -147,7 +147,7 @@ export default function UserProfilePage() {
           setCanEdit(ownerStatus || (!!isAdmin && !forceLoggedOutView));
           
           if (data.id) {
-            fetchUserAssets(data.id, user?.id);
+            fetchUserAssets(data.id);
             fetchUserVideos(data.id, user?.id, !!isAdmin);
           }
         } else {
@@ -170,37 +170,37 @@ export default function UserProfilePage() {
     setLoraPage(1);
   }, [profile?.id]);
 
-  const fetchUserAssets = async (profileUserId: string, loggedInUserId: string | null | undefined) => {
+  const fetchUserAssets = async (profileUserId: string) => {
+    logger.log('[profiledisplaybug] fetchUserAssets entered.', { profileUserId });
     setIsLoadingAssets(true);
     try {
-      // Conditionally construct the select string for the preference join
-      const preferenceSelect = loggedInUserId 
-        ? `user_preference:user_asset_preferences!left(status)?user_id=eq.${loggedInUserId}` 
-        : `user_preference:user_asset_preferences!left(status)`;
-
       const { data: assetsData, error: assetsError } = await supabase
         .from('assets')
-        .select(`
+        .select(` 
           *,
-          primaryVideo:primary_media_id(*),
-          ${preferenceSelect}
+          primaryVideo:primary_media_id(*)
         `)
-        .eq('user_id', profileUserId) // Assets owned by the profile user
+        .eq('user_id', profileUserId)
         .order('created_at', { ascending: false });
 
+      logger.log('[profiledisplaybug] Supabase query completed.', { assetsData, assetsError });
+
       if (assetsError) {
-        // Log specific Supabase error if available
-        logger.error('Error fetching user assets:', assetsError);
+        logger.error('[profiledisplaybug] Error fetching user assets directly:', assetsError);
         toast.error('Failed to load LoRAs. ' + assetsError.message);
         return;
       }
 
-      if (assetsData) {
-        const processedAssets: LoraAsset[] = assetsData.map((asset: any) => { // Use any temporarily for joined data
+      if (assetsData && assetsData.length > 0) {
+        const processedAssets: LoraAsset[] = assetsData.map((asset: any) => {
           const pVideo = asset.primaryVideo;
-          const preferenceStatus = asset.user_preference && asset.user_preference.length > 0 
-                                    ? asset.user_preference[0].status as UserAssetPreferenceStatus 
-                                    : null;
+          const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
+
+          // profiledisplaybug log remains
+          logger.log(`[profiledisplaybug] Processing asset: ${asset.id}, Fetched user_status: ${userStatus}`, {
+            name: asset.name,
+            raw_user_status: asset.user_status // Log the raw value too
+          });
 
           logger.log(`[fetchUserAssets] Processing asset: ${asset.id}, Primary Video Data (pVideo):`, {
             exists: !!pVideo,
@@ -220,12 +220,11 @@ export default function UserProfilePage() {
             user_id: asset.user_id,
             primary_media_id: asset.primary_media_id,
             admin_status: asset.admin_status,
+            user_status: userStatus,
             lora_type: asset.lora_type,
             lora_base_model: asset.lora_base_model,
             model_variant: asset.model_variant,
             lora_link: asset.lora_link,
-            user_preference_status: preferenceStatus,
-            
             primaryVideo: pVideo ? {
               id: pVideo.id,
               url: pVideo.url,
@@ -252,11 +251,18 @@ export default function UserProfilePage() {
           };
         });
         
-        // Sort the processed assets before setting state
-        setUserAssets(sortUserAssets(processedAssets));
+        // Logging before/after sort remains
+        logger.log('[profiledisplaybug] Assets BEFORE sorting:', processedAssets.map(a => ({ id: a.id, name: a.name, user_status: a.user_status })));
+        const sortedAssets = sortUserAssets(processedAssets);
+        logger.log('[profiledisplaybug] Assets AFTER sorting:', sortedAssets.map(a => ({ id: a.id, name: a.name, user_status: a.user_status })));
+        
+        setUserAssets(sortedAssets);
+      } else {
+        logger.log('[profiledisplaybug] No assetsData found or assetsData is empty.');
+        setUserAssets([]);
       }
     } catch (err) {
-      logger.error('Error processing user assets:', err);
+      logger.error('[profiledisplaybug] Error caught in fetchUserAssets:', err);
       toast.error('An unexpected error occurred while loading LoRAs.');
     } finally {
       setIsLoadingAssets(false);
@@ -819,7 +825,7 @@ export default function UserProfilePage() {
   }, [logger]); // Dependencies managed by useCallback
 
   return (
-    <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light text-foreground">
+    <div className="w-full min-h-screen flex flex-col text-foreground">
       <Helmet>
         {/* Basic Meta Tags */}
         <title>{profile ? `${profile.display_name || profile.username}'s Profile` : 'User Profile'} | OpenMuse</title>
@@ -917,7 +923,7 @@ export default function UserProfilePage() {
                       </Button>
                     }
                     initialUploadType="lora"
-                    onUploadSuccess={() => fetchUserAssets(profile.id, user?.id)}
+                    onUploadSuccess={() => fetchUserAssets(profile.id)}
                   />
                 )}
               </CardHeader>
@@ -938,8 +944,9 @@ export default function UserProfilePage() {
                             lora={item}
                             isAdmin={isAdmin && !forceLoggedOutView}
                             isOwnProfile={isOwner}
-                            userPreferenceStatus={item.user_preference_status}
-                            onPreferenceChange={handleLocalAssetPreferenceChange}
+                            userStatus={item.user_status}
+                            onUserStatusChange={handleLocalAssetPreferenceChange}
+                            hideCreatorInfo={true}
                           />
                         ))}
                       </Masonry>

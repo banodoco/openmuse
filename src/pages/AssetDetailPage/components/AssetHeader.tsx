@@ -59,14 +59,8 @@ const AssetHeader: React.FC<AssetHeaderProps> = ({
           </Button>
           <div className="flex flex-col">
              <h1 className="text-3xl font-bold">{asset?.name}</h1>
-             <span className="text-sm text-muted-foreground">by {creatorName}</span>
           </div>
         </div>
-        {asset?.admin_status && (
-           <Badge className={cn("text-xs", getStatusColor(asset.admin_status))}>
-             {asset.admin_status}
-           </Badge>
-        )}
       </div>
     </div>
   );

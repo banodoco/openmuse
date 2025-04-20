@@ -115,10 +115,10 @@ const AssetInfoCard = ({
   return (
     <div className="md:col-span-1 space-y-4">
       <Card>
-        <CardHeader>
+        <CardHeader className="pb-2">
           <CardTitle>LoRA Information</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-4 pt-4">
           <EditableLoraDetails 
             asset={asset}
             isAuthorized={isAuthorizedToEdit}

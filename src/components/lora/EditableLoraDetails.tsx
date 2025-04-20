@@ -54,7 +54,7 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
     creator: isOwnedByCurrentUser() ? 'self' : 'someone_else',
     creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : asset?.creator || '',
     lora_type: asset?.lora_type || 'Concept',
-    lora_base_model: asset?.lora_base_model || 'wan',
+    lora_base_model: asset?.lora_base_model || 'Wan',
     model_variant: asset?.model_variant || '',
     lora_link: asset?.lora_link || ''
   });
@@ -76,7 +76,7 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
       creator: isOwnedByCurrentUser() ? 'self' : 'someone_else',
       creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : asset?.creator || '',
       lora_type: asset?.lora_type || 'Concept',
-      lora_base_model: asset?.lora_base_model || 'wan',
+      lora_base_model: asset?.lora_base_model || 'Wan',
       model_variant: asset?.model_variant || '',
       lora_link: asset?.lora_link || ''
     });
@@ -214,18 +214,18 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
             </Label>
             <Select 
               value={details.lora_base_model} 
-              onValueChange={(value: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff') => updateField('lora_base_model', value)}
+              onValueChange={(value: 'Wan' | 'Hunyuan' | 'LTXV' | 'CogVideoX' | 'AnimateDiff') => updateField('lora_base_model', value)}
               disabled={isSaving}
             >
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select Model" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="wan">Wan</SelectItem>
-                <SelectItem value="hunyuan">Hunyuan</SelectItem>
-                <SelectItem value="ltxv">LTXV</SelectItem>
-                <SelectItem value="cogvideox">CogVideoX</SelectItem>
-                <SelectItem value="animatediff">AnimateDiff</SelectItem>
+                <SelectItem value="Wan">Wan</SelectItem>
+                <SelectItem value="Hunyuan">Hunyuan</SelectItem>
+                <SelectItem value="LTXV">LTXV</SelectItem>
+                <SelectItem value="CogVideoX">CogVideoX</SelectItem>
+                <SelectItem value="AnimateDiff">AnimateDiff</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -344,21 +344,22 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
         </div>
       )}
       
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Type</Label>
-          <p className="text-sm font-medium">{asset?.lora_type || 'N/A'}</p>
-        </div>
+      <div className="grid grid-cols-2 gap-x-4 mt-3">
         <div className="space-y-1">
           <Label className="text-xs text-muted-foreground">Base Model</Label>
           <p className="text-sm font-medium">{asset?.lora_base_model || 'N/A'}</p>
         </div>
         {asset?.model_variant && (
           <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Variant</Label>
+            <Label className="text-xs text-muted-foreground">Model Variant</Label>
             <p className="text-sm font-medium">{asset.model_variant}</p>
           </div>
         )}
+      </div>
+
+      <div className="space-y-1 mt-2">
+        <Label className="text-xs text-muted-foreground">Type</Label>
+        <p className="text-sm font-medium">{asset?.lora_type || 'N/A'}</p>
       </div>
     </div>
   );

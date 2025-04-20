@@ -15,6 +15,10 @@ import { useAssetAdminActions } from './hooks/useAssetAdminActions';
 import { useAuth } from '@/hooks/useAuth';
 import VideoLightbox from '@/components/VideoLightbox';
 import { toast } from 'sonner';
+import { ErrorBoundary } from 'react-error-boundary';
+import { Suspense } from 'react';
+import { Helmet } from 'react-helmet-async';
+import LoadingState from '@/components/LoadingState';
 
 const logger = new Logger('AssetDetailPage');
 
@@ -290,10 +294,6 @@ function AssetDetailPage() {
       }
       logger.log(`[handleDeleteAsset] Successfully deleted asset record ${assetId} from database.`);
 
-      toast.success('LoRA Asset and associated data deleted successfully');
-      logger.log(`[handleDeleteAsset] Deletion successful for asset ID: ${assetId}. Navigating away.`);
-      navigate('/');
-
     } catch (error) {
       logger.error(`[handleDeleteAsset] Error during deletion process for asset ID ${assetId}:`, error);
       toast.error(`Failed to delete asset: ${error.message || 'Unknown error'}`);
@@ -301,7 +301,10 @@ function AssetDetailPage() {
     logger.log(`[handleDeleteAsset] Finished for asset ID: ${assetId}`);
   };
   
+  // --- Add missing handlers --- 
   const handleSetPrimaryMedia = async (mediaId: string) => {
+    if (!id) return;
+    logger.log(`[handleSetPrimaryMedia] Setting media ${mediaId} as primary for asset ${id}`);
     try {
       const { error } = await supabase.rpc('set_primary_media', {
         p_asset_id: id,
@@ -312,10 +315,12 @@ function AssetDetailPage() {
 
       updateLocalPrimaryMedia(mediaId);
       toast.success('Primary media updated successfully!');
+      // Optionally re-fetch asset details if needed to confirm other changes
+      // await fetchAssetDetails(); 
 
-    } catch (error) {
-      logger.error(`Error setting primary media: ${error.message}`);
-      toast.error('Failed to update primary media');
+    } catch (error: any) {
+      logger.error(`[handleSetPrimaryMedia] Error setting primary media:`, error);
+      toast.error(`Failed to update primary media: ${error.message}`);
     }
   };
   
@@ -327,134 +332,147 @@ function AssetDetailPage() {
     }
 
     const videoId = currentVideo.id;
-    logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange called for video ${videoId} with status ${newStatus}`);
+    const assetId = asset.id;
+    logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange called for video ${videoId} on asset ${assetId} with status ${newStatus}`);
 
     try {
       const { data, error } = await supabase
-        .from('asset_media')
+        .from('asset_media') // Assuming status update targets asset_media table
         .update({ status: newStatus })
-        .eq('asset_id', asset.id)
+        .eq('asset_id', assetId)
         .eq('media_id', videoId)
         .select(); 
 
       if (error) throw error;
 
       toast.success(`Video status updated to ${newStatus}`);
-      updateLocalVideoStatus(videoId, newStatus, 'assetMedia');
+      updateLocalVideoStatus(videoId, newStatus, 'assetMedia'); // Update local state
+      // Update the status in the currently open lightbox video state as well
       setCurrentVideo(prev => prev ? { ...prev, assetMediaDisplayStatus: newStatus } : null);
 
-    } catch (error) {
+    } catch (error: any) {
       logger.error(`[AssetDetailPage] Failed to update asset_media status for video ID ${videoId}:`, error);
-      toast.error('Failed to update video status');
+      toast.error(`Failed to update video status: ${error.message}`);
     }
   };
+  // --- End Add missing handlers --- 
+
+  // Log component state before conditional returns
+  logger.log(`[AssetDetailPage Render] isLoading: ${isLoading}, asset exists: ${!!asset}`);
 
   if (isLoading) {
+    logger.log('[AssetDetailPage Render] Returning loading state.');
     return (
-      <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light">
-        <Navigation />
-        <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
-          <div className="flex justify-start mb-4">
-             <Skeleton className="h-10 w-24" />
+      <ErrorBoundary fallbackRender={({ error }) => <div className="p-4 text-red-500">Error loading asset details: {error.message}</div>}>
+        <Suspense fallback={<LoadingState />}>
+          <div className="w-full min-h-screen flex flex-col">
+            <Helmet>
+              <title>Loading Asset Details</title>
+            </Helmet>
+            <main className="flex-grow">
+              {/* Placeholder for loading state */}
+            </main>
+            <Footer />
           </div>
-          <Skeleton className="h-48 w-full mb-6" /> 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="md:col-span-1 space-y-4">
-              <Skeleton className="h-64 w-full" />
-            </div>
-            <div className="md:col-span-2">
-              <Skeleton className="h-12 w-1/2 mb-4" /> 
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-                {[...Array(3)].map((_, i) => <Skeleton key={i} className="aspect-video w-full" />)}
-              </div>
-            </div>
-          </div>
-        </main>
-        <Footer />
-      </div>
+        </Suspense>
+      </ErrorBoundary>
     );
   }
   
   if (!asset) {
+    logger.log('[AssetDetailPage Render] Asset is null or undefined AFTER loading completed. Returning Not Found/Error state.');
     return (
-      <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light">
-        <Navigation />
-        <main className="flex-1 container mx-auto p-4 md:p-6 flex flex-col items-center justify-center">
-          <h1 className="text-2xl font-semibold mb-4">Asset Not Found</h1>
-          <p className="text-muted-foreground mb-6">The requested LoRA asset could not be found.</p>
-          <Button onClick={() => navigate(-1)} variant="outline">
-            <ArrowLeft className="mr-2 h-4 w-4" /> Go Back
-          </Button>
-        </main>
-        <Footer />
-      </div>
+      <ErrorBoundary fallbackRender={({ error }) => <div className="p-4 text-red-500">Error determining asset: {error.message}</div>}>
+        <Suspense fallback={<LoadingState />}>
+          <div className="w-full min-h-screen flex flex-col">
+            <Helmet>
+              <title>Error Determining Asset</title>
+            </Helmet>
+            <main className="flex-grow">
+              {/* Placeholder for error state */}
+            </main>
+            <Footer />
+          </div>
+        </Suspense>
+      </ErrorBoundary>
     );
   }
+
+  // Log before the main content return
+  logger.log('[AssetDetailPage Render] Asset loaded, proceeding to render main content.', asset);
+  logger.log('[AssetDetailPage Render] Videos state:', videos);
   
   return (
-    <div className="w-full min-h-screen flex flex-col bg-gradient-to-b from-cream-light to-olive-light">
-      <Navigation />
-      <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
-        <AssetHeader 
-          asset={asset} 
-          creatorName={getCreatorName()}
-        />
-        
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="md:col-span-1 space-y-4">
-            <AssetInfoCard 
-              asset={asset}
-              isAuthorizedToEdit={isAuthorized}
-              userIsLoggedIn={!!user}
-              currentStatus={asset?.user_status ?? null}
-              onStatusChange={updateAssetUserStatus}
-              isAdmin={isAdmin}
-              isAuthorized={isAuthorized}
-              isApproving={isApproving}
-              onCurate={handleCurateAsset}
-              onList={handleListAsset}
-              onReject={handleRejectAsset}
-              onDelete={handleDeleteAsset}
+    <ErrorBoundary fallbackRender={({ error }) => <div className="p-4 text-red-500">An error occurred: {error.message}</div>}>
+      <Suspense fallback={<LoadingState />}>
+        <div className="w-full min-h-screen flex flex-col">
+          <Helmet>
+            <title>{`${asset.name || 'Asset'} Details - OpenMuse`}</title>
+          </Helmet>
+          <Navigation />
+          <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
+            <AssetHeader 
+              asset={asset} 
+              creatorName={getCreatorName()}
             />
-          </div>
-          <div className="md:col-span-2">
-            <AssetVideoSection 
-              videos={videos}
-              asset={asset}
-              isAdmin={isAdmin}
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="md:col-span-1 space-y-4">
+                <AssetInfoCard 
+                  asset={asset}
+                  isAuthorizedToEdit={isAuthorized}
+                  userIsLoggedIn={!!user}
+                  currentStatus={asset?.user_status ?? null}
+                  onStatusChange={updateAssetUserStatus}
+                  isAdmin={isAdmin}
+                  isAuthorized={isAuthorized}
+                  isApproving={isApproving}
+                  onCurate={handleCurateAsset}
+                  onList={handleListAsset}
+                  onReject={handleRejectAsset}
+                  onDelete={handleDeleteAsset}
+                />
+              </div>
+              <div className="md:col-span-2">
+                <AssetVideoSection 
+                  videos={videos}
+                  asset={asset}
+                  isAdmin={isAdmin}
+                  isAuthorized={isAuthorized}
+                  onOpenLightbox={handleOpenLightbox}
+                  handleApproveVideo={handleApproveVideo}
+                  handleRejectVideo={handleRejectVideo}
+                  handleDeleteVideo={handleDeleteVideo}
+                  handleSetPrimaryMedia={handleSetPrimaryMedia}
+                  onStatusChange={updateLocalVideoStatus}
+                />
+              </div>
+            </div>
+          </main>
+          
+          {lightboxOpen && currentVideo && (
+            <VideoLightbox
+              isOpen={lightboxOpen}
+              onClose={handleCloseLightbox}
+              videoUrl={currentVideo.url}
+              videoId={currentVideo.id}
+              title={currentVideo.metadata?.title}
+              description={currentVideo.metadata?.description}
+              initialAssetId={currentVideo.associatedAssetId ?? undefined}
+              creator={currentVideo.metadata?.creatorName || currentVideo.user_id}
+              thumbnailUrl={currentVideo.metadata?.placeholder_image}
+              creatorId={currentVideo.user_id}
+              onVideoUpdate={fetchAssetDetails}
+              currentStatus={currentVideo.assetMediaDisplayStatus} 
+              onStatusChange={handleLightboxAssetStatusChange} 
               isAuthorized={isAuthorized}
-              onOpenLightbox={handleOpenLightbox}
-              handleApproveVideo={handleApproveVideo}
-              handleRejectVideo={handleRejectVideo}
-              handleDeleteVideo={handleDeleteVideo}
-              handleSetPrimaryMedia={handleSetPrimaryMedia}
-              onStatusChange={updateLocalVideoStatus}
             />
-          </div>
+          )}
+          
+          <Footer />
         </div>
-      </main>
-      
-      {lightboxOpen && currentVideo && (
-        <VideoLightbox
-          isOpen={lightboxOpen}
-          onClose={handleCloseLightbox}
-          videoUrl={currentVideo.url}
-          videoId={currentVideo.id}
-          title={currentVideo.metadata?.title}
-          description={currentVideo.metadata?.description}
-          initialAssetId={currentVideo.associatedAssetId ?? undefined}
-          creator={currentVideo.metadata?.creatorName || currentVideo.user_id}
-          thumbnailUrl={currentVideo.metadata?.placeholder_image}
-          creatorId={currentVideo.user_id}
-          onVideoUpdate={fetchAssetDetails}
-          currentStatus={currentVideo.assetMediaDisplayStatus}
-          onStatusChange={handleLightboxAssetStatusChange}
-          isAuthorized={isAuthorized}
-        />
-      )}
-      
-      <Footer />
-    </div>
+      </Suspense>
+    </ErrorBoundary>
   );
 }
 

@@ -513,13 +513,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                         </div>
                       )}
                     </div>
-                    {initialDescription && <p className="text-sm text-muted-foreground mt-1">{initialDescription}</p>}
-                    {loraDisplayText && (
-                      <p className="text-xs text-muted-foreground italic mt-1">
-                        LoRA: {loraDisplayText}
-                      </p>
+                    {displayCreator && (
+                       <p className="text-sm text-muted-foreground">{displayCreator}</p>
                     )}
-                    <div className="text-sm text-muted-foreground">{displayCreator}</div>
+                    {initialDescription && (
+                        <p className="text-sm mt-2 whitespace-pre-wrap">{initialDescription}</p>
+                    )}
                   </div>
                 )}
             </div>

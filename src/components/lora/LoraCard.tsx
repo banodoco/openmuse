@@ -33,16 +33,18 @@ interface LoraCardProps {
   lora: LoraAsset;
   isAdmin?: boolean;
   isOwnProfile?: boolean;
-  userPreferenceStatus?: UserAssetPreferenceStatus | null;
-  onPreferenceChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => void;
+  userStatus?: UserAssetPreferenceStatus | null;
+  onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => void;
+  hideCreatorInfo?: boolean;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
   lora, 
   isAdmin = false, 
   isOwnProfile = false,
-  userPreferenceStatus = null,
-  onPreferenceChange
+  userStatus = null,
+  onUserStatusChange,
+  hideCreatorInfo = false
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
@@ -50,13 +52,13 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isPinning, setIsPinning] = useState(false);
   const [isListing, setIsListing] = useState(false);
   const [isHiding, setIsHiding] = useState(false);
-  const [currentPreferenceStatus, setCurrentPreferenceStatus] = useState(userPreferenceStatus);
+  const [currentStatus, setCurrentStatus] = useState(userStatus);
   const { user } = useAuth();
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   
   useEffect(() => {
-    setCurrentPreferenceStatus(userPreferenceStatus);
-  }, [userPreferenceStatus]);
+    setCurrentStatus(userStatus);
+  }, [userStatus]);
 
   const videoUrl = lora.primaryVideo?.url;
   const thumbnailUrl = lora.primaryVideo?.metadata?.placeholder_image;
@@ -117,11 +119,11 @@ const LoraCard: React.FC<LoraCardProps> = ({
     }
   };
   
-  const updateUserPreference = async (newStatus: UserAssetPreferenceStatus) => {
-    if (!user || !isOwnProfile) return;
+  const updateAssetStatus = async (newStatus: UserAssetPreferenceStatus) => {
+    if (!user || !isOwnProfile || !onUserStatusChange) return;
 
-    const optimisticPreviousStatus = currentPreferenceStatus;
-    setCurrentPreferenceStatus(newStatus);
+    const optimisticPreviousStatus = currentStatus;
+    setCurrentStatus(newStatus);
 
     let setStateFunc: React.Dispatch<React.SetStateAction<boolean>>;
     if (newStatus === 'Pinned') setStateFunc = setIsPinning;
@@ -131,38 +133,22 @@ const LoraCard: React.FC<LoraCardProps> = ({
     setStateFunc(true);
 
     try {
-      const { error } = await supabase
-        .from('user_asset_preferences')
-        .upsert(
-          { 
-            user_id: user.id, 
-            asset_id: lora.id, 
-            status: newStatus 
-          },
-          { onConflict: 'user_id, asset_id' }
-        );
-
-      if (error) throw error;
-
-      toast.success(`Asset status updated to ${newStatus}`);
-      if (onPreferenceChange) {
-        onPreferenceChange(lora.id, newStatus);
-      }
+      await onUserStatusChange(lora.id, newStatus);
     } catch (error) {
       console.error(`Error setting status to ${newStatus}:`, error);
       toast.error(`Failed to set status to ${newStatus}`);
-      setCurrentPreferenceStatus(optimisticPreviousStatus);
+      setCurrentStatus(optimisticPreviousStatus);
     } finally {
       setStateFunc(false);
     }
   };
 
-  const handlePin = () => updateUserPreference('Pinned');
-  const handleSetListed = () => updateUserPreference('Listed');
-  const handleHide = () => updateUserPreference('Hidden');
+  const handlePin = () => updateAssetStatus('Pinned');
+  const handleSetListed = () => updateAssetStatus('Listed');
+  const handleHide = () => updateAssetStatus('Hidden');
   
-  const getPreferenceButtonStyle = (status: UserAssetPreferenceStatus) => {
-    const isActive = currentPreferenceStatus === status;
+  const getStatusButtonStyle = (status: UserAssetPreferenceStatus) => {
+    const isActive = currentStatus === status;
     
     return cn(
       "text-xs h-8 flex-1",
@@ -185,8 +171,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
   return (
     <Card 
       className={cn(
-        "relative z-10 overflow-hidden h-full flex flex-col cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out group",
-        isOwnProfile && currentPreferenceStatus === 'Hidden' && 'opacity-60 grayscale'
+        "relative z-10 overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out group",
+        isOwnProfile && currentStatus === 'Hidden' && 'opacity-60 grayscale'
       )}
       onClick={handleView}
     >
@@ -239,7 +225,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
             </Badge>
           )}
         </div>
-        {!isOwnProfile && (
+        {!hideCreatorInfo && (
           <LoraCreatorInfo 
             asset={lora} 
             avatarSize="h-5 w-5" 
@@ -257,7 +243,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
               size="sm" 
               onClick={handlePin}
               disabled={isPinning || isListing || isHiding}
-              className={getPreferenceButtonStyle('Pinned')}
+              className={getStatusButtonStyle('Pinned')}
             >
               <PinIcon className="h-3 w-3 mr-1" /> 
               Pin
@@ -268,7 +254,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
               size="sm" 
               onClick={handleSetListed}
               disabled={isPinning || isListing || isHiding}
-              className={getPreferenceButtonStyle('Listed')}
+              className={getStatusButtonStyle('Listed')}
             >
               <List className="h-3 w-3 mr-1" />
               List
@@ -279,7 +265,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
               size="sm" 
               onClick={handleHide}
               disabled={isPinning || isListing || isHiding}
-              className={getPreferenceButtonStyle('Hidden')}
+              className={getStatusButtonStyle('Hidden')}
             >
               <EyeOff className="h-3 w-3 mr-1" /> 
               Hide
