@@ -94,6 +94,7 @@ export interface LoraAsset {
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];
   user_preference_status?: UserAssetPreferenceStatus | null;
+  associatedThumbnails?: (string | null)[];
 }
 
 export interface LoraManagerProps {

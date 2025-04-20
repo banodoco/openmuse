@@ -28,8 +28,11 @@ export class AssetService {
         .from('assets')
         .select(`
           *,
-          primaryVideo:primary_media_id(*)
-        `) // Temporarily removed profile join
+          primaryVideo:primary_media_id(*),
+          asset_media!inner(
+            media!inner(id, placeholder_image)
+          )
+        `)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -42,6 +45,12 @@ export class AssetService {
       const assets: LoraAsset[] = data.map(asset => {
         const pVideo = asset.primaryVideo;
         
+        // Extract up to 4 thumbnails from the joined asset_media data
+        const associatedThumbnails = (asset.asset_media || [])
+          .slice(0, 4) // Limit to 4
+          .map((am: any) => am.media?.placeholder_image) // Get placeholder_image from nested media
+          .filter(Boolean); // Remove any null/undefined entries
+
         // Basic transformation, might need more details later
         return {
           id: asset.id,
@@ -73,6 +82,7 @@ export class AssetService {
             title: pVideo.title,
             description: pVideo.description,
           } : undefined,
+          associatedThumbnails: associatedThumbnails // Add the new field
         };
       });
 
