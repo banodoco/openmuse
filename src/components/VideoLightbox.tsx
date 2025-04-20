@@ -543,6 +543,36 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   </div>
                 )}
             </div>
+
+            {/* --- Admin Status Section (Moved Inside DialogContent) --- */}
+            {isAdmin && (
+              <div className="p-4 pt-0">
+                <div className="mt-4 pt-4 border-t border-border/20">
+                  <h4 className="text-sm font-medium mb-2 text-muted-foreground">Admin Status</h4>
+                  <div className="flex gap-2 flex-wrap">
+                    {(['Listed', 'Curated', 'Featured', 'Hidden', 'Rejected'] as AdminStatus[]).map(status => (
+                      <Button
+                        key={status}
+                        variant={adminStatus === status ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => handleAdminStatusInternal(status)}
+                        disabled={isUpdatingAdminStatus}
+                        className={cn(
+                          "text-xs h-8 flex-1 min-w-[80px]",
+                          adminStatus === status && status === 'Featured' && "bg-yellow-500 text-white hover:bg-yellow-600",
+                          adminStatus === status && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
+                          adminStatus === status && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
+                          adminStatus === status && status === 'Hidden' && "bg-gray-500 text-white hover:bg-gray-600",
+                          adminStatus === status && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
+                        )}
+                      >
+                        {isUpdatingAdminStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : status}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </DialogContent>
 
@@ -564,35 +594,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
-
-        {/* --- Admin Status Section --- */}
-        {isAdmin && (
-          <div className="mt-4 pt-4 border-t border-border/20">
-            <h4 className="text-sm font-medium mb-2 text-muted-foreground">Admin Status</h4>
-            <div className="flex gap-2 flex-wrap">
-              {(['Listed', 'Curated', 'Featured', 'Hidden', 'Rejected'] as AdminStatus[]).map(status => (
-                <Button
-                  key={status}
-                  variant={adminStatus === status ? 'default' : 'outline'}
-                  size="sm"
-                  onClick={() => handleAdminStatusInternal(status)}
-                  disabled={isUpdatingAdminStatus}
-                  className={cn(
-                    "text-xs h-8 flex-1 min-w-[80px]",
-                    adminStatus === status && status === 'Featured' && "bg-yellow-500 text-white hover:bg-yellow-600",
-                    adminStatus === status && status === 'Curated' && "bg-green-500 text-white hover:bg-green-600",
-                    adminStatus === status && status === 'Listed' && "bg-blue-500 text-white hover:bg-blue-600",
-                    adminStatus === status && status === 'Hidden' && "bg-gray-500 text-white hover:bg-gray-600",
-                    adminStatus === status && status === 'Rejected' && "bg-red-500 text-white hover:bg-red-600",
-                  )}
-                >
-                  {isUpdatingAdminStatus ? <Loader2 className="h-4 w-4 animate-spin" /> : status}
-                </Button>
-              ))}
-            </div>
-          </div>
-        )}
-
       </Dialog>
      </AlertDialog>
   );
