@@ -87,6 +87,7 @@ export default function UserProfilePage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAdmin, isLoading: isAuthLoading } = useAuth();
+  const isMobile = useIsMobile();
 
   logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
 
@@ -106,7 +107,6 @@ export default function UserProfilePage() {
   }
   logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
 
-  const isMobile = useIsMobile();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
   const [isLoadingAssets, setIsLoadingAssets] = useState(true);
