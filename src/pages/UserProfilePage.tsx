@@ -85,7 +85,26 @@ export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, isAdmin } = useAuth();
+  const { user, isAdmin, isLoading: isAuthLoading } = useAuth();
+
+  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
+
+  // === Early return if AuthProvider is still loading ===
+  if (isAuthLoading) {
+    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
+    return (
+      <div className="w-full min-h-screen flex flex-col text-foreground">
+        <Navigation />
+        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
+          {/* Render a top-level loader */}
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
+
   const isMobile = useIsMobile();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(true);
@@ -94,8 +113,11 @@ export default function UserProfilePage() {
   const [isOwner, setIsOwner] = useState(false);
   const [canEdit, setCanEdit] = useState(false);
   const [userAssets, setUserAssets] = useState<LoraAsset[]>([]);
+  const [totalAssets, setTotalAssets] = useState(0);
   const [forceLoggedOutView, setForceLoggedOutView] = useState(false);
   const [userVideos, setUserVideos] = useState<VideoEntry[]>([]);
+  const [totalGenerationVideos, setTotalGenerationVideos] = useState(0);
+  const [totalArtVideos, setTotalArtVideos] = useState(0);
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [isUpdatingAssetStatus, setIsUpdatingAssetStatus] = useState<Record<string, boolean>>({});
@@ -107,93 +129,113 @@ export default function UserProfilePage() {
 
   // --- Data Fetching Functions defined using useCallback --- 
 
-  const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean) => {
-      logger.log('[fetchUserAssets] Fetching assets...', { profileUserId, canViewerSeeHiddenAssets });
-      // Ensure loading is true at the start of fetch attempt
-      setIsLoadingAssets(true); 
-      let fetchedAssets: LoraAsset[] = []; 
+  const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
+      logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
+      setIsLoadingAssets(true);
+      const pageSize = 16; // Use a fixed page size
+      const rangeFrom = (page - 1) * pageSize;
+      const rangeTo = rangeFrom + pageSize - 1;
+
       try {
-        const { data: assetsData, error: assetsError } = await supabase
+        // Fetch count and data in one query
+        const { data: assetsData, error: assetsError, count } = await supabase
           .from('assets')
-          .select(`*, primaryVideo:primary_media_id(*)`) // Select related video data
+          .select(`*, primaryVideo:primary_media_id(*)`, { count: 'exact' }) // Get total count
           .eq('user_id', profileUserId)
-          .order('created_at', { ascending: false });
-  
+          // Apply visibility filter server-side if NOT owner/admin viewing
+          // Need to conditionally add this filter
+          // .filter('user_status', 'neq', 'Hidden') // Example - Needs conditional logic based on canViewerSeeHiddenAssets
+          .order('created_at', { ascending: false }) // Keep sorting consistent if needed, or sort server-side by status first
+          .range(rangeFrom, rangeTo); // Fetch specific page range
+
         if (assetsError) throw assetsError;
-  
-        if (assetsData && assetsData.length > 0) {
+
+        if (assetsData) {
+          // Process the fetched page of assets
           const processedAssets: LoraAsset[] = assetsData.map((asset: any) => {
-              const pVideo = asset.primaryVideo;
-              const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
-              // Map the data structure, including primaryVideo if it exists
-              return {
-                id: asset.id,
-                name: asset.name,
-                description: asset.description,
-                creator: asset.creator,
-                type: asset.type,
-                created_at: asset.created_at,
-                user_id: asset.user_id,
-                primary_media_id: asset.primary_media_id,
-                admin_status: asset.admin_status,
-                user_status: userStatus,
-                lora_type: asset.lora_type,
-                lora_base_model: asset.lora_base_model,
-                model_variant: asset.model_variant,
-                lora_link: asset.lora_link,
-                primaryVideo: pVideo ? { // Check if primaryVideo data exists
-                  id: pVideo.id,
-                  url: pVideo.url,
-                  reviewer_name: pVideo.creator || '',
-                  skipped: false,
-                  created_at: pVideo.created_at,
-                  admin_status: pVideo.admin_status,
-                  user_id: pVideo.user_id,
-                  user_status: pVideo.user_status || null,
-                  metadata: {
-                    title: pVideo.title || asset.name,
-                    placeholder_image: pVideo.placeholder_image || null,
-                    description: pVideo.description,
-                    creator: pVideo.creator ? 'self' : undefined,
-                    creatorName: pVideo.creator_name,
-                    classification: pVideo.classification,
-                    loraName: asset.name,
-                    assetId: asset.id,
-                    loraType: asset.lora_type,
-                    model: asset.lora_base_model,
-                    modelVariant: asset.model_variant,
-                  }
-                } : undefined // Set to undefined if no primaryVideo data
-              };
+             const pVideo = asset.primaryVideo;
+             const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
+             return {
+               id: asset.id,
+               name: asset.name,
+               description: asset.description,
+               creator: asset.creator,
+               type: asset.type,
+               created_at: asset.created_at,
+               user_id: asset.user_id,
+               primary_media_id: asset.primary_media_id,
+               admin_status: asset.admin_status,
+               user_status: userStatus,
+               lora_type: asset.lora_type,
+               lora_base_model: asset.lora_base_model,
+               model_variant: asset.model_variant,
+               lora_link: asset.lora_link,
+               primaryVideo: pVideo ? { 
+                 id: pVideo.id,
+                 url: pVideo.url,
+                 reviewer_name: pVideo.creator || '',
+                 skipped: false,
+                 created_at: pVideo.created_at,
+                 admin_status: pVideo.admin_status,
+                 user_id: pVideo.user_id,
+                 user_status: pVideo.user_status || null,
+                 metadata: {
+                   title: pVideo.title || asset.name,
+                   placeholder_image: pVideo.placeholder_image || null,
+                   description: pVideo.description,
+                   creator: pVideo.creator ? 'self' : undefined,
+                   creatorName: pVideo.creator_name,
+                   classification: pVideo.classification,
+                   loraName: asset.name,
+                   assetId: asset.id,
+                   loraType: asset.lora_type,
+                   model: asset.lora_base_model,
+                   modelVariant: asset.model_variant,
+                 }
+               } : undefined
+             };
           });
-  
+          
+          // Filter assets locally based on visibility AFTER fetching the count of ALL assets
+          // NOTE: This is inefficient if many assets are hidden. Ideally, filter server-side.
+          // For now, keeping client-side filtering for simplicity of implementation.
           const visibleAssets = canViewerSeeHiddenAssets
             ? processedAssets
             : processedAssets.filter(asset => asset.user_status !== 'Hidden');
-  
-          fetchedAssets = sortUserAssets(visibleAssets);
+
+          // Sort the fetched page data
+          const sortedPageAssets = sortUserAssets(visibleAssets);
+
+          setUserAssets(sortedPageAssets); // Update state with current page's data
+          setTotalAssets(count ?? 0); // Update total count from query
+        } else {
+           setUserAssets([]);
+           setTotalAssets(0);
         }
       } catch (err: any) {
         logger.error('[fetchUserAssets] Error fetching user assets:', err);
-        // Error handled in main effect
+        toast.error("Failed to load LoRAs."); // Show specific error
+        setUserAssets([]); // Reset on error
+        setTotalAssets(0);
       } finally {
-          setUserAssets(fetchedAssets);
-          setIsLoadingAssets(false); 
+          setIsLoadingAssets(false); // Stop loading indicator
       }
-    }, []); // Empty dependency array is correct here
+    }, []); // Keep empty deps for now, might need profileId if used directly
 
     const fetchUserVideos = useCallback(async (userId: string, currentViewerId: string | null | undefined, isViewerAdmin: boolean) => {
       logger.log('[fetchUserVideos] Fetching videos...', { userId, currentViewerId, isViewerAdmin });
-      // Ensure loading is true at the start
       setIsLoadingVideos(true); 
       let fetchedVideos: VideoEntry[] = []; 
+      let generationCount = 0;
+      let artCount = 0;
       try {
-        const { data: videosData, error: videosError } = await supabase
+        const { data: videosData, error: videosError, count } = await supabase
           .from('media')
-          .select('*')
+          .select('* ', { count: 'exact' })
           .eq('user_id', userId)
-          .eq('type', 'video')
-          .order('created_at', { ascending: false });
+          .eq('type', 'video');
+          // Ideally, filter/sort/paginate here
+          // .order('created_at', { ascending: false });
   
         if (videosError) throw videosError;
   
@@ -201,7 +243,6 @@ export default function UserProfilePage() {
             const videoIds = videosData.map(v => v.id);
             const mediaIdToAssetId = new Map<string, string>();
             if (videoIds.length > 0) {
-              // Fetch asset links for all videos at once
               const { data: assetLinks, error: linksError } = await supabase
                 .from('asset_media')
                 .select('media_id, asset_id')
@@ -209,7 +250,6 @@ export default function UserProfilePage() {
 
               if (linksError) {
                 logger.error('Error fetching asset_media links:', linksError);
-                // Don't toast here, maybe log or handle downstream
               } else if (assetLinks) {
                 assetLinks.forEach(link => {
                   if (link.media_id && link.asset_id) {
@@ -219,7 +259,6 @@ export default function UserProfilePage() {
               }
             }
   
-            // Map videos to the desired VideoEntry structure
             const processedVideos: VideoEntry[] = videosData.map(video => {
               let classification = video.classification || 'generation';
               if (classification !== 'art' && classification !== 'generation') {
@@ -235,42 +274,50 @@ export default function UserProfilePage() {
                 created_at: video.created_at,
                 admin_status: video.admin_status,
                 user_status: video.user_status as VideoDisplayStatus || null,
-                assetMediaDisplayStatus: null, // Correct for profile context
+                assetMediaDisplayStatus: null,
                 user_id: video.user_id,
                 metadata: {
                   title: video.title || '',
                   description: video.description || '',
-                  creator: 'self', // Assuming videos on profile are by the profile owner
+                  creator: 'self',
                   classification: classification as 'art' | 'generation',
                   placeholder_image: video.placeholder_image,
-                  assetId: associatedAssetId, // Link back to asset if available
+                  assetId: associatedAssetId,
                 },
                 thumbnailUrl: video.placeholder_image,
                 title: video.title || '',
                 description: video.description || '',
-                is_primary: false, // This would be determined on asset page, not here
+                is_primary: false,
               };
             }).filter(Boolean) as VideoEntry[];
   
-            // Filter based on viewer permissions
             const isViewerOwner = currentViewerId === userId;
             const canViewerSeeHidden = isViewerOwner || isViewerAdmin;
             const visibleVideos = processedVideos.filter(video =>
               canViewerSeeHidden || video.user_status !== 'Hidden'
             );
   
-            // Sort the final visible list
             fetchedVideos = sortProfileVideos(visibleVideos);
+            // Count totals AFTER filtering for visibility
+            generationCount = fetchedVideos.filter(v => v.metadata?.classification === 'generation').length;
+            artCount = fetchedVideos.filter(v => v.metadata?.classification === 'art').length;
+
+        } else {
+            // No videos found
+            generationCount = 0;
+            artCount = 0;
         }
   
       } catch (err: any) {
         logger.error('[fetchUserVideos] Error fetching user videos:', err);
-         // Error handled in main effect
+        toast.error("Failed to load videos.");
       } finally {
-          setUserVideos(fetchedVideos);
+          setUserVideos(fetchedVideos); // Store ALL fetched+filtered+sorted videos for now
+          setTotalGenerationVideos(generationCount);
+          setTotalArtVideos(artCount);
           setIsLoadingVideos(false); 
       }
-    }, []); // Empty dependency array is correct
+    }, []); 
 
 
   // --- Main Data Fetching Effect --- 
@@ -278,19 +325,18 @@ export default function UserProfilePage() {
     const shouldForceLoggedOutView = searchParams.get('loggedOutView') === 'true';
     setForceLoggedOutView(shouldForceLoggedOutView);
 
-    let isMounted = true; // Prevent state updates on unmounted component
+    let isMounted = true;
     
-    const fetchProfileAndData = async () => {
+    const fetchProfileAndInitialData = async () => {
       if (!displayName) return;
 
-      // Reset all relevant states at the beginning
       if (isMounted) {
         setIsLoadingProfile(true);
         setIsLoadingAssets(true); 
         setIsLoadingVideos(true);
         setProfile(null); 
-        setUserAssets([]); 
-        setUserVideos([]); 
+        setUserAssets([]); setTotalAssets(0);
+        setUserVideos([]); setTotalGenerationVideos(0); setTotalArtVideos(0);
         setIsOwner(false);
         setCanEdit(false);
         setGenerationPage(1);
@@ -299,7 +345,6 @@ export default function UserProfilePage() {
       }
 
       try {
-        // --- Step 1: Fetch Profile --- 
         const decodedDisplayName = decodeURIComponent(displayName);
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
@@ -307,9 +352,8 @@ export default function UserProfilePage() {
           .or(`display_name.eq.${decodedDisplayName},username.eq.${decodedDisplayName}`)
           .maybeSingle();
 
-        if (!isMounted) return; // Check mount status after async operation
+        if (!isMounted) return;
 
-        // --- Step 2: Handle Profile Fetch Result --- 
         if (profileError || !profileData) {
             logger.error('Error fetching profile or profile not found:', profileError);
             if (isMounted) {
@@ -343,7 +387,7 @@ export default function UserProfilePage() {
           const canSeeHidden = editPermissions; // Use calculated permission
           // Use Promise.allSettled to let both complete
           await Promise.allSettled([
-            fetchUserAssets(currentProfile.id, canSeeHidden), 
+            fetchUserAssets(currentProfile.id, canSeeHidden, 1), // Add page number 1
             fetchUserVideos(currentProfile.id, user?.id, currentIsAdmin) // Pass necessary viewer context
           ]);
            // Loading states (Assets/Videos) are set to false within their respective fetch functions
@@ -367,7 +411,7 @@ export default function UserProfilePage() {
       }
     };
 
-    fetchProfileAndData();
+    fetchProfileAndInitialData();
 
     // Cleanup function
     return () => { isMounted = false }; 
@@ -607,7 +651,7 @@ export default function UserProfilePage() {
         {/* Conditional Rendering: Profile Loading -> Not Found -> Content */} 
         {isLoadingProfile ? (
           <div className="flex justify-center items-center py-16"> <Loader2 className="h-16 w-16 animate-spin text-primary" /> </div>
-        ) : !profile ? (
+        ) : !profile || !profile.id || !profile.username ? (
           <div className="text-center py-16 text-muted-foreground"> Profile not found or failed to load. </div>
         ) : (
           <>
@@ -643,8 +687,8 @@ export default function UserProfilePage() {
                   <UploadModal 
                     trigger={<Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300"> Add new LoRA </Button>} 
                     initialUploadType="lora"
-                    // Pass stable fetchUserAssets wrapped in useCallback 
-                    onUploadSuccess={() => { if(profile?.id) fetchUserAssets(profile.id, canEdit); }} /> 
+                    // Pass stable fetchUserAssets wrapped in useCallback
+                    onUploadSuccess={() => { if(profile?.id) fetchUserAssets(profile.id, canEdit, 1); }} /> 
                 )}
               </CardHeader>
               <CardContent>
@@ -715,7 +759,7 @@ export default function UserProfilePage() {
           creator={lightboxVideo.user_id || lightboxVideo.metadata?.creatorName}
           thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
-          // Use stable fetchUserVideos in callback if full refresh desired
+          // Use stable fetchUserVideos in callback if full refresh desired, check profile exists
           onVideoUpdate={() => { if (profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }} 
           isAuthorized={canEdit} currentStatus={lightboxVideo.user_status} onStatusChange={handleLightboxUserStatusChange}
           adminStatus={lightboxVideo.admin_status} onAdminStatusChange={handleLightboxAdminStatusChange} />

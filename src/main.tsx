@@ -25,7 +25,7 @@ const renderApp = () => {
         </QueryClientProvider>
       </HelmetProvider>
     );
-    console.log("Application successfully rendered");
+    // console.log("Application successfully rendered");
   } catch (error) {
     console.error("Failed to render the application:", error);
     document.body.innerHTML = '<div style="color: red; padding: 20px; font-family: sans-serif;"><h1>Error Loading Application</h1><p>An error occurred while loading the application. Please check the console for more details.</p></div>';

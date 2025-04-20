@@ -6,6 +6,7 @@ import { AuthProvider } from '@/providers/AuthProvider';
 import AuthCallback from '@/pages/AuthCallback';
 import RequireAuth from '@/components/RequireAuth';
 import AssetDetailPage from './pages/AssetDetailPage';
+import ErrorBoundary from './components/ErrorBoundary';
 
 const HomePage = lazy(() => import('./pages/Index'));
 const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
@@ -29,7 +30,11 @@ function App() {
               <Route path="/videos/:id" element={<VideoPage />} />
               <Route path="/assets/:id" element={<AssetDetailPage />} />
               <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
-              <Route path="/profile/:displayName" element={<UserProfilePage />} />
+              <Route path="/profile/:displayName" element={
+                <ErrorBoundary fallback={<p>Error loading profile page.</p>}>
+                  <UserProfilePage />
+                </ErrorBoundary>
+              } />
               <Route path="/upload" element={<UploadPage />} />
 
               <Route 

@@ -61,7 +61,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const [classification, setClassification] = useState<'all' | 'generation' | 'art'>('all');
   
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
-    logger.log(`Hover change: ${videoId}, ${isHovering}`);
+    // logger.log(`Hover change: ${videoId}, ${isHovering}`);
     setHoveredVideoId(isHovering ? videoId : null);
   };
   
@@ -114,12 +114,12 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 
   const videosToDisplay = useMemo(() => {
     if (isAuthorized) {
-      logger.log(`Authorized user, showing all videos: ${sortedAndFilteredVideos.length}`);
+      // logger.log(`Authorized user, showing all videos: ${sortedAndFilteredVideos.length}`);
       return sortedAndFilteredVideos;
     } else {
-      logger.log(`Non-authorized user, filtering out hidden videos`);
+      // logger.log(`Non-authorized user, filtering out hidden videos`);
       const filtered = sortedAndFilteredVideos.filter(video => video.assetMediaDisplayStatus !== 'Hidden');
-      logger.log(`Filtered videos count: ${filtered.length}`);
+      // logger.log(`Filtered videos count: ${filtered.length}`);
       return filtered;
     }
   }, [sortedAndFilteredVideos, isAuthorized]);

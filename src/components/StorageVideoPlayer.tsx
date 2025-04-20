@@ -49,7 +49,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 }) => {
   const componentId = useRef(`storage_video_${Math.random().toString(36).substring(2, 9)}`).current;
   const logPrefix = `[SVP_DEBUG][${componentId}]`;
-  logger.log(`${logPrefix} Rendering. Initial props: thumbnailUrl=${!!thumbnailUrl}, forcePreload=${forcePreload}, autoPlay=${autoPlay}`);
+  // logger.log(`${logPrefix} Rendering. Initial props: thumbnailUrl=${!!thumbnailUrl}, forcePreload=${forcePreload}, autoPlay=${autoPlay}`);
 
   const [videoUrl, setVideoUrl] = useState<string>('');
   const [isLoadingVideoUrl, setIsLoadingVideoUrl] = useState<boolean>(false); 
@@ -63,7 +63,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [shouldPlay, setShouldPlay] = useState(isMobile ? false : (forcePreload || autoPlay));
   const prevVideoLocationRef = useRef<string | null>(null);
 
-  logger.log(`${logPrefix} Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}`);
+  // logger.log(`${logPrefix} Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}`);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
@@ -75,9 +75,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Cleanup on unmount
   useEffect(() => {
-    logger.log(`${logPrefix} Mounting effect ran.`);
+    // logger.log(`${logPrefix} Mounting effect ran.`);
     return () => {
-      logger.log(`${logPrefix} Unmounting.`);
+      // logger.log(`${logPrefix} Unmounting.`);
       unmountedRef.current = true;
     };
   }, []);
@@ -86,7 +86,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   useEffect(() => {
     isHoveringRef.current = isHoveringExternally || false;
     if (isHoveringExternally !== undefined && !unmountedRef.current) {
-      logger.log(`${logPrefix} isHoveringExternally changed to ${isHoveringExternally}`);
+      // logger.log(`${logPrefix} isHoveringExternally changed to ${isHoveringExternally}`);
       setIsHovering(isHoveringExternally);
       if (isHoveringExternally) {
         setHasHovered(true); 
@@ -105,7 +105,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Effect to handle mobile state – only auto–load if `forcePreload` is set.
   useEffect(() => {
     if (isMobile && forcePreload && !unmountedRef.current) {
-      logger.log(`${logPrefix} Mobile + forcePreload: Setting shouldLoadVideo=true, hasHovered=true`);
+      // logger.log(`${logPrefix} Mobile + forcePreload: Setting shouldLoadVideo=true, hasHovered=true`);
       setShouldLoadVideo(true);
       setHasHovered(true);
     }
@@ -114,7 +114,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Handle manual hover events
   const handleManualHoverStart = () => {
     if (isHoveringExternally === undefined && !unmountedRef.current) {
-      logger.log(`${logPrefix} Manual hover start`);
+      // logger.log(`${logPrefix} Manual hover start`);
       setIsHovering(true);
       setHasHovered(true);
       setShouldLoadVideo(true);
@@ -126,7 +126,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   const handleManualHoverEnd = () => {
     if (isHoveringExternally === undefined && !unmountedRef.current) {
-      logger.log(`${logPrefix} Manual hover end`);
+      // logger.log(`${logPrefix} Manual hover end`);
       setIsHovering(false);
       setShouldPlay(false);
     }
@@ -137,9 +137,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     let isMounted = true;
     
     const loadVideo = async () => {
-      logger.log(`${logPrefix} loadVideo called.`);
+      // logger.log(`${logPrefix} loadVideo called.`);
       if (unmountedRef.current || !videoLocation) {
-        logger.log(`${logPrefix} loadVideo aborted: unmounted or no videoLocation.`);
+        // logger.log(`${logPrefix} loadVideo aborted: unmounted or no videoLocation.`);
         return;
       }
 
@@ -147,40 +147,40 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       prevVideoLocationRef.current = videoLocation;
 
       if (isNewVideo) {
-        logger.log(`${logPrefix} Video location changed. Resetting states and loading new video.`);
+        // logger.log(`${logPrefix} Video location changed. Resetting states and loading new video.`);
         setIsLoadingVideoUrl(true);
         setIsVideoLoaded(false);
         setError(null);
       } else if (videoUrl) {
-        logger.log(`${logPrefix} Video location unchanged and URL exists. Skipping load.`);
+        // logger.log(`${logPrefix} Video location unchanged and URL exists. Skipping load.`);
         return;
       }
 
-      logger.log(`${logPrefix} Attempting to load video URL for:`, videoLocation.substring(0, 50) + '...');
+      // logger.log(`${logPrefix} Attempting to load video URL for:`, videoLocation.substring(0, 50) + '...');
       
       try {
         let url;
-        logger.log(`${logPrefix} Calling videoUrlService.getVideoUrl with location:`, videoLocation);
+        // logger.log(`${logPrefix} Calling videoUrlService.getVideoUrl with location:`, videoLocation);
         if (isBlobUrl) {
           url = videoLocation;
-          logger.log(`${logPrefix} Using blob URL directly:`, url.substring(0, 50) + '...');
+          // logger.log(`${logPrefix} Using blob URL directly:`, url.substring(0, 50) + '...');
         } else {
           url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
-          logger.log(`${logPrefix} Fetched video URL from service:`, url ? url.substring(0, 50) + '...' : 'null or undefined');
+          // logger.log(`${logPrefix} Fetched video URL from service:`, url ? url.substring(0, 50) + '...' : 'null or undefined');
         }
         
         if (!url) {
-          logger.error(`${logPrefix} videoUrlService returned null or undefined for location:`, videoLocation);
+          // logger.error(`${logPrefix} videoUrlService returned null or undefined for location:`, videoLocation);
           throw new Error('Could not resolve video URL');
         }
         
         if (isMounted && !unmountedRef.current) {
           setVideoUrl(url);
-          logger.log(`${logPrefix} videoUrl state successfully set.`);
+          // logger.log(`${logPrefix} videoUrl state successfully set.`);
           // Loading state (isLoadingVideoUrl) will be set to false in handleVideoLoadedData
         }
       } catch (error) {
-        logger.error(`${logPrefix} Error in loadVideo for location ${videoLocation}:`, error);
+        // logger.error(`${logPrefix} Error in loadVideo for location ${videoLocation}:`, error);
         if (isMounted && !unmountedRef.current) {
           setError(`Failed to load video: ${error instanceof Error ? error.message : String(error)}`);
           setErrorDetails(String(error));
@@ -203,7 +203,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   const handleVideoError = (message: string) => {
     if (!unmountedRef.current) {
-      logger.error(`${logPrefix} Video player reported error:`, message);
+      // logger.error(`${logPrefix} Video player reported error:`, message);
       setError(message);
       setIsVideoLoaded(false); 
       setIsLoadingVideoUrl(false); // Stop loading state on error
@@ -212,7 +212,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   const handleRetry = () => {
     if (!unmountedRef.current) {
-      logger.log(`${logPrefix} Retrying video load...`);
+      // logger.log(`${logPrefix} Retrying video load...`);
       setIsLoadingVideoUrl(true); // Indicate loading state during retry
       setError(null);
       setErrorDetails(null);
@@ -227,7 +227,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Callback when the actual <video> element has loaded data
   const handleVideoLoadedData = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     if (!unmountedRef.current) {
-      logger.log(`${logPrefix} Video loaded data`);
+      // logger.log(`${logPrefix} Video loaded data`);
       setIsVideoLoaded(true);
       setIsLoadingVideoUrl(false);
       if (onLoadedData) {
@@ -239,7 +239,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Handle tap on mobile devices to start loading / playing the video
   const handleMobileTap = () => {
     if (isMobile && !shouldPlay && !unmountedRef.current) {
-      logger.log(`${logPrefix} Mobile tap to load video`);
+      // logger.log(`${logPrefix} Mobile tap to load video`);
       setShouldPlay(true);
       setHasHovered(true);
     }
@@ -250,7 +250,14 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const showVideo = !!videoUrl && !error;
   const showLoadingSpinner = !!thumbnailUrl && ((hasHovered || isMobile) && !isVideoLoaded && !error && isLoadingVideoUrl);
 
-  logger.log(`${logPrefix} Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
+  // logger.log(`${logPrefix} Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
+
+  const onVideoLoadStart = () => {
+    if (!unmountedRef.current) {
+      // logger.log(`${logPrefix} Video loadStart event triggered.`);
+      setIsLoadingVideoUrl(true); // Ensure loading state is true when video starts loading
+    }
+  };
 
   return (
     <div 
@@ -336,8 +343,12 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             videoRef={videoRef} 
             externallyControlled={isHoveringExternally !== undefined} 
             isHovering={isHovering} 
-            poster={thumbnailUrl}
-            onLoadedData={handleVideoLoadedData} 
+            poster={showThumbnail ? thumbnailUrl : undefined}
+            lazyLoad={!forcePreload} // Only lazy load if not forced to preload
+            preventLoadingFlicker={preventLoadingFlicker}
+            onLoadedData={handleVideoLoadedData}
+            onError={handleVideoError}
+            onLoadStart={onVideoLoadStart} // Set loading state on video loadstart
             isMobile={isMobile}
             preload="auto"
           />

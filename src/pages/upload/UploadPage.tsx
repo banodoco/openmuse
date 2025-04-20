@@ -84,7 +84,7 @@ const UploadPage: React.FC = () => {
     setIsSubmitting(true);
     
     try {
-      logger.log("Starting video submission process");
+      // logger.log("Starting video submission process");
       
       // Process files first to upload them to storage
       for (const video of videos) {
@@ -130,11 +130,11 @@ const UploadPage: React.FC = () => {
     let assetId: string | null = null;
     let primaryMediaId: string | null = null;
     
-    logger.log("Creating LoRA asset in Supabase database");
+    // logger.log("Creating LoRA asset in Supabase database");
     
     const assetType = 'LoRA';
     
-    logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
+    // logger.log(`Creating asset with type=${assetType}, name=${loraDetails.loraName}, description=${loraDetails.loraDescription}, creator=${loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName}`);
                                                       
     try {
       const { data: assetData, error: assetError } = await supabase
@@ -154,19 +154,19 @@ const UploadPage: React.FC = () => {
         .single();
       
       if (assetError) {
-        logger.log(`Error creating asset: ${JSON.stringify(assetError)}`);
+        // logger.log(`Error creating asset: ${JSON.stringify(assetError)}`);
         console.error('Error creating asset:', assetError);
         throw new Error('Failed to create asset: ' + assetError.message);
       }
       
       if (!assetData) {
-        logger.log('No asset data returned after insertion');
+        // logger.log('No asset data returned after insertion');
         console.error('No asset data returned after insertion');
         throw new Error('Failed to create asset: no data returned');
       }
       
       assetId = assetData.id;
-      logger.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
+      // logger.log(`Created asset with ID: ${assetId} and type: ${assetType}`);
       
       const { data: verifyAsset, error: verifyError } = await supabase
         .from('assets')
@@ -175,9 +175,9 @@ const UploadPage: React.FC = () => {
         .single();
         
       if (verifyError) {
-        logger.log(`Error verifying asset creation: ${verifyError.message}`);
+        // logger.log(`Error verifying asset creation: ${verifyError.message}`);
       } else {
-        logger.log(`Asset verified with data: ${JSON.stringify(verifyAsset)}`);
+        // logger.log(`Asset verified with data: ${JSON.stringify(verifyAsset)}`);
       }
       
       const primaryVideoData = videos.find(video => 
@@ -185,7 +185,7 @@ const UploadPage: React.FC = () => {
       );
       
       if (!primaryVideoData) {
-        logger.log("No primary video found, using the first video as primary");
+        // logger.log("No primary video found, using the first video as primary");
       }
       
       const processedVideos = [];
@@ -195,7 +195,7 @@ const UploadPage: React.FC = () => {
         
         const videoUrl = video.url;
         
-        logger.log(`Creating media entry for video ${video.metadata.title}`);
+        // logger.log(`Creating media entry for video ${video.metadata.title}`);
         try {
           // Add model and model_variant to media
           const { data: mediaData, error: mediaError } = await supabase
@@ -213,28 +213,28 @@ const UploadPage: React.FC = () => {
             .single();
           
           if (mediaError) {
-            logger.log(`Error creating media entry: ${JSON.stringify(mediaError)}`);
+            // logger.log(`Error creating media entry: ${JSON.stringify(mediaError)}`);
             console.error('Error creating media entry:', mediaError);
             continue;
           }
           
           if (!mediaData) {
-            logger.log('No media data returned after insertion');
+            // logger.log('No media data returned after insertion');
             console.error('No media data returned after insertion');
             continue;
           }
           
           const mediaId = mediaData.id;
-          logger.log(`Created media with ID: ${mediaId}`);
+          // logger.log(`Created media with ID: ${mediaId}`);
           
           const isPrimary = video.metadata.isPrimary || (!primaryMediaId && video === videos[0]);
           
           if (isPrimary) {
             primaryMediaId = mediaId;
-            logger.log(`Set primary media ID: ${primaryMediaId}`);
+            // logger.log(`Set primary media ID: ${primaryMediaId}`);
           }
           
-          logger.log(`Linking asset ${assetId} with media ${mediaId}`);
+          // logger.log(`Linking asset ${assetId} with media ${mediaId}`);
           const { error: linkError } = await supabase
             .from('asset_media')
             .insert({
@@ -243,38 +243,40 @@ const UploadPage: React.FC = () => {
             });
           
           if (linkError) {
-            logger.log(`Error linking asset and media: ${JSON.stringify(linkError)}`);
+            // logger.log(`Error linking asset and media: ${JSON.stringify(linkError)}`);
             console.error('Error linking asset and media:', linkError);
           } else {
-            logger.log(`Linked asset ${assetId} with media ${mediaId}`);
+            // logger.log(`Linked asset ${assetId} with media ${mediaId}`);
             processedVideos.push(mediaId);
           }
         } catch (mediaInsertError) {
-          logger.log(`Exception during media processing: ${JSON.stringify(mediaInsertError)}`);
-          console.error('Exception during media processing:', mediaInsertError);
+          console.error(`Error processing media ${video.metadata.title}:`, mediaInsertError);
+          // Potentially log this error to a monitoring service
+          // logger.log(`Exception during media processing: ${JSON.stringify(mediaInsertError)}`);
         }
       }
       
-      if (primaryMediaId) {
-        logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
+      if (primaryMediaId && assetId) {
+        // logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
         const { error: updateError } = await supabase
           .from('assets')
           .update({ primary_media_id: primaryMediaId })
           .eq('id', assetId);
         
         if (updateError) {
-          logger.log(`Error updating asset with primary media: ${JSON.stringify(updateError)}`);
+          // logger.log(`Error updating asset with primary media: ${JSON.stringify(updateError)}`);
           console.error('Error updating asset with primary media:', updateError);
+          // Consider how to handle this - the asset is created, videos linked, but primary marker failed
         } else {
-          logger.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
+          // logger.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
         }
       } else {
-        logger.log(`Warning: No primary media ID set for asset ${assetId}`);
-        console.error("No primary media ID set for asset", assetId);
+        // logger.log(`Warning: No primary media ID set for asset ${assetId}`);
+        // Consider logging this warning
       }
-      
-      logger.log(`Asset creation completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
-                               
+      // logger.log(`Asset creation completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
+
+      // Verify the final state (optional but good practice)
       const { data: checkAsset, error: checkError } = await supabase
         .from('assets')
         .select('*')
@@ -282,17 +284,16 @@ const UploadPage: React.FC = () => {
         .single();
         
       if (checkError) {
-        logger.log(`Error verifying final asset state: ${checkError.message}`);
+        // logger.log(`Error verifying final asset state: ${checkError.message}`);
       } else {
-        logger.log(`Verified final asset state: ${JSON.stringify(checkAsset)}`);
+        // logger.log(`Verified final asset state: ${JSON.stringify(checkAsset)}`);
       }
     } catch (error) {
-      logger.log(`Exception during asset creation process: ${JSON.stringify(error)}`);
-      console.error('Exception during asset creation process:', error);
-      throw error;
+      // logger.log(`Exception during asset creation process: ${JSON.stringify(error)}`);
+      throw error; // Re-throw to be caught by the outer try-catch
     }
     
-    logger.log("Video submission completed successfully");
+    // logger.log("Video submission completed successfully");
   };
   
   return (

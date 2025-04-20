@@ -1,4 +1,3 @@
-
 export class Logger {
   private readonly moduleName: string;
   private readonly debug: boolean;
@@ -9,7 +8,7 @@ export class Logger {
   }
 
   log(...args: any[]): void {
-    if (this.debug) console.log(`[${this.moduleName}]`, ...args);
+    // if (this.debug) console.log(`[${this.moduleName}]`, ...args);
   }
 
   warn(...args: any[]): void {

@@ -64,6 +64,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const isHoveringRef = useRef(isHovering);
   const [aspectRatio, setAspectRatio] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   
   // Determine context based on URL
   const pageContext = location.pathname.includes('/profile/') ? 'profile' : 'asset';
@@ -164,31 +165,22 @@ const VideoCard: React.FC<VideoCardProps> = ({
     if (onRejectVideo) onRejectVideo(video.id);
   };
   
-  const handleDeleteConfirm = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    logger.log(`[VideoCard] handleDeleteConfirm triggered for video ID: ${video.id}`);
+  const handleDeleteConfirm = async () => {
+    setIsDeleting(true);
     if (!onDeleteVideo) {
-      logger.warn(`[VideoCard] onDeleteVideo prop is missing for video ID: ${video.id}`);
+      setIsDeleting(false);
       return;
     }
-    
-    logger.log(`[VideoCard] Calling onDeleteVideo prop for video ID: ${video.id}`);
-    setIsDeleting(true);
     try {
       await onDeleteVideo(video.id);
-      logger.log(`[VideoCard] onDeleteVideo prop finished successfully for video ID: ${video.id}`);
-    } catch (error) { 
-      logger.error(`[VideoCard] Error executing onDeleteVideo prop for video ID ${video.id}:`, error);
-    } finally {
-      logger.log(`[VideoCard] handleDeleteConfirm finished, setting isDeleting=false for video ID: ${video.id}`);
-      setIsDeleting(false); 
+    } catch (error) {
+      setIsDeleting(false);
     }
   };
   
   const handleSetPrimary = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (onSetPrimaryMedia && !video.is_primary) {
-      logger.log(`[VideoCard] Calling onSetPrimaryMedia for video ID: ${video.id}`);
       onSetPrimaryMedia(video.id);
     }
   };
@@ -199,88 +191,62 @@ const VideoCard: React.FC<VideoCardProps> = ({
   logger.log(`VideoCard rendering for ${video.id}, isHovering: ${isHovering}, context: ${pageContext}`);
 
   const handleStatusChange = async (newStatus: VideoDisplayStatus) => {
+    setIsStatusUpdating(true);
+    let updateType: 'user_status' | 'asset_media_status' | null = null;
+
     try {
-      logger.log(`[VideoCard] handleStatusChange called with newStatus: ${newStatus}, context: ${pageContext}`);
-      let updateType: 'user' | 'assetMedia';
-
       if (isProfilePage) {
-        updateType = 'user';
-        logger.log(`[VideoCard] Updating media.user_status to ${newStatus} for media ID: ${video.id}`);
-
+        updateType = 'user_status';
         const { data, error } = await supabase
           .from('media')
           .update({ user_status: newStatus })
           .eq('id', video.id)
           .select();
 
-        logger.log(`[VideoCard] Supabase media update result for media ID ${video.id}:`, { data, error });
-
         if (error) {
-          logger.error(`[VideoCard] Supabase media update error for media ID ${video.id}:`, error);
           throw error;
         }
 
         toast.success(`Video status updated to ${newStatus}`);
       } else {
-        updateType = 'assetMedia';
+        updateType = 'asset_media_status';
         const assetId = video.metadata?.assetId || video.associatedAssetId;
         if (!assetId) {
-          logger.error(`[VideoCard] Cannot update asset_media status: assetId is missing for video ID ${video.id}.`);
-          toast.error("Cannot update status: Missing asset information.");
-          return;
+          throw new Error('Asset ID is missing');
         }
-
-        logger.log(`[VideoCard] Attempting to update asset_media.status to ${newStatus} for media ID: ${video.id}, asset ID: ${assetId}`);
-
-        const upsertData = {
-          media_id: video.id,
-          asset_id: assetId,
-          status: newStatus
-        };
 
         const { data, error } = await supabase
           .from('asset_media')
-          .upsert(upsertData, {
-            onConflict: 'media_id, asset_id',
-          })
+          .update({ status: newStatus })
+          .eq('asset_id', assetId)
           .select();
 
-        logger.log(`[VideoCard] Supabase asset_media update result for media ID ${video.id}, asset ID ${assetId}:`, { data, error });
-
         if (error) {
-          logger.error(`[VideoCard] Supabase asset_media update error for media ID ${video.id}, asset ID ${assetId}:`, error);
           throw error;
         }
 
         if (!data || data.length === 0) {
-          logger.warn(`[VideoCard] Supabase asset_media update for media ID ${video.id}, asset ID ${assetId} might not have found a matching row.`);
-          // Consider if insert is needed if row doesn't exist?
+          // Consider if this is an error or expected behavior
         }
 
         toast.success(`Video status updated to ${newStatus}`);
       }
       
       if (onUpdateLocalVideoStatus) {
-        logger.log(`[VideoCard] Calling onUpdateLocalVideoStatus for ${video.id} with status ${newStatus} and type ${updateType}`);
-        onUpdateLocalVideoStatus(video.id, newStatus, updateType);
+        onUpdateLocalVideoStatus(video.id, newStatus, updateType === 'user_status' ? 'user' : 'assetMedia');
       } else {
-        logger.warn(`[VideoCard] onUpdateLocalVideoStatus callback is missing for media ID: ${video.id}. Falling back to full refresh.`);
         if (onStatusUpdateComplete) {
-          logger.log(`[VideoCard] Falling back: Calling onStatusUpdateComplete callback for media ID: ${video.id}`);
-          await onStatusUpdateComplete();
-        } else {
-           logger.warn(`[VideoCard] Fallback failed: onStatusUpdateComplete callback is also missing for media ID: ${video.id}`);
+          onStatusUpdateComplete();
         }
       }
     } catch (error) {
-      logger.error(`[VideoCard] Failed to update video status for media ID ${video.id}:`, error);
       toast.error('Failed to update video status');
     }
   };
   
   // Log the full video object on render for debugging
   useEffect(() => {
-    logger.log(`{ITEMSHOWINGBUG} VideoCard Rendering with video prop (ID: ${video.id}) (user_status: ${video.user_status}, assetMediaDisplayStatus: ${video.assetMediaDisplayStatus}):`, video);
+    // logger.log(`{ITEMSHOWINGBUG} VideoCard Rendering with video prop (ID: ${video.id}) (user_status: ${video.user_status}, assetMediaDisplayStatus: ${video.assetMediaDisplayStatus}):`, video);
   }, [video]); // Rerun if video object changes
   
   // Determine the relevant status to pass to the controls

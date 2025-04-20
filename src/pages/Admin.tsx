@@ -106,8 +106,8 @@ const Admin: React.FC = () => {
     setIsLoadingEntries(true);
     try {
       const allEntries = await videoEntryService.getAllEntries(); 
-      logger.log('[adminview] Raw entries from service:', allEntries.length);
-      logger.log('[adminview] First entry sample:', allEntries[0]);
+      // logger.log('[adminview] Raw entries from service:', allEntries.length);
+      // logger.log('[adminview] First entry sample:', allEntries[0]);
       
       const processedEntries = allEntries.map(entry => ({
         ...entry,
@@ -115,11 +115,11 @@ const Admin: React.FC = () => {
         admin_reviewed: entry.admin_reviewed ?? false
       })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
-      logger.log('[adminview] Processed entries:', processedEntries.length);
-      logger.log('[adminview] First processed entry sample:', processedEntries[0]);
+      // logger.log('[adminview] Processed entries:', processedEntries.length);
+      // logger.log('[adminview] First processed entry sample:', processedEntries[0]);
       
       setEntries(processedEntries);
-      logger.log('Loaded video entries:', processedEntries.length);
+      // logger.log('Loaded video entries:', processedEntries.length);
     } catch (error) {
       logger.error('[adminview] Error loading video entries:', error);
       toast.error('Failed to load videos');
@@ -133,8 +133,8 @@ const Admin: React.FC = () => {
     setIsLoadingAssets(true);
     try {
       const allAssets = await assetService.getAllAssets();
-      logger.log('[adminview] Raw assets from service:', allAssets.length);
-      logger.log('[adminview] First asset sample:', allAssets[0]);
+      // logger.log('[adminview] Raw assets from service:', allAssets.length);
+      // logger.log('[adminview] First asset sample:', allAssets[0]);
       
       const processedAssets = allAssets.map(asset => ({
         ...asset,
@@ -142,11 +142,11 @@ const Admin: React.FC = () => {
         admin_reviewed: asset.admin_reviewed ?? false
       })).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       
-      logger.log('[adminview] Processed assets:', processedAssets.length);
-      logger.log('[adminview] First processed asset sample:', processedAssets[0]);
+      // logger.log('[adminview] Processed assets:', processedAssets.length);
+      // logger.log('[adminview] First processed asset sample:', processedAssets[0]);
       
       setAssets(processedAssets);
-      logger.log('Loaded assets:', processedAssets.length);
+      // logger.log('Loaded assets:', processedAssets.length);
     } catch (error) {
       logger.error('[adminview] Error loading assets:', error);
       toast.error('Failed to load assets');
@@ -157,7 +157,7 @@ const Admin: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    logger.log('Admin page mounted, setting service user ID and loading data.');
+    // logger.log('Admin page mounted, setting service user ID and loading data.');
     if (user) {
       videoEntryService.setCurrentUserId(user.id);
       assetService.setCurrentUserId(user.id);
@@ -165,13 +165,13 @@ const Admin: React.FC = () => {
     loadEntries();
     loadAssets();
     return () => {
-      logger.log('Admin page unmounting');
+      // logger.log('Admin page unmounting');
     };
   }, [user, loadEntries, loadAssets]);
 
   const applyVideoFilters = useCallback(() => {
-    logger.log('[adminview] applyVideoFilters called. Raw entries count:', entries.length);
-    logger.log('[adminview] Current videoFilters:', videoFilters);
+    // logger.log('[adminview] applyVideoFilters called. Raw entries count:', entries.length);
+    // logger.log('[adminview] Current videoFilters:', videoFilters);
     const newCounts: Record<VideoFilterKey | 'total', number> = {
       listed: 0, curated: 0, featured: 0, hidden: 0, reviewed: 0, total: entries.length
     };
@@ -182,27 +182,27 @@ const Admin: React.FC = () => {
       }
 
       if (entry.admin_reviewed && !videoFilters.reviewed) {
-        logger.log(`[adminview] Filtering out video ${entry.id}: Reviewed and 'Show Reviewed' is false.`);
+        // logger.log(`[adminview] Filtering out video ${entry.id}: Reviewed and 'Show Reviewed' is false.`);
         return false;
       }
 
       const status = entry.admin_status ?? 'Listed';
       const currentFilterKey = statusConfig[status]?.filterKey as VideoFilterKey || 'listed';
       
-      logger.log(`[adminview] Processing video ${entry.id}: StatusKey='${currentFilterKey}', Filtered In=${videoFilters[currentFilterKey]}`);
+      // logger.log(`[adminview] Processing video ${entry.id}: StatusKey='${currentFilterKey}', Filtered In=${videoFilters[currentFilterKey]}`);
       
       newCounts[currentFilterKey]++;
       return videoFilters[currentFilterKey];
     });
     
-    logger.log('[adminview] Filtering complete. Filtered video entries count:', filtered.length);
+    // logger.log('[adminview] Filtering complete. Filtered video entries count:', filtered.length);
     setFilteredEntries(filtered);
     setVideoStatusCounts(newCounts);
   }, [entries, videoFilters]);
   
   const applyAssetFilters = useCallback(() => {
-    logger.log('[adminview] applyAssetFilters called. Raw assets count:', assets.length);
-    logger.log('[adminview] Current assetFilters:', assetFilters);
+    // logger.log('[adminview] applyAssetFilters called. Raw assets count:', assets.length);
+    // logger.log('[adminview] Current assetFilters:', assetFilters);
     const newCounts: Record<AssetFilterKey | 'total', number> = {
       listed: 0, curated: 0, featured: 0, hidden: 0, reviewed: 0, total: assets.length
     };
@@ -213,19 +213,19 @@ const Admin: React.FC = () => {
       }
 
       if (asset.admin_reviewed && !assetFilters.reviewed) {
-        logger.log(`[adminview] Filtering out asset ${asset.id}: Reviewed and 'Show Reviewed' is false.`);
+        // logger.log(`[adminview] Filtering out asset ${asset.id}: Reviewed and 'Show Reviewed' is false.`);
         return false;
       }
 
       const status = asset.admin_status ?? 'Listed';
       const currentFilterKey = statusConfig[status]?.filterKey as AssetFilterKey || 'listed';
       
-      logger.log(`[adminview] Processing asset ${asset.id}: StatusKey='${currentFilterKey}', Filtered In=${assetFilters[currentFilterKey]}`);
+      // logger.log(`[adminview] Processing asset ${asset.id}: StatusKey='${currentFilterKey}', Filtered In=${assetFilters[currentFilterKey]}`);
       newCounts[currentFilterKey]++;
       return assetFilters[currentFilterKey];
     });
     
-    logger.log('[adminview] Filtering complete. Filtered assets count:', filtered.length);
+    // logger.log('[adminview] Filtering complete. Filtered assets count:', filtered.length);
     setFilteredAssets(filtered);
     setAssetStatusCounts(newCounts);
   }, [assets, assetFilters]);

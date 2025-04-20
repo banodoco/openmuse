@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Pin } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -18,14 +18,19 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
   onStatusChange,
   className
 }) => {
-  const currentStatus = status || 'View';
+  const [currentStatus, setCurrentStatus] = useState<VideoDisplayStatus | null>(status);
+  const [updateInProgress, setUpdateInProgress] = useState(false);
+
+  // logger.log(`{ITEMSHOWINGBUG} VideoStatusControls received status prop: '${status}', effective status: '${currentStatus}'`);
 
   useEffect(() => {
-    logger.log(`{ITEMSHOWINGBUG} VideoStatusControls received status prop: '${status}', effective status: '${currentStatus}'`);
-  }, [status, currentStatus]);
+    // logger.log(`{ITEMSHOWINGBUG} VideoStatusControls received status prop: '${status}', effective status: '${currentStatus}'`);
+    // Update local state if the external prop changes
+    setCurrentStatus(status);
+  }, [status]);
 
   const handleButtonClick = (newStatus: VideoDisplayStatus) => (e: React.MouseEvent) => {
-    logger.log(`Button clicked: ${newStatus}`);
+    // logger.log(`Button clicked: ${newStatus}`);
     e.stopPropagation();
     e.preventDefault();
     onStatusChange(newStatus);
@@ -35,7 +40,7 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
     <div
       className={cn("flex gap-1 bg-black/50 backdrop-blur-sm rounded-md p-1", className)}
       onClick={e => {
-        logger.log("Container clicked, stopping propagation.");
+        // logger.log("Container clicked, stopping propagation.");
         e.stopPropagation();
         e.preventDefault();
       }}

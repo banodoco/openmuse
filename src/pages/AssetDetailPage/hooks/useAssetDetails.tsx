@@ -135,7 +135,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
           .filter(item => item.media)
           .map(async (item: any) => {
           const media = item.media;
-          logger.log(`{ITEMSHOWINGBUG} Processing joined item for VideoEntry (media ID: ${media?.id}, asset_media status: ${item.status}, is_primary: ${item.is_primary}):`, item);
+          // logger.log(`{ITEMSHOWINGBUG} Processing joined item for VideoEntry (media ID: ${media?.id}, asset_media status: ${item.status}, is_primary: ${item.is_primary}):`, item);
           try {
             const videoUrl = media.url ? await videoUrlService.getVideoUrl(media.url) : null; 
             if (!videoUrl) {
@@ -222,7 +222,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
       logger.log('[loraorderingbug] Final sorted video IDs and statuses (before setting state):', sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus}, Primary: ${v.is_primary})`));
 
       setVideos(sortedVideos);
-      logger.log('{ITEMSHOWINGBUG} Final VideoEntry array being set to state:', sortedVideos);
+      // logger.log('{ITEMSHOWINGBUG} Final VideoEntry array being set to state:', sortedVideos);
 
     } catch (error) {
       logger.error('[useAssetDetails] Error in fetchAssetDetails:', error);

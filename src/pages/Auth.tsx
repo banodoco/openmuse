@@ -1,14 +1,10 @@
-
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { signInWithDiscord } from '@/lib/auth';
 import { toast } from 'sonner';
 import Navigation, { Footer } from '@/components/Navigation';
-import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
-
-const logger = new Logger('Auth');
 
 const Auth: React.FC = () => {
   const navigate = useNavigate();
@@ -19,14 +15,14 @@ const Auth: React.FC = () => {
   const { user, session, isLoading: isAuthLoading } = useAuth();
 
   useEffect(() => {
-    logger.log(`Auth page useEffect: isAuthLoading=${isAuthLoading}, user=${!!user}, session=${!!session}, redirecting=${redirecting}`);
+    // logger.log(`Auth page useEffect: isAuthLoading=${isAuthLoading}, user=${!!user}, session=${!!session}, redirecting=${redirecting}`);
 
     // Prevent redirect loops by tracking if we've already started redirecting
     if (!isAuthLoading && user && session && !redirecting) {
       const searchParams = new URLSearchParams(location.search);
       const returnUrl = searchParams.get('returnUrl') || '/';
 
-      logger.log(`Auth page: User is logged in (via useAuth), redirecting to ${returnUrl}`);
+      // logger.log(`Auth page: User is logged in (via useAuth), redirecting to ${returnUrl}`);
       setRedirecting(true);
       
       // Use setTimeout to break potential synchronous loop
@@ -34,7 +30,7 @@ const Auth: React.FC = () => {
         navigate(returnUrl, { replace: true });
       }, 100);
     } else if (!isAuthLoading && (!user || !session)) {
-      logger.log('Auth page: User is not logged in (via useAuth), showing login form.');
+      // logger.log('Auth page: User is not logged in (via useAuth), showing login form.');
     }
   }, [user, session, isAuthLoading, navigate, location.search, redirecting]);
 
@@ -42,12 +38,12 @@ const Auth: React.FC = () => {
     if (isLoadingDiscord) return;
 
     try {
-      logger.log('Auth page: Starting Discord sign-in');
+      // logger.log('Auth page: Starting Discord sign-in');
       setIsLoadingDiscord(true);
 
       await signInWithDiscord();
     } catch (error) {
-      logger.error('Error signing in with Discord:', error);
+      // logger.error('Error signing in with Discord:', error);
       toast.error('Failed to sign in with Discord');
       setIsLoadingDiscord(false);
     }

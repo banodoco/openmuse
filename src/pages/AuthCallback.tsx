@@ -16,10 +16,10 @@ const AuthCallback = () => {
   useEffect(() => {
     let isActive = true;
     
-    logger.log('AuthCallback: Mounted. Waiting for AuthProvider to handle session...', {
-      hash: !!window.location.hash,
-      query: window.location.search,
-    });
+    // logger.log('AuthCallback: Mounted. Waiting for AuthProvider to handle session...', {
+    //   hash: !!window.location.hash,
+    //   query: window.location.search,
+    // });
     
     // Set a timeout only as a fallback for catastrophic failure
     const maxWaitTimeoutId = setTimeout(() => {
@@ -31,7 +31,7 @@ const AuthCallback = () => {
     }, 15000); 
     
     return () => {
-      logger.log('AuthCallback: Cleaning up');
+      // logger.log('AuthCallback: Cleaning up');
       isActive = false;
       clearTimeout(maxWaitTimeoutId);
     };
@@ -44,17 +44,17 @@ const AuthCallback = () => {
       const searchParams = new URLSearchParams(location.search);
       const returnUrl = searchParams.get('returnUrl') || '/';
       
-      logger.log(`AuthCallback: User detected by AuthProvider, navigating to ${returnUrl}`);
+      // logger.log(`AuthCallback: User detected by AuthProvider, navigating to ${returnUrl}`);
       
       // Manually clear the hash to prevent Supabase client from re-reading it
-      logger.log('AuthCallback: Clearing window.location.hash');
+      // logger.log('AuthCallback: Clearing window.location.hash');
       window.location.hash = '';
       
       queueMicrotask(() => {
          navigate(returnUrl, { replace: true });
       });
     } else {
-      logger.log('AuthCallback: AuthProvider finished loading, but no user session found.');
+      // logger.log('AuthCallback: AuthProvider finished loading, but no user session found.');
       if (isProcessing) {
            setIsProcessing(false);
       }

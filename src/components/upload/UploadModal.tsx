@@ -1,9 +1,9 @@
-
 import React, { useState } from 'react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogTitle,
   DialogTrigger,
   DialogFooter,
   DialogClose
@@ -38,6 +38,9 @@ const UploadModal: React.FC<UploadModalProps> = ({
       <DialogTrigger asChild>{trigger}</DialogTrigger>
       <DialogContent className="sm:max-w-[90vw] md:max-w-[80vw] lg:max-w-[70vw] xl:max-w-[60vw]">
         <DialogHeader>
+          <DialogTitle className="text-lg font-semibold">
+            {initialUploadType === 'lora' ? 'Upload New LoRA' : 'Upload New Video'}
+          </DialogTitle>
           {/* Optional: Add DialogDescription here */}
         </DialogHeader>
         <div className="py-4 max-h-[80vh] overflow-y-auto">
