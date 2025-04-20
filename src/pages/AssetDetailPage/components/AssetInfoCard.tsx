@@ -178,46 +178,59 @@ const AssetInfoCard = ({
             </div>
           )}
           
-          {/* Separator if both status and admin buttons are shown */}
-          {(isAuthorized && isAdmin) && <hr className="w-full my-2" />} 
-
-          {/* Admin Moderation Buttons */}
+          {/* --- Admin Section --- */}
+          {/* Only render this whole section if isAdmin is true */}
           {isAdmin && (
-            <div className="grid grid-cols-3 gap-2 w-full">
-              <Button
-                size="sm"
-                onClick={onCurate}
-                className="gap-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
-                disabled={isApproving || asset?.admin_status === 'Curated'}
-              >
-                <Check className="h-4 w-4" /> Curate
-              </Button>
-              <Button
-                size="sm"
-                onClick={onList}
-                variant="secondary"
-                className="gap-1 h-8 text-xs"
-                disabled={isApproving || asset?.admin_status === 'Listed'}
-              >
-                <Check className="h-4 w-4" /> List
-              </Button>
-              <Button
-                size="sm"
-                onClick={onReject}
-                variant="outline"
-                className={cn(
-                  "gap-1 h-8 text-xs",
-                  "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
-                  (isApproving || asset?.admin_status === 'Rejected') && "bg-orange-100 opacity-70 cursor-not-allowed"
-                )}
-                disabled={isApproving || asset?.admin_status === 'Rejected'}
-              >
-                <EyeOff className="h-4 w-4" /> Hide Admin
-              </Button>
-            </div>
-          )}
+            <>
+              {/* Separator if both user status and admin buttons are shown */}
+              {isAuthorized && <hr className="w-full my-2" />} 
 
-          {/* Delete Button */}
+              {/* Admin Box */}
+              <div className="w-full p-3 border border-yellow-500 rounded-md bg-yellow-50/50 space-y-3">
+                <p className="text-xs font-semibold text-yellow-700 uppercase tracking-wider">Admin Controls</p>
+                
+                {/* Admin Moderation Buttons */}
+                <div className="grid grid-cols-3 gap-2 w-full">
+                  {/* Curate Button */}
+                  <Button
+                    size="sm"
+                    onClick={onCurate}
+                    className="gap-1 bg-green-600 hover:bg-green-700 text-white h-8 text-xs"
+                    disabled={isApproving || asset?.admin_status === 'Curated'}
+                  >
+                    <Check className="h-4 w-4" /> Curate
+                  </Button>
+                  {/* List Button */}
+                  <Button
+                    size="sm"
+                    onClick={onList}
+                    variant="secondary"
+                    className="gap-1 h-8 text-xs"
+                    disabled={isApproving || asset?.admin_status === 'Listed'}
+                  >
+                    <Check className="h-4 w-4" /> List
+                  </Button>
+                  {/* Hide Admin Button */}
+                  <Button
+                    size="sm"
+                    onClick={onReject}
+                    variant="outline"
+                    className={cn(
+                      "gap-1 h-8 text-xs",
+                      "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700",
+                      (isApproving || asset?.admin_status === 'Rejected') && "bg-orange-100 opacity-70 cursor-not-allowed"
+                    )}
+                    disabled={isApproving || asset?.admin_status === 'Rejected'}
+                  >
+                    <EyeOff className="h-4 w-4" /> Hide Admin
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+          {/* --- End Admin Section --- */}
+
+          {/* Delete Button - Still visible to Owner or Admin */}
           {isAuthorized && (
              <AlertDialog>
                 <AlertDialogTrigger asChild>

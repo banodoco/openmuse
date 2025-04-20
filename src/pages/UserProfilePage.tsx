@@ -61,19 +61,20 @@ const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
 
 // Helper function to sort LoRA assets based on user_preference_status
 const sortUserAssets = (assets: LoraAsset[]): LoraAsset[] => {
+  // Define the desired order for statuses
   const statusOrder: { [key in UserAssetPreferenceStatus]: number } = { 'Pinned': 1, 'Listed': 2, 'Hidden': 4 };
   return [...assets].sort((a, b) => {
-    // Use user_preference_status for sorting
-    const statusA = a.user_preference_status;
-    const statusB = b.user_preference_status;
-    // Assign default order 3 if status is null or undefined
-    const orderA = statusA ? (statusOrder[statusA] ?? 3) : 3;
+    // Use assets.user_status for sorting
+    const statusA = a.user_status; 
+    const statusB = b.user_status; 
+    // Assign default order 3 (after Pinned and Listed, before Hidden) if status is null or undefined
+    const orderA = statusA ? (statusOrder[statusA] ?? 3) : 3; 
     const orderB = statusB ? (statusOrder[statusB] ?? 3) : 3;
 
     if (orderA !== orderB) {
       return orderA - orderB;
     }
-    // Fallback to creation date
+    // Fallback to creation date for items with the same status or default status
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
 };
