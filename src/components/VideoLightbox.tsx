@@ -365,7 +365,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               </VisuallyHidden>
             </DialogHeader>
             <div className="relative flex flex-col h-full">
-              <div className="relative w-full max-h-[65vh] aspect-video bg-black flex-shrink-0">
+              <div className={cn(
+                "relative w-full aspect-video bg-black flex-shrink-0 transition-[max-height] duration-300 ease-in-out",
+                isEditing ? "max-h-[45vh]" : "max-h-[65vh]"
+              )}>
                 <VideoPlayer
                   src={videoUrl}
                   poster={thumbnailUrl}
