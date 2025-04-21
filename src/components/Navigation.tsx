@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -38,8 +39,10 @@ const Navigation: React.FC = () => {
               src={logoPath} 
               alt="OpenMuse Logo" 
               className={cn(
-                "w-auto transition-all duration-300", 
-                isMobile ? "h-16" : "h-20"
+                "transition-all duration-300",
+                isMobile 
+                  ? "h-20 max-w-full w-auto" // bigger height, auto width to preserve aspect ratio on mobile
+                  : "h-20 w-auto"
               )}
               onError={handleImageError}
             />
@@ -126,3 +129,4 @@ export const Footer = () => {
 };
 
 export default Navigation;
+
