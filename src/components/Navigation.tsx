@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -34,19 +33,15 @@ const Navigation: React.FC = () => {
     <div className="w-full border-b border-olive/20">
       <nav className="w-full max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center">
-          <Link to="/" className="mr-8 flex flex-col items-center hover:opacity-80 transition-opacity">
-            <img 
-              src={logoPath} 
-              alt="OpenMuse Logo" 
-              className={cn(
-                "transition-all duration-300",
-                isMobile 
-                  ? "h-20 max-w-full w-auto" // bigger height, auto width to preserve aspect ratio on mobile
-                  : "h-20 w-auto"
-              )}
-              onError={handleImageError}
-            />
-            {/* Removed version span */}
+          <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
+            <div className="flex-shrink-0" style={{ minWidth: isMobile ? '140px' : '160px' }}>
+              <img 
+                src={logoPath} 
+                alt="OpenMuse Logo" 
+                className="h-20 w-auto object-contain"
+                onError={handleImageError}
+              />
+            </div>
           </Link>
           
           {!isAuthPage && isAdmin && (
@@ -129,4 +124,3 @@ export const Footer = () => {
 };
 
 export default Navigation;
-
