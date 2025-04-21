@@ -369,6 +369,14 @@ function AssetDetailPage() {
       // If the currently open lightbox video (currentVideo) was the one updated,
       // its details might be stale until the user closes and reopens it, or we could 
       // add more complex state management here if needed later.
+
+      // Update the currentVideo state to reflect the change immediately in the lightbox
+      setCurrentVideo(prevVideo => 
+        prevVideo && prevVideo.id === videoId 
+          ? { ...prevVideo, admin_status: newStatus } 
+          : prevVideo
+      );
+
     } catch (error: any) {
       logger.error(`[AssetDetailPage] Error setting video admin status:`, error);
       toast.error(`Failed to update video admin status: ${error.message}`);

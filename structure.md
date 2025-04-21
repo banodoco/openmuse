@@ -191,8 +191,8 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   │   └── AssetVideoSection.tsx # Section displaying videos related to the asset
 │   │   │   ├── hooks/        # Hooks used specifically by the AssetDetailPage
 │   │   │   │   ├── useAssetAdminActions.tsx # Hook for administrative actions on an asset
-│   │   │   │   └── useAssetDetails.tsx # Hook for fetching and managing asset details
-│   │   │   ├── AssetDetailPage.tsx # Main component for the asset detail page
+│   │   │   │   └── useAssetDetails.tsx # Hook for fetching and managing asset details, including mapping video data like admin_status
+│   │   │   ├── AssetDetailPage.tsx # Main component for the asset detail page, handles lightbox state and updates
 │   │   │   └── index.tsx     # Barrel file exporting the AssetDetailPage component
 │   │   ├── VideoPage/      # Components specifically for the individual video page route
 │   │   │   ├── components/   # Sub-components used only within the VideoPage
