@@ -112,6 +112,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
               assetMediaDisplayStatus: (pVideo as any)?.status as VideoDisplayStatus || 'View',
               user_id: pVideo.user_id,
               user_status: (pVideo as any)?.user_status as VideoDisplayStatus || null,
+              admin_status: (pVideo as any)?.admin_status as AdminStatus || null,
               metadata: {
                   title: pVideo.title || '',
                   placeholder_image: pVideo.placeholder_image || null,
@@ -173,7 +174,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 creator: media.creator ? 'self' : undefined,
                 creatorName: media.creator_name,
                 modelVariant: processedAsset.model_variant,
-              }
+              },
+              admin_status: media.admin_status as AdminStatus || null,
             } as VideoEntry;
           } catch (error) {
             logger.error(`[useAssetDetails] Error processing video ${media.id}:`, error);
