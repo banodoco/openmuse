@@ -40,12 +40,12 @@ const Navigation: React.FC = () => {
                 "flex-shrink-0",
                 isMobile ? "min-w-[90px]" : "min-w-[110px]",
               )}
-              style={{ maxHeight: '63px' }} {/* Increased from 60px */}
+              style={{ maxHeight: '60px' }}
             >
               <img
                 src={logoPath}
                 alt="OpenMuse Logo"
-                className="max-h-[66px] w-auto object-contain" {/* Increased from max-h-16 (64px) to 66px approx */}
+                className="max-h-16 w-auto object-contain"
                 onError={handleImageError}
               />
             </div>
@@ -131,3 +131,4 @@ export const Footer = () => {
 };
 
 export default Navigation;
+
