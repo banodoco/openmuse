@@ -24,15 +24,19 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
   const { user, isAdmin } = useAuth();
 
-  const fetchAssetDetails = useCallback(async () => {
+  const fetchAssetDetails = useCallback(async (options?: { silent?: boolean }) => {
     if (!assetId) {
       toast.error('No asset ID provided');
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
       setDataFetchAttempted(true);
       return;
     }
 
-    setIsLoading(true);
+    if (!options?.silent) {
+      setIsLoading(true);
+    }
     try {
       logger.log('[useAssetDetails] Fetching core asset details for ID:', assetId);
       
@@ -51,7 +55,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
         logger.error('[useAssetDetails] No asset found with ID:', assetId);
         setAsset(null);
         setVideos([]);
-        setIsLoading(false);
+        if (!options?.silent) {
+          setIsLoading(false);
+        }
         setDataFetchAttempted(true);
         return;
       }
@@ -232,7 +238,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
       setAsset(null);
       setVideos([]);
     } finally {
-      setIsLoading(false);
+      if (!options?.silent) {
+        setIsLoading(false);
+      }
       setDataFetchAttempted(true);
     }
   }, [assetId, user, isAdmin]);
