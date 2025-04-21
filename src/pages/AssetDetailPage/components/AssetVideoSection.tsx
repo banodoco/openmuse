@@ -145,10 +145,18 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     return videosToDisplay.slice(start, start + itemsPerPage);
   }, [videosToDisplay, currentPage]);
 
-  // Reset page when filters change
+  // Reset page when the classification filter changes only
   useEffect(() => {
     setCurrentPage(1);
-  }, [classification, videos]); // Also reset if base videos change
+  }, [classification]);
+
+  // Ensure the current page is still valid after the list of videos changes.
+  useEffect(() => {
+    const newTotalPages = Math.max(1, Math.ceil(videosToDisplay.length / itemsPerPage));
+    if (currentPage > newTotalPages) {
+      setCurrentPage(newTotalPages);
+    }
+  }, [videosToDisplay.length, itemsPerPage, currentPage]);
 
   // Add a ref to track mounted state for cleanup
   const unmountedRef = useRef(false);
