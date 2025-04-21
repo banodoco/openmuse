@@ -332,8 +332,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             <div 
               className={cn(
                 "absolute top-2 right-2 z-50 flex gap-2",
-                !isMobile && "opacity-0 group-hover:opacity-100 transition-opacity duration-200", // Apply hover effect only on desktop
-                isMobile && isLoRAAssetPage && "right-8" // Apply right-8 only on LoRA page on mobile
+                !isMobile && "opacity-0 group-hover:opacity-100 transition-opacity duration-200" // Apply hover effect only on desktop
               )}
               onClick={e => {
                 e.stopPropagation();
