@@ -253,16 +253,17 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
         title: "Video updated successfully!",
       });
       
-      // Trigger potential refetch in parent component AND WAIT FOR IT
-      if (onVideoUpdate) {
-        await onVideoUpdate();
-      }
-      
-      // Now exit edit mode *after* parent refetch (hopefully) completed
-      setIsEditing(false); 
-      
-      // Close the lightbox after successful save and refetch
+      // Close the lightbox immediately so the user stays in context
       onClose();
+
+      // Exit edit mode (component will unmount shortly after onClose)
+      setIsEditing(false);
+
+      // Trigger potential refetch in parent component WITHOUT blocking UI
+      if (onVideoUpdate) {
+        // Run asynchronously, do not await to avoid UI reset before close
+        onVideoUpdate();
+      }
 
     } catch (error: any) {
       toast({
@@ -366,8 +367,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             </DialogHeader>
             <div className="relative flex flex-col h-full">
               <div className={cn(
-                "relative w-full aspect-video bg-black flex-shrink-0 transition-[max-height] duration-300 ease-in-out",
-                isEditing ? "max-h-[35vh]" : "max-h-[65vh]"
+                "relative w-full aspect-video bg-black transition-[max-height] duration-300 ease-in-out",
+                isEditing ? "max-h-[35vh] flex-shrink" : "max-h-[65vh] flex-shrink-0"
               )}>
                 <VideoPlayer
                   src={videoUrl}
