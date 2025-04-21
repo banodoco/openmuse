@@ -485,7 +485,7 @@ function AssetDetailPage() {
               creator={currentVideo.metadata?.creatorName || currentVideo.user_id}
               thumbnailUrl={currentVideo.metadata?.placeholder_image}
               creatorId={currentVideo.user_id}
-              onVideoUpdate={fetchAssetDetails}
+              onVideoUpdate={() => fetchAssetDetails({ silent: true })}
               currentStatus={currentVideo.assetMediaDisplayStatus} 
               onStatusChange={handleLightboxAssetStatusChange} 
               isAuthorized={isAuthorized}

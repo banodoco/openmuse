@@ -216,9 +216,20 @@ export default function UserProfilePage() {
     }
   }, []); // Dependencies likely needed: supabase
 
-  const fetchUserVideos = useCallback(async (userId: string, currentViewerId: string | null | undefined, isViewerAdmin: boolean) => {
-    logger.log('[fetchUserVideos] Fetching videos...', { userId, currentViewerId, isViewerAdmin });
-    setIsLoadingVideos(true); 
+  // Fetch videos for a user. The fourth parameter `showLoading` allows callers to
+  // skip toggling the `isLoadingVideos` flag – useful for lightweight refetches
+  // where we don't want to unmount the existing grid and reset scroll position
+  // (e.g. after an inline edit in the lightbox).
+  const fetchUserVideos = useCallback(async (
+    userId: string,
+    currentViewerId: string | null | undefined,
+    isViewerAdmin: boolean,
+    showLoading: boolean = true,
+  ) => {
+    logger.log('[fetchUserVideos] Fetching videos...', { userId, currentViewerId, isViewerAdmin, showLoading });
+    if (showLoading) {
+      setIsLoadingVideos(true);
+    }
     let fetchedVideos: VideoEntry[] = []; 
     let generationCount = 0;
     let artCount = 0;
@@ -300,7 +311,9 @@ export default function UserProfilePage() {
         setUserVideos(fetchedVideos);
         setTotalGenerationVideos(generationCount);
         setTotalArtVideos(artCount);
-        setIsLoadingVideos(false); 
+        if (showLoading) {
+          setIsLoadingVideos(false);
+        }
     }
   }, []); // Dependencies likely needed: supabase
 
@@ -813,7 +826,7 @@ export default function UserProfilePage() {
           creator={lightboxVideo.user_id || lightboxVideo.metadata?.creatorName}
           thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
-          onVideoUpdate={() => { if (profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }}
+          onVideoUpdate={() => { if (profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView, false); }}
           isAuthorized={canEdit} currentStatus={lightboxVideo.user_status} onStatusChange={handleLightboxUserStatusChange}
           adminStatus={lightboxVideo.admin_status} onAdminStatusChange={handleLightboxAdminStatusChange} />
       )}
