@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { UserProfile } from '../types';
 import { Logger } from '../logger';
@@ -113,7 +112,7 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
     }
     
     // Create sanitized updates that includes all necessary properties
-    const sanitizedUpdates = { ...updates };
+    const sanitizedUpdates: Partial<UserProfile> = { ...updates };
     
     // Sanitize links to ensure they are valid URLs
     if (updates.links) {
@@ -131,9 +130,7 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
       });
     }
 
-    // Add any specific sanitization for background_image_url if needed
-    // This doesn't require any special sanitization for now
-    
+    // Perform the update
     const { data, error } = await supabase
       .from('profiles')
       .update(sanitizedUpdates)
