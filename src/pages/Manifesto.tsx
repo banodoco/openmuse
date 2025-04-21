@@ -86,15 +86,15 @@ const ManifestoPage: React.FC = () => {
             <h2 className="text-3xl font-bold mb-6 text-left">Let's Build a Beautiful Home for Open-Source AI Art</h2>
 
             <p className="text-lg leading-relaxed mb-4">
-              Imagine a place where you can discover the most inspired, creative, and thoughtful AI art and technology - curated by trusted voices from within the community.
+              Imagine a place where you can discover the most inspired and thoughtful AI art and technology - curated by trusted voices from within the community.
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              Imagine a destination that informs, inspires, and empowers you every single visit.
+              Imagine a platform that informs, inspires, and empowers you every time you visit.
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              Imagine a platform that you can confidently share with a skeptical friend to help them understand the beauty you see in AI art.
+              Imagine a destination that you can confidently share with a skeptical friend to help them understand the beauty you see in AI art.
             </p>
 
             <p className="text-lg leading-relaxed font-semibold mb-4">
@@ -106,31 +106,35 @@ const ManifestoPage: React.FC = () => {
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              It's built as an extension of the <a href="https://banodoco.ai" target="_blank" rel="noopener noreferrer" className="!underline">Banodoco</a> community - aiming extend its vibrant and utopian ethos to the wider world.
+              It's built as an extension of the <a href="https://banodoco.ai" target="_blank" rel="noopener noreferrer" className="!underline">Banodoco</a> community - aiming spread its vibrant and utopian ethos to the wider world.
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              By combining radical openness with thoughtful curation, OpenMuse aims to become the definitive destination for artists, engineers, dreamers, and curious newcomers alike.
+              By combining radical openness with thoughtful curation, OpenMuse aims to become the definitive destination for artists, engineers, and curious newcomers alike.
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              We believe the future of AI art shouldn't be dictated by hype, fleeting trends, or closed platforms - it should be driven by art and the tools and technology that enable it.
+              We believe that the future of AI art shouldn't be dictated by hype, fleeting trends, or closed platforms - it should be driven by an open, constantly evolving interplay between art and the tools that enable it.
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              To start, OpenMuse will just focus on Videos LoRAs and art created with them - but this is just the beginning.
+              To start, OpenMuse will focus only on Videos LoRAs and art created with them - but this is just the beginning.
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              With your help, we can grow into a place we're proud of—a platform that genuinely elevates the potential of the ecosystem.
+              With your help, we can grow into a place we're all proud of — a platform that genuinely elevates the potential of the ecosystem.
             </p>
 
             <p className="text-lg leading-relaxed mb-4">
-              Join us: train LoRAs, create art, share your work, and inspire others.
+              But to make this happen, we need your help. If you'd like to support this effort, please consider training LoRAs or creating art with them, and sharing your work here to inspire and empower others. 
             </p>
 
             <p className="text-lg leading-relaxed font-semibold mb-4">
               Together, we can create something beautiful!
+            </p>
+            
+            <p className="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-600">
+              Note: We will share <a href="https://banodoco.ai/pages/ownership.html" target="_blank" rel="noopener noreferrer" className="!underline">100% of the ownership</a> in our company with people who help us with this and <a href="https://banodoco.ai" target="_blank" rel="noopener noreferrer" className="!underline">our broader efforts</a>.              
             </p>
           </div>
 
