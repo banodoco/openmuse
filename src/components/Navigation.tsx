@@ -33,18 +33,18 @@ const Navigation: React.FC = () => {
     <div className="w-full border-b border-olive/20">
       <nav className="w-full max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
         <div className="flex items-center">
-          <Link to="/" className="mr-8 flex items-center hover:opacity-80 transition-opacity">
+          <Link to="/" className="mr-4 flex items-center hover:opacity-80 transition-opacity">
             <div
               className={cn(
                 "flex-shrink-0",
-                isMobile ? "min-w-[120px]" : "min-w-[160px]",
+                isMobile ? "min-w-[100px]" : "min-w-[120px]",
               )}
-              style={{ maxHeight: '80px' }}
+              style={{ maxHeight: '64px' }}
             >
               <img
                 src={logoPath}
                 alt="OpenMuse Logo"
-                className="max-h-20 w-auto object-contain"
+                className="max-h-16 w-auto object-contain"
                 onError={handleImageError}
               />
             </div>
