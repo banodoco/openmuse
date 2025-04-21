@@ -17,7 +17,8 @@ This document outlines the directory structure of the openmuse` project, providi
 ├── package-lock.json       # Lockfile for npm, ensuring reproducible installs (may be redundant if using bun)
 ├── postcss.config.js       # Configuration file for PostCSS processor (used with Tailwind)
 ├── public/                 # Static assets served directly by the web server
-│   ├── favicon.ico         # Application icon displayed in browser tabs
+│   ├── first_frame.png     # Poster frame for the manifesto page video
+│   ├── the_creation.mp4    # Video used on the manifesto page
 │   ├── placeholder.svg     # Placeholder image asset
 │   └── lovable-uploads/    # Directory likely containing user-uploaded or sample assets
 │       ├── *.png           # Example uploaded image files
@@ -232,4 +233,3 @@ This document outlines the directory structure of the openmuse` project, providi
 ├── tsconfig.json           # Root TypeScript configuration file, often extended by other tsconfig files
 ├── tsconfig.node.json      # TypeScript configuration for Node.js environments (e.g., for Vite config, scripts)
 └── vite.config.ts          # Configuration file for the Vite build tool (defining plugins, server options, build settings)
-```
