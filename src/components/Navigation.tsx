@@ -54,6 +54,8 @@ const Navigation: React.FC = () => {
               </NavLink>
             </div>
           )}
+          
+          {/* Additional navigation links can be inserted here if needed */}
         </div>
         
         <AuthButton />

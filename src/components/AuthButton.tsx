@@ -1,19 +1,20 @@
-
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { LogOut, LogIn, User, Book } from 'lucide-react';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { useAuth } from '@/hooks/useAuth';
 import { getCurrentUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { Logger } from '@/lib/logger';
+import { cn } from '@/lib/utils';
 
 const logger = new Logger('AuthButton');
 
 const AuthButton: React.FC = () => {
   const { user, isLoading, signOut } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [isLoadingProfile, setIsLoadingProfile] = useState(false);
   const [loadingTimeout, setLoadingTimeout] = useState(false);
@@ -93,6 +94,8 @@ const AuthButton: React.FC = () => {
       .substring(0, 2);
   };
   
+  const isManifestoActive = location.pathname === '/manifesto';
+  
   if (isLoading && !loadingTimeout) {
     return (
       <Button variant="ghost" disabled className="animate-pulse">
@@ -107,7 +110,12 @@ const AuthButton: React.FC = () => {
         <Button 
           variant="link" 
           onClick={() => navigate('/manifesto')}
-          className="flex items-center gap-1 text-muted-foreground hover:text-foreground"
+          className={cn(
+            "flex items-center gap-1 text-sm font-medium transition-colors",
+            isManifestoActive 
+              ? "text-olive underline font-semibold"
+              : "text-muted-foreground hover:text-foreground hover:underline"
+          )}
         >
           <Book className="h-4 w-4 mr-1" />
           Manifesto
