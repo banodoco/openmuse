@@ -1,5 +1,5 @@
 import * as React from "react";
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -29,13 +29,20 @@ interface EditableLoraDetailsProps {
   asset: LoraAsset | null;
   isAuthorized: boolean;
   onDetailsUpdated: () => void;
+  hideEditButton?: boolean;
 }
 
-const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
+// Exposed methods for parent components
+export interface EditableLoraDetailsHandle {
+  startEdit: () => void;
+}
+
+const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, EditableLoraDetailsProps>(({
   asset,
   isAuthorized,
-  onDetailsUpdated
-}) => {
+  onDetailsUpdated,
+  hideEditButton = false
+}, ref) => {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
@@ -136,6 +143,11 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
       [field]: value
     }));
   };
+
+  // Expose the edit method to parent via ref
+  useImperativeHandle(ref, () => ({
+    startEdit: handleEdit
+  }));
 
   if (isEditing) {
     return (
@@ -324,13 +336,13 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
 
   return (
     <div>
-      <div className="flex justify-end">
-        {isAuthorized && (
+      {isAuthorized && !hideEditButton && (
+        <div className="flex justify-end">
           <Button variant="ghost" size="sm" onClick={handleEdit} className="h-7 px-2 py-1.5">
             <Pencil className="h-4 w-4" />
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       <div className="space-y-1">
         <Label className="text-xs text-muted-foreground">Creator</Label>
@@ -363,6 +375,6 @@ const EditableLoraDetails: React.FC<EditableLoraDetailsProps> = ({
       </div>
     </div>
   );
-};
+});
 
 export default EditableLoraDetails;

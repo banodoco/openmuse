@@ -16,19 +16,18 @@ import {
   X, 
   Info,
   ExternalLink,
-  Edit,
-  Trash,
   EyeOff,
   PinIcon,
   List,
   Flame,
-  ListChecks
+  ListChecks,
+  Pencil
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { LoraAsset, UserAssetPreferenceStatus, AdminStatus } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import EditableLoraDetails from '@/components/lora/EditableLoraDetails';
+import EditableLoraDetails, { EditableLoraDetailsHandle } from '@/components/lora/EditableLoraDetails';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import {
@@ -75,6 +74,9 @@ const AssetInfoCard = ({
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
 
+  // Ref to control EditableLoraDetails actions (e.g., start editing)
+  const editableDetailsRef = React.useRef<EditableLoraDetailsHandle>(null);
+
   const handleStatusClick = async (newStatus: UserAssetPreferenceStatus) => {
     if (!onStatusChange || !userIsLoggedIn) return;
     
@@ -113,14 +115,26 @@ const AssetInfoCard = ({
   return (
     <div className="md:col-span-1 space-y-4">
       <Card>
-        <CardHeader className="pb-2">
+        <CardHeader className="pb-2 flex items-start justify-between">
           <CardTitle>LoRA Information</CardTitle>
+          {isAuthorizedToEdit && (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 py-1.5"
+              onClick={() => editableDetailsRef.current?.startEdit()}
+            >
+              <Pencil className="h-4 w-4" />
+            </Button>
+          )}
         </CardHeader>
-        <CardContent className="space-y-4 pt-4">
+        <CardContent className="space-y-4">
           <EditableLoraDetails 
+            ref={editableDetailsRef}
             asset={asset}
             isAuthorized={isAuthorizedToEdit}
             onDetailsUpdated={() => { /* TODO: Trigger refetch from parent */ }}
+            hideEditButton
           />
         </CardContent>
         
