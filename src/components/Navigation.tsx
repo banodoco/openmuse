@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -31,27 +32,27 @@ const Navigation: React.FC = () => {
   
   return (
     <div className="w-full border-b border-olive/20">
-      <nav className="w-full max-w-screen-2xl mx-auto px-4 py-4 flex justify-between items-center">
+      <nav className="w-full max-w-screen-2xl mx-auto px-2 py-4 flex justify-between items-center">
         <div className="flex items-center">
-          <Link to="/" className="mr-4 flex items-center hover:opacity-80 transition-opacity">
+          <Link to="/" className="mr-2 flex items-center hover:opacity-80 transition-opacity">
             <div
               className={cn(
                 "flex-shrink-0",
-                isMobile ? "min-w-[100px]" : "min-w-[120px]",
+                isMobile ? "min-w-[80px]" : "min-w-[100px]",
               )}
-              style={{ maxHeight: '64px' }}
+              style={{ maxHeight: '56px' }}
             >
               <img
                 src={logoPath}
                 alt="OpenMuse Logo"
-                className="max-h-16 w-auto object-contain"
+                className="max-h-14 w-auto object-contain"
                 onError={handleImageError}
               />
             </div>
           </Link>
           
           {!isAuthPage && isAdmin && (
-            <div className="flex space-x-2 relative right-[15px] top-[2px]">
+            <div className="flex space-x-2 relative right-[10px] top-[2px]">
               <NavLink to="/admin" active={isActive('/admin')}>
                 <LayoutDashboard className="w-4 h-4 mr-2" />
                 Admin
@@ -130,3 +131,4 @@ export const Footer = () => {
 };
 
 export default Navigation;
+
