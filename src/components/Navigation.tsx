@@ -39,7 +39,7 @@ const Navigation: React.FC = () => {
               alt="OpenMuse Logo" 
               className={cn(
                 "w-auto transition-all duration-300", 
-                isMobile ? "h-12" : "h-20"
+                isMobile ? "h-16" : "h-20"
               )}
               onError={handleImageError}
             />
