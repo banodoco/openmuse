@@ -23,6 +23,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -66,6 +67,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 }) => {
   const { user } = useAuth();
   const { pathname } = useLocation();
+  const isMobile = useIsMobile();
   const isLoraPage = pathname.includes('/assets/loras/');
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [classification, setClassification] = useState<'all' | 'gen' | 'art'>('all');
@@ -246,7 +248,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     onUpdateLocalVideoStatus={onStatusChange}
                     // Pass down visibility callback and play state
                     onVisibilityChange={handleVideoVisibilityChange}
-                    shouldBePlaying={item.id === visibleVideoId} // Only true if this video is the visible one
+                    shouldBePlaying={isMobile && item.id === visibleVideoId} // Only true if mobile AND this video is the visible one
                   />
                 );
               } else {

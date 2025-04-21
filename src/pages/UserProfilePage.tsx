@@ -722,7 +722,7 @@ export default function UserProfilePage() {
                             isUpdatingStatus={isUpdatingAssetStatus[item.id]} 
                             // Add autoplay props
                             onVisibilityChange={handleVideoVisibilityChange} 
-                            shouldBePlaying={item.id === visibleVideoId}
+                            shouldBePlaying={isMobile && item.id === visibleVideoId}
                           /> ))} 
                     </Masonry> </div> 
                     {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)} </> 
@@ -758,7 +758,7 @@ export default function UserProfilePage() {
                             onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} 
                             // Autoplay props
                             onVisibilityChange={handleVideoVisibilityChange}
-                            shouldBePlaying={item.id === visibleVideoId}
+                            shouldBePlaying={isMobile && item.id === visibleVideoId}
                           /> ))} 
                      </Masonry> </div> 
                      {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 
@@ -794,7 +794,7 @@ export default function UserProfilePage() {
                             onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} 
                             // Autoplay props
                             onVisibilityChange={handleVideoVisibilityChange}
-                            shouldBePlaying={item.id === visibleVideoId}
+                            shouldBePlaying={isMobile && item.id === visibleVideoId}
                           /> ))} 
                      </Masonry> </div> 
                      {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)} </> 

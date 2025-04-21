@@ -253,7 +253,7 @@ const Index: React.FC = () => {
       <div className="flex-1 w-full">
         <div className="max-w-screen-2xl mx-auto p-4">
           <PageHeader 
-            title="Curated LoRAs for open video models"
+            title="Curated resources & art, with a focus on LoRAs for open video models"
             description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan."
             buttonText="Propose New LoRA"
             onButtonClick={handleNavigateToUpload}

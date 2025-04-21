@@ -5,6 +5,7 @@ import { FileVideo } from 'lucide-react';
 import LoraCard from './LoraCard';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
+import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Pagination,
   PaginationContent,
@@ -23,6 +24,7 @@ interface LoraListProps {
 
 const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   const { isAdmin } = useAuth();
+  const isMobile = useIsMobile();
   
   // Add state and refs for autoplay
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
@@ -113,7 +115,7 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
                 isAdmin={isAdmin} 
                 // Pass autoplay props
                 onVisibilityChange={handleVideoVisibilityChange}
-                shouldBePlaying={lora.id === visibleVideoId}
+                shouldBePlaying={isMobile && lora.id === visibleVideoId}
                 // Pass preload prop
                 onEnterPreloadArea={handleEnterPreloadArea}
               />
