@@ -12,9 +12,56 @@ import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 const logger = new Logger('VideoPlayer');
 
-// Timeout constants
-const INITIAL_PLAY_TIMEOUT_MS = 2500; // 5 seconds
-const WAITING_TIMEOUT_MS = 2500; // 10 seconds
+// ---------------------------------------------------------------------------
+// Network‑aware timeout helper
+// ---------------------------------------------------------------------------
+// If the user has a strong connection (e.g. 4g / ≥ 10 Mbps) we want to be
+// aggressive (1 s).  On weaker links we progressively increase the grace
+// period so we don't trigger false positives.  We default to 2.5 s.
+
+const DEFAULT_TIMEOUT_MS = 2500; // Fallback when we can't detect the network.
+
+/**
+ * Decide an appropriate timeout based on the Network Information API.
+ * Returns a value in milliseconds.
+ */
+const getNetworkAwareTimeout = (): number => {
+  if (typeof navigator === 'undefined') return DEFAULT_TIMEOUT_MS;
+
+  // `connection` can appear under vendor prefixes in some browsers.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const connection: any = (navigator as any).connection || (navigator as any).mozConnection || (navigator as any).webkitConnection;
+
+  if (!connection) return DEFAULT_TIMEOUT_MS;
+
+  const { downlink, effectiveType } = connection;
+
+  // Prefer `effectiveType` because it incorporates latency + bandwidth.
+  if (effectiveType) {
+    switch (effectiveType) {
+      case '4g':
+        return 1000; // Strong connection → 1 s
+      case '3g':
+        return 1500; // Moderate → 1.5 s
+      case '2g':
+        return 2500; // Slow → 2.5 s
+      case 'slow-2g':
+        return 4000; // Very slow → 4 s
+      default:
+        break;
+    }
+  }
+
+  // Fall back to raw `downlink` (in Mbps) when available.
+  if (typeof downlink === 'number') {
+    if (downlink >= 10) return 1000;
+    if (downlink >= 5) return 1500;
+    if (downlink >= 2) return 2500;
+    return 4000;
+  }
+
+  return DEFAULT_TIMEOUT_MS;
+};
 
 interface VideoPlayerProps {
   src: string;
@@ -131,6 +178,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const initialPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const waitingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
+  const dynamicTimeoutMs = useMemo(() => getNetworkAwareTimeout(), []);
   
   const {
     error,
@@ -426,30 +474,51 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // --- Initial Play Timeout Logic ---
   useEffect(() => {
-    if (isIntersecting && isMobile && videoRef.current && videoRef.current.paused && !hasPlayedOnce && !error && !unmountedRef.current) {
-      logger.log(`[${componentId}] Mobile intersection detected, starting initial play timeout (${INITIAL_PLAY_TIMEOUT_MS}ms).`);
-      clearInitialPlayTimeout(); // Clear any previous timeout just in case
+    const video = videoRef.current;
+    if (!video || hasPlayedOnce || error || unmountedRef.current || !video.paused) {
+      // If video already played, errored, unmounted, or is not paused, no need for timeout.
+      clearInitialPlayTimeout();
+      return;
+    }
+
+    // Condition 1: Mobile and intersecting (implicit autoplay expected)
+    const shouldTimeoutMobile = isIntersecting && isMobile;
+    // Condition 2: Desktop, play has been attempted (e.g., via autoplay, hover, click)
+    const shouldTimeoutDesktop = !isMobile && playAttempted; // Use playAttempted from useVideoLoader
+
+    if (shouldTimeoutMobile || shouldTimeoutDesktop) {
+      logger.log(`[${componentId}] Starting initial play timeout (${dynamicTimeoutMs}ms). Reason: ${shouldTimeoutMobile ? 'Mobile Intersect' : 'Desktop Play Attempted'}`);
+      clearInitialPlayTimeout(); // Clear previous just in case
+
       initialPlayTimeoutRef.current = setTimeout(() => {
+        // Check again inside timeout in case state changed
         if (videoRef.current && videoRef.current.paused && !hasPlayedOnce && !error && !unmountedRef.current) {
           logger.warn(`[${componentId}] Initial play timeout expired, video hasn't played.`);
           attemptReset();
         } else {
-           logger.log(`[${componentId}] Initial play timeout expired, but video state changed (played, errored, or unmounted). No reset needed.`);
+           logger.log(`[${componentId}] Initial play timeout expired, but video state changed during timeout. No reset needed.`);
         }
-      }, INITIAL_PLAY_TIMEOUT_MS);
+      }, dynamicTimeoutMs);
 
-      // Also attempt immediate play
-       logger.log(`[${componentId}] Mobile intersection detected, attempting immediate autoplay.`);
-       videoRef.current.play().catch(err => {
-         logger.error(`[${componentId}] Mobile immediate autoplay failed:`, err);
-         // Don't reset immediately on fail, let the timeout handle it
-       });
+      // Attempt immediate play logic (only for mobile intersect case?)
+      if (shouldTimeoutMobile) {
+         logger.log(`[${componentId}] Mobile intersection detected, attempting immediate autoplay.`);
+         video.play().catch(err => {
+           logger.error(`[${componentId}] Mobile immediate autoplay failed:`, err);
+           // Let timeout handle reset
+         });
+      }
 
-    } else if (!isIntersecting || hasPlayedOnce) {
-      // Clear timeout if no longer intersecting or if it has played
+    } else if (!isIntersecting && isMobile) {
+      // Clear timeout if mobile and no longer intersecting (and not explicitly triggered)
+      // Desktop cases rely on playAttempted, which persists even if not intersecting.
       clearInitialPlayTimeout();
     }
-  }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, clearInitialPlayTimeout, attemptReset, componentId]);
+
+    // Cleanup function is handled by the main unmount effect
+
+  // Dependencies: MUST include everything used in the conditions and logic
+  }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, clearInitialPlayTimeout, attemptReset, componentId, dynamicTimeoutMs, playAttempted]); // Added playAttempted
 
 
   // --- Video Event Handlers ---
@@ -490,9 +559,9 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       } else {
          logger.log(`[${componentId}] Waiting timeout expired, but video state changed (loaded, paused, errored, or unmounted). No reset needed.`);
       }
-    }, WAITING_TIMEOUT_MS);
+    }, dynamicTimeoutMs);
     if (onWaitingProp) onWaitingProp(event);
-  }, [onWaitingProp, clearWaitingTimeout, attemptReset, error, videoRef, componentId]);
+  }, [onWaitingProp, clearWaitingTimeout, attemptReset, error, videoRef, componentId, dynamicTimeoutMs]);
 
   // --- Ended Event Handler ---
   const handleEndedInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
