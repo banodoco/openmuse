@@ -63,8 +63,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       title: '',
       description: '',
       classification: defaultClassification,
-      creator: 'self',
-      creatorName: user?.email || '',
       isPrimary: videos.length === 0,
       associatedLoraIds: []
     },
@@ -96,8 +94,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             title: '',
             description: '',
             classification: defaultClassification,
-            creator: 'self' as 'self' | 'someone_else',
-            creatorName: user?.email || '',
             isPrimary: isFirst,
             associatedLoraIds: []
           },
@@ -133,8 +129,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           title: '',
           description: '',
           classification: defaultClassification,
-          creator: 'self',
-          creatorName: user?.email || '',
           isPrimary: isFirst,
           associatedLoraIds: []
         },
@@ -173,8 +167,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             title: '',
             description: '',
             classification: defaultClassification,
-            creator: 'self' as 'self' | 'someone_else',
-            creatorName: user?.email || '',
             isPrimary: isFirst,
             associatedLoraIds: []
           },

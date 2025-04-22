@@ -124,8 +124,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
                   title: pVideo.title || '',
                   placeholder_image: pVideo.placeholder_image || null,
                   description: pVideo.description,
-                  creator: (pVideo as any)?.creator ? 'self' : undefined,
-                  creatorName: (pVideo as any)?.creator_name,
                   classification: (pVideo as any)?.classification,
                   loraName: assetData.name,
                   assetId: assetData.id,
@@ -178,8 +176,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 assetId: processedAsset.id,
                 loraType: processedAsset.lora_type,
                 loraLink: processedAsset.lora_link,
-                creator: media.creator ? 'self' : undefined,
-                creatorName: media.creator_name,
                 modelVariant: processedAsset.model_variant,
                 aspectRatio: (media.metadata as any)?.aspectRatio ?? null
               },

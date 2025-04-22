@@ -173,7 +173,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               url: video.url,
               type: 'video',
               classification: video.metadata.classification || 'art',
-              creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
               user_id: user?.id || null,
               metadata: { aspectRatio: aspectRatio },
               placeholder_image: thumbnailUrl,
@@ -223,14 +222,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       return;
     }
     
-    const missingCreatorNames = videos.filter(
-      video => video.file && video.metadata.creator === 'someone_else' && !video.metadata.creatorName
-    );
-    if (missingCreatorNames.length > 0) {
-      toast.error('Please provide the creator name for all videos created by someone else');
-      return;
-    }
-
     const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
     if (!hasPrimary) {
       toast.error('Please set one video as the primary media for this LoRA');
@@ -342,7 +333,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               url: videoUrl,
               type: 'video',
               classification: video.metadata.classification || 'art',
-              creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
               user_id: user?.id || null,
               placeholder_image: thumbnailUrl,
               metadata: { aspectRatio: aspectRatio },

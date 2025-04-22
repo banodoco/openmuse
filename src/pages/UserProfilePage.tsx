@@ -310,6 +310,8 @@ export default function UserProfilePage() {
               title: video.title || '',
               description: video.description || '',
               is_primary: false,
+              aspectRatio: (video.metadata as any)?.aspectRatio || 16/9,
+              classification: (video.classification as 'art' | 'gen') || 'gen',
             };
           }).filter(Boolean) as VideoEntry[];
 
@@ -871,7 +873,7 @@ export default function UserProfilePage() {
         <VideoLightbox isOpen={!!lightboxVideo} onClose={handleCloseLightbox} videoUrl={lightboxVideo.url} videoId={lightboxVideo.id}
           title={lightboxVideo.metadata?.title} description={lightboxVideo.metadata?.description}
           initialAssetId={lightboxVideo.associatedAssetId ?? undefined}
-          creator={lightboxVideo.user_id || lightboxVideo.metadata?.creatorName}
+          creator={lightboxVideo.user_id}
           thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
           onVideoUpdate={() => { if (profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView, false); }}

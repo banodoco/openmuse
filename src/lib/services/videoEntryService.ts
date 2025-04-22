@@ -56,15 +56,9 @@ export class VideoEntryService {
           metadata: {
             title: media.title,
             description: media.description || '',
-            creator: 'self',
-            creatorName: media.creator || 'Unknown',
-            classification: media.classification || 'art',
-            loraName: undefined,
-            loraDescription: undefined,
-            assetId: undefined,
+            classification: (media.classification as 'art' | 'gen') || 'gen',
             isPrimary: false,
-            placeholder_image: media.placeholder_image,
-            aspectRatio: (media.metadata as any)?.aspectRatio ?? null
+            aspectRatio: (media.metadata as any)?.aspectRatio || 16/9,
           }
         };
         
@@ -82,15 +76,17 @@ export class VideoEntryService {
     try {
       // Prepare the update object for the 'media' table
       const mediaUpdate: Record<string, any> = {};
-      if (update.metadata?.title !== undefined) mediaUpdate.title = update.metadata.title;
-      if (update.metadata?.classification !== undefined) mediaUpdate.classification = update.metadata.classification;
-      if (update.metadata?.creatorName !== undefined || update.reviewer_name !== undefined) {
-         mediaUpdate.creator = update.metadata?.creatorName || update.reviewer_name;
-      }
+      if (update.metadata?.title) mediaUpdate.title = update.metadata.title;
+      if (update.metadata?.description) mediaUpdate.description = update.metadata.description;
+      if (update.metadata?.classification) mediaUpdate.classification = update.metadata.classification;
       if (update.admin_status !== undefined) mediaUpdate.admin_status = update.admin_status;
       if (update.user_status !== undefined) mediaUpdate.user_status = update.user_status;
-      if (update.metadata?.description !== undefined) mediaUpdate.description = update.metadata.description;
       if (update.admin_reviewed !== undefined) mediaUpdate.admin_reviewed = update.admin_reviewed;
+      if (update.placeholder_image) mediaUpdate.placeholder_image = update.placeholder_image;
+      if (update.metadata?.aspectRatio) {
+        if (!mediaUpdate.metadata) mediaUpdate.metadata = {};
+        mediaUpdate.metadata.aspectRatio = update.metadata.aspectRatio;
+      }
 
       // Only proceed if there's something to update
       if (Object.keys(mediaUpdate).length === 0) {
@@ -112,19 +108,19 @@ export class VideoEntryService {
            reviewer_name: existingData.creator || 'Unknown',
            skipped: false,
            created_at: existingData.created_at,
-           admin_status: existingData.admin_status || 'Listed',
-           user_status: existingData.user_status || null,
+           admin_status: (existingData.admin_status as AdminStatus) || null,
+           user_status: (existingData.user_status as AdminStatus) || null,
            user_id: existingData.user_id,
            admin_reviewed: existingData.admin_reviewed || false,
            metadata: {
-             title: existingData.title,
+             title: existingData.title || '',
              description: existingData.description || '',
-             creator: 'self',
-             creatorName: existingData.creator || 'Unknown',
-             classification: existingData.classification || 'art',
-             placeholder_image: existingData.placeholder_image,
-             aspectRatio: (existingData.metadata as any)?.aspectRatio ?? null
-           }
+             classification: (existingData.classification as 'art' | 'gen') || 'gen',
+             isPrimary: false,
+             aspectRatio: (existingData.metadata as any)?.aspectRatio || 16/9,
+           },
+           associatedAssetId: null,
+           placeholder_image: existingData.placeholder_image,
          };
          return mappedData;
       }
@@ -148,19 +144,19 @@ export class VideoEntryService {
         reviewer_name: data.creator || 'Unknown',
         skipped: false,
         created_at: data.created_at,
-        admin_status: data.admin_status || 'Listed',
-        user_status: data.user_status || null,
+        admin_status: (data.admin_status as AdminStatus) || null,
+        user_status: (data.user_status as AdminStatus) || null,
         user_id: data.user_id,
         admin_reviewed: data.admin_reviewed || false,
         metadata: {
-          title: data.title,
+          title: data.title || '',
           description: data.description || '',
-          creator: 'self',
-          creatorName: data.creator || 'Unknown',
-          classification: data.classification || 'art',
-          placeholder_image: data.placeholder_image,
-          aspectRatio: (data.metadata as any)?.aspectRatio ?? null
-        }
+          classification: (data.classification as 'art' | 'gen') || 'gen',
+          isPrimary: false,
+          aspectRatio: (data.metadata as any)?.aspectRatio || 16/9,
+        },
+        associatedAssetId: null,
+        placeholder_image: data.placeholder_image,
       };
       
       return updatedEntry;

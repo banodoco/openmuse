@@ -2,10 +2,8 @@ import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 
 export interface VideoMetadata {
   title: string;
-  description?: string;
-  creator?: 'self' | 'someone_else';
-  creatorName?: string;
-  classification?: 'art' | 'gen';
+  description: string;
+  classification: 'art' | 'gen';
   isPrimary?: boolean;
   loraName?: string;
   loraDescription?: string;
@@ -19,7 +17,8 @@ export interface VideoMetadata {
   trainingSteps?: string | number;
   resolution?: string;
   trainingDataset?: string;
-  aspectRatio?: number | null;
+  aspectRatio?: number;
+  associatedLoraIds?: string[];
 }
 
 export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';
@@ -114,10 +113,8 @@ export interface LoraManagerProps {
 // Standard video metadata form interface to be used across components
 export interface VideoMetadataForm {
   title: string;
-  description: string;
+  description: string
   classification: 'art' | 'gen';
-  creator: 'self' | 'someone_else';
-  creatorName: string;
   isPrimary?: boolean;
 }
 
@@ -129,5 +126,5 @@ export interface VideoItem {
   metadata: VideoMetadataForm;
   associatedLoraIds?: string[];
 }
-
+ 
 export type { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';

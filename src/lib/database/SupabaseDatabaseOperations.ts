@@ -131,7 +131,6 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           url: entry.url,
           type: 'video',
           classification: entry.metadata?.classification || 'art',
-          creator: entry.metadata?.creatorName || entry.reviewer_name,
           user_id: entry.user_id || this.currentUserId,
           admin_status: 'Listed',
           user_status: null,

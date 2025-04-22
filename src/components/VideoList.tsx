@@ -4,7 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
-import { MoreVertical, Edit, Trash2, Eye, FileVideo, Star } from 'lucide-react';
+import { MoreVertical, Edit, Trash2, Eye, FileVideo, Star, UserCircle } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -325,12 +325,10 @@ const VideoList: React.FC<VideoListProps> = ({
               
               <CardContent className="px-4 py-2 text-xs">
                 <div className="space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Created by:</span>
-                    <span className="font-medium">
-                      {video.metadata?.creator === 'self' 
-                        ? video.reviewer_name 
-                        : video.metadata?.creatorName || 'Unknown'}
+                  <div className="flex items-center space-x-2">
+                    <UserCircle size={16} className="text-muted-foreground" />
+                    <span className="text-xs text-muted-foreground">
+                      {video.user_id ? `User ${video.user_id.substring(0, 6)}...` : 'Unknown Creator'}
                     </span>
                   </div>
                 </div>

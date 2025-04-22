@@ -17,8 +17,10 @@ export const convertToCSV = (videos: VideoEntry[]): string => {
     'Creation Date',
     'Video URL',
     'Title',
-    'Creator',
+    'Description',
     'Classification',
+    'URL',
+    'Placeholder Image',
   ];
 
   // Map data to CSV rows
@@ -34,10 +36,12 @@ export const convertToCSV = (videos: VideoEntry[]): string => {
       `"${video.reviewer_name.replace(/"/g, '""')}"`,
       adminStatus,
       formattedDate,
-      `"${video.url}"`,
-      `"${(video.metadata?.title || 'No title').replace(/"/g, '""')}"`,
-      `"${(video.metadata?.creator === 'self' ? 'Self' : video.metadata?.creatorName || 'Someone else').replace(/"/g, '""')}"`,
-      `"${(video.metadata?.classification || 'Unknown').replace(/"/g, '""')}"`,
+      `"${video.url || ''}"`,
+      `"${(video.title || '').replace(/"/g, '""')}"`,
+      `"${(video.description || '').replace(/"/g, '""')}"`,
+      `"${video.metadata?.classification || 'gen'}"`,
+      `"${video.url || ''}"`,
+      `"${video.placeholder_image || ''}"`,
     ].map(field => field === undefined || field === null ? '' : field);
   });
 

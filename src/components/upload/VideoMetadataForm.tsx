@@ -19,8 +19,6 @@ interface VideoMetadataFormProps {
     title: string;
     description: string;
     classification: 'art' | 'gen'; // Expects 'gen'
-    creator: 'self' | 'someone_else';
-    creatorName: string;
     isPrimary?: boolean;
     associatedLoraIds?: string[]; // Add associated Lora IDs here too if not inferred
   };
@@ -108,43 +106,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   </div>
                 </RadioGroup>
               </div>
-              
-              <div>
-                <Label className="text-sm font-medium mb-2 block">Creator</Label>
-                <RadioGroup 
-                  value={metadata.creator}
-                  onValueChange={(value) => updateMetadata(videoId, 'creator', value)}
-                  className="flex flex-col space-y-2"
-                  disabled={disabled}
-                >
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="self" id={`creator-self-${videoId}`} />
-                    <Label htmlFor={`creator-self-${videoId}`} className="cursor-pointer">Me</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="someone_else" id={`creator-someone-else-${videoId}`} />
-                    <Label htmlFor={`creator-someone-else-${videoId}`} className="cursor-pointer">Someone else</Label>
-                  </div>
-                </RadioGroup>
-              </div>
             </div>
-            
-            {metadata.creator === 'someone_else' && (
-              <div>
-                <Label htmlFor={`creator-name-${videoId}`} className="text-sm font-medium mb-1.5 block">
-                  Creator Username <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="text"
-                  id={`creator-name-${videoId}`}
-                  placeholder="Username of the creator"
-                  value={metadata.creatorName}
-                  onChange={(e) => updateMetadata(videoId, 'creatorName', e.target.value)}
-                  required
-                  disabled={disabled}
-                />
-              </div>
-            )}
           </div>
           
           {canSetPrimary && (

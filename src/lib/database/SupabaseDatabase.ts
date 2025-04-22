@@ -89,7 +89,6 @@ export class SupabaseDatabase extends BaseDatabase {
         .update({
           title: update.metadata?.title,
           classification: update.metadata?.classification,
-          creator: update.metadata?.creatorName || update.reviewer_name,
           admin_status: update.admin_status
         })
         .eq('id', id)
@@ -107,7 +106,6 @@ export class SupabaseDatabase extends BaseDatabase {
           .update({
             name: update.metadata.loraName,
             description: update.metadata.loraDescription,
-            creator: update.metadata.creatorName || update.reviewer_name,
             admin_status: update.admin_status,
             user_status: update.user_status
           })
@@ -128,9 +126,8 @@ export class SupabaseDatabase extends BaseDatabase {
         user_status: mediaData.user_status || null,
         user_id: mediaData.user_id,
         metadata: {
-          title: mediaData.title,
+          title: mediaData.title || '',
           description: update.metadata?.description || '',
-          creator: update.metadata?.creator || 'self',
           classification: mediaData.classification || 'art',
           loraName: update.metadata?.loraName,
           loraDescription: update.metadata?.loraDescription,
