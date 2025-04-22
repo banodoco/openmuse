@@ -226,9 +226,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         logger.log('Success toast shown.');
         if (onSuccess) {
           onSuccess();
-        } else {
-          const returnPath = location.state?.from || '/';
-          navigate(returnPath);
         }
       } catch (error: any) {
         console.error('Error submitting media:', error);
@@ -298,9 +295,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       // Otherwise (if used as standalone page), navigate based on location state
       if (onSuccess) {
         onSuccess();
-      } else {
-        const returnPath = location.state?.from || '/';
-        navigate(returnPath);
       }
 
     } catch (error: any) {
