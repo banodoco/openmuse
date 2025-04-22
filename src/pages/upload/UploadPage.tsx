@@ -154,18 +154,23 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           // Calculate aspect ratio for media-only upload
           let aspectRatio = 16 / 9; // Default aspect ratio
           try {
+            logger.log(`Attempting to get aspect ratio for video ${video.id}...`);
             aspectRatio = await getVideoAspectRatio(video.url);
+            logger.log(`Successfully got aspect ratio for video ${video.id}: ${aspectRatio}`);
           } catch (ratioError) {
-            logger.warn(`Could not calculate aspect ratio for ${video.url}:`, ratioError);
-            // Keep default aspect ratio
+            logger.error(`Error getting aspect ratio for video ${video.id} (URL: ${video.url}):`, ratioError);
+            // Keep default aspect ratio, but log the error
           }
 
           // Generate thumbnail for media-only upload
           let thumbnailUrl: string | null = null;
           try {
+            logger.log(`Attempting to generate thumbnail for video ${video.id}...`);
             thumbnailUrl = await thumbnailService.generateThumbnail(video.url);
+            logger.log(`Successfully generated thumbnail for video ${video.id}: ${thumbnailUrl ? 'Generated' : 'Failed or null'}`);
           } catch (thumbError) {
-             logger.warn(`Could not generate thumbnail for ${video.url}:`, thumbError);
+             logger.error(`Error generating thumbnail for video ${video.id} (URL: ${video.url}):`, thumbError);
+             // Keep null thumbnail, but log the error
           }
 
           logger.log(`Attempting to insert media entry for video ${video.id} into database.`);
