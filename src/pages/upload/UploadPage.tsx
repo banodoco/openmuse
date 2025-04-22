@@ -173,7 +173,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
              // Keep null thumbnail, but log the error
           }
 
-          logger.log(`Attempting to insert media entry for video ${video.id} into database.`);
+          logger.log(`STEP 1: Before DB Insert for video ${video.id}`);
           const { data: mediaData, error: mediaError } = await supabase
             .from('media')
             .insert({
@@ -188,31 +188,36 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             })
             .select()
             .single();
+          logger.log(`STEP 2: After DB Insert (Before Error Check) for video ${video.id}`);
 
           if (mediaError || !mediaData) {
-            logger.error(`Error creating media entry for video ${video.id}:`, mediaError);
+            logger.error(`STEP 3: DB Insert FAILED for video ${video.id}:`, mediaError);
             // We might want to throw an error here or collect errors to show the user
             // For now, just log and continue to allow other videos to potentially succeed
             continue;
           }
+          logger.log(`STEP 4: DB Insert SUCCESSFUL (Before mediaId assignment) for video ${video.id}`);
 
           const mediaId = mediaData.id;
           logger.log(`Successfully created media entry for video ${video.id}. Media ID: ${mediaId}`);
 
           // Link based on the video's specific LoRA selection or the forced ID
+          logger.log(`STEP 5: Before LoRA Check for media ${mediaId}`);
           const targetAssetIds = finalForcedLoraId ? [finalForcedLoraId] : (video.metadata.associatedLoraIds || []);
           if (targetAssetIds.length === 0) {
-            console.warn(`Video ${mediaId} had no associated LoRAs selected/forced. Proceeding with media creation without LoRA link.`);
+            logger.warn(`STEP 6: LoRA Check - No LoRAs Found for media ${mediaId}. Proceeding without LoRA link.`);
             // Original: continue; // Skip linking if no LoRAs - now we proceed to create media anyway
           } else {
+            logger.log(`STEP 7: LoRA Check - LoRAs Found for media ${mediaId}. Linking ${targetAssetIds.length} LoRAs.`);
             // Only attempt linking if there are IDs
             for (const assetId of targetAssetIds) {
               const { error: linkError } = await supabase.from('asset_media').insert({ asset_id: assetId, media_id: mediaId });
               if (linkError) {
-                console.error(`Error linking media ${mediaId} to asset ${assetId}:`, linkError);
+                logger.error(`Error linking media ${mediaId} to asset ${assetId}:`, linkError);
               }
             }
           }
+          logger.log(`STEP 8: After LoRA Check for media ${mediaId}`);
         }
 
         logger.log('Finished processing all videos for media entry creation.');
