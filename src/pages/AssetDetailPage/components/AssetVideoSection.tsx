@@ -24,6 +24,7 @@ import {
   PaginationPrevious,
 } from '@/components/ui/pagination';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { sortAssetPageVideos } from '@/lib/utils/videoUtils';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -97,19 +98,11 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     }
     // logger.log(`Videos after classification filter: ${filtered.length}`);
 
-    // Sort: primary first, then featured, then by date
-    filtered.sort((a, b) => {
-      const aIsPrimary = a.id === asset?.primary_media_id;
-      const bIsPrimary = b.id === asset?.primary_media_id;
-      const aIsFeatured = a.admin_status === 'Featured';
-      const bIsFeatured = b.admin_status === 'Featured';
-
-      if (aIsPrimary !== bIsPrimary) return aIsPrimary ? -1 : 1;
-      if (aIsFeatured !== bIsFeatured) return aIsFeatured ? -1 : 1;
-      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-    });
-    // logger.log(`Videos after sorting: ${filtered.length}`);
-    return filtered;
+    // Use the utility function for sorting
+    const sorted = sortAssetPageVideos(filtered, asset?.primary_media_id);
+    
+    // logger.log(`Videos after sorting: ${sorted.length}`);
+    return sorted;
   }, [videos, classification, asset?.primary_media_id]);
 
   const getItemsWithDummies = <T extends VideoEntry>(

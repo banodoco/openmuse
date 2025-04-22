@@ -5,6 +5,7 @@ import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
+import { sortAssetPageVideos } from '@/lib/utils/videoUtils';
 
 const logger = new Logger('useAssetDetails');
 
@@ -202,30 +203,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         : validVideos.filter(v => v.assetMediaDisplayStatus !== 'Hidden');
       logger.log(`[useAssetDetails] Filtered videos count (Hidden removed for non-auth): ${filteredVideos.length}`);
 
-      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
-      
-      const sortedVideos = filteredVideos.sort((a, b) => {
-        // Get statuses with default 'View'
-        const statusA = a.assetMediaDisplayStatus || 'View';
-        const statusB = b.assetMediaDisplayStatus || 'View';
-
-        // Special case: Primary video should be first unless it's hidden
-        if (statusA !== 'Hidden' && statusB !== 'Hidden') {
-          if (a.is_primary && !b.is_primary) return -1;
-          if (!a.is_primary && b.is_primary) return 1;
-        }
-
-        // Then sort by status
-        const orderA = statusOrder[statusA] || 2;
-        const orderB = statusOrder[statusB] || 2;
-        
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-
-        // If same status, sort by date
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
+      const sortedVideos = sortAssetPageVideos(filteredVideos, assetData?.primary_media_id);
       logger.log(`[useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
 
       logger.log('[loraorderingbug] Final sorted video IDs and statuses (before setting state):', sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus}, Primary: ${v.is_primary})`));
@@ -315,8 +293,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
   const updateLocalVideoStatus = useCallback((videoId: string, newStatus: VideoDisplayStatus, type: 'assetMedia' | 'user') => {
     setVideos(prevVideos => {
-      const statusOrder: { [key in VideoDisplayStatus]: number } = { Pinned: 1, View: 2, Hidden: 3 };
-      
       const updatedVideos = prevVideos.map(video => {
         if (video.id === videoId) {
           logger.log(`[useAssetDetails/updateLocalVideoStatus] Updating video ${videoId} - Setting ${type} status to ${newStatus}`);
@@ -329,29 +305,12 @@ export const useAssetDetails = (assetId: string | undefined) => {
         return video;
       });
       
-      const sortedVideos = updatedVideos.sort((a, b) => {
-         const statusA = a.assetMediaDisplayStatus || 'View';
-        const statusB = b.assetMediaDisplayStatus || 'View';
-
-        if (statusA !== 'Hidden' && statusB !== 'Hidden') {
-          if (a.is_primary && !b.is_primary) return -1;
-          if (!a.is_primary && b.is_primary) return 1;
-        }
-
-        const orderA = statusOrder[statusA] || 2;
-        const orderB = statusOrder[statusB] || 2;
-        
-        if (orderA !== orderB) {
-          return orderA - orderB;
-        }
-
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-      });
+      const sortedVideos = sortAssetPageVideos(updatedVideos, asset?.primary_media_id);
       
       logger.log(`[useAssetDetails/updateLocalVideoStatus] State updated for video ${videoId}. New sorted order:`, sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus})`));
       return sortedVideos;
     });
-  }, []);
+  }, [asset]);
 
   const updateLocalPrimaryMedia = useCallback((newPrimaryMediaId: string | null) => {
     setAsset(prevAsset => {

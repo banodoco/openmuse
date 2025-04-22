@@ -1,3 +1,4 @@
+import { VideoEntry, VideoDisplayStatus, AdminStatus } from '@/lib/types';
 
 /**
  * Attempts to play a video with error handling
@@ -145,4 +146,50 @@ export const getVideoFormat = (url: string): string => {
   }
   
   return 'Unknown';
+};
+
+/**
+ * Defines the order for video display statuses.
+ */
+export const VIDEO_DISPLAY_STATUS_ORDER: { [key in VideoDisplayStatus]: number } = {
+  Pinned: 1,
+  View: 2,
+  Hidden: 3,
+};
+
+/**
+ * Sorts videos for an asset detail page based on a specific order:
+ * 1. Display Status (Pinned > View > Hidden)
+ * 2. Primary Video first within the same status
+ * 3. Admin Featured videos next within the same status
+ * 4. Finally, by creation date (newest first)
+ *
+ * @param videos - The array of VideoEntry objects to sort.
+ * @param primaryMediaId - The ID of the primary media for the asset, if any.
+ * @returns A new array with the sorted videos.
+ */
+export const sortAssetPageVideos = (
+  videos: VideoEntry[],
+  primaryMediaId: string | null | undefined
+): VideoEntry[] => {
+  return [...videos].sort((a, b) => {
+    // 1) Display status order
+    const statusA = a.assetMediaDisplayStatus || 'View';
+    const statusB = b.assetMediaDisplayStatus || 'View';
+    const statusDiff = (VIDEO_DISPLAY_STATUS_ORDER[statusA] || 2) - (VIDEO_DISPLAY_STATUS_ORDER[statusB] || 2);
+    if (statusDiff !== 0) return statusDiff;
+
+    // 2) Primary media first (within the same status)
+    const aIsPrimary = a.id === primaryMediaId;
+    const bIsPrimary = b.id === primaryMediaId;
+    if (aIsPrimary !== bIsPrimary) return aIsPrimary ? -1 : 1;
+
+    // 3) Admin Featured videos next (within the same status and primary status)
+    const aIsFeatured = a.admin_status === 'Featured';
+    const bIsFeatured = b.admin_status === 'Featured';
+    if (aIsFeatured !== bIsFeatured) return aIsFeatured ? -1 : 1;
+
+    // 4) Finally, most recent first
+    return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+  });
 };
