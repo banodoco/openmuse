@@ -18,6 +18,11 @@ interface VideoGallerySectionProps {
   header: string;
   isLoading?: boolean;
   seeAllPath?: string;
+  /**
+   * Optional refetch callback provided by parent. If omitted, the section will
+   * create its own instance of useVideoManagement for refetching.
+   */
+  refetchVideos?: () => Promise<void> | void;
 }
 
 // Breakpoints – reuse the same pattern as other grids for consistency
@@ -34,10 +39,14 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   header,
   isLoading = false,
   seeAllPath,
+  refetchVideos: refetchVideosProp,
 }) => {
   const isMobile = useIsMobile();
   const { isAdmin } = useAuth();
-  const { refetchVideos } = useVideoManagement();
+  const { refetchVideos: localRefetchVideos } = useVideoManagement();
+
+  // Prefer the callback from props, fallback to local hook instance
+  const effectiveRefetchVideos = refetchVideosProp || localRefetchVideos;
 
   // Track which video should autoplay while in viewport (mobile only)
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
@@ -97,13 +106,13 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
       toast.success(`Admin status set to ${newStatus}`);
       // Update local lightbox state
       setLightboxVideo(prev => prev ? { ...prev, admin_status: newStatus } : prev);
-      await refetchVideos();
+      await effectiveRefetchVideos();
     } catch (err) {
       logger.error('Error updating admin status:', err);
       toast.error('Failed to update admin status');
       throw err;
     }
-  }, [lightboxVideo, refetchVideos]);
+  }, [lightboxVideo, effectiveRefetchVideos]);
 
   return (
     <section className="space-y-4 mt-10">
@@ -164,7 +173,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
           currentStatus={null}
           onStatusChange={() => Promise.resolve()}
           onAdminStatusChange={handleLightboxAdminStatusChange}
-          onVideoUpdate={() => {}}
+          onVideoUpdate={() => Promise.resolve(effectiveRefetchVideos())}
         />
       )}
     </section>
