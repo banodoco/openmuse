@@ -153,7 +153,10 @@ export default function UserProfilePage() {
     };
   }, []);
 
+  // Modal State
   const [isLoraUploadModalOpen, setIsLoraUploadModalOpen] = useState(false);
+  const [isGenerationUploadModalOpen, setIsGenerationUploadModalOpen] = useState(false);
+  const [isArtUploadModalOpen, setIsArtUploadModalOpen] = useState(false);
 
   // --- Data Fetching Functions defined using useCallback --- 
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
@@ -615,6 +618,22 @@ export default function UserProfilePage() {
     }
   }, [profile, user, isAdmin, fetchUserAssets]);
 
+  // Add success handlers for media uploads
+  const handleGenerationUploadSuccess = useCallback(() => {
+    setIsGenerationUploadModalOpen(false);
+    if (profile?.id) {
+      // Use false for showLoading to avoid jarring reload
+      fetchUserVideos(profile.id, user?.id, isAdmin, false); 
+    }
+  }, [profile, user, isAdmin, fetchUserVideos]);
+
+  const handleArtUploadSuccess = useCallback(() => {
+    setIsArtUploadModalOpen(false);
+    if (profile?.id) {
+      fetchUserVideos(profile.id, user?.id, isAdmin, false); 
+    }
+  }, [profile, user, isAdmin, fetchUserVideos]);
+
   logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
 
   // === Early return if AuthProvider is still loading ===
@@ -796,7 +815,7 @@ export default function UserProfilePage() {
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-gold/10 to-cream/10">
                 <CardTitle className="text-gold-dark">Generations</CardTitle>
                 {isOwner && !forceLoggedOutView && (
-                  <Dialog>
+                  <Dialog open={isGenerationUploadModalOpen} onOpenChange={setIsGenerationUploadModalOpen}>
                     <DialogTrigger asChild>
                       <Button size="sm" className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300">
                         Add Generation
@@ -806,7 +825,12 @@ export default function UserProfilePage() {
                       <DialogHeader>
                         <DialogTitle>Upload Generation</DialogTitle>
                       </DialogHeader>
-                      <UploadPage initialMode="media" defaultClassification="gen" hideLayout={true} />
+                      <UploadPage 
+                        initialMode="media" 
+                        defaultClassification="gen" 
+                        hideLayout={true} 
+                        onSuccess={handleGenerationUploadSuccess}
+                      />
                     </DialogContent>
                   </Dialog>
                 )}
@@ -841,7 +865,7 @@ export default function UserProfilePage() {
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-olive/10 to-cream/10">
                 <CardTitle className="text-olive-dark">Art</CardTitle>
                 {isOwner && !forceLoggedOutView && (
-                   <Dialog>
+                   <Dialog open={isArtUploadModalOpen} onOpenChange={setIsArtUploadModalOpen}>
                      <DialogTrigger asChild>
                        <Button size="sm" className="bg-gradient-to-r from-olive-dark to-olive hover:opacity-90 transition-all duration-300">
                          Add Art
@@ -851,7 +875,12 @@ export default function UserProfilePage() {
                        <DialogHeader>
                          <DialogTitle>Upload Art</DialogTitle>
                        </DialogHeader>
-                       <UploadPage initialMode="media" defaultClassification="art" hideLayout={true} />
+                       <UploadPage 
+                         initialMode="media" 
+                         defaultClassification="art" 
+                         hideLayout={true} 
+                         onSuccess={handleArtUploadSuccess}
+                       />
                      </DialogContent>
                    </Dialog>
                 )}
