@@ -95,7 +95,6 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   ├── LoRADetailsForm.tsx # Form specific to LoRA asset details during upload
 │   │   │   ├── LoraMultiSelectCombobox.tsx # Combobox for selecting multiple LoRAs
 │   │   │   ├── UploadContent.tsx # Main content area for the upload page/modal
-│   │   │   ├── UploadModal.tsx # Modal dialog for the upload process
 │   │   │   ├── VideoDropzone.tsx # Drag-and-drop area for uploading videos
 │   │   │   └── VideoMetadataForm.tsx # Form for entering video metadata during upload
 │   │   ├── video/          # Components related to video display and interaction
