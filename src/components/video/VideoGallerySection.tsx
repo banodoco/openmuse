@@ -15,6 +15,7 @@ interface VideoGallerySectionProps {
   header: string;
   isLoading?: boolean;
   seeAllPath?: string;
+  alwaysShowInfo?: boolean;
 }
 
 // Breakpoints – reuse the same pattern as other grids for consistency
@@ -31,6 +32,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   header,
   isLoading = false,
   seeAllPath,
+  alwaysShowInfo = false,
 }) => {
   const isMobile = useIsMobile();
 
@@ -186,6 +188,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
               }
               onVisibilityChange={handleVideoVisibilityChange}
               shouldBePlaying={isMobile && video.id === visibleVideoId}
+              alwaysShowInfo={alwaysShowInfo}
             />
           ))}
         </Masonry>

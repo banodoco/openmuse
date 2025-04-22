@@ -203,6 +203,13 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
 
   const itemsToDisplay = useMemo(() => getItemsWithDummies(paginatedVideos), [paginatedVideos]); // Paginate before adding dummies
   
+  const scrollToGridWithOffset = (offset: number = -150) => {
+    if (gridContainerRef.current) {
+      const y = gridContainerRef.current.getBoundingClientRect().top + window.pageYOffset + offset;
+      window.scrollTo({ top: y, behavior: 'smooth' });
+    }
+  };
+
   return (
     <div className="md:col-span-2">
       <div className="flex items-center justify-between mb-4">
@@ -277,9 +284,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                 <PaginationItem>
                   <PaginationPrevious
                     onClick={() => {
-                      // Scroll first
-                      gridContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      // Then update page after a delay
+                      scrollToGridWithOffset();
                       setTimeout(() => {
                         if (!unmountedRef.current) {
                             setCurrentPage((p) => Math.max(1, p - 1));
@@ -299,9 +304,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                     <PaginationLink
                       onClick={() => {
                         if (page !== currentPage) {
-                          // Scroll first
-                          gridContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                          // Then update page after a delay
+                          scrollToGridWithOffset();
                           setTimeout(() => {
                             if (!unmountedRef.current) {
                                 setCurrentPage(page);
@@ -320,9 +323,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                 <PaginationItem>
                   <PaginationNext
                     onClick={() => {
-                      // Scroll first
-                      gridContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                      // Then update page after a delay
+                      scrollToGridWithOffset();
                       setTimeout(() => {
                         if (!unmountedRef.current) {
                             setCurrentPage((p) => Math.min(totalPages, p + 1));

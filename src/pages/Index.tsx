@@ -303,6 +303,7 @@ const Index: React.FC = () => {
             videos={curatedArtVideos}
             isLoading={videosLoading}
             seeAllPath="/art"
+            alwaysShowInfo
           />
 
           <Separator className="my-8" />
@@ -313,6 +314,7 @@ const Index: React.FC = () => {
             videos={curatedGenVideos}
             isLoading={videosLoading}
             seeAllPath="/generations"
+            alwaysShowInfo
           />
         </div>
       </div>

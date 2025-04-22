@@ -81,6 +81,11 @@ const getTotalPages = (totalItems: number, pageSize: number): number => {
     return Math.ceil(totalItems / pageSize);
 };
 
+const scrollToElementWithOffset = (element: HTMLElement | null, offset: number = -150) => {
+  if (!element) return;
+  const y = element.getBoundingClientRect().top + window.pageYOffset + offset;
+  window.scrollTo({ top: y, behavior: 'smooth' });
+};
 
 export default function UserProfilePage() {
   const { displayName } = useParams<{ displayName: string }>();
@@ -605,15 +610,15 @@ export default function UserProfilePage() {
 
   // --- UI Event Handlers (Keep these) --- 
   const handleGenerationPageChange = (newPage: number) => {
-    generationsGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToElementWithOffset(generationsGridRef.current);
     setTimeout(() => { if (!unmountedRef.current) setGenerationPage(newPage); }, 300);
   };
   const handleArtPageChange = (newPage: number) => {
-    artGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToElementWithOffset(artGridRef.current);
     setTimeout(() => { if (!unmountedRef.current) setArtPage(newPage); }, 300);
   };
   const handleLoraPageChange = (newPage: number) => {
-    lorasGridRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    scrollToElementWithOffset(lorasGridRef.current);
     setTimeout(() => { if (!unmountedRef.current) setLoraPage(newPage); }, 300);
   };
   const handleOpenLightbox = (video: VideoEntry) => setLightboxVideo(video);
