@@ -224,7 +224,12 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
         toast.success('Media submitted successfully! Awaiting admin approval.');
         logger.log('Success toast shown.');
-        if (onSuccess) onSuccess();
+        if (onSuccess) {
+          onSuccess();
+        } else {
+          const returnPath = location.state?.from || '/';
+          navigate(returnPath);
+        }
       } catch (error: any) {
         console.error('Error submitting media:', error);
         toast.error(error.message || 'Failed to submit media');
