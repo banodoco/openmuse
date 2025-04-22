@@ -19,6 +19,7 @@ export interface VideoMetadata {
   trainingSteps?: string | number;
   resolution?: string;
   trainingDataset?: string;
+  aspectRatio?: number | null;
 }
 
 export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';

@@ -46,13 +46,16 @@ export class SupabaseDatabase extends BaseDatabase {
           user_id: media.user_id,
           metadata: {
             title: media.title,
-            description: '',
+            description: media.description || '',
             creator: 'self',
+            creatorName: media.creator || 'Unknown',
             classification: media.classification || 'art',
             loraName: asset?.name,
             loraDescription: asset?.description,
             assetId: asset?.id,
-            isPrimary: false
+            isPrimary: false,
+            placeholder_image: media.placeholder_image,
+            aspectRatio: (media.metadata as any)?.aspectRatio ?? null
           }
         };
       });

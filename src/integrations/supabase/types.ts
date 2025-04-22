@@ -124,6 +124,7 @@ export type Database = {
           id: string
           model_variant: string | null
           placeholder_image: string | null
+          metadata: Json | null
           title: string
           type: string
           url: string
@@ -140,6 +141,7 @@ export type Database = {
           id?: string
           model_variant?: string | null
           placeholder_image?: string | null
+          metadata?: Json | null
           title: string
           type: string
           url: string
@@ -156,6 +158,7 @@ export type Database = {
           id?: string
           model_variant?: string | null
           placeholder_image?: string | null
+          metadata?: Json | null
           title?: string
           type?: string
           url?: string

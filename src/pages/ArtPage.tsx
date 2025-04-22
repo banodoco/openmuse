@@ -35,7 +35,7 @@ const ArtPage: React.FC = () => {
           />
           
           <VideoGallerySection
-            header="Art Collection" // Use a different header for the page itself
+            header="" // Use a different header for the page itself
             videos={artVideos}
             isLoading={videosLoading}
             seeAllPath={undefined} // No "See all" link on the all page

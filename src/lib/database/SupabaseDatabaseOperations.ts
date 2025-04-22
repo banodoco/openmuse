@@ -1,6 +1,7 @@
 import { VideoEntry } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseDatabase } from './SupabaseDatabase';
+import { getVideoAspectRatio } from '../utils/videoDimensionUtils';
 
 /**
  * Implementation of the more complex database operations for Supabase
@@ -118,6 +119,10 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
   
   async addEntry(entry: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status' | 'user_status'>): Promise<VideoEntry> {
     try {
+      // Get aspect ratio
+      const aspectRatio = await getVideoAspectRatio(entry.url);
+      this.logger.log(`Calculated aspect ratio for new entry: ${aspectRatio}`);
+      
       // Create the media entry
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
@@ -130,7 +135,9 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           user_id: entry.user_id || this.currentUserId,
           admin_status: 'Listed',
           user_status: null,
-          model_variant: entry.metadata?.modelVariant
+          model_variant: entry.metadata?.modelVariant,
+          placeholder_image: entry.metadata?.placeholder_image,
+          metadata: { aspectRatio: aspectRatio }
         })
         .select()
         .single();
@@ -223,7 +230,7 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
       }
       
       // Construct the new VideoEntry object
-      const newEntry: VideoEntry = {
+      const finalEntry: VideoEntry = {
         id: mediaData.id,
         url: mediaData.url,
         reviewer_name: entry.reviewer_name,
@@ -233,28 +240,26 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
         user_status: null,
         user_id: mediaData.user_id,
         metadata: {
-          title: mediaData.title,
-          creator: entry.metadata?.creator || 'self',
-          classification: mediaData.classification || 'art',
-          description: entry.metadata?.description || '',
-          assetId,
-          loraName: entry.metadata?.loraName,
-          loraDescription: entry.metadata?.loraDescription,
-          loraType: entry.metadata?.loraType,
-          loraLink: entry.metadata?.loraLink,
+          title: entry.metadata?.title || 'Untitled',
+          description: entry.metadata?.description,
+          creator: entry.metadata?.creator,
+          creatorName: entry.metadata?.creatorName,
+          classification: entry.metadata?.classification || 'art',
           model: entry.metadata?.model,
           modelVariant: entry.metadata?.modelVariant,
           baseModel: entry.metadata?.baseModel,
-          placeholder_image: entry.metadata?.placeholder_image,
+          placeholder_image: mediaData.placeholder_image,
           trainingSteps: entry.metadata?.trainingSteps,
           resolution: entry.metadata?.resolution,
           trainingDataset: entry.metadata?.trainingDataset,
-          isPrimary: entry.metadata?.isPrimary || false
+          isPrimary: entry.metadata?.isPrimary || false,
+          assetId: assetId,
+          aspectRatio: (mediaData.metadata as any)?.aspectRatio
         },
         associatedAssetId: assetId
       };
       
-      return newEntry;
+      return finalEntry;
     } catch (error) {
       this.logger.error('Error adding entry:', error);
       throw error;

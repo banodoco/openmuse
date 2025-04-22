@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '../supabase';
 import { Logger } from '../logger';
 import { thumbnailService } from './thumbnailService';
+import { getVideoAspectRatio } from '../utils/videoDimensionUtils';
 
 const logger = new Logger('VideoUploadService');
 
@@ -50,6 +51,10 @@ class VideoUploadService {
       logger.log('Generating thumbnail for video');
       const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
       
+      // Get aspect ratio
+      const aspectRatio = await getVideoAspectRatio(videoUrl);
+      logger.log(`Calculated aspect ratio: ${aspectRatio}`);
+      
       const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : '';
       const videoDescription = videoFile.metadata?.description ? videoFile.metadata.description : '';
 
@@ -64,7 +69,8 @@ class VideoUploadService {
           creator: videoFile.metadata?.creatorName || reviewerName,
           user_id: userId || this.currentUserId,
           admin_status: 'Listed',
-          placeholder_image: thumbnailUrl
+          placeholder_image: thumbnailUrl,
+          metadata: { aspectRatio: aspectRatio }
         })
         .select()
         .single();
@@ -162,6 +168,10 @@ class VideoUploadService {
       logger.log(`Generating thumbnail for video associated with asset ${assetId}`);
       const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
 
+      // Get aspect ratio
+      const aspectRatio = await getVideoAspectRatio(videoUrl);
+      logger.log(`Calculated aspect ratio for asset video: ${aspectRatio}`);
+      
       const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : '';
       const videoDescription = videoFile.metadata?.description ? videoFile.metadata.description : '';
 
@@ -176,7 +186,8 @@ class VideoUploadService {
           creator: videoFile.metadata?.creatorName || reviewerName,
           user_id: userId || this.currentUserId,
           admin_status: 'Listed',
-          placeholder_image: thumbnailUrl
+          placeholder_image: thumbnailUrl,
+          metadata: { aspectRatio: aspectRatio }
         })
         .select()
         .single();
@@ -339,7 +350,9 @@ class VideoUploadService {
           classification: entryData.metadata?.classification || 'art',
           creator: entryData.metadata?.creatorName || entryData.reviewer_name,
           user_id: entryData.user_id || this.currentUserId,
-          admin_status: 'Listed'
+          admin_status: 'Listed',
+          placeholder_image: entryData.metadata?.placeholder_image,
+          metadata: { aspectRatio: entryData.metadata?.aspectRatio }
         })
         .select()
         .single();
@@ -411,7 +424,11 @@ class VideoUploadService {
         logger.log(`No placeholder image provided for URL entry, generating thumbnail.`);
         thumbnailUrl = await thumbnailService.generateThumbnail(entryData.url);
       }
-
+      
+      // Get aspect ratio
+      const aspectRatio = await getVideoAspectRatio(entryData.url);
+      logger.log(`Calculated aspect ratio for existing entry: ${aspectRatio}`);
+      
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
@@ -423,7 +440,8 @@ class VideoUploadService {
           creator: entryData.metadata?.creatorName || entryData.reviewer_name,
           user_id: entryData.user_id || this.currentUserId,
           admin_status: 'Listed',
-          placeholder_image: thumbnailUrl
+          placeholder_image: thumbnailUrl,
+          metadata: { aspectRatio: aspectRatio }
         })
         .select()
         .single();

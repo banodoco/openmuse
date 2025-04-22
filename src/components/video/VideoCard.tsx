@@ -67,7 +67,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const isHoveringRef = useRef(isHovering);
-  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  const [aspectRatio, setAspectRatio] = useState<number | null>(
+    video.metadata?.aspectRatio ?? null
+  );
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
@@ -90,9 +92,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const handleVideoLoad = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     const videoElement = event.target as HTMLVideoElement;
     if (videoElement.videoWidth && videoElement.videoHeight) {
-      setAspectRatio(videoElement.videoWidth / videoElement.videoHeight);
+      const loadedAspectRatio = videoElement.videoWidth / videoElement.videoHeight;
+      if (aspectRatio === null || Math.abs(aspectRatio - loadedAspectRatio) > 0.01) {
+        setAspectRatio(loadedAspectRatio);
+      }
     } else {
-      if (!aspectRatio) { 
+      if (aspectRatio === null) { 
         setAspectRatio(16/9);
       }
     }

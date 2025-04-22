@@ -180,6 +180,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 creator: media.creator ? 'self' : undefined,
                 creatorName: media.creator_name,
                 modelVariant: processedAsset.model_variant,
+                aspectRatio: (media.metadata as any)?.aspectRatio ?? null
               },
               admin_status: media.admin_status as AdminStatus || null,
             } as VideoEntry;

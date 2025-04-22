@@ -14,6 +14,7 @@ import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { useToast } from '@/components/ui/use-toast';
 import { VideoItem } from '@/lib/types';
 import { thumbnailService } from '@/lib/services/thumbnailService';
+import { getVideoAspectRatio } from '@/lib/utils/videoDimensionUtils';
 
 const logger = new Logger('Upload');
 
@@ -187,6 +188,10 @@ const UploadPage: React.FC = () => {
           const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
           logger.log(`Thumbnail generated for ${video.metadata.title || 'Untitled'}: ${thumbnailUrl ? 'Success' : 'Failed'}`);
 
+          // Get aspect ratio
+          const aspectRatio = await getVideoAspectRatio(videoUrl);
+          logger.log(`Calculated aspect ratio for ${video.metadata.title}: ${aspectRatio}`);
+          
           logger.log(`Creating media entry for video ${video.metadata.title || 'Untitled'}`);
           const { data: mediaData, error: mediaError } = await supabase
             .from('media')
@@ -198,7 +203,8 @@ const UploadPage: React.FC = () => {
               classification: video.metadata.classification || 'art',
               creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
               user_id: user?.id || null,
-              placeholder_image: thumbnailUrl // Save the generated thumbnail URL
+              placeholder_image: thumbnailUrl, // Save the generated thumbnail URL
+              metadata: { aspectRatio: aspectRatio } // <-- Store aspect ratio
             })
             .select()
             .single();

@@ -55,13 +55,16 @@ export class VideoEntryService {
           admin_reviewed: media.admin_reviewed || false,
           metadata: {
             title: media.title,
-            description: '',
+            description: media.description || '',
             creator: 'self',
+            creatorName: media.creator || 'Unknown',
             classification: media.classification || 'art',
             loraName: undefined,
             loraDescription: undefined,
             assetId: undefined,
-            isPrimary: false
+            isPrimary: false,
+            placeholder_image: media.placeholder_image,
+            aspectRatio: (media.metadata as any)?.aspectRatio ?? null
           }
         };
         
@@ -103,7 +106,27 @@ export class VideoEntryService {
            return null;
          }
          // Map existing data back (simplified for brevity)
-         return { ...existingData, admin_status: existingData.admin_status || 'Listed' } as VideoEntry; // Cast needed
+         const mappedData: VideoEntry = {
+           id: existingData.id,
+           url: existingData.url,
+           reviewer_name: existingData.creator || 'Unknown',
+           skipped: false,
+           created_at: existingData.created_at,
+           admin_status: existingData.admin_status || 'Listed',
+           user_status: existingData.user_status || null,
+           user_id: existingData.user_id,
+           admin_reviewed: existingData.admin_reviewed || false,
+           metadata: {
+             title: existingData.title,
+             description: existingData.description || '',
+             creator: 'self',
+             creatorName: existingData.creator || 'Unknown',
+             classification: existingData.classification || 'art',
+             placeholder_image: existingData.placeholder_image,
+             aspectRatio: (existingData.metadata as any)?.aspectRatio ?? null
+           }
+         };
+         return mappedData;
       }
       
       const { data, error } = await supabase
@@ -114,16 +137,16 @@ export class VideoEntryService {
         .single();
       
       if (error) {
-        this.logger.error(`Error updating media ${id}:`, JSON.stringify(error, null, 2));
+        this.logger.error(`Error updating media ${id}:`, error);
         return null;
       }
       
-      // Construct the updated VideoEntry object from the response
+      // Map the returned data to VideoEntry
       const updatedEntry: VideoEntry = {
         id: data.id,
         url: data.url,
         reviewer_name: data.creator || 'Unknown',
-        skipped: update.skipped || false,
+        skipped: false,
         created_at: data.created_at,
         admin_status: data.admin_status || 'Listed',
         user_status: data.user_status || null,
@@ -131,19 +154,18 @@ export class VideoEntryService {
         admin_reviewed: data.admin_reviewed || false,
         metadata: {
           title: data.title,
-          description: data.description || update.metadata?.description || '',
-          creator: update.metadata?.creator || 'self',
+          description: data.description || '',
+          creator: 'self',
+          creatorName: data.creator || 'Unknown',
           classification: data.classification || 'art',
-          loraName: update.metadata?.loraName,
-          loraDescription: update.metadata?.loraDescription,
-          assetId: update.metadata?.assetId,
-          isPrimary: update.metadata?.isPrimary || false
+          placeholder_image: data.placeholder_image,
+          aspectRatio: (data.metadata as any)?.aspectRatio ?? null
         }
       };
       
       return updatedEntry;
     } catch (error) {
-      this.logger.error(`Error updating entry ${id}:`, JSON.stringify(error, null, 2));
+      this.logger.error(`Error updating entry ${id}:`, error);
       return null;
     }
   }
