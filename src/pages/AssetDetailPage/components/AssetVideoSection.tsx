@@ -87,6 +87,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const itemsPerPage = 15; // Or make this a prop
   const [currentPage, setCurrentPage] = useState(1);
 
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
     // logger.log(`Hover change: ${videoId}, ${isHovering}`);
     setHoveredVideoId(isHovering ? videoId : null);
@@ -206,6 +208,14 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     }
   };
 
+  const handleUploadSuccess = () => {
+    setIsUploadModalOpen(false);
+    // Optional: refetch video data if needed
+    // if (refetchAssetDetails) {
+    //   refetchAssetDetails();
+    // }
+  };
+
   return (
     <div className="md:col-span-2">
       <div className="flex items-center justify-between mb-4">
@@ -226,7 +236,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       </div>
       
       <div className="mb-4">
-        <Dialog>
+        <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
           <DialogTrigger asChild>
             <Button 
               variant="ghost"
@@ -249,6 +259,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               forcedLoraId={asset?.id}
               defaultClassification="gen"
               hideLayout={true}
+              onSuccess={handleUploadSuccess}
             />
           </DialogContent>
         </Dialog>

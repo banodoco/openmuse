@@ -36,9 +36,10 @@ interface UploadPageProps {
   forcedLoraId?: string;
   defaultClassification?: 'art' | 'gen';
   hideLayout?: boolean;
+  onSuccess?: () => void;
 }
 
-const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, forcedLoraId: forcedLoraIdProp, defaultClassification: defaultClassificationProp, hideLayout = false }) => {
+const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, forcedLoraId: forcedLoraIdProp, defaultClassification: defaultClassificationProp, hideLayout = false, onSuccess }) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -182,7 +183,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         }
 
         toast.success('Media submitted successfully! Awaiting admin approval.');
-        navigate('/');
+        if (onSuccess) onSuccess();
       } catch (error: any) {
         console.error('Error submitting media:', error);
         toast.error(error.message || 'Failed to submit media');
