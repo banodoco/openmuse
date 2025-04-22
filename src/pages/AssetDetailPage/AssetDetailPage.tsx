@@ -365,15 +365,15 @@ function AssetDetailPage() {
       if (error) throw error;
 
       toast.success(`Video admin status updated to ${newStatus}`);
-      // The component will re-render with updated videos from the hook.
-      // If the currently open lightbox video (currentVideo) was the one updated,
-      // its details might be stale until the user closes and reopens it, or we could 
-      // add more complex state management here if needed later.
+
+      // Refetch the asset details (which includes the video list) silently
+      // after successfully updating the status in the database.
+      await fetchAssetDetails({ silent: true });
 
       // Update the currentVideo state to reflect the change immediately in the lightbox
-      setCurrentVideo(prevVideo => 
-        prevVideo && prevVideo.id === videoId 
-          ? { ...prevVideo, admin_status: newStatus } 
+      setCurrentVideo(prevVideo =>
+        prevVideo && prevVideo.id === videoId
+          ? { ...prevVideo, admin_status: newStatus }
           : prevVideo
       );
 
