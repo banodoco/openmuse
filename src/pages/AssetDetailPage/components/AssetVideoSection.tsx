@@ -2,7 +2,6 @@ import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { VideoEntry, LoraAsset, VideoDisplayStatus } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
 import VideoCard from '@/components/video/VideoCard';
-import LoRAVideoUploader from '@/components/lora/LoRAVideoUploader';
 import { useAuth } from '@/hooks/useAuth';
 import { Logger } from '@/lib/logger';
 import {
@@ -25,6 +24,9 @@ import {
 } from '@/components/ui/pagination';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { sortAssetPageVideos } from '@/lib/utils/videoUtils';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import UploadPage from '@/pages/upload/UploadPage';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -223,12 +225,24 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       </div>
       
       <div className="mb-4">
-        <LoRAVideoUploader 
-          assetId={asset?.id || ''} 
-          assetName={asset?.name || ''} 
-          onUploadsComplete={refetchVideos}
-          isLoggedIn={!!user}
-        />
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button variant="outline">
+              Upload Video
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Upload Media for {asset?.name || 'this LoRA'}</DialogTitle>
+            </DialogHeader>
+            <UploadPage
+              initialMode="media"
+              forcedLoraId={asset?.id}
+              defaultClassification="gen"
+              hideLayout={true}
+            />
+          </DialogContent>
+        </Dialog>
       </div>
       
       {videosToDisplay.length > 0 ? (

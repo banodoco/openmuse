@@ -9,6 +9,10 @@ import VideoLightbox from '@/components/VideoLightbox';
 import { Logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import { Button } from '@/components/ui/button';
+import UploadPage from '@/pages/upload/UploadPage';
+import { cn } from '@/lib/utils';
 
 interface VideoGallerySectionProps {
   videos: VideoEntry[];
@@ -16,6 +20,10 @@ interface VideoGallerySectionProps {
   isLoading?: boolean;
   seeAllPath?: string;
   alwaysShowInfo?: boolean;
+  /** Message to display when there are no videos to show */
+  emptyMessage?: string;
+  showAddButton?: boolean;
+  addButtonClassification?: 'art' | 'gen';
 }
 
 // Breakpoints – reuse the same pattern as other grids for consistency
@@ -33,6 +41,9 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   isLoading = false,
   seeAllPath,
   alwaysShowInfo = false,
+  emptyMessage,
+  showAddButton = false,
+  addButtonClassification = 'gen',
 }) => {
   const isMobile = useIsMobile();
 
@@ -44,6 +55,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   const unmountedRef = useRef(false);
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
   const [galleryVideos, setGalleryVideos] = useState<VideoEntry[]>(videos);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
   useEffect(() => {
     return () => {
@@ -160,7 +172,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
             to={seeAllPath}
             className="text-sm text-primary hover:underline ml-auto"
           >
-            See all featured {header} →
+            See all curated {header} →
           </Link>
         )}
       </div>
@@ -168,7 +180,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
       {isLoading ? (
         <LoraGallerySkeleton count={isMobile ? 2 : 6} />
       ) : galleryVideos.length === 0 ? (
-        <p className="text-muted-foreground text-sm">There are no curated videos yet :(</p>
+        <p className="text-muted-foreground text-sm">{emptyMessage ?? 'There are no curated videos yet :('}</p>
       ) : (
         <Masonry
           breakpointCols={breakpointColumnsObj}
@@ -192,6 +204,31 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
             />
           ))}
         </Masonry>
+      )}
+
+      {/* Conditionally render the Add button and its Dialog */}
+      {showAddButton && (
+        <div className="mt-6 flex justify-start">
+          <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+            <DialogTrigger asChild>
+              <Button 
+                variant="ghost"
+                size={isMobile ? "sm" : "default"} 
+                // Consider if disabled state is needed here based on auth/loading
+                className={cn(
+                  "border border-input hover:bg-accent hover:text-accent-foreground",
+                  "text-muted-foreground",
+                  isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
+                )}>
+                Add New {header}
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="sm:max-w-[80vw] overflow-y-auto">
+              {/* Render UploadPage with Media mode, specific classification, and hidden layout */}
+              <UploadPage initialMode="media" defaultClassification={addButtonClassification} hideLayout={true} />
+            </DialogContent>
+          </Dialog>
+        </div>
       )}
 
       {lightboxVideo && (

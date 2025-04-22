@@ -8,6 +8,11 @@ import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
 
+type LoraOption = {
+  id: string;
+  name: string;
+}
+
 interface VideoItem {
   file: File | null;
   url: string | null;
@@ -18,6 +23,7 @@ interface VideoItem {
     creator: 'self' | 'someone_else';
     creatorName: string;
     isPrimary?: boolean;
+    associatedLoraIds?: string[];
   };
   id: string;
 }
@@ -27,9 +33,11 @@ interface MultipleVideoUploaderProps {
   setVideos: React.Dispatch<React.SetStateAction<VideoItem[]>>;
   disabled?: boolean;
   hideIsPrimary?: boolean;
-  allowPrimarySelection?: boolean; // Add this prop
-  availableLoras?: any[]; // Add this prop
-  uploadContext?: string; // Add this prop
+  allowPrimarySelection?: boolean;
+  availableLoras?: LoraOption[];
+  uploadContext?: string;
+  showLoraSelectors?: boolean;
+  defaultClassification?: 'art' | 'gen';
 }
 
 const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
@@ -39,7 +47,9 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   hideIsPrimary = false,
   allowPrimarySelection = true,
   availableLoras = [],
-  uploadContext = ''
+  uploadContext = '',
+  showLoraSelectors = false,
+  defaultClassification = 'gen'
 }) => {
   const { toast } = useToast();
   const { user } = useAuth();
@@ -52,10 +62,11 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     metadata: {
       title: '',
       description: '',
-      classification: 'gen',
+      classification: defaultClassification,
       creator: 'self',
       creatorName: user?.email || '',
-      isPrimary: videos.length === 0
+      isPrimary: videos.length === 0,
+      associatedLoraIds: []
     },
     id: uuidv4()
   });
@@ -84,10 +95,11 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'gen' as 'art' | 'gen',
+            classification: defaultClassification,
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
-            isPrimary: isFirst
+            isPrimary: isFirst,
+            associatedLoraIds: []
           },
           id: uuidv4()
         } as VideoItem;
@@ -120,10 +132,11 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         metadata: {
           title: '',
           description: '',
-          classification: 'gen',
+          classification: defaultClassification,
           creator: 'self',
           creatorName: user?.email || '',
-          isPrimary: isFirst
+          isPrimary: isFirst,
+          associatedLoraIds: []
         },
         id: uuidv4()
       }
@@ -159,10 +172,11 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           metadata: {
             title: '',
             description: '',
-            classification: 'gen' as 'art' | 'gen',
+            classification: defaultClassification,
             creator: 'self' as 'self' | 'someone_else',
             creatorName: user?.email || '',
-            isPrimary: isFirst
+            isPrimary: isFirst,
+            associatedLoraIds: []
           },
           id: uuidv4()
         }
@@ -192,6 +206,12 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             return {
               ...video,
               metadata: { ...video.metadata, isPrimary: true }
+            };
+          }
+          if (field === 'associatedLoraIds') {
+            return {
+              ...video,
+              metadata: { ...video.metadata, associatedLoraIds: value }
             };
           }
           return {
@@ -321,6 +341,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                       updateMetadata={updateVideoMetadata}
                       canSetPrimary={!hideIsPrimary}
                       disabled={disabled}
+                      showLoraSelector={showLoraSelectors}
+                      availableLoras={availableLoras}
                     />
                   </div>
                 </CardContent>

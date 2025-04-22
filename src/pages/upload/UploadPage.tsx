@@ -1,20 +1,21 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { toast } from 'sonner';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { VideoMetadataForm, LoRADetailsForm, MultipleVideoUploader } from './components';
+import { LoRADetailsForm, MultipleVideoUploader } from './components';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '@/lib/logger';
 import { v4 as uuidv4 } from 'uuid';
 import { supabaseStorage } from '@/lib/supabaseStorage';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
-import { useToast } from '@/components/ui/use-toast';
 import { VideoItem } from '@/lib/types';
 import { thumbnailService } from '@/lib/services/thumbnailService';
 import { getVideoAspectRatio } from '@/lib/utils/videoDimensionUtils';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
 
 const logger = new Logger('Upload');
 
@@ -30,7 +31,14 @@ interface LoRADetails {
   loraLink: string;
 }
 
-const UploadPage: React.FC = () => {
+interface UploadPageProps {
+  initialMode?: 'lora' | 'media';
+  forcedLoraId?: string;
+  defaultClassification?: 'art' | 'gen';
+  hideLayout?: boolean;
+}
+
+const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, forcedLoraId: forcedLoraIdProp, defaultClassification: defaultClassificationProp, hideLayout = false }) => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -56,6 +64,41 @@ const UploadPage: React.FC = () => {
   
   const [videos, setVideos] = useState<any[]>([]);
   
+  const location = useLocation();
+  const searchParams = new URLSearchParams(location.search);
+  // Determine initial mode and forced LoRA ID from query params OR props
+  const initialModeParam = searchParams.get('mode'); // expected values: 'media' | 'lora'
+  const forcedLoraIdParam = searchParams.get('loraId');
+  const classificationParam = searchParams.get('classification'); // expected values: 'art' | 'gen'
+
+  // Prioritize props over query params
+  const finalInitialMode = initialModeProp ?? (initialModeParam === 'media' ? 'media' : (initialModeParam === 'lora' ? 'lora' : undefined));
+  const finalForcedLoraId = forcedLoraIdProp ?? forcedLoraIdParam;
+  const finalDefaultClassification: 'art' | 'gen' = defaultClassificationProp ?? ((classificationParam === 'art' || classificationParam === 'gen') ? classificationParam : 'gen');
+
+  // Upload mode state – 'lora' (LoRA + media) | 'media' (media‑only)
+  const defaultMode: 'lora' | 'media' = (finalForcedLoraId || finalInitialMode === 'media') ? 'media' : 'lora';
+  const [uploadMode, setUploadMode] = useState<'lora' | 'media'>(defaultMode);
+  const hideModeSelector = !!finalForcedLoraId || !!finalInitialMode;
+
+  // LoRA selection when uploading media only
+  const [availableLoras, setAvailableLoras] = useState<{ id: string; name: string }[]>([]);
+
+  // Fetch available LoRAs when needed
+  useEffect(() => {
+    const fetchLoras = async () => {
+      if (uploadMode !== 'media' || finalForcedLoraId) return; // only fetch when we need list
+      const { data, error } = await supabase
+        .from('assets')
+        .select('id, name')
+        .or('type.eq.lora,type.eq.LoRA');
+      if (!error && data) {
+        setAvailableLoras(data as { id: string; name: string }[]);
+      }
+    };
+    fetchLoras();
+  }, [uploadMode, finalForcedLoraId]);
+
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     
@@ -69,6 +112,84 @@ const UploadPage: React.FC = () => {
     if (!hasVideos) {
       toast.error('Please add at least one video (file or link)');
       return;
+    }
+    
+    if (uploadMode === 'media') {
+      // MEDIA ONLY FLOW --------------------------------------------------
+
+      // Check if *any* video is missing a LoRA selection (if not forced)
+      if (!finalForcedLoraId) {
+        const videoMissingLoras = videos.find(v => !v.metadata.associatedLoraIds || v.metadata.associatedLoraIds.length === 0);
+        if (videoMissingLoras) {
+          toast.error(`Please select the LoRA(s) used for all videos (missing for video: ${videoMissingLoras.metadata.title || videoMissingLoras.id})`);
+          return;
+        }
+      }
+
+      setIsSubmitting(true);
+      const reviewerName = user?.email || 'Anonymous';
+      try {
+        // Process files first to upload them to storage
+        for (const video of videos) {
+          if (video.file) {
+            const videoId = uuidv4();
+            const uploadResult = await supabaseStorage.uploadVideo({
+              id: videoId,
+              blob: video.file,
+              metadata: { ...video.metadata }
+            });
+            video.url = uploadResult.url;
+            video.id = videoId;
+            video.file = null;
+          }
+        }
+
+        // create media rows & link to LoRA assets
+        for (const video of videos) {
+          if (!video.url) continue;
+          const { data: mediaData, error: mediaError } = await supabase
+            .from('media')
+            .insert({
+              title: video.metadata.title || '',
+              url: video.url,
+              type: 'video',
+              classification: video.metadata.classification || 'art',
+              creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
+              user_id: user?.id || null,
+              metadata: {}
+            })
+            .select()
+            .single();
+          if (mediaError || !mediaData) {
+            console.error('Error creating media entry:', mediaError);
+            continue;
+          }
+          const mediaId = mediaData.id;
+
+          // Link based on the video's specific LoRA selection or the forced ID
+          const targetAssetIds = finalForcedLoraId ? [finalForcedLoraId] : (video.metadata.associatedLoraIds || []);
+          if (targetAssetIds.length === 0) {
+            console.warn(`Video ${mediaId} had no associated LoRAs selected/forced.`);
+            continue; // Should not happen if validation above works, but good safeguard
+          }
+          
+          for (const assetId of targetAssetIds) {
+            const { error: linkError } = await supabase.from('asset_media').insert({ asset_id: assetId, media_id: mediaId });
+            if (linkError) {
+              console.error(`Error linking media ${mediaId} to asset ${assetId}:`, linkError);
+            }
+          }
+        }
+
+        toast.success('Media submitted successfully! Awaiting admin approval.');
+        navigate('/');
+      } catch (error: any) {
+        console.error('Error submitting media:', error);
+        toast.error(error.message || 'Failed to submit media');
+      } finally {
+        setIsSubmitting(false);
+      }
+      return; // We are done for media flow
     }
     
     if (!loraDetails.loraName) {
@@ -277,50 +398,76 @@ const UploadPage: React.FC = () => {
   };
   
   return (
-    <div className="flex flex-col min-h-screen bg-background">
-      <Navigation />
+    <div className={`flex flex-col ${hideLayout ? '' : 'min-h-screen bg-background'}`}>
+      {!hideLayout && <Navigation />}
       
-      <main className="flex-1 container mx-auto p-4">
-        <h1 className="text-3xl font-bold tracking-tight mb-4">Add LoRA</h1>
-        <p className="text-muted-foreground mb-8">
-          Submit a LoRA that you or someone else made to be featured.
-        </p>
+      <main className={`flex-1 ${hideLayout ? 'p-0' : 'container mx-auto p-4'}`}>
+        {!hideLayout && (
+          <>
+            <h1 className="text-3xl font-bold tracking-tight mb-4">Add LoRA or Media</h1>
+            <p className="text-muted-foreground mb-8">
+              Submit a LoRA you made, or media generated with existing LoRAs.
+            </p>
+          </>
+        )}
         
         {!user && (
           <Alert className="mb-8 border border-olive/20 bg-cream-light text-foreground font-body">
-            <AlertTitle className="font-heading font-medium">You must be signed in to submit videos.</AlertTitle>
+            <AlertTitle className="font-heading font-medium">You must be signed in to submit.</AlertTitle>
             <AlertDescription className="mt-1 font-body">
-              Please <Link to="/auth" className="font-medium text-olive hover:text-olive-dark underline">sign in</Link> to access all features. You can preview the form below, but fields are disabled.
+              Please <Link to="/auth" className="font-medium text-olive hover:text-olive-dark underline">sign in</Link>.
             </AlertDescription>
           </Alert>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-8">
-          <div className="p-6 border rounded-lg bg-card space-y-4">
-            <h2 className="text-xl font-semibold">LoRA Details</h2>
-            <LoRADetailsForm 
-              loraDetails={loraDetails} 
-              updateLoRADetails={updateLoRADetails}
-              disabled={!user} 
-            />
-          </div>
+          {(!hideModeSelector) && (
+            <div className="mb-8 p-6 border rounded-lg bg-card">
+              <Label className="text-sm font-medium mb-2 block">What would you like to upload?</Label>
+              <RadioGroup value={uploadMode} onValueChange={(v) => setUploadMode(v as 'lora' | 'media')} className="flex gap-4" >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="lora" id="mode-lora" />
+                  <Label htmlFor="mode-lora" className="cursor-pointer">LoRA</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="media" id="mode-media" />
+                  <Label htmlFor="mode-media" className="cursor-pointer">Media</Label>
+                </div>
+              </RadioGroup>
+            </div>
+          )}
+          
+          {uploadMode === 'lora' && !finalForcedLoraId && (
+            <div className="p-6 border rounded-lg bg-card space-y-4">
+              <h2 className="text-xl font-semibold">LoRA Details</h2>
+              <LoRADetailsForm 
+                loraDetails={loraDetails} 
+                updateLoRADetails={updateLoRADetails}
+                disabled={!user} 
+              />
+            </div>
+          )}
           
           <div className="p-6 border rounded-lg bg-card space-y-4">
-            <h2 className="text-xl font-semibold">Videos made with it</h2>
+            <h2 className="text-xl font-semibold">Videos</h2>
             <MultipleVideoUploader 
               videos={videos} 
               setVideos={setVideos} 
               disabled={!user}
+              hideIsPrimary={uploadMode === 'media'}
+              availableLoras={availableLoras}
+              showLoraSelectors={uploadMode === 'media' && !finalForcedLoraId}
+              defaultClassification={finalDefaultClassification}
             />
           </div>
           
           <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
-            {isSubmitting ? 'Submitting...' : 'Submit LoRA'}
+            {isSubmitting ? 'Submitting...' : (uploadMode === 'lora' ? 'Submit LoRA' : 'Submit Media')}
           </Button>
         </form>
       </main>
       
-      <Footer />
+      {!hideLayout && <Footer />}
     </div>
   );
 };

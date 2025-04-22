@@ -12,7 +12,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import LoraCard from '@/components/lora/LoraCard';
 import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
-import UploadModal from '@/components/upload/UploadModal';
 import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import VideoCard from '@/components/video/VideoCard';
@@ -31,6 +30,8 @@ import { Logger } from '@/lib/logger';
 import { toast } from 'sonner';
 import { Helmet } from 'react-helmet-async';
 import { cn } from '@/lib/utils';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import UploadPage from '@/pages/upload/UploadPage';
 
 const logger = new Logger('UserProfilePage');
 
@@ -719,10 +720,19 @@ export default function UserProfilePage() {
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-forest/10 to-olive/10">
                 <CardTitle className="text-forest-dark">LoRAs</CardTitle>
                 {isOwner && !forceLoggedOutView && (
-                  <UploadModal 
-                    trigger={<Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300"> Add new LoRA </Button>} 
-                    initialUploadType="lora"
-                    onUploadSuccess={() => { if(profile?.id) fetchUserAssets(profile.id, canEdit, 1); }} /> 
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300" size="sm">
+                        Add LoRA
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Add LoRA</DialogTitle>
+                      </DialogHeader>
+                      <UploadPage initialMode="lora" defaultClassification="gen" hideLayout={true} />
+                    </DialogContent>
+                  </Dialog>
                 )}
               </CardHeader>
               <CardContent>
@@ -752,10 +762,17 @@ export default function UserProfilePage() {
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-gold/10 to-cream/10">
                 <CardTitle className="text-gold-dark">Generations</CardTitle>
                 {isOwner && !forceLoggedOutView && (
-                  <UploadModal 
-                    trigger={<Button className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300"> Add new Generation </Button>} 
-                    initialUploadType="video" 
-                    onUploadSuccess={() => { if(profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }} /> 
+                  <Dialog>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">Add Generation</Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Upload Generation</DialogTitle>
+                      </DialogHeader>
+                      <UploadPage initialMode="media" defaultClassification="gen" hideLayout={true} />
+                    </DialogContent>
+                  </Dialog>
                 )}
               </CardHeader>
               <CardContent>
@@ -788,10 +805,17 @@ export default function UserProfilePage() {
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-olive/10 to-cream/10">
                 <CardTitle className="text-olive-dark">Art</CardTitle>
                 {isOwner && !forceLoggedOutView && (
-                   <UploadModal 
-                     trigger={<Button className="bg-gradient-to-r from-olive-dark to-olive hover:opacity-90 transition-all duration-300"> Add new Art </Button>} 
-                     initialUploadType="video" 
-                     onUploadSuccess={() => { if(profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView); }}/> 
+                   <Dialog>
+                     <DialogTrigger asChild>
+                       <Button variant="outline" size="sm">Add Art</Button>
+                     </DialogTrigger>
+                     <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                       <DialogHeader>
+                         <DialogTitle>Upload Art</DialogTitle>
+                       </DialogHeader>
+                       <UploadPage initialMode="media" defaultClassification="art" hideLayout={true} />
+                     </DialogContent>
+                   </Dialog>
                 )}
               </CardHeader>
               <CardContent>

@@ -71,7 +71,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
             to="/loras"
             className="text-sm text-primary hover:underline ml-auto"
           >
-            See all featured LoRAs →
+            See all curated LoRAs →
           </Link>
         )}
       </div>

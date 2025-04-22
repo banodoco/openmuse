@@ -15,6 +15,10 @@ import { supabase } from '@/lib/supabase';
 import { LoraAsset } from '@/lib/types';
 import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
+import UploadPage from '@/pages/upload/UploadPage';
+import { cn } from '@/lib/utils';
 
 const logger = new Logger('Index');
 // logger.log('Index page component module loaded');
@@ -31,6 +35,7 @@ const Index: React.FC = () => {
   const permissionCheckInProgress = useRef(false);
   const dataRefreshInProgress = useRef(false);
   const initialRefreshDone = useRef(false);
+  const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   
   // Get video data & loading state
   const { videos, isLoading: videosLoading } = useVideoManagement();
@@ -275,10 +280,6 @@ const Index: React.FC = () => {
           <PageHeader 
             title="Curated resources & art, with a focus on LoRAs for open video models"
             description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan."
-            buttonText="Propose New LoRA"
-            onButtonClick={handleNavigateToUpload}
-            buttonSize={isMobile ? "sm" : "default"}
-            buttonDisabled={isActionDisabled} // Use combined disabled state
           />
           
           <LoraManager
@@ -295,6 +296,30 @@ const Index: React.FC = () => {
             showSeeAllLink={true}
           />
 
+          {/* Add LoRA Button and Dialog */}
+          <div className="mt-6 flex justify-start">
+            <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="ghost"
+                  size={isMobile ? "sm" : "default"} 
+                  disabled={isActionDisabled} // Disable if actions are disabled
+                  className={cn(
+                    "border border-input hover:bg-accent hover:text-accent-foreground", // Add border and hover styles
+                    "text-muted-foreground", // Add muted text color
+                    isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2" // Re-apply size padding/height if cn overrides defaults
+                  )}
+                >
+                  Add New LoRA
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                {/* Render UploadPage with LoRA mode and hidden layout */}
+                <UploadPage initialMode="lora" hideLayout={true} />
+              </DialogContent>
+            </Dialog>
+          </div>
+
           <Separator className="my-8" />
 
           {/* Curated / Featured Art Videos */}
@@ -304,6 +329,9 @@ const Index: React.FC = () => {
             isLoading={videosLoading}
             seeAllPath="/art"
             alwaysShowInfo
+            emptyMessage="There's no curated art yet :("
+            showAddButton={true}
+            addButtonClassification="art"
           />
 
           <Separator className="my-8" />
@@ -315,6 +343,9 @@ const Index: React.FC = () => {
             isLoading={videosLoading}
             seeAllPath="/generations"
             alwaysShowInfo
+            emptyMessage="There are are no curated generations yet :("
+            showAddButton={true}
+            addButtonClassification="gen"
           />
         </div>
       </div>

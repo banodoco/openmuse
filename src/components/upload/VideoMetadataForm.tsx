@@ -6,6 +6,12 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
+import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
+
+type LoraOption = {
+  id: string;
+  name: string;
+}
 
 interface VideoMetadataFormProps {
   videoId: string;
@@ -16,10 +22,13 @@ interface VideoMetadataFormProps {
     creator: 'self' | 'someone_else';
     creatorName: string;
     isPrimary?: boolean;
+    associatedLoraIds?: string[]; // Add associated Lora IDs here too if not inferred
   };
   updateMetadata: (id: string, field: string, value: any) => void; // Expects this prop
   canSetPrimary?: boolean;
   disabled?: boolean;
+  showLoraSelector?: boolean;
+  availableLoras?: LoraOption[];
 }
 
 const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ 
@@ -27,10 +36,20 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   metadata, 
   updateMetadata, 
   canSetPrimary = true,
-  disabled = false
+  disabled = false,
+  showLoraSelector = false, 
+  availableLoras = [], 
 }) => {
   const { user } = useAuth();
   
+  // Handler specifically for the LoRA selector within this form
+  const handleLoraSelectionChange = (selectedIds: string[]) => {
+    updateMetadata(videoId, 'associatedLoraIds', selectedIds);
+  };
+
+  // Extract selected IDs from metadata, default to empty array
+  const associatedLoraIds = metadata.associatedLoraIds || [];
+
   return (
     <Card>
       <CardContent className="pt-6">
@@ -141,6 +160,19 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   Use as primary media for this LoRA
                 </Label>
               </div>
+            </div>
+          )}
+
+          {showLoraSelector && (
+            <div className="pt-4 border-t border-border/40">
+              <Label className="text-sm font-medium mb-2 block">Which LoRA was this created with?</Label>
+              <LoraMultiSelectCombobox 
+                loras={availableLoras}
+                selectedIds={associatedLoraIds}
+                setSelectedIds={handleLoraSelectionChange}
+                disabled={disabled}
+              />
+              {/* Add validation message area if needed */} 
             </div>
           )}
         </div>

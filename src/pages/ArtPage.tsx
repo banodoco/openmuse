@@ -39,6 +39,7 @@ const ArtPage: React.FC = () => {
             videos={artVideos}
             isLoading={videosLoading}
             seeAllPath={undefined} // No "See all" link on the all page
+            emptyMessage="There's no curated art yet :("
           />
         </div>
       </div>

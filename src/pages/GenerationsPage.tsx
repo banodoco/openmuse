@@ -35,10 +35,11 @@ const GenerationsPage: React.FC = () => {
           />
           
           <VideoGallerySection
-            header="Generations Collection" // Use a different header for the page itself
+            header=""
             videos={generationVideos}
             isLoading={videosLoading}
             seeAllPath={undefined} // No "See all" link on the all page
+            emptyMessage="There are are no curated generations yet"
           />
         </div>
       </div>
