@@ -27,9 +27,10 @@ type LoraFormValues = z.infer<typeof loraFormSchema>;
 
 interface LoRADetailsFormProps {
   onCancel?: () => void;
+  onSuccess?: (loraId: string) => void;
 }
 
-const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ onCancel }) => {
+const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ onCancel, onSuccess }) => {
   const { user } = useAuth();
   const navigate = useNavigate();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -80,14 +81,17 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ onCancel }) => {
       }
 
       if (data && data.length > 0) {
+        const newLoraId = data[0].id;
         toast.success('LoRA created successfully!');
         
-        // If onCancel is provided, call it to close the modal
-        if (onCancel) {
+        // If onSuccess is provided, call it instead of navigating
+        if (onSuccess) {
+          onSuccess(newLoraId);
+        } else if (onCancel) { // Fallback to onCancel if no onSuccess
           onCancel();
         } else {
-          // Otherwise navigate to the asset page
-          navigate(`/assets/loras/${data[0].id}`);
+          // Only navigate if neither onSuccess nor onCancel is provided
+          navigate(`/assets/loras/${newLoraId}`);
         }
       }
     } catch (err) {

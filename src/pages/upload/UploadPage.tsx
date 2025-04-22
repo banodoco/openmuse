@@ -182,9 +182,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         }
 
         toast.success('Media submitted successfully! Awaiting admin approval.');
-        if (!hideLayout) {
-          navigate('/');
-        }
+        navigate('/');
       } catch (error: any) {
         console.error('Error submitting media:', error);
         toast.error(error.message || 'Failed to submit media');
@@ -256,9 +254,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         : 'Video submitted successfully! Awaiting admin approval.';
       
       toast.success(message);
-      if (!hideLayout) {
-        navigate('/');
-      }
+      navigate('/');
     } catch (error: any) {
       console.error('Error submitting videos:', error);
       toast.error(error.message || 'Failed to submit videos');
