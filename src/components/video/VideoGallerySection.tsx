@@ -119,14 +119,28 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   const handleLightboxAdminStatusChange = useCallback(async (newStatus: AdminStatus) => {
     const videoId = lastVideoIdRef.current;
     if (!videoId) return;
+
+    // Define which statuses should remain visible in curated galleries
+    const curatedStatuses: AdminStatus[] = ['Curated', 'Featured'];
+
     try {
       const { error } = await supabase
         .from('media')
         .update({ admin_status: newStatus, admin_reviewed: true })
         .eq('id', videoId);
       if (error) throw error;
+
       toast.success(`Video admin status updated to ${newStatus}`);
-      updateVideoLocally(videoId, (v) => ({ ...v, admin_status: newStatus }));
+
+      // If the updated status is still within curated categories, simply mutate the local state
+      if (curatedStatuses.includes(newStatus)) {
+        updateVideoLocally(videoId, (v) => ({ ...v, admin_status: newStatus }));
+      } else {
+        // Otherwise remove the video from the current gallery so the UI reflects the change immediately
+        setGalleryVideos(prev => prev.filter(v => v.id !== videoId));
+        // Also clear the lightbox video reference if it matches
+        setLightboxVideo(prev => (prev && prev.id === videoId ? null : prev));
+      }
     } catch (error) {
       toast.error('Failed to update admin status');
       console.error('handleLightboxAdminStatusChange error', error);
