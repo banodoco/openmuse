@@ -15,6 +15,9 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover"
 import { Badge } from "@/components/ui/badge"
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('LoraMultiSelectCombobox');
 
 type LoraOption = {
   id: string;
@@ -45,16 +48,26 @@ export function LoraMultiSelectCombobox({
   const [open, setOpen] = React.useState(false);
   const [searchTerm, setSearchTerm] = React.useState("");
 
+  logger.log('Rendering LoraMultiSelectCombobox. Props:', {
+    lorasCount: loras.length,
+    selectedIds,
+    disabled,
+    placeholder
+  });
+
   const handleSelect = React.useCallback((loraId: string, checked: boolean) => {
-    if (disabled) return;
+    if (disabled) {
+      logger.log(`handleSelect called for ${loraId} but component is disabled.`);
+      return;
+    }
     
-    console.log(`[LoraMultiSelectCombobox] handleSelect triggered for LoRA ID: ${loraId}, Checked: ${checked}`);
+    logger.log(`handleSelect triggered for LoRA ID: ${loraId}, Checked: ${checked}`);
 
     const newSelectedIds = checked
       ? [...selectedIds, loraId]
       : selectedIds.filter(id => id !== loraId);
     
-    console.log(`[LoraMultiSelectCombobox] Calling setSelectedIds with:`, newSelectedIds);
+    logger.log(`Calling setSelectedIds with:`, newSelectedIds);
     setSelectedIds(newSelectedIds);
   }, [disabled, setSelectedIds, selectedIds]);
 
@@ -65,14 +78,25 @@ export function LoraMultiSelectCombobox({
   }, [loras, selectedIds]);
 
   const filteredLoras = React.useMemo(() => {
+    logger.log('Filtering LoRAs based on searchTerm:', searchTerm);
     if (!searchTerm) return loras;
-    return loras.filter(lora => 
+    const results = loras.filter(lora => 
       lora.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    logger.log('Filtered LoRA results:', results);
+    return results;
   }, [loras, searchTerm]);
 
+  React.useEffect(() => {
+    logger.log('Available loras prop updated:', loras);
+  }, [loras]);
+
+  React.useEffect(() => {
+    logger.log('Selected IDs prop updated:', selectedIds);
+  }, [selectedIds]);
+
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover open={open} onOpenChange={(isOpen) => { logger.log('Popover open state changed:', isOpen); setOpen(isOpen); }}>
       <PopoverTrigger asChild disabled={disabled}>
         <Button
           variant="outline"
@@ -80,6 +104,7 @@ export function LoraMultiSelectCombobox({
           aria-expanded={open}
           className={cn("w-full justify-between h-auto min-h-[2.5rem]", triggerClassName)}
           disabled={disabled}
+          onClick={() => logger.log('Popover trigger button clicked.')}
         >
           <div className="flex flex-wrap gap-1">
             {selectedNames.length > 0 
@@ -98,7 +123,7 @@ export function LoraMultiSelectCombobox({
           <Input
             placeholder={searchPlaceholder}
             value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
+            onChange={(e) => { logger.log('Search term changed:', e.target.value); setSearchTerm(e.target.value); }}
             disabled={disabled}
             className="w-full"
           />
@@ -116,7 +141,9 @@ export function LoraMultiSelectCombobox({
                       disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
                     )}
                     onClick={() => { 
+                      logger.log(`Item clicked for LoRA ${lora.id} (${lora.name})`);
                       if (!disabled) handleSelect(lora.id, !isSelected); 
+                      else logger.log('Item click ignored because component is disabled.');
                     }}
                   >
                     <Checkbox
@@ -125,6 +152,10 @@ export function LoraMultiSelectCombobox({
                       disabled={disabled}
                       aria-labelledby={`lora-label-${lora.id}`}
                       tabIndex={-1}
+                      onCheckedChange={(checked) => { 
+                        logger.log(`Checkbox checkedChange triggered for ${lora.id}, checked: ${checked}`);
+                        if (!disabled) handleSelect(lora.id, !!checked); 
+                      }}
                     />
                     <Label 
                       htmlFor={`lora-${lora.id}`} 

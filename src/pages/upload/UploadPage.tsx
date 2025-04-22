@@ -149,6 +149,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         for (const video of videos) {
           if (!video.url) continue;
           
+          logger.log(`Processing video ${video.id} for media entry creation. URL: ${video.url}`);
+
           // Calculate aspect ratio for media-only upload
           let aspectRatio = 16 / 9; // Default aspect ratio
           try {
@@ -166,6 +168,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
              logger.warn(`Could not generate thumbnail for ${video.url}:`, thumbError);
           }
 
+          logger.log(`Attempting to insert media entry for video ${video.id} into database.`);
           const { data: mediaData, error: mediaError } = await supabase
             .from('media')
             .insert({
@@ -180,11 +183,16 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             })
             .select()
             .single();
+
           if (mediaError || !mediaData) {
-            console.error('Error creating media entry:', mediaError);
+            logger.error(`Error creating media entry for video ${video.id}:`, mediaError);
+            // We might want to throw an error here or collect errors to show the user
+            // For now, just log and continue to allow other videos to potentially succeed
             continue;
           }
+
           const mediaId = mediaData.id;
+          logger.log(`Successfully created media entry for video ${video.id}. Media ID: ${mediaId}`);
 
           // Link based on the video's specific LoRA selection or the forced ID
           const targetAssetIds = finalForcedLoraId ? [finalForcedLoraId] : (video.metadata.associatedLoraIds || []);
@@ -202,7 +210,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           }
         }
 
+        logger.log('Finished processing all videos for media entry creation.');
+
         toast.success('Media submitted successfully! Awaiting admin approval.');
+        logger.log('Success toast shown.');
         if (onSuccess) onSuccess();
       } catch (error: any) {
         console.error('Error submitting media:', error);
