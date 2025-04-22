@@ -1,28 +1,20 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import Masonry from 'react-masonry-css';
-import { VideoEntry } from '@/lib/types';
+import { VideoEntry, AdminStatus } from '@/lib/types';
 import VideoCard from '@/components/video/VideoCard';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
 import { Link } from 'react-router-dom';
 import VideoLightbox from '@/components/VideoLightbox';
 import { Logger } from '@/lib/logger';
-import { useAuth } from '@/hooks/useAuth';
-import { supabase } from '@/lib/supabase';
-import { AdminStatus } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { useVideoManagement } from '@/hooks/useVideoManagement';
 
 interface VideoGallerySectionProps {
   videos: VideoEntry[];
   header: string;
   isLoading?: boolean;
   seeAllPath?: string;
-  /**
-   * Optional refetch callback provided by parent. If omitted, the section will
-   * create its own instance of useVideoManagement for refetching.
-   */
-  refetchVideos?: () => Promise<void> | void;
 }
 
 // Breakpoints – reuse the same pattern as other grids for consistency
@@ -39,21 +31,17 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   header,
   isLoading = false,
   seeAllPath,
-  refetchVideos: refetchVideosProp,
 }) => {
   const isMobile = useIsMobile();
-  const { isAdmin } = useAuth();
-  const { refetchVideos: localRefetchVideos } = useVideoManagement();
-
-  // Prefer the callback from props, fallback to local hook instance
-  const effectiveRefetchVideos = refetchVideosProp || localRefetchVideos;
 
   // Track which video should autoplay while in viewport (mobile only)
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const lastVideoIdRef = useRef<string | null>(null);
   const unmountedRef = useRef(false);
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
+  const [galleryVideos, setGalleryVideos] = useState<VideoEntry[]>(videos);
 
   useEffect(() => {
     return () => {
@@ -63,6 +51,10 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
       }
     };
   }, []);
+
+  useEffect(() => {
+    setGalleryVideos(videos);
+  }, [videos]);
 
   const handleVideoVisibilityChange = useCallback(
     (videoId: string, isVisible: boolean) => {
@@ -86,6 +78,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
 
   const handleOpenLightbox = useCallback((video: VideoEntry) => {
     logger.log('Opening lightbox for video:', video.id);
+    lastVideoIdRef.current = video.id;
     setLightboxVideo(video);
   }, []);
 
@@ -94,25 +87,51 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
     setLightboxVideo(null);
   }, []);
 
-  // Handle admin status change from lightbox
+  const updateVideoLocally = useCallback((id: string, updater: (v: VideoEntry) => VideoEntry) => {
+    setGalleryVideos(prev => prev.map(v => (v.id === id ? updater(v) : v)));
+    setLightboxVideo(prev => (prev && prev.id === id ? updater(prev) : prev));
+  }, []);
+
+  const handleLightboxVideoUpdate = useCallback(async () => {
+    const videoId = lastVideoIdRef.current;
+    if (!videoId) return;
+    try {
+      const { data, error } = await supabase
+        .from('media')
+        .select('id, title, description')
+        .eq('id', videoId)
+        .single();
+      if (error) throw error;
+      updateVideoLocally(videoId, (v) => ({
+        ...v,
+        metadata: {
+          ...(v.metadata || {}),
+          title: data.title,
+          description: data.description,
+        },
+      }));
+    } catch (error) {
+      toast.error('Failed to refresh video details');
+      console.error('handleLightboxVideoUpdate error', error);
+    }
+  }, [updateVideoLocally]);
+
   const handleLightboxAdminStatusChange = useCallback(async (newStatus: AdminStatus) => {
-    if (!lightboxVideo) return;
+    const videoId = lastVideoIdRef.current;
+    if (!videoId) return;
     try {
       const { error } = await supabase
         .from('media')
-        .update({ admin_status: newStatus })
-        .eq('id', lightboxVideo.id);
+        .update({ admin_status: newStatus, admin_reviewed: true })
+        .eq('id', videoId);
       if (error) throw error;
-      toast.success(`Admin status set to ${newStatus}`);
-      // Update local lightbox state
-      setLightboxVideo(prev => prev ? { ...prev, admin_status: newStatus } : prev);
-      await effectiveRefetchVideos();
-    } catch (err) {
-      logger.error('Error updating admin status:', err);
+      toast.success(`Video admin status updated to ${newStatus}`);
+      updateVideoLocally(videoId, (v) => ({ ...v, admin_status: newStatus }));
+    } catch (error) {
       toast.error('Failed to update admin status');
-      throw err;
+      console.error('handleLightboxAdminStatusChange error', error);
     }
-  }, [lightboxVideo, effectiveRefetchVideos]);
+  }, [updateVideoLocally]);
 
   return (
     <section className="space-y-4 mt-10">
@@ -132,20 +151,20 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
 
       {isLoading ? (
         <LoraGallerySkeleton count={isMobile ? 2 : 6} />
-      ) : videos.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No videos found.</p>
+      ) : galleryVideos.length === 0 ? (
+        <p className="text-muted-foreground text-sm">There are no curated videos yet :(</p>
       ) : (
         <Masonry
           breakpointCols={breakpointColumnsObj}
           className="my-masonry-grid"
           columnClassName="my-masonry-grid_column"
         >
-          {videos.map((video) => (
+          {galleryVideos.map((video) => (
             <VideoCard
               key={video.id}
               video={video}
-              isAdmin={isAdmin}
-              isAuthorized={isAdmin}
+              isAdmin={false}
+              isAuthorized={false}
               onOpenLightbox={handleOpenLightbox}
               isHovering={hoveredVideoId === video.id}
               onHoverChange={(isHovering) =>
@@ -168,12 +187,12 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
           description={lightboxVideo.metadata?.description}
           thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
-          isAuthorized={isAdmin}
+          isAuthorized={false}
           adminStatus={lightboxVideo.admin_status}
           currentStatus={null}
           onStatusChange={() => Promise.resolve()}
           onAdminStatusChange={handleLightboxAdminStatusChange}
-          onVideoUpdate={() => Promise.resolve(effectiveRefetchVideos())}
+          onVideoUpdate={handleLightboxVideoUpdate}
         />
       )}
     </section>
