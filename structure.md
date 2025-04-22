@@ -131,6 +131,8 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── VideoPreview.tsx # Component for showing a preview of a video (potentially distinct from VideoCard)
 │   │   └── WebcamRecorder.tsx # Component for recording video directly from the user's webcam
 │   │   └── ErrorBoundary.tsx # Catches React errors in its child component tree and displays a fallback UI
+│   │   └── UserProfilePage.tsx # Component for the user's profile page, allowing viewing and editing of profile information
+│   │   └── Added state management for LoRA upload modal and success handler to refetch assets after upload.
 │   ├── contexts/           # React Context definitions for global state management
 │   │   └── AuthContext.tsx # Context specifically for providing authentication state (user, session) and functions
 │   ├── hooks/              # Custom React hooks for encapsulating reusable stateful logic
@@ -209,6 +211,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   │   └── index.ts    # Barrel file exporting upload page components
 │   │   │   ├── UploadPage.tsx # Main component for the upload page
 │   │   │   └── index.ts      # Barrel file exporting the UploadPage component
+│   │   ├── Updated navigation logic to return to the previous location after successful submission.
 │   │   ├── Admin.tsx       # Component for the administrative dashboard page
 │   │   ├── Auth.tsx        # Component handling the user authentication flow (login/signup forms)
 │   │   ├── AuthCallback.tsx # Component that handles the redirect callback from an external OAuth provider (like Supabase Auth)

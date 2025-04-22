@@ -266,7 +266,11 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         : 'Video submitted successfully! Awaiting admin approval.';
       
       toast.success(message);
-      navigate('/');
+      
+      // Navigate back to the previous location if available, otherwise default to home
+      const returnPath = location.state?.from || '/';
+      navigate(returnPath);
+
     } catch (error: any) {
       console.error('Error submitting videos:', error);
       toast.error(error.message || 'Failed to submit videos');

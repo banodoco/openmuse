@@ -153,6 +153,8 @@ export default function UserProfilePage() {
     };
   }, []);
 
+  const [isLoraUploadModalOpen, setIsLoraUploadModalOpen] = useState(false);
+
   // --- Data Fetching Functions defined using useCallback --- 
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
     logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
@@ -603,6 +605,16 @@ export default function UserProfilePage() {
     }
   }, []); // Empty dependency array as it uses refs and state setters
 
+  const handleLoraUploadSuccess = useCallback(() => {
+    setIsLoraUploadModalOpen(false);
+    // Refetch assets for the current profile after successful upload
+    if (profile?.id) {
+      const canSeeHidden = (user?.id === profile.id) || isAdmin;
+      // Fetch the first page again
+      fetchUserAssets(profile.id, canSeeHidden, 1);
+    }
+  }, [profile, user, isAdmin, fetchUserAssets]);
+
   logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
 
   // === Early return if AuthProvider is still loading ===
@@ -737,7 +749,7 @@ export default function UserProfilePage() {
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-forest/10 to-olive/10">
                 <CardTitle className="text-forest-dark">LoRAs</CardTitle>
                 {isOwner && !forceLoggedOutView && (
-                  <Dialog>
+                  <Dialog open={isLoraUploadModalOpen} onOpenChange={setIsLoraUploadModalOpen}>
                     <DialogTrigger asChild>
                       <Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300" size="sm">
                         Add LoRA
@@ -747,15 +759,20 @@ export default function UserProfilePage() {
                       <DialogHeader>
                         <DialogTitle>Add LoRA</DialogTitle>
                       </DialogHeader>
-                      <UploadPage initialMode="lora" defaultClassification="gen" hideLayout={true} />
+                      <UploadPage 
+                        initialMode="lora" 
+                        defaultClassification="gen" 
+                        hideLayout={true} 
+                        onSuccess={handleLoraUploadSuccess}
+                      />
                     </DialogContent>
                   </Dialog>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent ref={lorasGridRef} className="p-4 md:p-6">
                 {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                  userAssets.length > 0 ? ( <> 
-                    <div ref={lorasGridRef} className="relative pt-6"> <Masonry breakpointCols={defaultBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
+                    <div className="relative pt-6"> <Masonry breakpointCols={defaultBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
                         {loraItemsForPage.map(item => ( <LoraCard 
                             key={item.id} 
                             lora={item} 
