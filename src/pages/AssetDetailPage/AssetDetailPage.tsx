@@ -388,7 +388,10 @@ function AssetDetailPage() {
   if (isLoading) {
     // logger.log('[AssetDetailPage Render] Returning loading state.');
     return (
-      <ErrorBoundary fallbackRender={({ error }) => <div className="p-4 text-red-500">Error loading asset details: {error.message}</div>}>
+      <ErrorBoundary fallbackRender={({ error }) => {
+        console.error("ErrorBoundary (Loading Asset): Caught error -", error);
+        return <div className="p-4 text-red-500">Error loading asset details: {error.message}</div>;
+      }}>
         <Suspense fallback={<LoadingState />}>
           <div className="w-full min-h-screen flex flex-col">
             <Helmet>
@@ -407,7 +410,10 @@ function AssetDetailPage() {
   if (!asset) {
     // logger.log('[AssetDetailPage Render] Asset is null or undefined AFTER loading completed. Returning Not Found/Error state.');
     return (
-      <ErrorBoundary fallbackRender={({ error }) => <div className="p-4 text-red-500">Error determining asset: {error.message}</div>}>
+      <ErrorBoundary fallbackRender={({ error }) => {
+        console.error("ErrorBoundary (Determining Asset): Caught error -", error);
+        return <div className="p-4 text-red-500">Error determining asset: {error.message}</div>;
+      }}>
         <Suspense fallback={<LoadingState />}>
           <div className="w-full min-h-screen flex flex-col">
             <Helmet>
@@ -427,7 +433,10 @@ function AssetDetailPage() {
   // logger.log('[AssetDetailPage Render] Videos state:', videos);
   
   return (
-    <ErrorBoundary fallbackRender={({ error }) => <div className="p-4 text-red-500">An error occurred: {error.message}</div>}>
+    <ErrorBoundary fallbackRender={({ error }) => {
+      console.error("ErrorBoundary (Main Render): Caught error -", error);
+      return <div className="p-4 text-red-500">An error occurred: {error.message}</div>;
+    }}>
       <Suspense fallback={<LoadingState />}>
         <div className="w-full min-h-screen flex flex-col">
           <Helmet>

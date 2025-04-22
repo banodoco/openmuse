@@ -321,7 +321,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
       )}
       
       {isAdmin && !isOwnProfile && location.pathname !== '/' && (
-         <CardFooter className="p-3 border-t bg-red-50 dark:bg-red-900/20" onClick={(e) => e.stopPropagation()}>
+         <CardFooter className="p-3 border-t" onClick={(e) => e.stopPropagation()}>
              <AlertDialog>
                <AlertDialogTrigger asChild>
                  <Button 
