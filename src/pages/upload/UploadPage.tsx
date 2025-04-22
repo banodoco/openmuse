@@ -267,9 +267,14 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       
       toast.success(message);
       
-      // Navigate back to the previous location if available, otherwise default to home
-      const returnPath = location.state?.from || '/';
-      navigate(returnPath);
+      // If onSuccess prop exists, call it (parent handles closing modal/dialog)
+      // Otherwise (if used as standalone page), navigate based on location state
+      if (onSuccess) {
+        onSuccess();
+      } else {
+        const returnPath = location.state?.from || '/';
+        navigate(returnPath);
+      }
 
     } catch (error: any) {
       console.error('Error submitting videos:', error);
