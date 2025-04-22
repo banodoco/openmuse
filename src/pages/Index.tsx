@@ -13,6 +13,8 @@ import { useVideoManagement } from '@/hooks/useVideoManagement';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
 import { LoraAsset } from '@/lib/types';
+import VideoGallerySection from '@/components/video/VideoGallerySection';
+import { Separator } from '@/components/ui/separator';
 
 const logger = new Logger('Index');
 // logger.log('Index page component module loaded');
@@ -30,8 +32,8 @@ const Index: React.FC = () => {
   const dataRefreshInProgress = useRef(false);
   const initialRefreshDone = useRef(false);
   
-  // Get video loading state
-  const { isLoading: videosLoading } = useVideoManagement();
+  // Get video data & loading state
+  const { videos, isLoading: videosLoading } = useVideoManagement();
   // logger.log(`Index: useVideoManagement() state - videosLoading: ${videosLoading}`);
   
   // Get model filter from URL query params
@@ -246,6 +248,24 @@ const Index: React.FC = () => {
     setCurrentModelFilter(modelFilterFromUrl);
   }, [modelFilterFromUrl]);
 
+  // -----------------------------
+  // Curated / Featured Video Sections
+  // -----------------------------
+  const curatedVideos = React.useMemo(() =>
+    videos.filter(v => ['Curated', 'Featured'].includes(v.admin_status)),
+    [videos]
+  );
+
+  const curatedArtVideos = React.useMemo(() =>
+    curatedVideos.filter(v => v.metadata?.classification === 'art'),
+    [curatedVideos]
+  );
+
+  const curatedGenVideos = React.useMemo(() =>
+    curatedVideos.filter(v => v.metadata?.classification !== 'art'),
+    [curatedVideos]
+  );
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navigation />
@@ -272,6 +292,27 @@ const Index: React.FC = () => {
             isAdmin={isAdmin || false}
             onNavigateToUpload={handleNavigateToUpload}
             onRefreshData={handleRefreshData}
+            showSeeAllLink={true}
+          />
+
+          <Separator className="my-8" />
+
+          {/* Curated / Featured Art Videos */}
+          <VideoGallerySection
+            header="Art"
+            videos={curatedArtVideos}
+            isLoading={videosLoading}
+            seeAllPath="/art"
+          />
+
+          <Separator className="my-8" />
+
+          {/* Curated / Featured Generation Videos */}
+          <VideoGallerySection
+            header="Generations"
+            videos={curatedGenVideos}
+            isLoading={videosLoading}
+            seeAllPath="/generations"
           />
         </div>
       </div>

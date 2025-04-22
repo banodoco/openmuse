@@ -7,6 +7,7 @@ import { Logger } from '@/lib/logger';
 import { LoraGallerySkeleton } from './LoraGallerySkeleton';
 import { LoraFilters } from './lora/LoraFilters';
 import { useAuth } from '@/hooks/useAuth';
+import { Link } from 'react-router-dom';
 
 const logger = new Logger('LoraManager');
 logger.log('LoraManager component module loaded');
@@ -22,6 +23,7 @@ interface LoraManagerProps {
   isAdmin?: boolean;
   onNavigateToUpload?: () => void;
   onRefreshData?: () => void;
+  showSeeAllLink?: boolean;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
@@ -35,6 +37,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   isAdmin,
   onNavigateToUpload,
   onRefreshData,
+  showSeeAllLink,
 }) => {
   logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, modelFilter=${modelFilter}, filterText=${filterText}, isAdmin=${isAdmin}`);
 
@@ -57,6 +60,21 @@ const LoraManager: React.FC<LoraManagerProps> = ({
         isLoading={isLoading || lorasAreLoading}
         isAdmin={isAdmin || authIsAdmin}
       />
+
+      {/* Section headline and link */}
+      <div className="flex items-center justify-between">
+        <h2 className="text-xl font-semibold leading-tight tracking-tight text-foreground">
+          LoRAs
+        </h2>
+        {showSeeAllLink && (
+          <Link
+            to="/loras"
+            className="text-sm text-primary hover:underline ml-auto"
+          >
+            See all featured LoRAs →
+          </Link>
+        )}
+      </div>
 
       {isLoading ? (
         <LoadingState />

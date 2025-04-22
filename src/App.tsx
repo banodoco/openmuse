@@ -12,9 +12,11 @@ const HomePage = lazy(() => import('./pages/Index'));
 const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
 const AdminPage = lazy(() => import('./pages/Admin'));
 const AuthPage = lazy(() => import('./pages/Auth'));
-const VideoPage = lazy(() => import('./pages/VideoPage'));
 const UserProfilePage = lazy(() => import('./pages/UserProfilePage'));
 const ManifestoPage = lazy(() => import('./pages/Manifesto'));
+const LorasPage = lazy(() => import('./pages/LorasPage'));
+const ArtPage = lazy(() => import('./pages/ArtPage'));
+const GenerationsPage = lazy(() => import('./pages/GenerationsPage'));
 
 function App() {
   return (
@@ -27,9 +29,11 @@ function App() {
               <Route path="/auth" element={<AuthPage />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/manifesto" element={<ManifestoPage />} />
-              <Route path="/videos/:id" element={<VideoPage />} />
               <Route path="/assets/:id" element={<AssetDetailPage />} />
               <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
+              <Route path="/loras" element={<LorasPage />} />
+              <Route path="/art" element={<ArtPage />} />
+              <Route path="/generations" element={<GenerationsPage />} />
               <Route path="/profile/:displayName" element={
                 <ErrorBoundary fallback={<p>Error loading profile page.</p>}>
                   <UserProfilePage />
