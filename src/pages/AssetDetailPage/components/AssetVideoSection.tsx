@@ -211,9 +211,9 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const handleUploadSuccess = () => {
     setIsUploadModalOpen(false);
     // Optional: refetch video data if needed
-    // if (refetchAssetDetails) {
-    //   refetchAssetDetails();
-    // }
+    if (refetchVideos) {
+      refetchVideos();
+    }
   };
 
   return (
