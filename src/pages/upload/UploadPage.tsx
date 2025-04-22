@@ -148,6 +148,24 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         // create media rows & link to LoRA assets
         for (const video of videos) {
           if (!video.url) continue;
+          
+          // Calculate aspect ratio for media-only upload
+          let aspectRatio = 16 / 9; // Default aspect ratio
+          try {
+            aspectRatio = await getVideoAspectRatio(video.url);
+          } catch (ratioError) {
+            logger.warn(`Could not calculate aspect ratio for ${video.url}:`, ratioError);
+            // Keep default aspect ratio
+          }
+
+          // Generate thumbnail for media-only upload
+          let thumbnailUrl: string | null = null;
+          try {
+            thumbnailUrl = await thumbnailService.generateThumbnail(video.url);
+          } catch (thumbError) {
+             logger.warn(`Could not generate thumbnail for ${video.url}:`, thumbError);
+          }
+
           const { data: mediaData, error: mediaError } = await supabase
             .from('media')
             .insert({
@@ -157,7 +175,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               classification: video.metadata.classification || 'art',
               creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
               user_id: user?.id || null,
-              metadata: {}
+              metadata: { aspectRatio: aspectRatio },
+              placeholder_image: thumbnailUrl,
+              admin_status: 'Listed'
             })
             .select()
             .single();
@@ -321,12 +341,12 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               title: video.metadata.title || '',
               url: videoUrl,
               type: 'video',
-              model_variant: loraDetails.modelVariant,
               classification: video.metadata.classification || 'art',
               creator: video.metadata.creator === 'self' ? reviewerName : video.metadata.creatorName,
               user_id: user?.id || null,
-              placeholder_image: thumbnailUrl, // Save the generated thumbnail URL
-              metadata: { aspectRatio: aspectRatio } // <-- Store aspect ratio
+              placeholder_image: thumbnailUrl,
+              metadata: { aspectRatio: aspectRatio },
+              admin_status: 'Listed'
             })
             .select()
             .single();
