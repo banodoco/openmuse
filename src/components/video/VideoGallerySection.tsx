@@ -24,10 +24,14 @@ interface VideoGallerySectionProps {
   emptyMessage?: string;
   showAddButton?: boolean;
   addButtonClassification?: 'art' | 'gen';
+  /** Custom breakpoint configuration for the Masonry grid */
+  breakpointCols?: Record<string | number, number>;
+  /** If true, forces creator info to only show on hover on desktop, overriding alwaysShowInfo for that element */
+  forceCreatorHoverDesktop?: boolean;
 }
 
-// Breakpoints – reuse the same pattern as other grids for consistency
-const breakpointColumnsObj = {
+// Default breakpoints if none are provided via props
+const defaultBreakpointColumnsObj = {
   default: 3,
   1100: 2,
   640: 1,
@@ -44,6 +48,8 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   emptyMessage,
   showAddButton = false,
   addButtonClassification = 'gen',
+  breakpointCols,
+  forceCreatorHoverDesktop = false,
 }) => {
   const isMobile = useIsMobile();
 
@@ -183,7 +189,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
         <p className="text-muted-foreground text-sm">{emptyMessage ?? 'There are no curated videos yet :('}</p>
       ) : (
         <Masonry
-          breakpointCols={breakpointColumnsObj}
+          breakpointCols={breakpointCols || defaultBreakpointColumnsObj}
           className="my-masonry-grid"
           columnClassName="my-masonry-grid_column"
         >
@@ -201,6 +207,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
               onVisibilityChange={handleVideoVisibilityChange}
               shouldBePlaying={isMobile && video.id === visibleVideoId}
               alwaysShowInfo={alwaysShowInfo}
+              forceCreatorHoverDesktop={forceCreatorHoverDesktop}
             />
           ))}
         </Masonry>

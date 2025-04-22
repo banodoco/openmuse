@@ -12,7 +12,7 @@ logger.log('useLoraManagement hook initializing');
 // Define filter types
 interface LoraFilters {
   modelFilter: string; // e.g., 'all', 'wan', 'ltxv'
-  approvalFilter: string; // e.g., 'curated', 'listed', 'rejected', 'all'
+  approvalFilter: string; // e.g., 'curated', 'listed', 'all'
 }
 
 export const useLoraManagement = (filters: LoraFilters) => {
@@ -90,9 +90,17 @@ export const useLoraManagement = (filters: LoraFilters) => {
          query = query.ilike('lora_base_model', modelFilter);
       }
 
-      // Fetch 'Featured' and 'Curated' LoRAs for the homepage/default view
-      logger.log(`[loadAllLoras] Applying status filter: Fetching 'Featured' and 'Curated'`);
-      query = query.in('admin_status', ['Featured', 'Curated']);
+      // Apply approval status filter based on the prop
+      logger.log(`[loadAllLoras] Applying status filter: ${approvalFilter}`);
+      if (approvalFilter === 'curated') {
+        query = query.in('admin_status', ['Featured', 'Curated']);
+      } else if (approvalFilter === 'listed') {
+        query = query.eq('admin_status', 'Listed');
+      } else if (approvalFilter === 'all') {
+        // Fetch all that are not explicitly Hidden or Rejected
+        query = query.not('admin_status', 'in', '("Hidden", "Rejected")');
+      } // Implicitly defaults to curated if value is unexpected?
+      // Or add explicit default: else { query = query.in('admin_status', ['Featured', 'Curated']); }
 
       // Keep original ordering by date (will be re-sorted client-side later)
       query = query.order('created_at', { ascending: false });

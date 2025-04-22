@@ -1,4 +1,3 @@
-
 import React, { memo } from 'react';
 import { Button } from "@/components/ui/button";
 
@@ -20,7 +19,7 @@ const PageHeader: React.FC<PageHeaderProps> = memo(({
   buttonSize = "default"
 }) => {
   return (
-    <div className="mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+    <div className="mb-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
       <div>
         <h1 className="text-3xl font-heading font-semibold tracking-tight text-forest-dark">{title}</h1>
         <p className="text-muted-foreground mt-1 font-body">{description}</p>

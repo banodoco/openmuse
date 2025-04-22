@@ -35,6 +35,21 @@ import UploadPage from '@/pages/upload/UploadPage';
 
 const logger = new Logger('UserProfilePage');
 
+// Define standard breakpoints
+const defaultBreakpointColumnsObj = {
+  default: 3,
+  1100: 2,
+  640: 1,
+};
+
+// Define denser breakpoints for Generations
+const generationBreakpointColumnsObj = {
+  default: 6,
+  1100: 4,
+  768: 3,
+  640: 2,
+};
+
 // Helper functions (Keep these outside the component)
 const calculatePageSize = (totalItems: number): number => {
   if (totalItems <= 8) return totalItems;
@@ -738,7 +753,7 @@ export default function UserProfilePage() {
               <CardContent>
                 {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                  userAssets.length > 0 ? ( <> 
-                    <div ref={lorasGridRef} className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
+                    <div ref={lorasGridRef} className="relative pt-6"> <Masonry breakpointCols={defaultBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
                         {loraItemsForPage.map(item => ( <LoraCard 
                             key={item.id} 
                             lora={item} 
@@ -764,7 +779,9 @@ export default function UserProfilePage() {
                 {isOwner && !forceLoggedOutView && (
                   <Dialog>
                     <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">Add Generation</Button>
+                      <Button size="sm" className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300">
+                        Add Generation
+                      </Button>
                     </DialogTrigger>
                     <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
                       <DialogHeader>
@@ -778,7 +795,7 @@ export default function UserProfilePage() {
               <CardContent>
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                   generationVideos.length > 0 ? ( <> 
-                     <div ref={generationsGridRef} className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
+                     <div ref={generationsGridRef} className="relative pt-6"> <Masonry breakpointCols={generationBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
                          {generationItemsForPage.map((item) => ( <VideoCard 
                             key={item.id} 
                             video={item} 
@@ -807,7 +824,9 @@ export default function UserProfilePage() {
                 {isOwner && !forceLoggedOutView && (
                    <Dialog>
                      <DialogTrigger asChild>
-                       <Button variant="outline" size="sm">Add Art</Button>
+                       <Button size="sm" className="bg-gradient-to-r from-olive-dark to-olive hover:opacity-90 transition-all duration-300">
+                         Add Art
+                       </Button>
                      </DialogTrigger>
                      <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
                        <DialogHeader>
@@ -821,7 +840,7 @@ export default function UserProfilePage() {
               <CardContent>
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
                   artVideos.length > 0 ? ( <> 
-                     <div ref={artGridRef} className="relative pt-6"> <Masonry breakpointCols={breakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
+                     <div ref={artGridRef} className="relative pt-6"> <Masonry breakpointCols={defaultBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
                          {artItemsForPage.map((item) => ( <VideoCard 
                             key={item.id} 
                             video={item} 

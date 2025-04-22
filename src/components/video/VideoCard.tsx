@@ -44,6 +44,8 @@ interface VideoCardProps {
   onVisibilityChange?: (videoId: string, isVisible: boolean) => void;
   shouldBePlaying?: boolean;
   alwaysShowInfo?: boolean;
+  /** If true, forces creator info to only show on hover on desktop, overriding alwaysShowInfo for that element */
+  forceCreatorHoverDesktop?: boolean;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -62,6 +64,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onVisibilityChange,
   shouldBePlaying = false,
   alwaysShowInfo = false,
+  forceCreatorHoverDesktop = false,
 }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -317,8 +320,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Title and creator info for desktop when alwaysShowInfo is true (conditionally show creator) */}
-          {!isMobile && alwaysShowInfo && (video.metadata?.title || (!isProfilePage && video.user_id)) && (
+          {/* Title and creator info for desktop when alwaysShowInfo is true AND hover isn't forced */}
+          {!isMobile && alwaysShowInfo && !forceCreatorHoverDesktop && (video.metadata?.title || (!isProfilePage && video.user_id)) && (
             <div
               className="absolute top-2 left-2 z-20 bg-black/30 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
             >
@@ -327,6 +330,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                   {video.metadata.title}
                 </span>
               )}
+              {/* Show creator info only if not on profile page */}
               {video.user_id && !isProfilePage && (
                 <div className="mt-0.5">
                   <LoraCreatorInfo
@@ -336,17 +340,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     overrideTextColor="text-white/80"
                   />
                 </div>
-              )}
-            </div>
-          )}
-
-          {/* Title only for desktop profile page when alwaysShowInfo is false */}
-          {!isMobile && !alwaysShowInfo && isProfilePage && video.metadata?.title && (
-            <div className="absolute top-2 left-2 z-20 bg-black/30 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none">
-              {video.metadata?.title && (
-                <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
-                  {video.metadata.title}
-                </span>
               )}
             </div>
           )}
@@ -451,8 +444,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Gradient overlay and text (only shown on hover on non-mobile, non-profile, when not alwaysShowInfo) */}
-          {!isMobile && !alwaysShowInfo && !isProfilePage && (
+          {/* Gradient overlay and text (Show on hover if !alwaysShowInfo OR forceCreatorHoverDesktop, but NOT on profile page) */}
+          {!isMobile && !isProfilePage && (!alwaysShowInfo || forceCreatorHoverDesktop) && (
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none flex flex-col justify-between p-2 z-10">
               <div className="flex flex-col items-start">
                 {video.metadata?.title && (

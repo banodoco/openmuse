@@ -12,16 +12,58 @@ import { toast } from 'sonner';
 import { useVideoManagement } from '@/hooks/useVideoManagement';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, VideoEntry } from '@/lib/types';
 import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import UploadPage from '@/pages/upload/UploadPage';
 import { cn } from '@/lib/utils';
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Input } from "@/components/ui/input";
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
 
 const logger = new Logger('Index');
 // logger.log('Index page component module loaded');
+
+// === Helper Functions (Copied from UserProfilePage) ===
+
+// Simple pagination helper
+const getPaginatedItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
+    if (pageSize <= 0) return items; // Return all if page size is invalid
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return items.slice(startIndex, Math.min(endIndex, items.length)); // Ensure endIndex doesn't exceed array bounds
+};
+
+// Calculate total pages
+const getTotalPages = (totalItems: number, pageSize: number): number => {
+    if (pageSize <= 0 || totalItems <= 0) return 1; // Handle edge cases
+    return Math.ceil(totalItems / pageSize);
+};
+
+// Define breakpoint columns for the Generations grid (denser)
+const generationBreakpoints = {
+  default: 6,
+  1100: 4,
+  768: 3,
+  640: 2,
+};
+
+// Smooth scroll helper
+const scrollToElementWithOffset = (element: HTMLElement | null, offset: number = -150) => {
+  if (!element) return;
+  const y = element.getBoundingClientRect().top + window.pageYOffset + offset;
+  window.scrollTo({ top: y, behavior: 'smooth' });
+};
 
 const Index: React.FC = () => {
   // logger.log('Index component rendering/mounting');
@@ -37,6 +79,14 @@ const Index: React.FC = () => {
   const initialRefreshDone = useRef(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   
+  // Pagination State
+  const [artPage, setArtPage] = useState(1);
+  const [generationPage, setGenerationPage] = useState(1);
+  
+  // Refs for scrolling
+  const artSectionRef = useRef<HTMLDivElement>(null);
+  const generationsSectionRef = useRef<HTMLDivElement>(null);
+  
   // Get video data & loading state
   const { videos, isLoading: videosLoading } = useVideoManagement();
   // logger.log(`Index: useVideoManagement() state - videosLoading: ${videosLoading}`);
@@ -49,13 +99,14 @@ const Index: React.FC = () => {
   // LIFTED STATE:
   const [currentModelFilter, setCurrentModelFilter] = useState(modelFilterFromUrl);
   const [filterText, setFilterText] = useState('');
+  const [currentApprovalFilter, setCurrentApprovalFilter] = useState<'curated' | 'all'>('curated');
 
-  // Pass filters to the hook - approvalFilter is no longer needed here
+  // Pass filters to the hook
   const { 
     loras, 
     isLoading: lorasLoading, 
     refetchLoras
-  } = useLoraManagement({ modelFilter: currentModelFilter, approvalFilter: 'all' }); // Pass 'all' or similar, hook logic ignores it now
+  } = useLoraManagement({ modelFilter: currentModelFilter, approvalFilter: currentApprovalFilter });
   // logger.log(`Index: useLoraManagement() state - lorasLoading: ${lorasLoading}, loras count: ${loras?.length || 0}`);
   
   // Client-side filtering for TEXT only
@@ -71,14 +122,18 @@ const Index: React.FC = () => {
       return loras; // Return all if no text filter
     }
 
+    const lowerCaseFilter = filterText.toLowerCase();
     const filtered = loras.filter(lora => 
-      lora.name?.toLowerCase().includes(filterText.toLowerCase()) ||
-      lora.creator?.toLowerCase().includes(filterText.toLowerCase())
+      lora.name?.toLowerCase().includes(lowerCaseFilter) ||
+      lora.description?.toLowerCase().includes(lowerCaseFilter) ||
+      lora.creator?.toLowerCase().includes(lowerCaseFilter) ||
+      lora.creatorDisplayName?.toLowerCase().includes(lowerCaseFilter) ||
+      lora.lora_base_model?.toLowerCase().includes(lowerCaseFilter)
     );
     // logger.log(`[Memo displayLoras] Applying text filter '${filterText}', count: ${filtered.length}`);
     return filtered;
 
-  }, [loras, filterText]); // Only depend on loras (from hook) and filterText
+  }, [loras, filterText]); // Keep dependency on filterText, even if not updated
   
   // Add lifecycle logging
   useEffect(() => {
@@ -254,22 +309,149 @@ const Index: React.FC = () => {
   }, [modelFilterFromUrl]);
 
   // -----------------------------
-  // Curated / Featured Video Sections
+  // Video Sections Filtering (Respecting Approval Filter)
   // -----------------------------
-  const curatedVideos = React.useMemo(() =>
-    videos.filter(v => ['Curated', 'Featured'].includes(v.admin_status)),
-    [videos]
-  );
+  const displayVideos = React.useMemo(() => {
+    if (currentApprovalFilter === 'all') {
+      // Show Curated, Featured, AND Listed when 'All' is selected
+      return videos.filter(v => ['Curated', 'Featured', 'Listed'].includes(v.admin_status));
+    } else {
+      // Default to showing only Curated and Featured
+      return videos.filter(v => ['Curated', 'Featured'].includes(v.admin_status));
+    }
+  }, [videos, currentApprovalFilter]); // Depend on both videos and the filter state
 
-  const curatedArtVideos = React.useMemo(() =>
-    curatedVideos.filter(v => v.metadata?.classification === 'art'),
-    [curatedVideos]
-  );
+  // Define page sizes for different sections
+  const ART_PAGE_SIZE = 8;
+  const GENERATION_PAGE_SIZE = 16; // Increase page size for generations
 
-  const curatedGenVideos = React.useMemo(() =>
-    curatedVideos.filter(v => v.metadata?.classification !== 'art'),
-    [curatedVideos]
-  );
+  const displayArtVideos = React.useMemo(() => {
+    const filtered = displayVideos.filter(v => v.metadata?.classification === 'art');
+    const totalItems = filtered.length;
+    const totalPages = getTotalPages(totalItems, ART_PAGE_SIZE);
+    const paginatedItems = getPaginatedItems(filtered, artPage, ART_PAGE_SIZE);
+    return { items: paginatedItems, totalPages: totalPages };
+  }, [displayVideos, artPage]); // Depend on filtered list and current page
+
+  const displayGenVideos = React.useMemo(() => {
+    const filtered = displayVideos.filter(v => v.metadata?.classification !== 'art');
+    const totalItems = filtered.length;
+    const totalPages = getTotalPages(totalItems, GENERATION_PAGE_SIZE);
+    const paginatedItems = getPaginatedItems(filtered, generationPage, GENERATION_PAGE_SIZE);
+    return { items: paginatedItems, totalPages: totalPages };
+  }, [displayVideos, generationPage]); // Depend on filtered list and current page
+
+  // Pagination Handlers
+  const handleArtPageChange = useCallback((newPage: number) => {
+    setArtPage(newPage);
+    scrollToElementWithOffset(artSectionRef.current);
+  }, []);
+
+  const handleGenerationPageChange = useCallback((newPage: number) => {
+    setGenerationPage(newPage);
+    scrollToElementWithOffset(generationsSectionRef.current);
+  }, []);
+
+  // Pagination UI Renderer (Copied from UserProfilePage)
+  const renderPaginationControls = (
+    currentPage: number,
+    totalPages: number,
+    onPageChange: (page: number) => void,
+  ) => {
+    if (totalPages <= 1) return null; // Don't render if only one page
+
+    const handlePrevious = () => {
+      if (currentPage > 1) onPageChange(currentPage - 1);
+    };
+
+    const handleNext = () => {
+      if (currentPage < totalPages) onPageChange(currentPage + 1);
+    };
+
+    // Determine pagination items to display (simplified logic)
+    const paginationItems = [];
+    const maxPagesToShow = 5; // Max number of page links shown
+    const ellipsis = <PaginationEllipsis key="ellipsis" />;
+
+    if (totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= totalPages; i++) {
+        paginationItems.push(
+          <PaginationItem key={i}>
+            <PaginationLink href="#" isActive={currentPage === i} onClick={(e) => { e.preventDefault(); onPageChange(i); }}>
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      // Always show first page
+      paginationItems.push(
+        <PaginationItem key={1}>
+          <PaginationLink href="#" isActive={currentPage === 1} onClick={(e) => { e.preventDefault(); onPageChange(1); }}>
+            1
+          </PaginationLink>
+        </PaginationItem>
+      );
+
+      // Logic for ellipsis and middle pages
+      if (currentPage > 3) {
+         // Use React.cloneElement to ensure a unique key for potentially multiple ellipses
+        paginationItems.push(React.cloneElement(ellipsis, { key: "start-ellipsis" }));
+      }
+
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+
+       // Adjust range if near the beginning or end to maintain maxPagesToShow behavior
+      if (currentPage <= 3) {
+           // Show first page, ellipsis, and remaining pages up to maxPagesToShow - 2
+          endPage = Math.min(totalPages - 1, maxPagesToShow - 2); // Account for first page and end ellipsis potentially
+      }
+      if (currentPage >= totalPages - 2) {
+           // Show last page, ellipsis, and preceding pages
+          startPage = Math.max(2, totalPages - maxPagesToShow + 2); // Account for last page and start ellipsis
+      }
+
+
+      for (let i = startPage; i <= endPage; i++) {
+        paginationItems.push(
+          <PaginationItem key={i}>
+            <PaginationLink href="#" isActive={currentPage === i} onClick={(e) => { e.preventDefault(); onPageChange(i); }}>
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+
+      if (currentPage < totalPages - 2) {
+         // Use React.cloneElement here too
+        paginationItems.push(React.cloneElement(ellipsis, { key: "end-ellipsis" }));
+      }
+
+      // Always show last page
+      paginationItems.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink href="#" isActive={currentPage === totalPages} onClick={(e) => { e.preventDefault(); onPageChange(totalPages); }}>
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return (
+      <Pagination className="mt-6">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePrevious(); }} aria-disabled={currentPage === 1} className={cn(currentPage === 1 && 'pointer-events-none opacity-50')} />
+          </PaginationItem>
+          {paginationItems}
+          <PaginationItem>
+            <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handleNext(); }} aria-disabled={currentPage === totalPages} className={cn(currentPage === totalPages && 'pointer-events-none opacity-50')} />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
+  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -282,14 +464,56 @@ const Index: React.FC = () => {
             description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan."
           />
           
+          {/* Search Input - Commented out for now */}
+          {/* 
+          <div className="mt-6 mb-4 max-w-md mx-auto">
+            <Input
+              type="text"
+              placeholder="Search LoRAs by name, creator, model, description..."
+              value={filterText}
+              onChange={(e) => {
+                const newText = e.target.value;
+                setFilterText(newText);
+                // If user starts typing, switch approval filter to 'all'
+                if (newText.length > 0 && currentApprovalFilter !== 'all') {
+                  setCurrentApprovalFilter('all');
+                }
+              }}
+              className="w-full"
+            />
+          </div>
+          */}
+
+          {/* Approval Filter Toggle Group - Reduced top margin */}
+          <div className="flex justify-start mt-2 mb-6">
+            <ToggleGroup 
+              type="single" 
+              value={currentApprovalFilter} 
+              onValueChange={(value) => {
+                // Only allow setting to 'curated' or 'all'
+                if (value === 'curated' || value === 'all') {
+                   setCurrentApprovalFilter(value);
+                }
+              }}
+              className="bg-muted/50 p-1 rounded-lg"
+            >
+              <ToggleGroupItem value="curated" aria-label="Toggle curated" className="data-[state=on]:bg-background data-[state=on]:shadow-sm data-[state=on]:text-primary transition-all px-4 py-1.5">
+                Curated
+              </ToggleGroupItem>
+              <ToggleGroupItem value="all" aria-label="Toggle all" className="data-[state=on]:bg-background data-[state=on]:shadow-sm data-[state=on]:text-primary transition-all px-4 py-1.5">
+                All
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+
+          <Separator className="my-8" />
+
           <LoraManager
             loras={displayLoras}
             isLoading={isPageLoading}
             lorasAreLoading={lorasLoading}
             filterText={filterText}
             onFilterTextChange={setFilterText} 
-            modelFilter={currentModelFilter}
-            onModelFilterChange={setCurrentModelFilter}
             isAdmin={isAdmin || false}
             onNavigateToUpload={handleNavigateToUpload}
             onRefreshData={handleRefreshData}
@@ -322,31 +546,39 @@ const Index: React.FC = () => {
 
           <Separator className="my-8" />
 
-          {/* Curated / Featured Art Videos */}
-          <VideoGallerySection
-            header="Art"
-            videos={curatedArtVideos}
-            isLoading={videosLoading}
-            seeAllPath="/art"
-            alwaysShowInfo
-            emptyMessage="There's no curated art yet :("
-            showAddButton={true}
-            addButtonClassification="art"
-          />
+          {/* Art Videos Section */}
+          <div ref={artSectionRef}>
+            <VideoGallerySection
+              header="Art"
+              videos={displayArtVideos.items}
+              isLoading={videosLoading}
+              seeAllPath="/art"
+              alwaysShowInfo
+              emptyMessage="There's no art matching the current filter."
+              showAddButton={true}
+              addButtonClassification="art"
+            />
+            {renderPaginationControls(artPage, displayArtVideos.totalPages, handleArtPageChange)}
+          </div>
 
           <Separator className="my-8" />
 
-          {/* Curated / Featured Generation Videos */}
-          <VideoGallerySection
-            header="Generations"
-            videos={curatedGenVideos}
-            isLoading={videosLoading}
-            seeAllPath="/generations"
-            alwaysShowInfo
-            emptyMessage="There are are no curated generations yet :("
-            showAddButton={true}
-            addButtonClassification="gen"
-          />
+          {/* Generation Videos Section */}
+          <div ref={generationsSectionRef}>
+            <VideoGallerySection
+              header="Generations"
+              videos={displayGenVideos.items}
+              isLoading={videosLoading}
+              seeAllPath="/generations"
+              alwaysShowInfo
+              emptyMessage="There are no generations matching the current filter."
+              showAddButton={true}
+              addButtonClassification="gen"
+              breakpointCols={generationBreakpoints}
+              forceCreatorHoverDesktop={true}
+            />
+            {renderPaginationControls(generationPage, displayGenVideos.totalPages, handleGenerationPageChange)}
+          </div>
         </div>
       </div>
       

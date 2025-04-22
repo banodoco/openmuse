@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { VideoEntry, LoraAsset, VideoDisplayStatus } from '@/lib/types';
 import EmptyState from '@/components/EmptyState';
+import { cn } from '@/lib/utils';
 import VideoCard from '@/components/video/VideoCard';
 import { useAuth } from '@/hooks/useAuth';
 import { Logger } from '@/lib/logger';
@@ -227,7 +228,15 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       <div className="mb-4">
         <Dialog>
           <DialogTrigger asChild>
-            <Button variant="outline">
+            <Button 
+              variant="ghost"
+              size={isMobile ? "sm" : "default"}
+              className={cn(
+                "border border-input hover:bg-accent hover:text-accent-foreground",
+                "text-muted-foreground",
+                isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
+              )}
+            >
               Upload Video
             </Button>
           </DialogTrigger>
