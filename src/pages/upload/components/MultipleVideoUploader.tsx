@@ -7,6 +7,9 @@ import VideoDropzone from '@/components/upload/VideoDropzone';
 import VideoMetadataForm from '@/components/upload/VideoMetadataForm';
 import { useToast } from '@/components/ui/use-toast';
 import { useAuth } from '@/hooks/useAuth';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('MultipleVideoUploader');
 
 type LoraOption = {
   id: string;
@@ -56,6 +59,16 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [urlInput, setUrlInput] = useState('');
   
+  logger.log('Rendering MultipleVideoUploader. Received props:', {
+    videoCount: videos.length,
+    disabled,
+    hideIsPrimary,
+    allowPrimarySelection,
+    availableLorasCount: availableLoras.length,
+    showLoraSelectors,
+    defaultClassification
+  });
+  
   const createEmptyVideoItem = (): VideoItem => ({
     file: null,
     url: null,
@@ -63,6 +76,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       title: '',
       description: '',
       classification: defaultClassification,
+      creator: 'self',
+      creatorName: '',
       isPrimary: videos.length === 0,
       associatedLoraIds: []
     },
@@ -94,6 +109,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             title: '',
             description: '',
             classification: defaultClassification,
+            creator: 'self',
+            creatorName: '',
             isPrimary: isFirst,
             associatedLoraIds: []
           },
@@ -129,6 +146,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           title: '',
           description: '',
           classification: defaultClassification,
+          creator: 'self',
+          creatorName: '',
           isPrimary: isFirst,
           associatedLoraIds: []
         },
@@ -167,6 +186,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             title: '',
             description: '',
             classification: defaultClassification,
+            creator: 'self',
+            creatorName: '',
             isPrimary: isFirst,
             associatedLoraIds: []
           },
@@ -191,6 +212,10 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   const updateVideoMetadata = (id: string, field: string, value: any) => {
     if (disabled) return;
     
+    if (field === 'associatedLoraIds') {
+      logger.log(`Updating LoRA IDs for video ${id}:`, value);
+    }
+
     setVideos(prev => {
       const updated = prev.map(video => {
         if (video.id === id) {
@@ -219,14 +244,17 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         return video;
       });
       
-      const primaryIndex = updated.findIndex(v => v.metadata.isPrimary);
-      if (primaryIndex !== -1) {
-          return updated.map((v, idx) => ({
-              ...v,
-              metadata: { ...v.metadata, isPrimary: idx === primaryIndex }
-          }));
-      } else if (updated.length > 0) {
-          updated[0].metadata.isPrimary = true;
+      if (!hideIsPrimary && allowPrimarySelection) {
+          const primaryIndex = updated.findIndex(v => v.metadata.isPrimary);
+          if (primaryIndex === -1 && updated.length > 0) {
+              logger.log('No primary video set, making first video primary.');
+              updated[0].metadata.isPrimary = true;
+          } else if (primaryIndex !== -1) {
+              return updated.map((v, idx) => ({
+                  ...v,
+                  metadata: { ...v.metadata, isPrimary: idx === primaryIndex }
+              }));
+          }
       }
 
       return updated;

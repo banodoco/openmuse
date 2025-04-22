@@ -7,6 +7,9 @@ import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
 import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoMetadataForm');
 
 type LoraOption = {
   id: string;
@@ -35,18 +38,31 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   updateMetadata, 
   canSetPrimary = true,
   disabled = false,
-  showLoraSelector = false, 
+  showLoraSelector = false,
   availableLoras = [], 
 }) => {
   const { user } = useAuth();
   
+  logger.log(`Rendering VideoMetadataForm for videoId: ${videoId}. Received props:`, {
+    canSetPrimary,
+    disabled,
+    showLoraSelector,
+    availableLorasCount: availableLoras.length,
+    initialSelectedLoraIds: metadata.associatedLoraIds || []
+  });
+
   // Handler specifically for the LoRA selector within this form
   const handleLoraSelectionChange = (selectedIds: string[]) => {
+    logger.log(`LoRA selection changed for video ${videoId}:`, selectedIds);
     updateMetadata(videoId, 'associatedLoraIds', selectedIds);
   };
 
   // Extract selected IDs from metadata, default to empty array
   const associatedLoraIds = metadata.associatedLoraIds || [];
+
+  // Prepare options for the combobox
+  const loraOptions = availableLoras.map(lora => ({ value: lora.id, label: lora.name }));
+  logger.log(`Prepared LoRA options for combobox (video ${videoId}):`, loraOptions);
 
   return (
     <Card>

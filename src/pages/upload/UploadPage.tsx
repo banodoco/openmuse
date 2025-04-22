@@ -119,13 +119,13 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       // MEDIA ONLY FLOW --------------------------------------------------
 
       // Check if *any* video is missing a LoRA selection (if not forced)
-      if (!finalForcedLoraId) {
-        const videoMissingLoras = videos.find(v => !v.metadata.associatedLoraIds || v.metadata.associatedLoraIds.length === 0);
-        if (videoMissingLoras) {
-          toast.error(`Please select the LoRA(s) used for all videos (missing for video: ${videoMissingLoras.metadata.title || videoMissingLoras.id})`);
-          return;
-        }
-      }
+      // if (!finalForcedLoraId) {
+      //   const videoMissingLoras = videos.find(v => !v.metadata.associatedLoraIds || v.metadata.associatedLoraIds.length === 0);
+      //   if (videoMissingLoras) {
+      //     toast.error(`Please select the LoRA(s) used for all videos (missing for video: ${videoMissingLoras.metadata.title || videoMissingLoras.id})`);
+      //     return;
+      //   }
+      // }
 
       setIsSubmitting(true);
       const reviewerName = user?.email || 'Anonymous';
@@ -189,14 +189,15 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           // Link based on the video's specific LoRA selection or the forced ID
           const targetAssetIds = finalForcedLoraId ? [finalForcedLoraId] : (video.metadata.associatedLoraIds || []);
           if (targetAssetIds.length === 0) {
-            console.warn(`Video ${mediaId} had no associated LoRAs selected/forced.`);
-            continue; // Should not happen if validation above works, but good safeguard
-          }
-          
-          for (const assetId of targetAssetIds) {
-            const { error: linkError } = await supabase.from('asset_media').insert({ asset_id: assetId, media_id: mediaId });
-            if (linkError) {
-              console.error(`Error linking media ${mediaId} to asset ${assetId}:`, linkError);
+            console.warn(`Video ${mediaId} had no associated LoRAs selected/forced. Proceeding with media creation without LoRA link.`);
+            // Original: continue; // Skip linking if no LoRAs - now we proceed to create media anyway
+          } else {
+            // Only attempt linking if there are IDs
+            for (const assetId of targetAssetIds) {
+              const { error: linkError } = await supabase.from('asset_media').insert({ asset_id: assetId, media_id: mediaId });
+              if (linkError) {
+                console.error(`Error linking media ${mediaId} to asset ${assetId}:`, linkError);
+              }
             }
           }
         }
