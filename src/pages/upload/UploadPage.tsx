@@ -182,7 +182,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         }
 
         toast.success('Media submitted successfully! Awaiting admin approval.');
-        navigate('/');
+        if (!hideLayout) {
+          navigate('/');
+        }
       } catch (error: any) {
         console.error('Error submitting media:', error);
         toast.error(error.message || 'Failed to submit media');
@@ -254,7 +256,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         : 'Video submitted successfully! Awaiting admin approval.';
       
       toast.success(message);
-      navigate('/');
+      if (!hideLayout) {
+        navigate('/');
+      }
     } catch (error: any) {
       console.error('Error submitting videos:', error);
       toast.error(error.message || 'Failed to submit videos');
@@ -391,16 +395,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
       logger.log(`Asset creation and video submission completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
 
-      logger.log(`Successfully created LoRA asset: ${assetId} and linked media`);
-      toast.success(`LoRA '${loraDetails.loraName}' and associated media submitted successfully! Awaiting admin approval.`);
-
-      // Clear state or reset form if needed here
-
-      // Navigate to the newly created LoRA's detail page
-      navigate(`/assets/loras/${assetId}`);
-
-    } catch (error: any) {
-      logger.error("Error submitting videos:", error);
+    } catch (error) {
+      logger.error('Exception during asset creation or video submission process:', error);
       throw error; // Re-throw to be caught by the outer handleSubmit try-catch
     }
   };

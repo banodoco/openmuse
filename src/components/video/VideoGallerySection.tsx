@@ -152,20 +152,32 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
 
       toast.success(`Video admin status updated to ${newStatus}`);
 
-      // If the updated status is still within curated categories, simply mutate the local state
       if (curatedStatuses.includes(newStatus)) {
-        updateVideoLocally(videoId, (v) => ({ ...v, admin_status: newStatus }));
+        // If the video already exists in the gallery, update it in‑place
+        setGalleryVideos(prev => {
+          const exists = prev.some(v => v.id === videoId);
+          if (exists) {
+            return prev.map(v => v.id === videoId ? { ...v, admin_status: newStatus } : v);
+          }
+          // If it wasn't previously visible (e.g. Listed ➔ Curated), add it to the start of the array
+          const sourceVideo = lightboxVideo && lightboxVideo.id === videoId
+            ? { ...lightboxVideo, admin_status: newStatus }
+            : { id: videoId, admin_status: newStatus } as any; // fallback minimal object
+          return [sourceVideo, ...prev];
+        });
+
+        // Update lightbox state if open
+        setLightboxVideo(prev => prev && prev.id === videoId ? { ...prev, admin_status: newStatus } : prev);
       } else {
-        // Otherwise remove the video from the current gallery so the UI reflects the change immediately
+        // Status changed to a non‑curated state – remove from gallery
         setGalleryVideos(prev => prev.filter(v => v.id !== videoId));
-        // Also clear the lightbox video reference if it matches
         setLightboxVideo(prev => (prev && prev.id === videoId ? null : prev));
       }
     } catch (error) {
       toast.error('Failed to update admin status');
       console.error('handleLightboxAdminStatusChange error', error);
     }
-  }, [updateVideoLocally]);
+  }, [updateVideoLocally, lightboxVideo]);
 
   return (
     <section className="space-y-4 mt-10">
