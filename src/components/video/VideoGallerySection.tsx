@@ -7,6 +7,11 @@ import { LoraGallerySkeleton } from '@/components/LoraGallerySkeleton';
 import { Link } from 'react-router-dom';
 import VideoLightbox from '@/components/VideoLightbox';
 import { Logger } from '@/lib/logger';
+import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '@/lib/supabase';
+import { AdminStatus } from '@/lib/types';
+import { toast } from 'sonner';
+import { useVideoManagement } from '@/hooks/useVideoManagement';
 
 interface VideoGallerySectionProps {
   videos: VideoEntry[];
@@ -31,6 +36,8 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   seeAllPath,
 }) => {
   const isMobile = useIsMobile();
+  const { isAdmin } = useAuth();
+  const { refetchVideos } = useVideoManagement();
 
   // Track which video should autoplay while in viewport (mobile only)
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
@@ -78,6 +85,26 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
     setLightboxVideo(null);
   }, []);
 
+  // Handle admin status change from lightbox
+  const handleLightboxAdminStatusChange = useCallback(async (newStatus: AdminStatus) => {
+    if (!lightboxVideo) return;
+    try {
+      const { error } = await supabase
+        .from('media')
+        .update({ admin_status: newStatus })
+        .eq('id', lightboxVideo.id);
+      if (error) throw error;
+      toast.success(`Admin status set to ${newStatus}`);
+      // Update local lightbox state
+      setLightboxVideo(prev => prev ? { ...prev, admin_status: newStatus } : prev);
+      await refetchVideos();
+    } catch (err) {
+      logger.error('Error updating admin status:', err);
+      toast.error('Failed to update admin status');
+      throw err;
+    }
+  }, [lightboxVideo, refetchVideos]);
+
   return (
     <section className="space-y-4 mt-10">
       <div className="flex items-center justify-between">
@@ -108,8 +135,8 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
             <VideoCard
               key={video.id}
               video={video}
-              isAdmin={false}
-              isAuthorized={false}
+              isAdmin={isAdmin}
+              isAuthorized={isAdmin}
               onOpenLightbox={handleOpenLightbox}
               isHovering={hoveredVideoId === video.id}
               onHoverChange={(isHovering) =>
@@ -132,11 +159,11 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
           description={lightboxVideo.metadata?.description}
           thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
-          isAuthorized={false}
+          isAuthorized={isAdmin}
           adminStatus={lightboxVideo.admin_status}
           currentStatus={null}
           onStatusChange={() => Promise.resolve()}
-          onAdminStatusChange={() => Promise.resolve()}
+          onAdminStatusChange={handleLightboxAdminStatusChange}
           onVideoUpdate={() => {}}
         />
       )}

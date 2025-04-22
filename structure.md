@@ -107,6 +107,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   ├── VideoLoader.tsx # Loading indicator specifically for videos
 │   │   │   ├── VideoOverlay.tsx # Overlay content/controls for videos
 │   │   │   ├── VideoPaginatedGrid.tsx # Grid layout for videos with pagination
+│   │   │   ├── VideoGallerySection.tsx # Section component for curated video galleries
 │   │   │   ├── VideoPlayer.tsx # Core video player component
 │   │   │   ├── VideoPreviewError.tsx # Component to display errors specifically in video previews
 │   │   │   ├── VideoStatusControls.tsx # Controls related to the status of a video (e.g., processing, published)
@@ -216,7 +217,9 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── Manifesto.tsx   # Component likely displaying a project manifesto, mission statement, or about text
 │   │   ├── NotFound.tsx    # Component displayed when a route is not found (404 page)
 │   │   ├── UserProfilePage.tsx # Component for the user's profile page, allowing viewing and editing of profile information
-│   │   └── VideoPage.tsx   # Component for displaying a specific video (potentially a list or gallery view, distinct from `VideoPage/VideoPage.tsx`)
+│   │   ├── ArtPage.tsx     # Component for browsing curated art videos
+│   │   ├── GenerationsPage.tsx # Component listing generation videos created by users
+│   │   └── LorasPage.tsx   # Component showing all LoRA assets
 │   ├── providers/          # React Context Provider components
 │   │   └── AuthProvider.tsx # Provider component that wraps parts of the app to supply authentication context (user data, login/logout functions)
 │   └── vite-env.d.ts       # TypeScript definition file for environment variables exposed by Vite
