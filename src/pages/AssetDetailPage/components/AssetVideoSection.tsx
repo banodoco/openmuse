@@ -231,6 +231,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
             </DialogHeader>
             <UploadPage 
               initialMode="media"
+              forcedLoraId={asset?.id}
               defaultClassification={asset?.lora_type === 'Style' ? 'art' : 'gen'}
               hideLayout={true}
               onSuccess={handleUploadSuccess}
@@ -267,11 +268,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                   onRejectVideo={handleRejectVideo}
                   onDeleteVideo={handleDeleteVideo}
                   onSetPrimaryMedia={handleSetPrimaryMedia}
-                  onStatusChange={onStatusChange}
-                  showAdminControls={isAuthorized}
-                  showUserControls={isAuthorized}
-                  showPrimaryButton={isAuthorized && isLoraPage}
-                  source="assetDetail"
+                  onUpdateLocalVideoStatus={onStatusChange}
                   forceCreatorHoverDesktop={false}
                   alwaysShowInfo={false}
                 />

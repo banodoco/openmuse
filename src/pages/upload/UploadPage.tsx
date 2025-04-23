@@ -189,6 +189,37 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
           const mediaId = mediaData.id;
           logger.log(`Successfully created media entry for video ${video.id}. Media ID: ${mediaId}`);
+
+          // If we are uploading to an existing LoRA asset, create the asset_media link
+          if (finalForcedLoraId) {
+            logger.log(`Linking media ${mediaId} to existing asset ${finalForcedLoraId}`);
+
+            // Insert relationship into asset_media
+            const { error: linkError } = await supabase
+              .from('asset_media')
+              .insert({ asset_id: finalForcedLoraId, media_id: mediaId });
+
+            if (linkError) {
+              logger.error(`Error linking media ${mediaId} to asset ${finalForcedLoraId}:`, linkError);
+            } else {
+              logger.log(`Successfully linked media ${mediaId} to asset ${finalForcedLoraId}`);
+            }
+
+            // Optionally set as primary media
+            const shouldSetPrimary = video.metadata.isPrimary || false;
+
+            if (shouldSetPrimary) {
+              logger.log(`Setting media ${mediaId} as primary for asset ${finalForcedLoraId}`);
+              const { error: primaryErr } = await supabase
+                .from('assets')
+                .update({ primary_media_id: mediaId })
+                .eq('id', finalForcedLoraId);
+
+              if (primaryErr) {
+                logger.error(`Error setting primary media for asset ${finalForcedLoraId}:`, primaryErr);
+              }
+            }
+          }
         }
 
         logger.log('Finished processing all videos for media entry creation.');

@@ -6,7 +6,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { X, Pencil, Save, XCircle, Trash, List, ListChecks, Flame, EyeOff, Loader2 } from 'lucide-react';
+import { X, Pencil, Save, XCircle, Trash, List, ListChecks, Flame, EyeOff, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -58,6 +58,12 @@ interface VideoLightboxProps {
   onStatusChange?: (newStatus: VideoDisplayStatus) => Promise<void>;
   adminStatus?: AdminStatus | null;
   onAdminStatusChange?: (newStatus: AdminStatus) => Promise<void>;
+  /** If true, shows a button to navigate to the previous video and fires the callback when clicked */
+  hasPrev?: boolean;
+  onPrevVideo?: () => void;
+  /** If true, shows a button to navigate to the next video and fires the callback when clicked */
+  hasNext?: boolean;
+  onNextVideo?: () => void;
 }
 
 interface LoraOption {
@@ -81,7 +87,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   currentStatus = null,
   onStatusChange,
   adminStatus = null,
-  onAdminStatusChange
+  onAdminStatusChange,
+  hasPrev,
+  onPrevVideo,
+  hasNext,
+  onNextVideo
 }) => {
   const { user, isAdmin } = useAuth();
 
@@ -381,6 +391,32 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   isHovering={isMobile}
                   lazyLoad={false}
                 />
+
+                {/* Navigation Buttons - Moved inside the video player container */}
+                {hasPrev && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (onPrevVideo) onPrevVideo();
+                    }}
+                    className="absolute left-2 top-1/2 -translate-y-1/2 z-50 h-10 w-10 bg-black/40 hover:bg-black/60 text-white"
+                  >
+                    <ChevronLeft className="h-6 w-6" />
+                  </Button>
+                )}
+                {hasNext && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      if (onNextVideo) onNextVideo();
+                    }}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 z-50 h-10 w-10 bg-black/40 hover:bg-black/60 text-white"
+                  >
+                    <ChevronRight className="h-6 w-6" />
+                  </Button>
+                )}
 
                 {isAuthorized && currentStatus && onStatusChange && (
                   <div

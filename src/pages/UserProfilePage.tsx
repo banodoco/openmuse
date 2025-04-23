@@ -368,11 +368,25 @@ export default function UserProfilePage() {
       }
       try {
         const decodedDisplayName = decodeURIComponent(displayName);
-        const { data: profileData, error: profileError } = await supabase
+        // First attempt a fast lookup by `username` (which should be indexed and unique). This avoids the
+        // expensive `or()` scan across both `display_name` and `username` columns that was previously causing
+        // full‑table scans and noticeably slower profile load times.
+        let { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .or(`display_name.eq.${decodedDisplayName},username.eq.${decodedDisplayName}`)
+          .eq('username', decodedDisplayName)
           .maybeSingle();
+
+        if (!profileData && !profileError) {
+          // Fallback: if no profile matched the username, try display_name. This secondary lookup is only
+          // executed when necessary and therefore does not impact the common happy‑path performance.
+          ({ data: profileData, error: profileError } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('display_name', decodedDisplayName)
+            .maybeSingle());
+        }
+
         if (!isMounted) return;
         if (profileError || !profileData) {
             logger.error('Error fetching profile or profile not found:', profileError);
@@ -716,6 +730,31 @@ export default function UserProfilePage() {
       </PaginationContent> </Pagination> ); 
   };
 
+  // Use the FULL lists (generationVideos, artVideos) for lightbox navigation
+  const fullVideoListForLightbox = useMemo(() => {
+    // Combine the full, unsorted, unpaginated lists
+    return [...generationVideos, ...artVideos];
+  }, [generationVideos, artVideos]); // Depend on the state variables holding the full lists
+
+  // Find the index in the FULL list
+  const currentLightboxIndex = useMemo(() => {
+    if (!lightboxVideo) return -1;
+    return fullVideoListForLightbox.findIndex(v => v.id === lightboxVideo.id);
+  }, [lightboxVideo, fullVideoListForLightbox]);
+
+  // Handlers now use the FULL list
+  const handlePrevLightboxVideo = useCallback(() => {
+    if (currentLightboxIndex > 0) {
+      setLightboxVideo(fullVideoListForLightbox[currentLightboxIndex - 1]);
+    }
+  }, [currentLightboxIndex, fullVideoListForLightbox]);
+
+  const handleNextLightboxVideo = useCallback(() => {
+    if (currentLightboxIndex !== -1 && currentLightboxIndex < fullVideoListForLightbox.length - 1) {
+      setLightboxVideo(fullVideoListForLightbox[currentLightboxIndex + 1]);
+    }
+  }, [currentLightboxIndex, fullVideoListForLightbox]);
+
   // --- JSX Rendering --- 
   return (
     <div className="w-full min-h-screen flex flex-col text-foreground">
@@ -928,7 +967,12 @@ export default function UserProfilePage() {
           creatorId={lightboxVideo.user_id}
           onVideoUpdate={() => { if (profile?.id) fetchUserVideos(profile.id, user?.id, isAdmin && !forceLoggedOutView, false); }}
           isAuthorized={canEdit} currentStatus={lightboxVideo.user_status} onStatusChange={handleLightboxUserStatusChange}
-          adminStatus={lightboxVideo.admin_status} onAdminStatusChange={handleLightboxAdminStatusChange} />
+          adminStatus={lightboxVideo.admin_status} onAdminStatusChange={handleLightboxAdminStatusChange}
+          hasPrev={currentLightboxIndex > 0}
+          hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < fullVideoListForLightbox.length - 1}
+          onPrevVideo={handlePrevLightboxVideo}
+          onNextVideo={handleNextLightboxVideo}
+        />
       )}
 
       <Footer />

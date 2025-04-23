@@ -41,6 +41,8 @@ interface LoraCardProps {
   onVisibilityChange?: (loraId: string, isVisible: boolean) => void;
   shouldBePlaying?: boolean;
   onEnterPreloadArea?: (loraId: string, isInPreloadArea: boolean) => void;
+  /** Optional override for aspect ratio, defaults to metadata or 16:9 on profile/home */
+  aspectRatioOverride?: number;
 }
 
 const LoraCard: React.FC<LoraCardProps> = ({ 
@@ -54,9 +56,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
   onVisibilityChange,
   shouldBePlaying = false,
   onEnterPreloadArea,
+  aspectRatioOverride,
 }) => {
   const navigate = useNavigate();
   const location = useLocation();
+  const isOnProfilePage = location.pathname.startsWith('/profile/');
+  const isOnHomePage = location.pathname === '/';
   const [isDeleting, setIsDeleting] = useState(false);
   const [isPinning, setIsPinning] = useState(false);
   const [isListing, setIsListing] = useState(false);
@@ -67,6 +72,9 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [aspectRatio, setAspectRatio] = useState<number | null>(
     lora?.primaryVideo?.metadata?.aspectRatio ?? null
   );
+  const finalAspectRatio = aspectRatioOverride != null
+    ? aspectRatioOverride
+    : (isOnProfilePage || isOnHomePage ? 16/9 : aspectRatio);
   const [isVisible, setIsVisible] = useState(false);
   const [isInPreloadArea, setIsInPreloadArea] = useState(false);
   const isMobile = useIsMobile();
@@ -174,8 +182,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
     );
   };
   
-  const isOnProfilePage = location.pathname.startsWith('/profile/');
-  
   const handleVideoLoad = (event: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = event.target as HTMLVideoElement;
     if (video.videoWidth && video.videoHeight) {
@@ -215,7 +221,10 @@ const LoraCard: React.FC<LoraCardProps> = ({
     >
       <div 
         className="w-full overflow-hidden bg-muted relative"
-        style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16 / 9' }}
+        style={finalAspectRatio != null
+          ? { paddingBottom: `${(1 / finalAspectRatio) * 100}%` }
+          : { aspectRatio: '16 / 9' }
+        }
       >
         {videoUrl ? (
           <>

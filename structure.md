@@ -103,6 +103,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   ├── StandardVideoPreview.tsx # A standard component for video previews
 │   │   │   ├── VideoCard.tsx   # Card component for displaying video information and preview
 │   │   │   ├── VideoError.tsx  # Component to display when there's a video loading error
+│   │   │   ├── VideoGrid.tsx   # Grid layout component for displaying videos, replacing Masonry
 │   │   │   ├── VideoLoader.tsx # Loading indicator specifically for videos
 │   │   │   ├── VideoOverlay.tsx # Overlay content/controls for videos
 │   │   │   ├── VideoPaginatedGrid.tsx # Grid layout for videos with pagination

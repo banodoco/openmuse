@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -383,6 +383,28 @@ function AssetDetailPage() {
     }
   };
   
+  // Build video list for navigation (all videos for this asset)
+  const videoList = useMemo(() => {
+    return videos ?? [];
+  }, [videos]);
+
+  const currentLightboxIndex = useMemo(() => {
+    if (!currentVideo) return -1;
+    return videoList.findIndex(v => v.id === currentVideo.id);
+  }, [currentVideo, videoList]);
+
+  const handlePrevLightboxVideo = useCallback(() => {
+    if (currentLightboxIndex > 0) {
+      setCurrentVideo(videoList[currentLightboxIndex - 1]);
+    }
+  }, [currentLightboxIndex, videoList]);
+
+  const handleNextLightboxVideo = useCallback(() => {
+    if (currentLightboxIndex !== -1 && currentLightboxIndex < videoList.length - 1) {
+      setCurrentVideo(videoList[currentLightboxIndex + 1]);
+    }
+  }, [currentLightboxIndex, videoList]);
+  
   // logger.log(`[AssetDetailPage Render] isLoading: ${isLoading}, asset exists: ${!!asset}`);
 
   if (isLoading) {
@@ -500,6 +522,10 @@ function AssetDetailPage() {
               isAuthorized={isAuthorized}
               adminStatus={currentVideo.admin_status}
               onAdminStatusChange={(newStatus) => handleSetVideoAdminStatus(currentVideo.id, newStatus)}
+              hasPrev={currentLightboxIndex > 0}
+              hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < videoList.length - 1}
+              onPrevVideo={handlePrevLightboxVideo}
+              onNextVideo={handleNextLightboxVideo}
             />
           )}
           

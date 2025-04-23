@@ -3,6 +3,8 @@ import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 export interface VideoMetadata {
   title: string;
   description: string;
+  /** Optional display name of the creator (used in various UI components) */
+  creatorName?: string;
   classification: 'art' | 'gen';
   isPrimary?: boolean;
   loraName?: string;

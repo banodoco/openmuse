@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState, useRef } from 'react';
+import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
@@ -12,7 +12,7 @@ import { toast } from 'sonner';
 import { useVideoManagement } from '@/hooks/useVideoManagement';
 import { useQuery } from '@tanstack/react-query';
 import { supabase } from '@/lib/supabase';
-import { LoraAsset, VideoEntry } from '@/lib/types';
+import { LoraAsset, VideoEntry, AdminStatus } from '@/lib/types';
 import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -30,6 +30,7 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import VideoLightbox from '@/components/VideoLightbox';
 
 const logger = new Logger('Index');
 // logger.log('Index page component module loaded');
@@ -70,6 +71,7 @@ const Index: React.FC = () => {
   const dataRefreshInProgress = useRef(false);
   const initialRefreshDone = useRef(false);
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
+  const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
   
   // Pagination State
   const [artPage, setArtPage] = useState(1);
@@ -80,7 +82,7 @@ const Index: React.FC = () => {
   const generationsSectionRef = useRef<HTMLDivElement>(null);
   
   // Get video data & loading state
-  const { videos, isLoading: videosLoading } = useVideoManagement();
+  const { videos, isLoading: videosLoading, approveVideo, rejectVideo, refetchVideos } = useVideoManagement();
   // logger.log(`Index: useVideoManagement() state - videosLoading: ${videosLoading}`);
   
   // Get model filter from URL query params
@@ -449,16 +451,80 @@ const Index: React.FC = () => {
   const GENERATION_ITEMS_PER_ROW = 6;
   const ART_ITEMS_PER_ROW = 4;
 
+  // --- Lightbox Handlers ---
+  const handleOpenLightbox = useCallback((video: VideoEntry) => {
+    logger.log(`[Lightbox] Opening lightbox for video: ${video.id}`);
+    setLightboxVideo(video);
+  }, []);
+
+  const handleCloseLightbox = useCallback(() => {
+    logger.log(`[Lightbox] Closing lightbox`);
+    setLightboxVideo(null);
+  }, []);
+
+  // Compute a flattened list of currently displayed videos (art + generations) for navigation
+  const lightboxVideoList = useMemo(() => {
+    return [...displayArtVideos.items, ...displayGenVideos.items];
+  }, [displayArtVideos.items, displayGenVideos.items]);
+
+  const currentLightboxIndex = useMemo(() => {
+    if (!lightboxVideo) return -1;
+    return lightboxVideoList.findIndex(v => v.id === lightboxVideo.id);
+  }, [lightboxVideo, lightboxVideoList]);
+
+  const handlePrevLightboxVideo = useCallback(() => {
+    if (currentLightboxIndex > 0) {
+      setLightboxVideo(lightboxVideoList[currentLightboxIndex - 1]);
+    }
+  }, [currentLightboxIndex, lightboxVideoList]);
+
+  const handleNextLightboxVideo = useCallback(() => {
+    if (currentLightboxIndex !== -1 && currentLightboxIndex < lightboxVideoList.length - 1) {
+      setLightboxVideo(lightboxVideoList[currentLightboxIndex + 1]);
+    }
+  }, [currentLightboxIndex, lightboxVideoList]);
+
+  // This function now RETURNS the actual handler needed by the Lightbox
+  const getLightboxAdminStatusChangeHandler = useCallback((videoId: string) => {
+    return async (newStatus: AdminStatus) => {
+      logger.log(`[Lightbox] Admin status change requested: ${videoId} to ${newStatus}`);
+      try {
+        if (newStatus === 'Curated') {
+          await approveVideo(videoId);
+          toast.success("Video approved successfully.");
+        } else if (newStatus === 'Rejected') {
+          await rejectVideo(videoId);
+          toast.success("Video rejected successfully.");
+        } else {
+          logger.warn(`[Lightbox] Unhandled admin status change: ${newStatus} for video ${videoId}`);
+          toast.info(`Status change to ${newStatus} requested.`);
+        }
+        handleCloseLightbox();
+      } catch (error) {
+        logger.error(`[Lightbox] Error changing admin status for ${videoId} to ${newStatus}:`, error);
+        toast.error("Failed to update video status.");
+      }
+    };
+  }, [approveVideo, rejectVideo, handleCloseLightbox]);
+
+  const handleLightboxVideoUpdate = useCallback(() => {
+    logger.log(`[Lightbox] Video update occurred (internally within lightbox), refetching videos.`);
+    refetchVideos();
+  }, [refetchVideos]);
+  // --- End Lightbox Handlers ---
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navigation />
       
       <div className="flex-1 w-full">
         <div className="max-w-screen-2xl mx-auto p-4">
-          <PageHeader 
-            title="Curated resources & art, with a focus on LoRAs for open video models"
-            description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan."
-          />
+          <div className="pt-2 pb-0 mb-8">
+            <PageHeader 
+              title="Welcome to the OpenMuse Video Gallery" 
+              description="Browse community-created art, LoRAs, and generations." 
+            />
+          </div>
           
           {/* Search Input - Commented out for now */}
           {/* 
@@ -549,11 +615,12 @@ const Index: React.FC = () => {
               videos={displayArtVideos.items}
               isLoading={videosLoading}
               seeAllPath="/art"
-              alwaysShowInfo
+              alwaysShowInfo={true}
               emptyMessage="There's no art matching the current filter."
               showAddButton={true}
               addButtonClassification="art"
               itemsPerRow={ART_ITEMS_PER_ROW}
+              onOpenLightbox={handleOpenLightbox}
             />
             {renderPaginationControls(artPage, displayArtVideos.totalPages, handleArtPageChange)}
           </div>
@@ -567,12 +634,13 @@ const Index: React.FC = () => {
               videos={displayGenVideos.items}
               isLoading={videosLoading}
               seeAllPath="/generations"
-              alwaysShowInfo
+              alwaysShowInfo={true}
               emptyMessage="There are no generations matching the current filter."
               showAddButton={true}
               addButtonClassification="gen"
               itemsPerRow={GENERATION_ITEMS_PER_ROW}
               forceCreatorHoverDesktop={true}
+              onOpenLightbox={handleOpenLightbox}
             />
             {renderPaginationControls(generationPage, displayGenVideos.totalPages, handleGenerationPageChange)}
           </div>
@@ -580,6 +648,29 @@ const Index: React.FC = () => {
       </div>
       
       <Footer />
+      {/* Render the lightbox when a video is selected */}
+      {lightboxVideo && (
+        <VideoLightbox 
+          isOpen={!!lightboxVideo} 
+          onClose={handleCloseLightbox} 
+          videoUrl={lightboxVideo.url} 
+          videoId={lightboxVideo.id}
+          title={lightboxVideo.metadata?.title}
+          description={lightboxVideo.metadata?.description}
+          thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
+          creatorId={lightboxVideo.user_id}
+          isAuthorized={isAdmin}
+          adminStatus={lightboxVideo.admin_status}
+          currentStatus={null}
+          onStatusChange={() => Promise.resolve()}
+          onAdminStatusChange={getLightboxAdminStatusChangeHandler(lightboxVideo.id)}
+          onVideoUpdate={handleLightboxVideoUpdate}
+          hasPrev={currentLightboxIndex > 0}
+          hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < lightboxVideoList.length - 1}
+          onPrevVideo={handlePrevLightboxVideo}
+          onNextVideo={handleNextLightboxVideo}
+        />
+      )}
     </div>
   );
 };
