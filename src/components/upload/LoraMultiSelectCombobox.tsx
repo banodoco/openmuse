@@ -140,18 +140,12 @@ export function LoraMultiSelectCombobox({
                       "flex items-center space-x-2 p-2 rounded-md hover:bg-accent hover:text-accent-foreground", 
                       disabled ? "opacity-50 cursor-not-allowed" : "cursor-pointer"
                     )}
-                    onClick={() => { 
-                      logger.log(`Item clicked for LoRA ${lora.id} (${lora.name})`);
-                      if (!disabled) handleSelect(lora.id, !isSelected); 
-                      else logger.log('Item click ignored because component is disabled.');
-                    }}
                   >
                     <Checkbox
                       id={`lora-${lora.id}`}
                       checked={isSelected}
                       disabled={disabled}
                       aria-labelledby={`lora-label-${lora.id}`}
-                      tabIndex={-1}
                       onCheckedChange={(checked) => { 
                         logger.log(`Checkbox checkedChange triggered for ${lora.id}, checked: ${checked}`);
                         if (!disabled) handleSelect(lora.id, !!checked); 
