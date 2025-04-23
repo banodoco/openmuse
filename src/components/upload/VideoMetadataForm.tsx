@@ -6,30 +6,21 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
-import { LoraMultiSelectCombobox } from '@/components/upload/LoraMultiSelectCombobox';
 import { Logger } from '@/lib/logger';
 
 const logger = new Logger('VideoMetadataForm');
-
-type LoraOption = {
-  id: string;
-  name: string;
-}
 
 interface VideoMetadataFormProps {
   videoId: string;
   metadata: {
     title: string;
     description: string;
-    classification: 'art' | 'gen'; // Expects 'gen'
+    classification: 'art' | 'gen';
     isPrimary?: boolean;
-    associatedLoraIds?: string[]; // Add associated Lora IDs here too if not inferred
   };
-  updateMetadata: (id: string, field: string, value: any) => void; // Expects this prop
+  updateMetadata: (id: string, field: string, value: any) => void;
   canSetPrimary?: boolean;
   disabled?: boolean;
-  showLoraSelector?: boolean;
-  availableLoras?: LoraOption[];
 }
 
 const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({ 
@@ -38,31 +29,13 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
   updateMetadata, 
   canSetPrimary = true,
   disabled = false,
-  showLoraSelector = false,
-  availableLoras = [], 
 }) => {
   const { user } = useAuth();
   
   logger.log(`Rendering VideoMetadataForm for videoId: ${videoId}. Received props:`, {
     canSetPrimary,
     disabled,
-    showLoraSelector,
-    availableLorasCount: availableLoras.length,
-    initialSelectedLoraIds: metadata.associatedLoraIds || []
   });
-
-  // Handler specifically for the LoRA selector within this form
-  const handleLoraSelectionChange = (selectedIds: string[]) => {
-    logger.log(`LoRA selection changed for video ${videoId}:`, selectedIds);
-    updateMetadata(videoId, 'associatedLoraIds', selectedIds);
-  };
-
-  // Extract selected IDs from metadata, default to empty array
-  const associatedLoraIds = metadata.associatedLoraIds || [];
-
-  // Prepare options for the combobox
-  const loraOptions = availableLoras.map(lora => ({ value: lora.id, label: lora.name }));
-  logger.log(`Prepared LoRA options for combobox (video ${videoId}):`, loraOptions);
 
   return (
     <Card>
@@ -113,7 +86,7 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   disabled={disabled}
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} /> {/* Uses 'gen' */}
+                    <RadioGroupItem value="gen" id={`classification-gen-${videoId}`} />
                     <Label htmlFor={`classification-gen-${videoId}`} className="cursor-pointer">Generation</Label>
                   </div>
                   <div className="flex items-center space-x-2">
@@ -138,19 +111,6 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
                   Use as primary media for this LoRA
                 </Label>
               </div>
-            </div>
-          )}
-
-          {showLoraSelector && (
-            <div className="pt-4 border-t border-border/40">
-              <Label className="text-sm font-medium mb-2 block">Which LoRA was this created with?</Label>
-              <LoraMultiSelectCombobox 
-                loras={availableLoras}
-                selectedIds={associatedLoraIds}
-                setSelectedIds={handleLoraSelectionChange}
-                disabled={disabled}
-              />
-              {/* Add validation message area if needed */} 
             </div>
           )}
         </div>

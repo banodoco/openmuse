@@ -26,7 +26,6 @@ interface VideoItem {
     creator: 'self' | 'someone_else';
     creatorName: string;
     isPrimary?: boolean;
-    associatedLoraIds?: string[];
   };
   id: string;
 }
@@ -37,9 +36,7 @@ interface MultipleVideoUploaderProps {
   disabled?: boolean;
   hideIsPrimary?: boolean;
   allowPrimarySelection?: boolean;
-  availableLoras?: LoraOption[];
   uploadContext?: string;
-  showLoraSelectors?: boolean;
   defaultClassification?: 'art' | 'gen';
 }
 
@@ -49,9 +46,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   disabled = false,
   hideIsPrimary = false,
   allowPrimarySelection = true,
-  availableLoras = [],
   uploadContext = '',
-  showLoraSelectors = false,
   defaultClassification = 'gen'
 }) => {
   const { toast } = useToast();
@@ -64,8 +59,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     disabled,
     hideIsPrimary,
     allowPrimarySelection,
-    availableLorasCount: availableLoras.length,
-    showLoraSelectors,
+    uploadContext,
     defaultClassification
   });
   
@@ -78,8 +72,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
       classification: defaultClassification,
       creator: 'self',
       creatorName: '',
-      isPrimary: videos.length === 0,
-      associatedLoraIds: []
+      isPrimary: videos.length === 0
     },
     id: uuidv4()
   });
@@ -111,8 +104,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             classification: defaultClassification,
             creator: 'self',
             creatorName: '',
-            isPrimary: isFirst,
-            associatedLoraIds: []
+            isPrimary: isFirst
           },
           id: uuidv4()
         } as VideoItem;
@@ -148,8 +140,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           classification: defaultClassification,
           creator: 'self',
           creatorName: '',
-          isPrimary: isFirst,
-          associatedLoraIds: []
+          isPrimary: isFirst
         },
         id: uuidv4()
       }
@@ -188,8 +179,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             classification: defaultClassification,
             creator: 'self',
             creatorName: '',
-            isPrimary: isFirst,
-            associatedLoraIds: []
+            isPrimary: isFirst
           },
           id: uuidv4()
         }
@@ -212,10 +202,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
   const updateVideoMetadata = (id: string, field: string, value: any) => {
     if (disabled) return;
     
-    if (field === 'associatedLoraIds') {
-      logger.log(`Updating LoRA IDs for video ${id}:`, value);
-    }
-
     setVideos(prev => {
       const updated = prev.map(video => {
         if (video.id === id) {
@@ -223,12 +209,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             return {
               ...video,
               metadata: { ...video.metadata, isPrimary: true }
-            };
-          }
-          if (field === 'associatedLoraIds') {
-            return {
-              ...video,
-              metadata: { ...video.metadata, associatedLoraIds: value }
             };
           }
           return {
@@ -361,8 +341,6 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
                       updateMetadata={updateVideoMetadata}
                       canSetPrimary={!hideIsPrimary}
                       disabled={disabled}
-                      showLoraSelector={showLoraSelectors}
-                      availableLoras={availableLoras}
                     />
                   </div>
                 </CardContent>

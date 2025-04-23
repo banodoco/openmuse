@@ -117,16 +117,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     
     if (uploadMode === 'media') {
       // MEDIA ONLY FLOW --------------------------------------------------
-
-      // Check if *any* video is missing a LoRA selection (if not forced)
-      // if (!finalForcedLoraId) {
-      //   const videoMissingLoras = videos.find(v => !v.metadata.associatedLoraIds || v.metadata.associatedLoraIds.length === 0);
-      //   if (videoMissingLoras) {
-      //     toast.error(`Please select the LoRA(s) used for all videos (missing for video: ${videoMissingLoras.metadata.title || videoMissingLoras.id})`);
-      //     return;
-      //   }
-      // }
-
       setIsSubmitting(true);
       const reviewerName = user?.email || 'Anonymous';
       try {
@@ -193,32 +183,12 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
           if (mediaError || !mediaData) {
             logger.error(`STEP 3: DB Insert FAILED for video ${video.id}:`, mediaError);
-            // We might want to throw an error here or collect errors to show the user
-            // For now, just log and continue to allow other videos to potentially succeed
             continue;
           }
           logger.log(`STEP 4: DB Insert SUCCESSFUL (Before mediaId assignment) for video ${video.id}`);
 
           const mediaId = mediaData.id;
           logger.log(`Successfully created media entry for video ${video.id}. Media ID: ${mediaId}`);
-
-          // Link based on the video's specific LoRA selection or the forced ID
-          logger.log(`STEP 5: Before LoRA Check for media ${mediaId}`);
-          const targetAssetIds = finalForcedLoraId ? [finalForcedLoraId] : (video.metadata.associatedLoraIds || []);
-          if (targetAssetIds.length === 0) {
-            logger.warn(`STEP 6: LoRA Check - No LoRAs Found for media ${mediaId}. Proceeding without LoRA link.`);
-            // Original: continue; // Skip linking if no LoRAs - now we proceed to create media anyway
-          } else {
-            logger.log(`STEP 7: LoRA Check - LoRAs Found for media ${mediaId}. Linking ${targetAssetIds.length} LoRAs.`);
-            // Only attempt linking if there are IDs
-            for (const assetId of targetAssetIds) {
-              const { error: linkError } = await supabase.from('asset_media').insert({ asset_id: assetId, media_id: mediaId });
-              if (linkError) {
-                logger.error(`Error linking media ${mediaId} to asset ${assetId}:`, linkError);
-              }
-            }
-          }
-          logger.log(`STEP 8: After LoRA Check for media ${mediaId}`);
         }
 
         logger.log('Finished processing all videos for media entry creation.');
@@ -499,8 +469,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               setVideos={setVideos} 
               disabled={!user}
               hideIsPrimary={uploadMode === 'media'}
-              availableLoras={availableLoras}
-              showLoraSelectors={uploadMode === 'media' && !finalForcedLoraId}
               defaultClassification={finalDefaultClassification}
             />
           </div>
