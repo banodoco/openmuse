@@ -326,7 +326,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           lora_type: loraDetails.loraType,
           lora_base_model: loraDetails.model,
           model_variant: loraDetails.modelVariant,
-          lora_link: loraDetails.loraLink || null
+          lora_link: loraDetails.loraLink || null,
+          user_status: 'Listed'
         })
         .select()
         .single();
