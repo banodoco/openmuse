@@ -71,7 +71,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const isMobile = useIsMobile();
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const isHoveringRef = useRef(isHovering);
+  // Initialize aspect ratio from metadata to prevent layout shift
   const [aspectRatio, setAspectRatio] = useState<number | null>(
     video.metadata?.aspectRatio ?? null
   );
@@ -83,11 +83,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const pageContext = location.pathname.includes('/profile/') ? 'profile' : 'asset';
   logger.log(`VideoCard ${video.id}: Determined context: ${pageContext}`);
 
-  useEffect(() => {
-    isHoveringRef.current = isHovering;
-    logger.log(`VideoCard: isHovering prop changed for ${video.id}: ${isHovering}`);
-  }, [isHovering, video.id]);
-  
   useEffect(() => {
     if (video.metadata?.placeholder_image) {
       setThumbnailUrl(video.metadata.placeholder_image);
@@ -110,7 +105,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleMouseEnter = () => {
     logger.log(`VideoCard: Mouse entered for ${video.id}`);
-    if (onHoverChange && !isHoveringRef.current) {
+    if (onHoverChange && !isHovering) {
       logger.log(`VideoCard: Notifying parent of hover start for ${video.id}`);
       onHoverChange(true);
     }
@@ -118,20 +113,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleMouseLeave = () => {
     logger.log(`VideoCard: Mouse left for ${video.id}`);
-    if (onHoverChange && isHoveringRef.current) {
+    if (onHoverChange && isHovering) {
       logger.log(`VideoCard: Notifying parent of hover end for ${video.id}`);
       onHoverChange(false);
     }
   };
   
   const getCreatorName = () => {
-    if (video.metadata?.creatorName) {
-      if (video.metadata.creatorName.includes('@')) {
-        return video.metadata.creatorName.split('@')[0];
-      }
-      return video.metadata.creatorName;
-    }
-    
+    // No creatorName on metadata, use reviewer_name or fallback
     if (video.reviewer_name) {
       if (video.reviewer_name.includes('@')) {
         return video.reviewer_name.split('@')[0];
@@ -259,7 +248,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
       ref={cardRef}
       key={video.id} 
       className={cn(
-        "relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4",
+        "relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10",
         currentRelevantStatus === 'Hidden' && isAuthorized && "opacity-50 grayscale hover:opacity-75"
       )}
       onMouseEnter={handleMouseEnter}
@@ -269,221 +258,130 @@ const VideoCard: React.FC<VideoCardProps> = ({
       data-video-id={video.id}
     >
       <div 
-        className="w-full overflow-hidden bg-muted relative max-h-[75vh] group"
-        style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16/9' }}
+        className="w-full overflow-hidden bg-muted relative"
+        style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16 / 9' }}
       >
-        <div className="absolute inset-0 w-full h-full">
+        <div className="absolute top-0 left-0 w-full h-full">
           <VideoPreview
-            key={`video-${video.id}`}
             url={video.url}
-            title={video.metadata?.title || `Video by ${getCreatorName()}`}
-            creator={getCreatorName()}
-            className="w-full h-full object-cover"
+            thumbnailUrl={thumbnailUrl || video.placeholder_image || video.metadata?.placeholder_image}
             isHovering={isHovering}
-            lazyLoad={false}
-            thumbnailUrl={thumbnailUrl}
             onLoadedData={handleVideoLoad}
             onVisibilityChange={handleVisibilityChange}
             shouldBePlaying={shouldBePlaying}
+            className="w-full h-full object-cover"
           />
-
-          {/* Expand Icon for Mobile - Now Bottom Right */}
-          {isMobile && (
-            <div 
-              className="absolute bottom-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none"
-              title="Tap to expand"
-            >
-              <ArrowUpRight className="h-4 w-4 text-white/80" />
-            </div>
-          )}
-
-          {/* Title and creator info for mobile (conditionally show creator) */}
-          {isMobile && (video.metadata?.title || (!isProfilePage && video.user_id)) && (
-            <div
-              className="absolute top-2 left-2 z-20 bg-black/30 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
-            >
-              {video.metadata?.title && (
-                <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
-                  {video.metadata.title}
-                </span>
-              )}
-              {video.user_id && !isProfilePage && (
-                <div className="mt-0.5">
-                  <LoraCreatorInfo
-                    asset={{ user_id: video.user_id } as any}
-                    avatarSize="h-4 w-4"
-                    textSize="text-xs"
-                    overrideTextColor="text-white/80"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Title and creator info for desktop when alwaysShowInfo is true AND hover isn't forced */}
-          {!isMobile && alwaysShowInfo && !forceCreatorHoverDesktop && (video.metadata?.title || (!isProfilePage && video.user_id)) && (
-            <div
-              className="absolute top-2 left-2 z-20 bg-black/30 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
-            >
-              {video.metadata?.title && (
-                <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
-                  {video.metadata.title}
-                </span>
-              )}
-              {/* Show creator info only if not on profile page */}
-              {video.user_id && !isProfilePage && (
-                <div className="mt-0.5">
-                  <LoraCreatorInfo
-                    asset={{ user_id: video.user_id } as any}
-                    avatarSize="h-4 w-4"
-                    textSize="text-xs"
-                    overrideTextColor="text-white/80"
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Status controls at bottom left */}
-          {isAuthorized && (
-            <div className={cn(
-              "absolute bottom-2 left-2 z-50 transition-opacity duration-200",
-              !isMobile && "opacity-0 group-hover:opacity-100" // Apply hover effect only on desktop
-            )} onClick={e => {
-              e.stopPropagation();
-              e.preventDefault();
-            }} style={{ pointerEvents: 'all' }}>
-              <VideoStatusControls
-                status={currentRelevantStatus}
-                onStatusChange={handleStatusChange}
-                className=""
-              />
-            </div>
-          )}
-
-          {/* Delete and primary buttons at top right (Adjust positioning if mobile expand icon is present) */}
-          {isAuthorized && (
-            <div 
-              className={cn(
-                "absolute top-2 right-2 z-50 flex gap-2",
-                !isMobile && "opacity-0 group-hover:opacity-100 transition-opacity duration-200" // Apply hover effect only on desktop
-              )}
-              onClick={e => {
-                e.stopPropagation();
-                e.preventDefault();
-              }}
-              style={{ pointerEvents: 'all' }}
-            >
-              {isLoRAAssetPage && onSetPrimaryMedia && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className={cn(
-                    "h-7 w-7 p-0 rounded-md shadow-sm",
-                    "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
-                    video.is_primary && "text-yellow-400 hover:text-yellow-300"
-                  )}
-                  onClick={handleSetPrimary}
-                  title={video.is_primary ? "This is the primary media" : "Make primary video"}
-                  disabled={video.is_primary}
-                >
-                  <Star className={cn("h-4 w-4", video.is_primary && "fill-current text-yellow-400")} />
-                </Button>
-              )}
-
-              {isAdmin && (
-                <AlertDialog>
-                  <AlertDialogTrigger asChild>
-                    <Button 
-                      variant="destructive" 
-                      size="icon" 
-                      className={cn(
-                        "h-7 w-7 p-0 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm",
-                        isDeleting && "opacity-50 cursor-not-allowed"
-                      )}
-                      title="Delete video permanently"
-                      disabled={!onDeleteVideo || isDeleting}
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      {isDeleting ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Trash className="h-4 w-4" />}
-                    </Button>
-                  </AlertDialogTrigger>
-                  <AlertDialogContent onClick={(e) => e.stopPropagation()}> 
-                    <AlertDialogHeader>
-                      <AlertDialogTitle>Delete this video?</AlertDialogTitle>
-                      <AlertDialogDescription>
-                        This action cannot be undone. The video file and its metadata will be permanently removed.
-                      </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <AlertDialogFooter>
-                      <AlertDialogCancel onClick={(e) => e.stopPropagation()} disabled={isDeleting}>Cancel</AlertDialogCancel>
-                      <AlertDialogAction 
-                        onClick={handleDeleteConfirm}
-                        disabled={isDeleting}
-                        className="bg-destructive hover:bg-destructive/90"
-                      >
-                        {isDeleting ? 'Deleting...' : 'Confirm Delete'}
-                      </AlertDialogAction>
-                    </AlertDialogFooter>
-                  </AlertDialogContent>
-                </AlertDialog>
-              )}
-            </div>
-          )}
-
-          {/* Play Button overlay (only shown on hover on non-mobile) */}
-          {!isMobile && (
-            <div 
-              className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none
-                ${isHovering ? 'opacity-0' : 'opacity-100'} 
-              `}
-            >
-              <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm shadow-md">
-                <Play className="h-6 w-6 text-white animate-pulse-opacity" />
-              </div>
-            </div>
-          )}
-
-          {/* Gradient overlay and text (Show on hover if !alwaysShowInfo OR forceCreatorHoverDesktop, but NOT on profile page) */}
-          {!isMobile && !isProfilePage && (!alwaysShowInfo || forceCreatorHoverDesktop) && (
-            <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none flex flex-col justify-between p-2 z-10">
-              <div className="flex flex-col items-start">
-                {video.metadata?.title && (
-                  <span className="text-white text-sm font-medium line-clamp-2 mr-2 pointer-events-auto">
-                    {video.metadata.title}
-                  </span>
-                )}
-                {video.user_id && (
-                  <div 
-                    style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }} 
-                    className="mt-0.5" 
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <LoraCreatorInfo
-                      asset={{ user_id: video.user_id } as any}
-                      avatarSize="h-4 w-4"
-                      textSize="text-xs"
-                      overrideTextColor="text-white/80"
-                    />
-                  </div>
-                )}
-              </div>
-              <div /> {/* Empty div to maintain flex spacing */}
-            </div>
-          )}
         </div>
       </div>
 
-      {/* Desktop Click Indicator - Bottom Right */}
-      {!isMobile && (
+      {/* Overlay for Admin Actions */}
+      {isAuthorized && (
         <div 
           className={cn(
-            "absolute bottom-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none",
-            "opacity-0 group-hover:opacity-100 transition-opacity duration-300" // Only show on hover
+            "absolute top-2 right-2 z-50 flex gap-2",
+            !isMobile && "opacity-0 group-hover:opacity-100 transition-opacity duration-200" // Apply hover effect only on desktop
           )}
-          title="Click to view details"
+          onClick={e => {
+            e.stopPropagation();
+            e.preventDefault();
+          }}
+          style={{ pointerEvents: 'all' }}
         >
-          <ArrowUpRight className="h-4 w-4 text-white/80" />
+          {isLoRAAssetPage && onSetPrimaryMedia && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className={cn(
+                "h-7 w-7 p-0 rounded-md shadow-sm",
+                "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
+                video.is_primary && "text-yellow-400 hover:text-yellow-300"
+              )}
+              onClick={handleSetPrimary}
+              title={video.is_primary ? "This is the primary media" : "Make primary video"}
+              disabled={video.is_primary}
+            >
+              <Star className={cn("h-4 w-4", video.is_primary && "fill-current text-yellow-400")} />
+            </Button>
+          )}
+
+          {isAdmin && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <Button 
+                  variant="destructive" 
+                  size="icon" 
+                  className={cn(
+                    "h-7 w-7 p-0 bg-red-600 hover:bg-red-700 text-white rounded-md shadow-sm",
+                    isDeleting && "opacity-50 cursor-not-allowed"
+                  )}
+                  title="Delete video permanently"
+                  disabled={!onDeleteVideo || isDeleting}
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  {isDeleting ? <div className="h-3 w-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div> : <Trash className="h-4 w-4" />}
+                </Button>
+              </AlertDialogTrigger>
+              <AlertDialogContent onClick={(e) => e.stopPropagation()}> 
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete this video?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This action cannot be undone. The video file and its metadata will be permanently removed.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel onClick={(e) => e.stopPropagation()} disabled={isDeleting}>Cancel</AlertDialogCancel>
+                  <AlertDialogAction 
+                    onClick={handleDeleteConfirm}
+                    disabled={isDeleting}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    {isDeleting ? 'Deleting...' : 'Confirm Delete'}
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
+        </div>
+      )}
+
+      {/* Play Button overlay (only shown on hover on non-mobile) */}
+      {!isMobile && (
+        <div 
+          className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none
+            ${isHovering ? 'opacity-0' : 'opacity-100'} 
+          `}
+        >
+          <div className="bg-black/50 rounded-full p-3 backdrop-blur-sm shadow-md">
+            <Play className="h-6 w-6 text-white animate-pulse-opacity" />
+          </div>
+        </div>
+      )}
+
+      {/* Gradient overlay and text (Show on hover if !alwaysShowInfo OR forceCreatorHoverDesktop, but NOT on profile page) */}
+      {!isMobile && !isProfilePage && (!alwaysShowInfo || forceCreatorHoverDesktop) && (
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none flex flex-col justify-between p-2 z-10">
+          <div className="flex flex-col items-start">
+            {video.metadata?.title && (
+              <span className="text-white text-sm font-medium line-clamp-2 mr-2 pointer-events-auto">
+                {video.metadata.title}
+              </span>
+            )}
+            {video.user_id && (
+              <div 
+                style={{ pointerEvents: 'auto', position: 'relative', zIndex: 20 }} 
+                className="mt-0.5" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <LoraCreatorInfo
+                  asset={{ user_id: video.user_id } as any}
+                  avatarSize="h-4 w-4"
+                  textSize="text-xs"
+                  overrideTextColor="text-white/80"
+                />
+              </div>
+            )}
+          </div>
+          <div /> {/* Empty div to maintain flex spacing */}
         </div>
       )}
     </div>

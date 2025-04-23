@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, UserAssetPreferenceStatus } from '@/lib/types';
 import LoraList from './lora/LoraList';
 import LoadingState from './LoadingState';
 import EmptyState from './EmptyState';
@@ -19,12 +19,14 @@ interface LoraManagerProps {
   loras: LoraAsset[];
   isLoading?: boolean;
   lorasAreLoading?: boolean;
-  filterText: string;
-  onFilterTextChange: (text: string) => void;
+  filterText?: string;
+  onFilterTextChange?: (text: string) => void;
   isAdmin?: boolean;
   onNavigateToUpload?: () => void;
   onRefreshData?: () => void;
   showSeeAllLink?: boolean;
+  onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
+  isUpdatingStatusMap?: Record<string, boolean>;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
@@ -37,6 +39,8 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   onNavigateToUpload,
   onRefreshData,
   showSeeAllLink,
+  onUserStatusChange,
+  isUpdatingStatusMap,
 }) => {
   logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, filterText=${filterText}, isAdmin=${isAdmin}`);
 
@@ -47,7 +51,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   const filteredLoras = loras;
 
   const handleTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    onFilterTextChange(event.target.value);
+    onFilterTextChange?.(event.target.value);
   };
 
   return (
@@ -76,7 +80,12 @@ const LoraManager: React.FC<LoraManagerProps> = ({
           description="There are currently no LoRAs in the collection that match your filters. Upload a new LoRA or adjust filters!" 
         />
       ) : (
-        <LoraList loras={filteredLoras} />
+        <LoraList 
+          loras={filteredLoras} 
+          onUserStatusChange={onUserStatusChange}
+          isUpdatingStatusMap={isUpdatingStatusMap}
+          isAdmin={isAdmin}
+        />
       )}
     </div>
   );

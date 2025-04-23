@@ -12,8 +12,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import Masonry from 'react-masonry-css';
-import { DummyCard, generateDummyItems } from '@/components/common/DummyCard';
 import { useLocation } from 'react-router-dom';
 import {
   Pagination,
@@ -31,15 +29,8 @@ import UploadPage from '@/pages/upload/UploadPage';
 
 const logger = new Logger('AssetVideoSection');
 
-const breakpointColumnsObj = {
-  default: 3,
-  1100: 3,
-  700: 2,
-  500: 1
-};
-
-const isVideoEntry = (item: VideoEntry | { type: 'dummy' }): item is VideoEntry => {
-  return !('type' in item && item.type === 'dummy');
+const isVideoEntry = (item: VideoEntry): item is VideoEntry => {
+  return item && typeof item === 'object' && 'id' in item && 'url' in item;
 };
 
 interface AssetVideoSectionProps {
@@ -110,17 +101,6 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     return sorted;
   }, [videos, classification, asset?.primary_media_id]);
 
-  const getItemsWithDummies = <T extends VideoEntry>(
-    allItems: T[]
-  ): Array<T | { type: 'dummy'; id: string; colorClass: string }> => {
-    if (allItems.length > 4 && allItems.length < 10) {
-      const dummyItems = generateDummyItems(6, allItems.length);
-      return [...allItems, ...dummyItems];
-    } else {
-      return allItems;
-    }
-  };
-
   const videosToDisplay = useMemo(() => {
     // logger.log(`Filtering by authorization. isAuthorized: ${isAuthorized}`);
     if (isAuthorized) {
@@ -140,8 +120,9 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   // Paginate the videos
   const paginatedVideos = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
+    // logger.log(`Paginating videos. Current page: ${currentPage}, Start index: ${start}, Total videos: ${videosToDisplay.length}`);
     return videosToDisplay.slice(start, start + itemsPerPage);
-  }, [videosToDisplay, currentPage]);
+  }, [videosToDisplay, currentPage, itemsPerPage]);
 
   // Reset page when the classification filter changes only
   useEffect(() => {
@@ -199,8 +180,6 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     }
   }, []); // Empty dependency array as it uses refs and state setters
 
-  const itemsToDisplay = useMemo(() => getItemsWithDummies(paginatedVideos), [paginatedVideos]); // Paginate before adding dummies
-  
   const scrollToGridWithOffset = (offset: number = -150) => {
     if (gridContainerRef.current) {
       const y = gridContainerRef.current.getBoundingClientRect().top + window.pageYOffset + offset;
@@ -239,25 +218,20 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
           <DialogTrigger asChild>
             <Button 
-              variant="ghost"
+              variant="outline"
               size={isMobile ? "sm" : "default"}
-              className={cn(
-                "border border-input hover:bg-accent hover:text-accent-foreground",
-                "text-muted-foreground",
-                isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
-              )}
+              className="w-full md:w-auto"
             >
-              Upload Video
+              Upload Video for {asset?.name}
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Upload Media for {asset?.name || 'this LoRA'}</DialogTitle>
+              <DialogTitle>Upload Video for {asset?.name}</DialogTitle>
             </DialogHeader>
-            <UploadPage
+            <UploadPage 
               initialMode="media"
-              forcedLoraId={asset?.id}
-              defaultClassification="gen"
+              defaultClassification={asset?.lora_type === 'Style' ? 'art' : 'gen'}
               hideLayout={true}
               onSuccess={handleUploadSuccess}
             />
@@ -265,116 +239,104 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         </Dialog>
       </div>
       
-      {videosToDisplay.length > 0 ? (
-        <div ref={gridContainerRef} className="relative pt-6">
-          <Masonry
-            breakpointCols={breakpointColumnsObj}
-            className="my-masonry-grid"
-            columnClassName="my-masonry-grid_column"
-          >
-            {itemsToDisplay.map(item => {
-              if (isVideoEntry(item)) {
-                return (
-                  <VideoCard
-                    key={item.id}
-                    video={item}
-                    isAdmin={isAdmin}
-                    isAuthorized={isAuthorized}
-                    onOpenLightbox={onOpenLightbox}
-                    onApproveVideo={handleApproveVideo}
-                    onDeleteVideo={handleDeleteVideo}
-                    onRejectVideo={handleRejectVideo}
-                    onSetPrimaryMedia={handleSetPrimaryMedia}
-                    isHovering={hoveredVideoId === item.id}
-                    onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)}
-                    onUpdateLocalVideoStatus={onStatusChange}
-                    // Pass down visibility callback and play state
-                    onVisibilityChange={handleVideoVisibilityChange}
-                    shouldBePlaying={isMobile && item.id === visibleVideoId} // Only true if mobile AND this video is the visible one
-                  />
-                );
-              } else {
-                return (
-                  <DummyCard
-                    key={item.id}
-                    id={item.id}
-                    colorClass={item.colorClass}
-                  />
-                );
-              }
-            })}
-          </Masonry>
-          {/* Pagination Controls */} 
-          {totalPages > 1 && (
-            <Pagination className="mt-6">
-              <PaginationContent>
-                <PaginationItem>
-                  <PaginationPrevious
-                    onClick={() => {
-                      scrollToGridWithOffset();
-                      setTimeout(() => {
-                        if (!unmountedRef.current) {
-                            setCurrentPage((p) => Math.max(1, p - 1));
-                        }
-                      }, 300); // Changed to 300ms
-                    }}
-                    className={
-                      currentPage === 1
-                        ? 'pointer-events-none opacity-50'
-                        : 'cursor-pointer hover:bg-muted/50 transition-colors'
-                    }
-                  />
-                </PaginationItem>
+      <div ref={gridContainerRef} className="mt-6">
+        {videosToDisplay.length === 0 ? (
+          <EmptyState 
+            title="No Videos Yet" 
+            description={classification === 'all' 
+              ? "No videos have been associated with this LoRA yet." 
+              : `No ${classification === 'gen' ? 'generation' : 'art'} videos found for this LoRA.`} 
+          />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {paginatedVideos.map((video) => {
+              const isHovering = hoveredVideoId === video.id;
+              const isActive = visibleVideoId === video.id;
 
-                {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
+              return (
+                <VideoCard
+                  key={video.id}
+                  video={video}
+                  isAdmin={isAdmin}
+                  isAuthorized={isAuthorized}
+                  isHovering={isHovering}
+                  onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
+                  onVisibilityChange={handleVideoVisibilityChange}
+                  onOpenLightbox={onOpenLightbox}
+                  onApproveVideo={handleApproveVideo}
+                  onRejectVideo={handleRejectVideo}
+                  onDeleteVideo={handleDeleteVideo}
+                  onSetPrimaryMedia={handleSetPrimaryMedia}
+                  onStatusChange={onStatusChange}
+                  showAdminControls={isAuthorized}
+                  showUserControls={isAuthorized}
+                  showPrimaryButton={isAuthorized && isLoraPage}
+                  source="assetDetail"
+                  forceCreatorHoverDesktop={false}
+                  alwaysShowInfo={false}
+                />
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {totalPages > 1 && (
+        <Pagination className="mt-6">
+          <PaginationContent>
+            <PaginationItem>
+              <PaginationPrevious
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage > 1) {
+                    setCurrentPage(currentPage - 1);
+                    scrollToGridWithOffset();
+                  }
+                }}
+                aria-disabled={currentPage === 1}
+                className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
+              />
+            </PaginationItem>
+            {[...Array(totalPages)].map((_, i) => {
+              const page = i + 1;
+              if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) {
+                return (
                   <PaginationItem key={page}>
                     <PaginationLink
-                      onClick={() => {
-                        if (page !== currentPage) {
-                          scrollToGridWithOffset();
-                          setTimeout(() => {
-                            if (!unmountedRef.current) {
-                                setCurrentPage(page);
-                            }
-                          }, 300); // Changed to 300ms
-                        }
+                      href="#"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        setCurrentPage(page);
+                        scrollToGridWithOffset();
                       }}
-                      isActive={currentPage === page}
-                      className="cursor-pointer hover:bg-muted/50 transition-colors"
+                      isActive={page === currentPage}
                     >
                       {page}
                     </PaginationLink>
                   </PaginationItem>
-                ))}
-
-                <PaginationItem>
-                  <PaginationNext
-                    onClick={() => {
-                      scrollToGridWithOffset();
-                      setTimeout(() => {
-                        if (!unmountedRef.current) {
-                            setCurrentPage((p) => Math.min(totalPages, p + 1));
-                        }
-                      }, 300); // Changed to 300ms
-                    }}
-                    className={
-                      currentPage === totalPages
-                        ? 'pointer-events-none opacity-50'
-                        : 'cursor-pointer hover:bg-muted/50 transition-colors'
-                    }
-                  />
-                </PaginationItem>
-              </PaginationContent>
-            </Pagination>
-          )}
-        </div>
-      ) : (
-        <EmptyState 
-          title="No Videos"
-          description={classification === 'all' 
-            ? "No videos are currently associated with this LoRA."
-            : `No ${classification} videos found for this LoRA.`}
-        />
+                );
+              } else if (Math.abs(page - currentPage) === 2) {
+                return <PaginationItem key={`ellipsis-${page}`}><span className="px-2">...</span></PaginationItem>;
+              }
+              return null;
+            })}
+            <PaginationItem>
+              <PaginationNext
+                href="#"
+                onClick={(e) => {
+                  e.preventDefault();
+                  if (currentPage < totalPages) {
+                    setCurrentPage(currentPage + 1);
+                    scrollToGridWithOffset();
+                  }
+                }}
+                aria-disabled={currentPage === totalPages}
+                className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
+              />
+            </PaginationItem>
+          </PaginationContent>
+        </Pagination>
       )}
     </div>
   );

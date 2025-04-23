@@ -1,10 +1,8 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import Masonry from 'react-masonry-css';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, UserAssetPreferenceStatus } from '@/lib/types';
 import { FileVideo } from 'lucide-react';
 import LoraCard from './LoraCard';
 import { Logger } from '@/lib/logger';
-import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 import {
   Pagination,
@@ -20,10 +18,17 @@ const logger = new Logger('LoraList');
 interface LoraListProps {
   loras: LoraAsset[];
   initialModelFilter?: string;
+  isAdmin?: boolean;
+  onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
+  isUpdatingStatusMap?: Record<string, boolean>;
 }
 
-const LoraList: React.FC<LoraListProps> = ({ loras }) => {
-  const { isAdmin } = useAuth();
+const LoraList: React.FC<LoraListProps> = ({ 
+  loras, 
+  isAdmin, 
+  onUserStatusChange, 
+  isUpdatingStatusMap 
+}) => {
   const isMobile = useIsMobile();
   
   // Add state and refs for autoplay
@@ -34,12 +39,6 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   useEffect(() => {
     logger.log("LoraList received loras:", loras?.length || 0);
   }, [loras]);
-
-  const breakpointColumnsObj = {
-    default: 3,
-    1024: 2,
-    640: 1,
-  };
 
   // Pagination logic
   const itemsPerPage = 15;
@@ -103,25 +102,22 @@ const LoraList: React.FC<LoraListProps> = ({ loras }) => {
   return (
     <div className="space-y-4">
       {paginatedLoras.length > 0 ? (
-        <Masonry
-          breakpointCols={breakpointColumnsObj}
-          className="my-masonry-grid flex w-auto -ml-4"
-          columnClassName="my-masonry-grid_column pl-4 bg-clip-padding"
+        <div 
+          className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"
         >
           {paginatedLoras.map((lora) => (
-            <div key={lora.id} className="mb-4">
-              <LoraCard 
-                lora={lora} 
-                isAdmin={isAdmin} 
-                // Pass autoplay props
-                onVisibilityChange={handleVideoVisibilityChange}
-                shouldBePlaying={isMobile && lora.id === visibleVideoId}
-                // Pass preload prop
-                onEnterPreloadArea={handleEnterPreloadArea}
-              />
-            </div>
+            <LoraCard 
+              key={lora.id}
+              lora={lora} 
+              isAdmin={isAdmin}
+              onUserStatusChange={onUserStatusChange}
+              isUpdatingStatus={isUpdatingStatusMap ? isUpdatingStatusMap[lora.id] : undefined}
+              onVisibilityChange={handleVideoVisibilityChange}
+              shouldBePlaying={isMobile && lora.id === visibleVideoId}
+              onEnterPreloadArea={handleEnterPreloadArea}
+            />
           ))}
-        </Masonry>
+        </div>
       ) : (
         <div className="col-span-full text-center py-8">
           <FileVideo className="h-12 w-12 mx-auto text-muted-foreground" />

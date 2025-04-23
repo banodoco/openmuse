@@ -16,7 +16,6 @@ import { Button } from '@/components/ui/button';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import VideoCard from '@/components/video/VideoCard';
 import VideoLightbox from '@/components/VideoLightbox';
-import Masonry from 'react-masonry-css';
 import {
   Pagination,
   PaginationContent,
@@ -32,6 +31,8 @@ import { Helmet } from 'react-helmet-async';
 import { cn } from '@/lib/utils';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import UploadPage from '@/pages/upload/UploadPage';
+import LoraManager from '@/components/LoraManager';
+import VideoGallerySection from '@/components/video/VideoGallerySection';
 
 const logger = new Logger('UserProfilePage');
 
@@ -791,76 +792,22 @@ export default function UserProfilePage() {
               <CardContent ref={lorasGridRef} className="p-4 md:p-6">
                 {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                  userAssets.length > 0 ? ( <> 
-                    <div className="relative pt-6"> <Masonry breakpointCols={defaultBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
-                        {loraItemsForPage.map(item => ( <LoraCard 
-                            key={item.id} 
-                            lora={item} 
-                            isAdmin={isAdmin && !forceLoggedOutView} 
-                            isOwnProfile={isOwner} 
-                            userStatus={item.user_status} 
-                            onUserStatusChange={handleAssetStatusUpdate} 
-                            hideCreatorInfo={true} 
-                            isUpdatingStatus={isUpdatingAssetStatus[item.id]} 
-                            // Add autoplay props
-                            onVisibilityChange={handleVideoVisibilityChange} 
-                            shouldBePlaying={isMobile && item.id === visibleVideoId}
-                          /> ))} 
-                    </Masonry> </div> 
+                    <LoraManager
+                      loras={loraItemsForPage} 
+                      isLoading={isLoadingAssets} // Reflect LoRA loading state
+                      lorasAreLoading={isLoadingAssets} // Pass same state
+                      isAdmin={canEdit} // Use calculated edit permission
+                      onUserStatusChange={handleAssetStatusUpdate} // Pass status update handler
+                      isUpdatingStatusMap={isUpdatingAssetStatus} // Pass map of updating statuses
+                      showSeeAllLink={false} // Don't show "See All" on profile
+                      // Omit filterText, onFilterTextChange, onRefreshData, onNavigateToUpload
+                      // Omit hideCreatorInfo (handled by LoraManager or default)
+                      // Omit visibility/autoplay props for now
+                    />
                     {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)} </> 
                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't created any LoRAs yet. </div> )} 
               </CardContent>
             </Card>
-
-            <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20 animate-fade-in">
-              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-gold/10 to-cream/10">
-                <CardTitle className="text-gold-dark">Generations</CardTitle>
-                {isOwner && !forceLoggedOutView && (
-                  <Dialog open={isGenerationUploadModalOpen} onOpenChange={setIsGenerationUploadModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300">
-                        Add Generation
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
-                      <DialogHeader>
-                        <DialogTitle>Upload Generation</DialogTitle>
-                      </DialogHeader>
-                      <UploadPage 
-                        initialMode="media" 
-                        defaultClassification="gen" 
-                        hideLayout={true} 
-                        onSuccess={handleGenerationUploadSuccess}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </CardHeader>
-              <CardContent>
-                 {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
-                  generationVideos.length > 0 ? ( <> 
-                     <div ref={generationsGridRef} className="relative pt-6"> <Masonry breakpointCols={generationBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
-                         {generationItemsForPage.map((item) => ( <VideoCard 
-                            key={item.id} 
-                            video={item} 
-                            isAdmin={canEdit} 
-                            isAuthorized={canEdit} 
-                            onOpenLightbox={handleOpenLightbox} 
-                            onApproveVideo={approveVideo} 
-                            onRejectVideo={rejectVideo} 
-                            onDeleteVideo={deleteVideo} 
-                            isHovering={hoveredVideoId === item.id} 
-                            onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)} 
-                            onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} 
-                            // Autoplay props
-                            onVisibilityChange={handleVideoVisibilityChange}
-                            shouldBePlaying={isMobile && item.id === visibleVideoId}
-                          /> ))} 
-                     </Masonry> </div> 
-                     {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 
-                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't generated any videos yet. </div> )} 
-              </CardContent>
-            </Card>
-
             <Card className="mt-8 mb-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20 animate-fade-in">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-olive/10 to-cream/10">
                 <CardTitle className="text-olive-dark">Art</CardTitle>
@@ -888,28 +835,85 @@ export default function UserProfilePage() {
               <CardContent>
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
                   artVideos.length > 0 ? ( <> 
-                     <div ref={artGridRef} className="relative pt-6"> <Masonry breakpointCols={defaultBreakpointColumnsObj} className="my-masonry-grid" columnClassName="my-masonry-grid_column"> 
-                         {artItemsForPage.map((item) => ( <VideoCard 
-                            key={item.id} 
-                            video={item} 
-                            isAdmin={canEdit} 
-                            isAuthorized={canEdit} 
-                            onOpenLightbox={handleOpenLightbox} 
-                            onApproveVideo={approveVideo} 
-                            onRejectVideo={rejectVideo} 
-                            onDeleteVideo={deleteVideo} 
-                            isHovering={hoveredVideoId === item.id} 
-                            onHoverChange={(isHovering) => handleHoverChange(item.id, isHovering)} 
-                            onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate} 
-                            // Autoplay props
-                            onVisibilityChange={handleVideoVisibilityChange}
-                            shouldBePlaying={isMobile && item.id === visibleVideoId}
-                          /> ))} 
-                     </Masonry> </div> 
-                     {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)} </> 
+                    <div ref={artGridRef}> {/* Removed -mt-10 wrapper */}
+                      <VideoGallerySection 
+                        header="" // No need for header title inside card
+                        videos={artItemsForPage}
+                        itemsPerRow={4} // Match Index page
+                        isLoading={isLoadingVideos}
+                        isAdmin={canEdit}
+                        isAuthorized={canEdit}
+                        compact={true} // Use compact mode inside card
+                        onOpenLightbox={handleOpenLightbox}
+                        onApproveVideo={approveVideo}
+                        onRejectVideo={rejectVideo}
+                        onDeleteVideo={deleteVideo}
+                        onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
+                        alwaysShowInfo={true} // Always show on profile
+                        // Don't show add button or see all link here
+                        showAddButton={false}
+                        seeAllPath=""
+                        emptyMessage="This user hasn't added any art videos yet." // Custom empty message
+                      />
+                    </div>
+                    {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)} </> 
                  ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't added any art videos yet. </div> )} 
               </CardContent>
             </Card>
+            <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20 animate-fade-in">
+              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-gold/10 to-cream/10">
+                <CardTitle className="text-gold-dark">Generations</CardTitle>
+                {isOwner && !forceLoggedOutView && (
+                  <Dialog open={isGenerationUploadModalOpen} onOpenChange={setIsGenerationUploadModalOpen}>
+                    <DialogTrigger asChild>
+                      <Button size="sm" className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300">
+                        Add Generation
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                      <DialogHeader>
+                        <DialogTitle>Upload Generation</DialogTitle>
+                      </DialogHeader>
+                      <UploadPage 
+                        initialMode="media" 
+                        defaultClassification="gen" 
+                        hideLayout={true} 
+                        onSuccess={handleGenerationUploadSuccess}
+                      />
+                    </DialogContent>
+                  </Dialog>
+                )}
+              </CardHeader>
+              <CardContent>
+                 {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
+                  generationVideos.length > 0 ? ( <> 
+                    <div ref={generationsGridRef}> {/* Removed -mt-10 wrapper */}
+                       <VideoGallerySection 
+                         header="" // No header inside card
+                         videos={generationItemsForPage}
+                         itemsPerRow={6} // Match Index page
+                         isLoading={isLoadingVideos}
+                         isAdmin={canEdit}
+                         isAuthorized={canEdit}
+                         compact={true} // Use compact mode inside card
+                         onOpenLightbox={handleOpenLightbox}
+                         onApproveVideo={approveVideo}
+                         onRejectVideo={rejectVideo}
+                         onDeleteVideo={deleteVideo}
+                         onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
+                         alwaysShowInfo={true} // Always show on profile
+                         forceCreatorHoverDesktop={true} // Match Index page for Generations
+                         showAddButton={false}
+                         seeAllPath=""
+                         emptyMessage="This user hasn't generated any videos yet." // Custom empty message
+                       />
+                     </div>
+                     {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 
+                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't generated any videos yet. </div> )} 
+              </CardContent>
+            </Card>
+
+
 
           </>
         )}

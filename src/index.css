@@ -160,45 +160,23 @@
   100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
 }
 
-/* Masonry Styles */
-.my-masonry-grid {
-  display: -webkit-box; /* Not needed if autoprefixing */
-  display: -ms-flexbox; /* Not needed if autoprefixing */
-  display: flex;
-  margin-left: -1rem; /* Adjust based on your column gap (pl-4 -> 1rem) */
-  width: auto;
-}
-
-.my-masonry-grid_column {
-  padding-left: 1rem; /* Adjust based on your column gap */
-  background-clip: padding-box;
-}
-
-/* Style for individual Masonry items */
-.my-masonry-grid_column > div { /* Adjust if your item wrapper changes */
-  margin-bottom: 1rem; /* Adjust based on desired row gap */
-}
-
 /* Fade-out effect for Masonry containers */
 .masonry-fade-container {
   position: relative;
-  /* Remove fixed max-height here, apply via Tailwind classes instead */
-  /* max-height: 85vh; */ 
-  /* overflow: hidden; */ /* REMOVED: Ensures clipping */
 }
 
 /* NEW: Styles for the dedicated fade overlay element */
 .fade-overlay-element {
-  content: ''; /* Good practice, though not strictly needed for a div */
+  content: '';
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 100px; /* Adjust height of the fade */
-  z-index: 5; /* Position it above default content but below elevated VideoCards */
+  height: 100px;
+  z-index: 5;
   background: linear-gradient(to bottom,
     hsl(var(--card) / 0),
-    hsl(var(--card) / 1) 60% /* Becomes fully opaque at 60% */
+    hsl(var(--card) / 1) 60%
   );
-  pointer-events: none; /* Allow clicks to pass through */
+  pointer-events: none;
 }

@@ -50,14 +50,6 @@ const getTotalPages = (totalItems: number, pageSize: number): number => {
     return Math.ceil(totalItems / pageSize);
 };
 
-// Define breakpoint columns for the Generations grid (denser)
-const generationBreakpoints = {
-  default: 6,
-  1100: 4,
-  768: 3,
-  640: 2,
-};
-
 // Smooth scroll helper
 const scrollToElementWithOffset = (element: HTMLElement | null, offset: number = -150) => {
   if (!element) return;
@@ -453,6 +445,10 @@ const Index: React.FC = () => {
     );
   };
 
+  // Define items per row for different sections
+  const GENERATION_ITEMS_PER_ROW = 6;
+  const ART_ITEMS_PER_ROW = 4;
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navigation />
@@ -557,6 +553,7 @@ const Index: React.FC = () => {
               emptyMessage="There's no art matching the current filter."
               showAddButton={true}
               addButtonClassification="art"
+              itemsPerRow={ART_ITEMS_PER_ROW}
             />
             {renderPaginationControls(artPage, displayArtVideos.totalPages, handleArtPageChange)}
           </div>
@@ -574,7 +571,7 @@ const Index: React.FC = () => {
               emptyMessage="There are no generations matching the current filter."
               showAddButton={true}
               addButtonClassification="gen"
-              breakpointCols={generationBreakpoints}
+              itemsPerRow={GENERATION_ITEMS_PER_ROW}
               forceCreatorHoverDesktop={true}
             />
             {renderPaginationControls(generationPage, displayGenVideos.totalPages, handleGenerationPageChange)}

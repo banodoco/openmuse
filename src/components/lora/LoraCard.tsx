@@ -63,7 +63,10 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isHiding, setIsHiding] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(userStatus);
   const { user } = useAuth();
-  const [aspectRatio, setAspectRatio] = useState<number | null>(null);
+  // Initialize aspect ratio from metadata if it already exists to avoid layout shift on initial render
+  const [aspectRatio, setAspectRatio] = useState<number | null>(
+    lora?.primaryVideo?.metadata?.aspectRatio ?? null
+  );
   const [isVisible, setIsVisible] = useState(false);
   const [isInPreloadArea, setIsInPreloadArea] = useState(false);
   const isMobile = useIsMobile();
@@ -194,6 +197,14 @@ const LoraCard: React.FC<LoraCardProps> = ({
     }
   }, [lora.id, onEnterPreloadArea]);
 
+  // Keep aspect ratio in sync if the primary video (or its metadata) changes later
+  useEffect(() => {
+    const metaRatio = lora?.primaryVideo?.metadata?.aspectRatio ?? null;
+    if (metaRatio && aspectRatio === null) {
+      setAspectRatio(metaRatio);
+    }
+  }, [lora?.primaryVideo?.metadata?.aspectRatio, aspectRatio]);
+
   return (
     <Card 
       className={cn(
@@ -204,7 +215,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
     >
       <div 
         className="w-full overflow-hidden bg-muted relative"
-        style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16/9' }}
+        style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16 / 9' }}
       >
         {videoUrl ? (
           <>
