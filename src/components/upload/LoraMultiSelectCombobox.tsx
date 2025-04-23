@@ -111,14 +111,22 @@ export function LoraMultiSelectCombobox({
                     onSelect={() => {
                       toggleId(lora.id);
                     }}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggleId(lora.id);
+                    }}
                   >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        isSelected ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {lora.name}
+                    <div className="flex items-center w-full">
+                      <Check
+                        className={cn(
+                          "mr-2 h-4 w-4",
+                          isSelected ? "opacity-100" : "opacity-0"
+                        )}
+                      />
+                      {lora.name}
+                    </div>
                   </CommandItem>
                 );
               })}
