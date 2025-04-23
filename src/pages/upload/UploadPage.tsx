@@ -184,7 +184,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               user_id: user?.id || null,
               metadata: { aspectRatio: aspectRatio },
               placeholder_image: thumbnailUrl,
-              admin_status: 'Listed'
+              admin_status: 'Listed',
+              user_status: 'Listed'
             })
             .select()
             .single();
@@ -366,7 +367,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               user_id: user?.id || null,
               placeholder_image: thumbnailUrl,
               metadata: { aspectRatio: aspectRatio },
-              admin_status: 'Listed'
+              admin_status: 'Listed',
+              user_status: 'Listed'
             })
             .select()
             .single();
