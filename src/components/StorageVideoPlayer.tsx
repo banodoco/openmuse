@@ -64,7 +64,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
+  // Only start loading the video immediately if `forcePreload` was explicitly requested.
+  // Otherwise we wait until the component is hovered, visible, or enters the preload area.
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(forcePreload);
   const [hasHovered, setHasHovered] = useState(forcePreload || (!isMobile && autoPlay));
   const [shouldPlay, setShouldPlay] = useState(isMobile ? false : (forcePreload || autoPlay));
   const prevVideoLocationRef = useRef<string | null>(null);

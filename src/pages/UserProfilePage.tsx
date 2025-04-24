@@ -814,7 +814,7 @@ export default function UserProfilePage() {
                         Add LoRA
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
                       <DialogHeader>
                         <DialogTitle>Add LoRA</DialogTitle>
                       </DialogHeader>
@@ -857,7 +857,7 @@ export default function UserProfilePage() {
                          Add Art
                        </Button>
                      </DialogTrigger>
-                     <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                     <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
                        <DialogHeader>
                          <DialogTitle>Upload Art</DialogTitle>
                        </DialogHeader>
@@ -909,7 +909,7 @@ export default function UserProfilePage() {
                         Add Generation
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
                       <DialogHeader>
                         <DialogTitle>Upload Generation</DialogTitle>
                       </DialogHeader>

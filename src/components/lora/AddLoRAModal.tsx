@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
@@ -78,7 +77,7 @@ const AddLoRAModal: React.FC<AddLoRAModalProps> = ({ userId, triggerButtonClassN
           <Plus className="h-4 w-4" /> Add LoRA
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
         <DialogHeader>
           <DialogTitle>Add New LoRA</DialogTitle>
         </DialogHeader>

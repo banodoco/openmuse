@@ -225,7 +225,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
               Upload Video for {asset?.name}
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto">
+          <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
             <DialogHeader>
               <DialogTitle>Upload Video for {asset?.name}</DialogTitle>
             </DialogHeader>

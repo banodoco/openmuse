@@ -48,7 +48,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  const filteredLoras = loras;
+  const filteredLoras = Array.isArray(loras) ? loras : [];
 
   const handleTextChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     onFilterTextChange?.(event.target.value);

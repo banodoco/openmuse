@@ -40,15 +40,18 @@ const LoraList: React.FC<LoraListProps> = ({
     logger.log("LoraList received loras:", loras?.length || 0);
   }, [loras]);
 
+  // Ensure loras is an array
+  const safeLoraList = Array.isArray(loras) ? loras : [];
+
   // Pagination logic
   const itemsPerPage = 15;
   const [currentPage, setCurrentPage] = useState(1);
-  const totalPages = Math.ceil(loras.length / itemsPerPage);
+  const totalPages = Math.ceil(safeLoraList.length / itemsPerPage);
 
   useEffect(() => {
     // Reset to page 1 whenever the list of LoRAs changes
     setCurrentPage(1);
-  }, [loras]);
+  }, [safeLoraList]);
 
   // Cleanup effect for timeout
   useEffect(() => {
@@ -96,8 +99,8 @@ const LoraList: React.FC<LoraListProps> = ({
 
   const paginatedLoras = React.useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
-    return loras.slice(start, start + itemsPerPage);
-  }, [loras, currentPage]);
+    return safeLoraList.slice(start, start + itemsPerPage);
+  }, [safeLoraList, currentPage]);
 
   return (
     <div className="space-y-4">
