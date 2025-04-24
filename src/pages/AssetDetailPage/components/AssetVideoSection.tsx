@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { VideoEntry, LoraAsset, VideoDisplayStatus } from '@/lib/types';
-import EmptyState from '@/components/EmptyState';
 import { cn } from '@/lib/utils';
-import VideoCard from '@/components/video/VideoCard';
+import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { useAuth } from '@/hooks/useAuth';
 import { Logger } from '@/lib/logger';
 import {
@@ -21,11 +20,11 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from '@/components/ui/pagination';
-import { useIsMobile } from '@/hooks/use-mobile';
 import { sortAssetPageVideos } from '@/lib/utils/videoUtils';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import UploadPage from '@/pages/upload/UploadPage';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('AssetVideoSection');
 
@@ -64,27 +63,17 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const { pathname } = useLocation();
   const isMobile = useIsMobile();
   const isLoraPage = pathname.includes('/assets/loras/');
-  const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [classification, setClassification] = useState<'all' | 'gen' | 'art'>('all');
   
-  // State to track the ID of the video currently in view for autoplay
-  const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
-  // Ref for the container holding the video grid
+  // Ref for scrolling to the top of the section when pagination changes
   const gridContainerRef = useRef<HTMLDivElement>(null);
-  // Ref for debouncing the visibility change
-  const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-
+  
   // Pagination state
   const itemsPerPage = 15; // Or make this a prop
   const [currentPage, setCurrentPage] = useState(1);
 
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
 
-  const handleHoverChange = (videoId: string, isHovering: boolean) => {
-    // logger.log(`Hover change: ${videoId}, ${isHovering}`);
-    setHoveredVideoId(isHovering ? videoId : null);
-  };
-  
   const sortedAndFilteredVideos = useMemo(() => {
     // logger.log(`Filtering videos. Initial count: ${videos?.length || 0}, classification: ${classification}`);
     if (!videos) return [];
@@ -143,42 +132,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     unmountedRef.current = false;
     return () => {
       unmountedRef.current = true;
-      // Clear any pending timeout on unmount
-      if (visibilityTimeoutRef.current) {
-        clearTimeout(visibilityTimeoutRef.current);
-      }
     };
   }, []);
-
-  // Callback from VideoCard when its visibility changes - with debounce
-  const handleVideoVisibilityChange = useCallback((videoId: string, isVisible: boolean) => {
-    logger.log(`AssetVideoSection: Visibility change reported for ${videoId}: ${isVisible}`);
-
-    // Clear any existing timeout when visibility changes for *any* card
-    if (visibilityTimeoutRef.current) {
-      clearTimeout(visibilityTimeoutRef.current);
-      visibilityTimeoutRef.current = null;
-    }
-
-    if (isVisible) {
-      // If a video becomes visible, set a timeout to make it the active one
-      visibilityTimeoutRef.current = setTimeout(() => {
-        if (!unmountedRef.current) { // Check if component is still mounted
-            logger.log(`AssetVideoSection: Debounced - Setting visible video to ${videoId}`);
-            setVisibleVideoId(videoId);
-        }
-      }, 150); // 150ms debounce delay
-    } else {
-      // If a video becomes hidden, check if it was the currently active one
-      setVisibleVideoId(prevVisibleId => {
-        if (prevVisibleId === videoId) {
-          logger.log(`AssetVideoSection: Clearing visible video ${videoId} (became hidden)`);
-          return null; // Clear the active video ID immediately
-        }
-        return prevVisibleId; // Otherwise, keep the current state
-      });
-    }
-  }, []); // Empty dependency array as it uses refs and state setters
 
   const scrollToGridWithOffset = (offset: number = -150) => {
     if (gridContainerRef.current) {
@@ -246,41 +201,23 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       </div>
       
       <div ref={gridContainerRef} className="mt-6">
-        {videosToDisplay.length === 0 ? (
-          <EmptyState 
-            title="No Videos Yet" 
-            description={classification === 'all' 
+        <VideoGallerySection
+          videos={paginatedVideos}
+          isLoading={!asset || !videos}
+          isAdmin={isAdmin}
+          isAuthorized={isAuthorized}
+          onOpenLightbox={onOpenLightbox}
+          onApproveVideo={handleApproveVideo}
+          onRejectVideo={handleRejectVideo}
+          onDeleteVideo={handleDeleteVideo}
+          onUpdateLocalVideoStatus={(id, newStatus) => onStatusChange(id, newStatus as VideoDisplayStatus, 'assetMedia')}
+          itemsPerRow={classification === 'art' ? 4 : 6}
+          alwaysShowInfo={false}
+          compact={true}
+          emptyMessage={classification === 'all' 
               ? "No videos have been associated with this LoRA yet." 
-              : `No ${classification === 'gen' ? 'generation' : 'art'} videos found for this LoRA.`} 
-          />
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {paginatedVideos.map((video) => {
-              const isHovering = hoveredVideoId === video.id;
-              const isActive = visibleVideoId === video.id;
-
-              return (
-                <VideoCard
-                  key={video.id}
-                  video={video}
-                  isAdmin={isAdmin}
-                  isAuthorized={isAuthorized}
-                  isHovering={isHovering}
-                  onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
-                  onVisibilityChange={handleVideoVisibilityChange}
-                  onOpenLightbox={onOpenLightbox}
-                  onApproveVideo={handleApproveVideo}
-                  onRejectVideo={handleRejectVideo}
-                  onDeleteVideo={handleDeleteVideo}
-                  onSetPrimaryMedia={handleSetPrimaryMedia}
-                  onUpdateLocalVideoStatus={onStatusChange}
-                  forceCreatorHoverDesktop={false}
-                  alwaysShowInfo={false}
-                />
-              );
-            })}
-          </div>
-        )}
+              : `No ${classification === 'gen' ? 'generation' : 'art'} videos found for this LoRA.`}
+        />
       </div>
 
       {totalPages > 1 && (

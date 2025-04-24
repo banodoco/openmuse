@@ -72,10 +72,26 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const isMobile = useIsMobile();
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  // Initialize aspect ratio from metadata to prevent layout shift
-  const [aspectRatio, setAspectRatio] = useState<number | null>(
-    video.metadata?.aspectRatio ?? null
-  );
+  // ---------------------------------------------------------------
+  // Use the dimensions calculated by the VideoGrid (displayW / displayH)
+  // to seed the local aspect-ratio state so that the placeholder box
+  // exactly matches the slot reserved by the grid on the very first
+  // paint.  This eliminates the brief "misshaped" flash that was visible
+  // before the video metadata loaded.
+  // ---------------------------------------------------------------
+  const [aspectRatio, setAspectRatio] = useState<number | null>(() => {
+    // Prefer explicit displayW/H passed down from VideoGrid, if present
+    // (DisplayVideoEntry extends VideoEntry so these can exist).
+    const displayW = (video as any).displayW as number | undefined;
+    const displayH = (video as any).displayH as number | undefined;
+
+    if (displayW && displayH) {
+      return displayW / displayH;
+    }
+
+    // Fall back to any aspectRatio provided at the top-level or in metadata.
+    return (video as any).aspectRatio ?? video.metadata?.aspectRatio ?? null;
+  });
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
   const [isVisible, setIsVisible] = useState(false);

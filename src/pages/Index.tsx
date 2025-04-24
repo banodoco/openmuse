@@ -338,13 +338,17 @@ const Index: React.FC = () => {
   // Pagination Handlers
   const handleArtPageChange = useCallback((newPage: number) => {
     setArtPage(newPage);
-    scrollToElementWithOffset(artSectionRef.current);
-  }, []);
+    if (isMobile) {
+      scrollToElementWithOffset(artSectionRef.current);
+    }
+  }, [isMobile]);
 
   const handleGenerationPageChange = useCallback((newPage: number) => {
     setGenerationPage(newPage);
-    scrollToElementWithOffset(generationsSectionRef.current);
-  }, []);
+    if (isMobile) {
+      scrollToElementWithOffset(generationsSectionRef.current);
+    }
+  }, [isMobile]);
 
   // Pagination UI Renderer (Copied from UserProfilePage)
   const renderPaginationControls = (
