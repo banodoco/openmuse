@@ -64,9 +64,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
-  // Only start loading the video immediately if `forcePreload` was explicitly requested.
-  // Otherwise we wait until the component is hovered, visible, or enters the preload area.
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(forcePreload);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
   const [hasHovered, setHasHovered] = useState(forcePreload || (!isMobile && autoPlay));
   const [shouldPlay, setShouldPlay] = useState(isMobile ? false : (forcePreload || autoPlay));
   const prevVideoLocationRef = useRef<string | null>(null);
@@ -285,8 +283,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Determine visibility states
   const showVideo = !!videoUrl && !error;
-  // Show the spinner ONLY when we don’t already have a thumbnail to keep the UI calm.
-  const showLoadingSpinner = isLoadingVideoUrl && !error && !isVideoLoaded && (hasHovered || shouldLoadVideo) && !thumbnailUrl;
+  const showLoadingSpinner = isLoadingVideoUrl && !error && !isVideoLoaded && (hasHovered || shouldLoadVideo);
   const showThumbnail = !!thumbnailUrl && !error && !(isHovering && playOnHover) && (!isVideoLoaded || preventLoadingFlicker);
 
   // logger.log(`${logPrefix} Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
