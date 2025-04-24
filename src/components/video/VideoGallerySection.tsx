@@ -124,7 +124,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
                 Add New {header}
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[80vw] overflow-y-auto top-[5vh] translate-y-0">
+            <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
               <UploadPage initialMode="media" defaultClassification={addButtonClassification} hideLayout={true} />
             </DialogContent>
           </Dialog>
