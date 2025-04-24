@@ -186,22 +186,20 @@ export default function VideoGrid({
       const secondLastRow = initialRows[initialRows.length - 2];
       const threshold = Math.ceil(effectiveItemsPerRow / 2);
 
-      if (lastRow.length < threshold && secondLastRow.length >= effectiveItemsPerRow) { // Ensure secondLastRow has enough items to give one away
-        const itemToMove = secondLastRow.pop(); 
+      // Only attempt balancing when the last row is sparse compared to the target density
+      if (lastRow.length < threshold && secondLastRow.length >= effectiveItemsPerRow) {
+        // Move one item (the last) from the second-last row to the beginning of the last row – without mutating originals
+        const itemToMove = secondLastRow[secondLastRow.length - 1];
         if (itemToMove) {
-          lastRow.unshift(itemToMove); 
+          const newSecondLastRow = secondLastRow.slice(0, -1);
+          const newLastRow = [itemToMove, ...lastRow];
 
-          // Recalculate both affected rows to ensure proper widths/heights after balancing
-          const GAP_PX = 8; // Must match earlier constant
-
+          // Utility to recalculate displayW / displayH for all items in a row
           const recalcRow = (rowSlice: DisplayVideoEntry[]): DisplayVideoEntry[] => {
-            if (!rowSlice || rowSlice.length === 0) return [];
+            if (!rowSlice.length) return [];
 
-            const sumWidth = rowSlice.reduce((acc, video) => {
-              const aspectRatio = getAspectRatio(video);
-              return acc + aspectRatio * DEFAULT_ROW_HEIGHT;
-            }, 0);
-
+            const GAP_PX = 8; // Must remain in sync with earlier constant
+            const sumWidth = rowSlice.reduce((acc, video) => acc + getAspectRatio(video) * DEFAULT_ROW_HEIGHT, 0);
             const totalGapWidth = (rowSlice.length - 1) * GAP_PX;
             const availableWidth = containerWidth - totalGapWidth;
             const scale = availableWidth / sumWidth;
@@ -217,8 +215,13 @@ export default function VideoGrid({
             });
           };
 
-          initialRows[initialRows.length - 2] = recalcRow(secondLastRow);
-          initialRows[initialRows.length - 1] = recalcRow(lastRow);
+          const balancedRows = [
+            ...initialRows.slice(0, -2),
+            recalcRow(newSecondLastRow),
+            recalcRow(newLastRow),
+          ];
+
+          return balancedRows.filter(row => row.length > 0);
         }
       }
     }
