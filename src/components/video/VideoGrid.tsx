@@ -246,16 +246,16 @@ export default function VideoGrid({
   return (
     <LayoutGroup id={gridId}>
       <div ref={containerRef} className="w-full">
-        {rows.map((row, rIdx) => (
+        {rows.map((row) => (
           <motion.div
-            key={`row-${rIdx}`}
+            key={`row-${row.map((v) => v.id).join('-')}`}
             layout="position"
             className="flex gap-2 mb-2"
           >
             {row.map((video: DisplayVideoEntry) => (
               <motion.div
                 key={video.id}
-                layout
+                layout="position"
                 layoutId={`${gridId}-${video.id}`}
                 style={{ width: video.displayW, height: video.displayH }}
                 className="relative rounded-lg"
@@ -284,4 +284,4 @@ export default function VideoGrid({
       </div>
     </LayoutGroup>
   );
-} 
+}
