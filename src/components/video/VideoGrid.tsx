@@ -245,40 +245,32 @@ export default function VideoGrid({
 
   return (
     <LayoutGroup id={gridId}>
-      <div ref={containerRef} className="w-full">
-        {rows.map((row, rIdx) => (
+      <div ref={containerRef} className="w-full flex flex-wrap gap-2">
+        {rows.flat().map((video: DisplayVideoEntry) => (
           <motion.div
-            key={`row-${rIdx}`}
+            key={video.id}
             layout="position"
-            className="flex gap-2 mb-2"
+            layoutId={`${gridId}-${video.id}`}
+            style={{ width: video.displayW, height: video.displayH }}
+            className="relative rounded-lg"
           >
-            {row.map((video: DisplayVideoEntry) => (
-              <motion.div
-                key={video.id}
-                layout="position"
-                layoutId={`${gridId}-${video.id}`}
-                style={{ width: video.displayW, height: video.displayH }}
-                className="relative rounded-lg"
-              >
-                <VideoCard
-                  video={video}
-                  isAdmin={isAdmin}
-                  isAuthorized={isAuthorized}
-                  onOpenLightbox={onOpenLightbox}
-                  onApproveVideo={onApproveVideo}
-                  onDeleteVideo={onDeleteVideo}
-                  onRejectVideo={onRejectVideo}
-                  onSetPrimaryMedia={onSetPrimaryMedia}
-                  isHovering={hoveredVideoId === video.id}
-                  onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
-                  onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
-                  onVisibilityChange={handleVideoVisibilityChange}
-                  shouldBePlaying={isMobile && video.id === visibleVideoId}
-                  alwaysShowInfo={alwaysShowInfo}
-                  forceCreatorHoverDesktop={forceCreatorHoverDesktop}
-                />
-              </motion.div>
-            ))}
+            <VideoCard
+              video={video}
+              isAdmin={isAdmin}
+              isAuthorized={isAuthorized}
+              onOpenLightbox={onOpenLightbox}
+              onApproveVideo={onApproveVideo}
+              onDeleteVideo={onDeleteVideo}
+              onRejectVideo={onRejectVideo}
+              onSetPrimaryMedia={onSetPrimaryMedia}
+              isHovering={hoveredVideoId === video.id}
+              onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
+              onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
+              onVisibilityChange={handleVideoVisibilityChange}
+              shouldBePlaying={isMobile && video.id === visibleVideoId}
+              alwaysShowInfo={alwaysShowInfo}
+              forceCreatorHoverDesktop={forceCreatorHoverDesktop}
+            />
           </motion.div>
         ))}
       </div>
