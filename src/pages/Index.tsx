@@ -521,8 +521,8 @@ const Index: React.FC = () => {
         <div className="max-w-screen-2xl mx-auto p-4">
           <div className="pt-2 pb-0 mb-8">
             <PageHeader 
-              title="Welcome to the OpenMuse Video Gallery" 
-              description="Browse community-created art, LoRAs, and generations." 
+              title="Curated resources & art, with a focus on LoRAs for open video models"
+              description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan." 
             />
           </div>
           

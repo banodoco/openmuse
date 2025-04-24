@@ -141,6 +141,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── use-toast.ts    # Hook for programmatically triggering UI notifications (toasts) - likely related to `sonner` or `react-hot-toast` via shadcn/ui
 │   │   ├── useAuth.tsx     # Hook providing easy access to the AuthContext values
 │   │   ├── useLoraManagement.tsx # Hook encapsulating logic for fetching, creating, updating, and deleting LoRA assets
+│   │   ├── usePersistentToggle.ts # Hook for managing persistent toggle state ('all' or 'curated') using localStorage
 │   │   ├── useVideoHover.ts # Hook for handling hover interactions on video elements (e.g., showing controls, preview)
 │   │   ├── useVideoLoader.ts # Hook for managing the loading state and data fetching for videos
 │   │   ├── useVideoManagement.tsx # Hook encapsulating logic for managing video assets (fetching, uploading, metadata, etc.)

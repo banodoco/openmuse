@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef, useEffect } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
 import { useVideoManagement } from '@/hooks/useVideoManagement';
@@ -8,6 +8,16 @@ import { Logger } from '@/lib/logger';
 import { usePersistentToggle } from '@/hooks/usePersistentToggle';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Separator } from '@/components/ui/separator';
+import {
+  Pagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import { cn } from '@/lib/utils';
 import { VideoEntry, AdminStatus } from '@/lib/types';
 import VideoLightbox from '@/components/VideoLightbox';
 import { useAuth } from '@/hooks/useAuth';
@@ -15,8 +25,29 @@ import { toast } from 'sonner';
 
 const logger = new Logger('ArtPage');
 
+const ITEMS_PER_PAGE = 20;
+
+const getPaginatedItems = <T,>(items: T[], page: number, pageSize: number): T[] => {
+    if (pageSize <= 0) return items;
+    const startIndex = (page - 1) * pageSize;
+    const endIndex = startIndex + pageSize;
+    return items.slice(startIndex, Math.min(endIndex, items.length));
+};
+
+const getTotalPages = (totalItems: number, pageSize: number): number => {
+    if (pageSize <= 0 || totalItems <= 0) return 1;
+    return Math.ceil(totalItems / pageSize);
+};
+
+const scrollToElementWithOffset = (element: HTMLElement | null, offset: number = -150) => {
+  if (!element) return;
+  const y = element.getBoundingClientRect().top + window.pageYOffset + offset;
+  window.scrollTo({ top: y, behavior: 'smooth' });
+};
+
 const ArtPage: React.FC = () => {
   logger.log('ArtPage component rendering');
+  const galleryRef = useRef<HTMLDivElement>(null);
 
   const { user, isLoading: authLoading, isAdmin } = useAuth();
 
@@ -24,6 +55,8 @@ const ArtPage: React.FC = () => {
     'artPageApprovalFilter', 
     'curated'
   );
+  
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { 
     videos, 
@@ -38,13 +71,31 @@ const ArtPage: React.FC = () => {
     [videos]
   );
 
+  const totalPages = useMemo(() => 
+    getTotalPages(artVideos.length, ITEMS_PER_PAGE),
+    [artVideos]
+  );
+
+  const paginatedArtVideos = useMemo(() => 
+    getPaginatedItems(artVideos, currentPage, ITEMS_PER_PAGE),
+    [artVideos, currentPage]
+  );
+  
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [approvalFilter]);
+
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
   const [lightboxIndex, setLightboxIndex] = useState<number>(-1);
 
   const handleOpenLightbox = useCallback((video: VideoEntry) => {
     const index = artVideos.findIndex(v => v.id === video.id);
-    setLightboxVideo(video);
-    setLightboxIndex(index);
+    if (index !== -1) {
+      setLightboxVideo(video);
+      setLightboxIndex(index);
+    } else {
+      logger.error(`[Lightbox] Could not find video ${video.id} in the full artVideos list.`);
+    }
   }, [artVideos]);
 
   const handleCloseLightbox = useCallback(() => {
@@ -94,6 +145,91 @@ const ArtPage: React.FC = () => {
     logger.log('[Lightbox Update] Triggering video refetch due to internal lightbox update.');
     refetchVideos(); 
   }, [refetchVideos]);
+  
+  const handlePageChange = useCallback((newPage: number) => {
+    setCurrentPage(newPage);
+    scrollToElementWithOffset(galleryRef.current);
+  }, []);
+
+  const renderPaginationControls = () => {
+    if (totalPages <= 1) return null;
+
+    const handlePrevious = () => {
+      if (currentPage > 1) handlePageChange(currentPage - 1);
+    };
+
+    const handleNext = () => {
+      if (currentPage < totalPages) handlePageChange(currentPage + 1);
+    };
+
+    const paginationItems = [];
+    const maxPagesToShow = 5; 
+    const ellipsis = <PaginationEllipsis key="ellipsis" />;
+
+    if (totalPages <= maxPagesToShow) {
+      for (let i = 1; i <= totalPages; i++) {
+        paginationItems.push(
+          <PaginationItem key={i}>
+            <PaginationLink href="#" isActive={currentPage === i} onClick={(e) => { e.preventDefault(); handlePageChange(i); }}>
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+    } else {
+      paginationItems.push(
+        <PaginationItem key={1}>
+          <PaginationLink href="#" isActive={currentPage === 1} onClick={(e) => { e.preventDefault(); handlePageChange(1); }}>
+            1
+          </PaginationLink>
+        </PaginationItem>
+      );
+      if (currentPage > 3) {
+        paginationItems.push(React.cloneElement(ellipsis, { key: "start-ellipsis" }));
+      }
+      let startPage = Math.max(2, currentPage - 1);
+      let endPage = Math.min(totalPages - 1, currentPage + 1);
+      if (currentPage <= 3) {
+          endPage = Math.min(totalPages - 1, maxPagesToShow - 2); 
+      }
+      if (currentPage >= totalPages - 2) {
+          startPage = Math.max(2, totalPages - maxPagesToShow + 2); 
+      }
+      for (let i = startPage; i <= endPage; i++) {
+        paginationItems.push(
+          <PaginationItem key={i}>
+            <PaginationLink href="#" isActive={currentPage === i} onClick={(e) => { e.preventDefault(); handlePageChange(i); }}>
+              {i}
+            </PaginationLink>
+          </PaginationItem>
+        );
+      }
+      if (currentPage < totalPages - 2) {
+        paginationItems.push(React.cloneElement(ellipsis, { key: "end-ellipsis" }));
+      }
+      paginationItems.push(
+        <PaginationItem key={totalPages}>
+          <PaginationLink href="#" isActive={currentPage === totalPages} onClick={(e) => { e.preventDefault(); handlePageChange(totalPages); }}>
+            {totalPages}
+          </PaginationLink>
+        </PaginationItem>
+      );
+    }
+
+    return (
+      <Pagination className="mt-8 mb-4">
+        <PaginationContent>
+          <PaginationItem>
+            <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); handlePrevious(); }} aria-disabled={currentPage === 1} className={cn(currentPage === 1 && 'pointer-events-none opacity-50')} />
+          </PaginationItem>
+          {paginationItems}
+          <PaginationItem>
+            <PaginationNext href="#" onClick={(e) => { e.preventDefault(); handleNext(); }} aria-disabled={currentPage === totalPages} className={cn(currentPage === totalPages && 'pointer-events-none opacity-50')} />
+          </PaginationItem>
+        </PaginationContent>
+      </Pagination>
+    );
+  };
 
   const pageTitle = approvalFilter === 'all' ? 'All Art' : 'Curated Art';
   const pageDescription = approvalFilter === 'all' 
@@ -136,20 +272,23 @@ const ArtPage: React.FC = () => {
 
           <Separator className="mb-8" />
           
-          <VideoGallerySection
-            header="Art"
-            videos={artVideos}
-            isLoading={videosLoading}
-            seeAllPath={undefined}
-            emptyMessage={approvalFilter === 'curated' ? "There is no curated art yet." : "There is no art yet."}
-            approvalFilter={approvalFilter}
-            onOpenLightbox={handleOpenLightbox}
-            itemsPerRow={4}
-            alwaysShowInfo={true}
-            showAddButton={true}
-            addButtonClassification="art"
-            isAdmin={isAdmin}
-          />
+          <div ref={galleryRef}>
+            <VideoGallerySection
+              header="Art"
+              videos={paginatedArtVideos}
+              isLoading={videosLoading}
+              seeAllPath={undefined}
+              emptyMessage={approvalFilter === 'curated' ? "There is no curated art yet." : "There is no art yet."}
+              approvalFilter={approvalFilter}
+              onOpenLightbox={handleOpenLightbox}
+              itemsPerRow={4}
+              alwaysShowInfo={true}
+              showAddButton={true}
+              addButtonClassification="art"
+              isAdmin={isAdmin}
+            />
+            {renderPaginationControls()}
+          </div>
         </div>
       </div>
       <Footer />
