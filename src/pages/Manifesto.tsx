@@ -1,79 +1,161 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 
 const ManifestoPage: React.FC = () => {
   const [isHovering, setIsHovering] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const reverseIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const reverseAnimationIdRef = useRef<number | null>(null);
+  const containerRef = useRef<HTMLDivElement>(null);
 
-  // Helper to start reverse playback at ~0.7x speed using setInterval
-  const startReversePlayback = () => {
-    const video = videoRef.current;
-    if (!video) return;
-
-    // Clear any existing interval first
-    if (reverseIntervalRef.current) {
-      clearInterval(reverseIntervalRef.current);
-      reverseIntervalRef.current = null;
-    }
-
-    // Approximate 0.7x reverse speed – 0.07 s every 100 ms ⇒ 0.7 s / real‑second
-    reverseIntervalRef.current = setInterval(() => {
-      if (!video) return;
-
-      if (video.currentTime <= 0) {
-        // Reached the beginning – stop reverse playback
-        clearInterval(reverseIntervalRef.current as NodeJS.Timeout);
-        reverseIntervalRef.current = null;
-        video.pause();
-        video.currentTime = 0;
-        return;
-      }
-
-      // Step backwards
-      video.currentTime = Math.max(0, video.currentTime - 0.07);
-    }, 100);
-  };
-
-  // Cleanup on unmount
+  // Cleanup animation frame on unmount
   useEffect(() => {
     return () => {
-      if (reverseIntervalRef.current) {
-        clearInterval(reverseIntervalRef.current);
+      if (reverseAnimationIdRef.current) {
+        cancelAnimationFrame(reverseAnimationIdRef.current);
       }
     };
   }, []);
 
-  const handleMouseEnter = () => {
-    setIsHovering(true);
+  // Reverse playback using requestAnimationFrame
+  const reverseStep = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    const step = (1 / 60); // Target ~60fps reverse (adjust as needed)
+    const newTime = video.currentTime - step;
+
+    if (newTime <= 0) {
+      video.currentTime = 0;
+      if (reverseAnimationIdRef.current) {
+        cancelAnimationFrame(reverseAnimationIdRef.current);
+        reverseAnimationIdRef.current = null;
+      }
+      video.pause(); // Ensure paused at the start
+    } else {
+      video.currentTime = newTime;
+      reverseAnimationIdRef.current = requestAnimationFrame(reverseStep);
+    }
+  }, []); // No dependencies needed as it uses refs
+
+  // Start reverse playback
+  const startReversePlayback = useCallback(() => {
+    const video = videoRef.current;
+    if (!video || video.currentTime <= 0) return; // Don't start if already at 0
+
+    // Cancel any existing reverse frame first
+    if (reverseAnimationIdRef.current) {
+      cancelAnimationFrame(reverseAnimationIdRef.current);
+    }
+    // Pause video if playing forward before reversing
+    if (!video.paused) {
+        video.pause();
+    }
+
+    reverseAnimationIdRef.current = requestAnimationFrame(reverseStep);
+  }, [reverseStep]);
+
+  // Mouse Enter Handler
+  const handleMouseEnter = useCallback(() => {
+    setIsHovering(true); // Keep state for potential styling
+    const video = videoRef.current;
+    if (!video) return;
 
     // Stop any ongoing reverse playback
-    if (reverseIntervalRef.current) {
-      clearInterval(reverseIntervalRef.current);
-      reverseIntervalRef.current = null;
+    if (reverseAnimationIdRef.current) {
+      cancelAnimationFrame(reverseAnimationIdRef.current);
+      reverseAnimationIdRef.current = null;
     }
 
-    if (videoRef.current) {
-      // Play forward at 0.7× speed
-      videoRef.current.playbackRate = 0.7;
-      videoRef.current.play().catch(error => {
-        // Autoplay might be blocked, handle error silently or log
-        console.error("Video play failed:", error);
+    // Play forward only if it's currently paused
+    if (video.paused) {
+      // Using 1x playback speed as per the example provided
+      video.playbackRate = 1;
+      video.play().catch(error => {
+        console.error("Video play failed on hover:", error);
       });
     }
-  };
+  }, []);
 
-  const handleMouseLeave = () => {
-    setIsHovering(false);
+  // Mouse Leave Handler
+  const handleMouseLeave = useCallback(() => {
+    setIsHovering(false); // Keep state for potential styling
+    const video = videoRef.current;
+    if (!video) return;
 
-    if (videoRef.current) {
-      // Pause forward playback before starting reverse
-      videoRef.current.pause();
+    // Pause immediately on leave before starting reverse
+    if (!video.paused) {
+      video.pause();
     }
 
-    // Begin reverse playback at the same speed (0.7×)
-    startReversePlayback();
-  };
+    // Start reverse playback if not already at the beginning
+    if (video.currentTime > 0 && !reverseAnimationIdRef.current) {
+      startReversePlayback();
+    }
+  }, [startReversePlayback]);
+
+  // Click/Tap Handler
+  const handleClick = useCallback(() => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    // Stop reverse if active
+    if (reverseAnimationIdRef.current) {
+      cancelAnimationFrame(reverseAnimationIdRef.current);
+      reverseAnimationIdRef.current = null;
+    }
+
+    // Toggle play/pause
+    if (video.paused) {
+      video.playbackRate = 1; // Ensure normal speed on click play
+      video.play().catch(e => console.error('Error playing video on click:', e));
+    } else {
+      video.pause();
+    }
+  }, []);
+
+  // Handle video ending naturally (while playing forward)
+  const handleVideoEnded = useCallback(() => {
+    const video = videoRef.current;
+    // We don't need to do much here, as mouseleave or click handles pausing.
+    // If the mouse is still hovering when it ends, it should ideally stay on the last frame.
+    // If we want it to rewind automatically on end even if hovering, we'd add logic here.
+    // console.log('Video ended while playing forward.');
+    if (video) {
+        // Optional: rewind to beginning if desired when naturally ended
+        // video.currentTime = 0;
+    }
+  }, []);
+
+  // Effect to add/remove listeners to the container
+  useEffect(() => {
+    const node = containerRef.current;
+    const videoNode = videoRef.current;
+    if (node) {
+      node.addEventListener('mouseenter', handleMouseEnter);
+      node.addEventListener('mouseleave', handleMouseLeave);
+      node.addEventListener('click', handleClick);
+    }
+    if (videoNode) {
+      videoNode.addEventListener('ended', handleVideoEnded);
+    }
+
+    // Cleanup listeners
+    return () => {
+      if (node) {
+        node.removeEventListener('mouseenter', handleMouseEnter);
+        node.removeEventListener('mouseleave', handleMouseLeave);
+        node.removeEventListener('click', handleClick);
+      }
+      if (videoNode) {
+        videoNode.removeEventListener('ended', handleVideoEnded);
+      }
+      // Also ensure animation frame is cancelled on cleanup
+      if (reverseAnimationIdRef.current) {
+        cancelAnimationFrame(reverseAnimationIdRef.current);
+      }
+    };
+    // Add all callback dependencies
+  }, [handleMouseEnter, handleMouseLeave, handleClick, handleVideoEnded]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -139,23 +221,22 @@ const ManifestoPage: React.FC = () => {
           </div>
 
           <div
-            className="max-w-3xl mx-auto pb-8 flex justify-center items-center"
-            onMouseEnter={handleMouseEnter}
-            onMouseLeave={handleMouseLeave}
+            ref={containerRef}
+            className="max-w-3xl mx-auto pb-8 flex justify-center items-center cursor-pointer"
           >
             <div className="relative w-full max-w-3xl aspect-video overflow-hidden rounded-lg">
               <img
                 src="/first_frame.png"
                 alt="First frame of the creation video"
-                className={`absolute top-0 left-0 w-full h-full object-contain`}
+                className={`absolute top-0 left-0 w-full h-full object-contain ${!videoRef.current || videoRef.current.paused ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
               />
               <video
                 ref={videoRef}
                 src="/the_creation.mp4"
                 muted
                 playsInline
-                preload="metadata"
-                className={`absolute top-0 left-0 w-full h-full object-contain transition-opacity duration-300 ease-in-out ${isHovering ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}
+                preload="auto"
+                className={`absolute top-0 left-0 w-full h-full object-contain`}
               />
             </div>
           </div>

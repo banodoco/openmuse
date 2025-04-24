@@ -542,7 +542,7 @@ const Index: React.FC = () => {
       
       <div className="flex-1 w-full">
         <div className="max-w-screen-2xl mx-auto p-4">
-          <div className="pt-2 pb-0 mb-8">
+          <div className="pt-2 pb-0 mb-4">
             <PageHeader 
               title="Curated resources & art, with a focus on LoRAs for open video models"
               description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan." 
@@ -591,7 +591,7 @@ const Index: React.FC = () => {
             </ToggleGroup>
           </div>
 
-          <Separator className="my-8" />
+          <Separator className="mt-0 mb-4" />
 
           <LoraManager
             loras={displayLoras}
@@ -625,7 +625,7 @@ const Index: React.FC = () => {
             )}
           />
 
-          <div className="mt-6 flex justify-start">
+          <div className="mt-6 mb-8 flex justify-start">
             <Link
               to="/loras"
               className="text-sm text-primary hover:underline group"
@@ -635,10 +635,10 @@ const Index: React.FC = () => {
             </Link>
           </div>
 
-          <Separator className="my-8" />
+          <Separator className="mt-0 mb-4" />
 
           {/* Art Videos Section */}
-          <div ref={artSectionRef}>
+          <div ref={artSectionRef} className="mb-8">
             <VideoGallerySection
               header="Art"
               videos={displayArtVideos.items}
@@ -651,11 +651,12 @@ const Index: React.FC = () => {
               itemsPerRow={ART_ITEMS_PER_ROW}
               onOpenLightbox={handleOpenLightbox}
               approvalFilter={currentApprovalFilter}
+              headerTextClass="text-[#2F4F2E]/75"
             />
             {renderPaginationControls(artPage, displayArtVideos.totalPages, handleArtPageChange)}
           </div>
 
-          <Separator className="my-8" />
+          <Separator className="mt-0 mb-4" />
 
           {/* Generation Videos Section */}
           <div ref={generationsSectionRef} className="mb-4">
@@ -672,6 +673,7 @@ const Index: React.FC = () => {
               forceCreatorHoverDesktop={true}
               onOpenLightbox={handleOpenLightbox}
               approvalFilter={currentApprovalFilter}
+              headerTextClass="text-[#2F4F2E]/75"
             />
             {renderPaginationControls(generationPage, displayGenVideos.totalPages, handleGenerationPageChange)}
           </div>

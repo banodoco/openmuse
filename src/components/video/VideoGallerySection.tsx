@@ -78,7 +78,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   }, [videos]);
 
   return (
-    <section className={compact ? "space-y-4" : "space-y-4 mt-10"}>
+    <section className={compact ? "space-y-4" : "space-y-4 mt-4"}>
       {header && !compact && (
         <div className={cn("flex items-center justify-between px-4 py-2 rounded-md", headerBgClass)}>
           <h2 className={cn("text-xl font-semibold leading-tight tracking-tight", headerTextClass)}>
@@ -87,11 +87,12 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
           {showAddButton && (
             <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
               <DialogTrigger asChild>
-                <Button 
+                <Button
                   variant="ghost"
-                  size={isMobile ? "sm" : "default"} 
+                  size={isMobile ? "sm" : "default"}
                   className={cn(
-                    "ml-auto border border-input hover:bg-accent hover:text-accent-foreground",
+                    "ml-auto border hover:bg-accent hover:text-accent-foreground",
+                    header === 'Generations' ? "border-neutral-300 dark:border-neutral-500" : "border-input",
                     "text-muted-foreground",
                     isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
                   )}>

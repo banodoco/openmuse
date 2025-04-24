@@ -67,7 +67,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
     <div className="space-y-4">
       {showHeader && (
         <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-transparent px-4 py-2 rounded-md">
-          <h2 className="text-xl font-semibold leading-tight tracking-tight text-amber-700">
+          <h2 className="text-xl font-semibold leading-tight tracking-tight text-[#2F4F2E]/75">
             LoRAs
           </h2>
           {headerAction && <div className="ml-auto">{headerAction}</div>}

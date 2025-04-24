@@ -833,7 +833,7 @@ export default function UserProfilePage() {
 
             <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-cream-light/70 backdrop-blur-sm border border-cream-dark/20 animate-fade-in">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
-                <CardTitle className="text-amber-700">LoRAs</CardTitle>
+                <CardTitle className="text-[#2F4F2E]/75">LoRAs</CardTitle>
                 {isOwner && !forceLoggedOutView && (
                   <Dialog open={isLoraUploadModalOpen} onOpenChange={setIsLoraUploadModalOpen}>
                     <DialogTrigger asChild>
@@ -877,7 +877,7 @@ export default function UserProfilePage() {
             </Card>
             <Card className="mt-8 mb-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20 animate-fade-in">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
-                <CardTitle className="text-amber-700">Art</CardTitle>
+                <CardTitle className="text-[#2F4F2E]/75">Art</CardTitle>
                 {isOwner && !forceLoggedOutView && (
                    <Dialog open={isArtUploadModalOpen} onOpenChange={setIsArtUploadModalOpen}>
                      <DialogTrigger asChild>
@@ -929,7 +929,7 @@ export default function UserProfilePage() {
             </Card>
             <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20 animate-fade-in">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
-                <CardTitle className="text-amber-700">Generations</CardTitle>
+                <CardTitle className="text-[#2F4F2E]/75">Generations</CardTitle>
                 {isOwner && !forceLoggedOutView && (
                   <Dialog open={isGenerationUploadModalOpen} onOpenChange={setIsGenerationUploadModalOpen}>
                     <DialogTrigger asChild>
