@@ -31,6 +31,8 @@ interface LoraManagerProps {
   isUpdatingStatusMap?: Record<string, boolean>;
   /** Optional prop to control the visibility of the internal header (h2 and See All link). Defaults to true. */
   showHeader?: boolean;
+  /** Optional ReactNode to render in the header, typically the 'Add New' button */
+  headerAction?: React.ReactNode;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
@@ -47,6 +49,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   onUserStatusChange,
   isUpdatingStatusMap,
   showHeader = true, // Default to true if not provided
+  headerAction, // Add new prop
 }) => {
   logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, filterText=${filterText}, isAdmin=${isAdmin}, showHeader=${showHeader}`);
 
@@ -63,18 +66,11 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   return (
     <div className="space-y-4">
       {showHeader && (
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold leading-tight tracking-tight text-foreground">
+        <div className="flex items-center justify-between bg-gradient-to-r from-amber-50 to-transparent px-4 py-2 rounded-md">
+          <h2 className="text-xl font-semibold leading-tight tracking-tight text-amber-700">
             LoRAs
           </h2>
-          {showSeeAllLink && (
-            <Link
-              to="/loras"
-              className="text-sm text-primary hover:underline ml-auto"
-            >
-              See all {approvalFilter === 'curated' ? `curated ` : ''}LoRAs →
-            </Link>
-          )}
+          {headerAction && <div className="ml-auto">{headerAction}</div>}
         </div>
       )}
 

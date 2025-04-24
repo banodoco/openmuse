@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useState, useRef, useMemo } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import PageHeader from '@/components/PageHeader';
-import { useNavigate, useLocation, useSearchParams } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { Logger } from '@/lib/logger';
 import { useLoraManagement } from '@/hooks/useLoraManagement';
@@ -600,34 +600,39 @@ const Index: React.FC = () => {
             filterText={filterText}
             onFilterTextChange={setFilterText}
             isAdmin={isAdmin || false}
-            onNavigateToUpload={handleNavigateToUpload}
             onRefreshData={handleRefreshData}
-            showSeeAllLink={true}
             approvalFilter={currentApprovalFilter}
+            headerAction={( 
+              <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+                <DialogTrigger asChild>
+                  <Button 
+                    variant="ghost"
+                    size={isMobile ? "sm" : "default"} 
+                    disabled={isActionDisabled} 
+                    className={cn(
+                      "border border-input hover:bg-accent hover:text-accent-foreground",
+                      "text-muted-foreground",
+                      isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
+                    )}
+                  >
+                    Add New LoRA
+                  </Button>
+                </DialogTrigger>
+                <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
+                  <UploadPage initialMode="lora" hideLayout={true} />
+                </DialogContent>
+              </Dialog>
+            )}
           />
 
-          {/* Add LoRA Button and Dialog */}
           <div className="mt-6 flex justify-start">
-            <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-              <DialogTrigger asChild>
-                <Button 
-                  variant="ghost"
-                  size={isMobile ? "sm" : "default"} 
-                  disabled={isActionDisabled} // Disable if actions are disabled
-                  className={cn(
-                    "border border-input hover:bg-accent hover:text-accent-foreground", // Add border and hover styles
-                    "text-muted-foreground", // Add muted text color
-                    isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2" // Re-apply size padding/height if cn overrides defaults
-                  )}
-                >
-                  Add New LoRA
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
-                {/* Render UploadPage with LoRA mode and hidden layout */}
-                <UploadPage initialMode="lora" hideLayout={true} />
-              </DialogContent>
-            </Dialog>
+            <Link
+              to="/loras"
+              className="text-sm text-primary hover:underline group"
+            >
+              See all {currentApprovalFilter === 'curated' ? `curated ` : ''}LoRAs{' '}
+              <span className="inline-block transition-transform duration-200 ease-in-out group-hover:translate-x-1">→</span>
+            </Link>
           </div>
 
           <Separator className="my-8" />
@@ -653,7 +658,7 @@ const Index: React.FC = () => {
           <Separator className="my-8" />
 
           {/* Generation Videos Section */}
-          <div ref={generationsSectionRef}>
+          <div ref={generationsSectionRef} className="mb-4">
             <VideoGallerySection
               header="Generations"
               videos={displayGenVideos.items}

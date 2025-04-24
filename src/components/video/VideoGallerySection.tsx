@@ -16,6 +16,8 @@ import VideoGrid from './VideoGrid';
 interface VideoGallerySectionProps {
   videos: VideoEntry[];
   header?: string;
+  headerBgClass?: string;
+  headerTextClass?: string;
   isLoading?: boolean;
   seeAllPath?: string;
   alwaysShowInfo?: boolean;
@@ -46,6 +48,8 @@ const logger = new Logger('VideoGallerySection');
 const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   videos,
   header,
+  headerBgClass = 'bg-gradient-to-r from-amber-50 to-transparent',
+  headerTextClass = 'text-amber-700',
   isLoading = false,
   seeAllPath,
   alwaysShowInfo = false,
@@ -76,17 +80,28 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   return (
     <section className={compact ? "space-y-4" : "space-y-4 mt-10"}>
       {header && !compact && (
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold leading-tight tracking-tight text-foreground">
+        <div className={cn("flex items-center justify-between px-4 py-2 rounded-md", headerBgClass)}>
+          <h2 className={cn("text-xl font-semibold leading-tight tracking-tight", headerTextClass)}>
             {header}
           </h2>
-          {seeAllPath && (
-            <Link
-              to={seeAllPath}
-              className="text-sm text-primary hover:underline ml-auto"
-            >
-              See all {approvalFilter === 'curated' ? `curated ` : ''}{header} →
-            </Link>
+          {showAddButton && (
+            <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+              <DialogTrigger asChild>
+                <Button 
+                  variant="ghost"
+                  size={isMobile ? "sm" : "default"} 
+                  className={cn(
+                    "ml-auto border border-input hover:bg-accent hover:text-accent-foreground",
+                    "text-muted-foreground",
+                    isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
+                  )}>
+                  Add New {header}
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
+                <UploadPage initialMode="media" defaultClassification={addButtonClassification} hideLayout={true} />
+              </DialogContent>
+            </Dialog>
           )}
         </div>
       )}
@@ -111,26 +126,15 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
         />
       )}
 
-      {/* Conditionally render the Add button and its Dialog */}
-      {showAddButton && !compact && (
+      {seeAllPath && !compact && (
         <div className="mt-6 flex justify-start">
-          <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-            <DialogTrigger asChild>
-              <Button 
-                variant="ghost"
-                size={isMobile ? "sm" : "default"} 
-                className={cn(
-                  "border border-input hover:bg-accent hover:text-accent-foreground",
-                  "text-muted-foreground",
-                  isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
-                )}>
-                Add New {header}
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
-              <UploadPage initialMode="media" defaultClassification={addButtonClassification} hideLayout={true} />
-            </DialogContent>
-          </Dialog>
+          <Link
+            to={seeAllPath}
+            className="text-sm text-primary hover:underline group"
+          >
+            See all {approvalFilter === 'curated' ? `curated ` : ''}{header}{' '}
+            <span className="inline-block transition-transform duration-200 ease-in-out group-hover:translate-x-1">→</span>
+          </Link>
         </div>
       )}
     </section>

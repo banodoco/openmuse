@@ -37,14 +37,16 @@ const Navigation: React.FC = () => {
             <div
               className={cn(
                 "flex-shrink-0",
-                isMobile ? "min-w-[90px]" : "min-w-[110px]",
+                isMobile ? "min-w-[90px]" : "min-w-[128px]",
               )}
-              style={{ maxHeight: '63px' }}
             >
               <img
                 src={logoPath}
                 alt="OpenMuse Logo"
-                className="max-h-[66px] w-auto object-contain"
+                className={cn(
+                  "w-auto object-contain",
+                  isMobile ? "max-h-[66px]" : "max-h-[76px]"
+                )}
                 onError={handleImageError}
               />
             </div>
