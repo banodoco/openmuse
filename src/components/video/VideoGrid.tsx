@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo, useId } from "react";
 import { Button } from "@/components/ui/button";
-import { motion, LayoutGroup } from "framer-motion";
+import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import { VideoEntry } from "@/lib/types";
 import VideoCard from "./VideoCard";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -40,6 +40,12 @@ interface VideoGridProps {
 }
 
 const TABLET_BREAKPOINT = 1024; // px – treat widths below this as tablet (but above mobile)
+
+const tileVariants = {
+  hidden: { opacity: 0, y: 20, scale: 0.98 },
+  visible: { opacity: 1, y: 0, scale: 1, transition: { duration: 0.25, ease: "easeOut" } },
+  exit: { opacity: 0, y: -10, scale: 0.98, transition: { duration: 0.2, ease: "easeIn" } },
+};
 
 export default function VideoGrid({
   videos,
@@ -246,33 +252,37 @@ export default function VideoGrid({
   return (
     <LayoutGroup id={gridId}>
       <div ref={containerRef} className="w-full flex flex-wrap gap-2">
-        {rows.flat().map((video: DisplayVideoEntry) => (
-          <motion.div
-            key={video.id}
-            layout="position"
-            layoutId={`${gridId}-${video.id}`}
-            style={{ width: video.displayW, height: video.displayH }}
-            className="relative rounded-lg"
-          >
-            <VideoCard
-              video={video}
-              isAdmin={isAdmin}
-              isAuthorized={isAuthorized}
-              onOpenLightbox={onOpenLightbox}
-              onApproveVideo={onApproveVideo}
-              onDeleteVideo={onDeleteVideo}
-              onRejectVideo={onRejectVideo}
-              onSetPrimaryMedia={onSetPrimaryMedia}
-              isHovering={hoveredVideoId === video.id}
-              onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
-              onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
-              onVisibilityChange={handleVideoVisibilityChange}
-              shouldBePlaying={isMobile && video.id === visibleVideoId}
-              alwaysShowInfo={alwaysShowInfo}
-              forceCreatorHoverDesktop={forceCreatorHoverDesktop}
-            />
-          </motion.div>
-        ))}
+        <AnimatePresence mode="wait">
+          {rows.flat().map((video: DisplayVideoEntry) => (
+            <motion.div
+              key={video.id}
+              variants={tileVariants}
+              initial="hidden"
+              animate="visible"
+              exit="exit"
+              style={{ width: video.displayW, height: video.displayH }}
+              className="relative rounded-lg"
+            >
+              <VideoCard
+                video={video}
+                isAdmin={isAdmin}
+                isAuthorized={isAuthorized}
+                onOpenLightbox={onOpenLightbox}
+                onApproveVideo={onApproveVideo}
+                onDeleteVideo={onDeleteVideo}
+                onRejectVideo={onRejectVideo}
+                onSetPrimaryMedia={onSetPrimaryMedia}
+                isHovering={hoveredVideoId === video.id}
+                onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
+                onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
+                onVisibilityChange={handleVideoVisibilityChange}
+                shouldBePlaying={isMobile && video.id === visibleVideoId}
+                alwaysShowInfo={alwaysShowInfo}
+                forceCreatorHoverDesktop={forceCreatorHoverDesktop}
+              />
+            </motion.div>
+          ))}
+        </AnimatePresence>
       </div>
     </LayoutGroup>
   );
