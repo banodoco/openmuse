@@ -317,7 +317,7 @@ const Index: React.FC = () => {
 
   // Define page sizes for different sections
   const ART_PAGE_SIZE = 8;
-  const GENERATION_PAGE_SIZE = 16; // Increase page size for generations
+  const GENERATION_PAGE_SIZE = 12; // Show fewer generations per page (two rows at 6 each)
 
   const displayArtVideos = React.useMemo(() => {
     const filtered = displayVideos.filter(v => v.metadata?.classification === 'art');

@@ -442,7 +442,10 @@ export default function UserProfilePage() {
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
   const artVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'art'), [userVideos]);
   const loraPageSize = useMemo(() => calculatePageSize(userAssets.length), [userAssets.length]);
-  const generationPageSize = useMemo(() => calculatePageSize(generationVideos.length), [generationVideos.length]);
+  const generationPageSize = useMemo(() => {
+    const calc = calculatePageSize(generationVideos.length);
+    return Math.min(calc, 12);
+  }, [generationVideos.length]);
   const artPageSize = useMemo(() => calculatePageSize(artVideos.length), [artVideos.length]);
   const totalLoraPages = useMemo(() => getTotalPages(userAssets.length, loraPageSize), [userAssets.length, loraPageSize]);
   const totalGenerationPages = useMemo(() => getTotalPages(generationVideos.length, generationPageSize), [generationVideos.length, generationPageSize]);
