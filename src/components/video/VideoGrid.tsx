@@ -246,9 +246,9 @@ export default function VideoGrid({
   return (
     <LayoutGroup id={gridId}>
       <div ref={containerRef} className="w-full">
-        {rows.map((row) => (
+        {rows.map((row, rIdx) => (
           <motion.div
-            key={`row-${row.map((v) => v.id).join('-')}`}
+            key={`row-${rIdx}`}
             layout="position"
             className="flex gap-2 mb-2"
           >
