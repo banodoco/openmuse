@@ -285,7 +285,8 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Determine visibility states
   const showVideo = !!videoUrl && !error;
-  const showLoadingSpinner = isLoadingVideoUrl && !error && !isVideoLoaded && (hasHovered || shouldLoadVideo);
+  // Show the spinner ONLY when we don’t already have a thumbnail to keep the UI calm.
+  const showLoadingSpinner = isLoadingVideoUrl && !error && !isVideoLoaded && (hasHovered || shouldLoadVideo) && !thumbnailUrl;
   const showThumbnail = !!thumbnailUrl && !error && !(isHovering && playOnHover) && (!isVideoLoaded || preventLoadingFlicker);
 
   // logger.log(`${logPrefix} Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
