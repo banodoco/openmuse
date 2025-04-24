@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useMemo } from "react";
+import { useState, useEffect, useRef, useMemo, useId } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, LayoutGroup } from "framer-motion";
 import { VideoEntry } from "@/lib/types";
@@ -56,6 +56,8 @@ export default function VideoGrid({
   forceCreatorHoverDesktop = false,
 }: VideoGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  // Unique id for this grid instance so layoutIds don't clash across multiple grids on the page
+  const gridId = useId();
   const [containerWidth, setContainerWidth] = useState(0);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
@@ -242,7 +244,7 @@ export default function VideoGrid({
   };
 
   return (
-    <LayoutGroup>
+    <LayoutGroup id={gridId}>
       <div ref={containerRef} className="w-full">
         {rows.map((row, rIdx) => (
           <motion.div
@@ -254,7 +256,7 @@ export default function VideoGrid({
               <motion.div
                 key={video.id}
                 layout
-                layoutId={video.id}
+                layoutId={`${gridId}-${video.id}`}
                 style={{ width: video.displayW, height: video.displayH }}
                 className="relative rounded-lg"
               >
