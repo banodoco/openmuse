@@ -125,6 +125,7 @@ export default function UserProfilePage() {
   const [totalGenerationVideos, setTotalGenerationVideos] = useState(0);
   const [totalArtVideos, setTotalArtVideos] = useState(0);
   const [lightboxVideo, setLightboxVideo] = useState<VideoEntry | null>(null);
+  const [initialVideoParamHandled, setInitialVideoParamHandled] = useState(false);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [isUpdatingAssetStatus, setIsUpdatingAssetStatus] = useState<Record<string, boolean>>({});
   // State for autoplay on scroll
@@ -158,6 +159,9 @@ export default function UserProfilePage() {
   const [isLoraUploadModalOpen, setIsLoraUploadModalOpen] = useState(false);
   const [isGenerationUploadModalOpen, setIsGenerationUploadModalOpen] = useState(false);
   const [isArtUploadModalOpen, setIsArtUploadModalOpen] = useState(false);
+
+  // Only this flag (not the whole query string) should trigger data refetch
+  const loggedOutViewParam = searchParams.get('loggedOutView');
 
   // --- Data Fetching Functions defined using useCallback --- 
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
@@ -348,7 +352,7 @@ export default function UserProfilePage() {
 
   // --- Main Data Fetching Effect --- 
   useEffect(() => {
-    const shouldForceLoggedOutView = searchParams.get('loggedOutView') === 'true';
+    const shouldForceLoggedOutView = loggedOutViewParam === 'true';
     setForceLoggedOutView(shouldForceLoggedOutView);
     let isMounted = true;
     const fetchProfileAndInitialData = async () => {
@@ -436,7 +440,7 @@ export default function UserProfilePage() {
     };
     fetchProfileAndInitialData();
     return () => { isMounted = false }; 
-  }, [displayName, user, navigate, isAdmin, searchParams, fetchUserAssets, fetchUserVideos]);
+  }, [displayName, user, navigate, isAdmin, loggedOutViewParam, fetchUserAssets, fetchUserVideos]);
 
   // --- Derived State with useMemo --- 
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
@@ -688,10 +692,13 @@ export default function UserProfilePage() {
     scrollToElementWithOffset(lorasGridRef.current);
     setTimeout(() => { if (!unmountedRef.current) setLoraPage(newPage); }, 300);
   };
-  const handleOpenLightbox = (video: VideoEntry) => setLightboxVideo(video);
+  const handleOpenLightbox = (video: VideoEntry) => {
+    setLightboxVideo(video);
+    setInitialVideoParamHandled(true);
+  };
   const handleCloseLightbox = () => setLightboxVideo(null);
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
-    setHoveredVideoId(isHovering ? videoId : (hoveredVideoId === videoId ? null : hoveredVideoId)); 
+    setHoveredVideoId(isHovering ? videoId : null);
   };
 
   // --- Constants defined inside component (Keep these) --- 
@@ -757,6 +764,23 @@ export default function UserProfilePage() {
       setLightboxVideo(fullVideoListForLightbox[currentLightboxIndex + 1]);
     }
   }, [currentLightboxIndex, fullVideoListForLightbox]);
+
+  // --------------------------------------------------
+  // Auto-open lightbox when ?video=<id> is present
+  // --------------------------------------------------
+  useEffect(() => {
+    const videoParam = searchParams.get('video');
+    if (!videoParam) return;
+
+    if (initialVideoParamHandled) return;
+    if (lightboxVideo && lightboxVideo.id === videoParam) return;
+    if (userVideos && userVideos.length > 0) {
+      const found = userVideos.find(v => v.id === videoParam);
+      if (found) {
+        handleOpenLightbox(found);
+      }
+    }
+  }, [searchParams, lightboxVideo, initialVideoParamHandled, userVideos, handleOpenLightbox]);
 
   // --- JSX Rendering --- 
   return (
@@ -831,7 +855,7 @@ export default function UserProfilePage() {
                   </Dialog>
                 )}
               </CardHeader>
-              <CardContent ref={lorasGridRef} className="p-4 md:p-6">
+              <CardContent ref={lorasGridRef} className="p-4 md:p-6 pt-6">
                 {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                  userAssets.length > 0 ? ( <> 
                     <LoraManager
@@ -842,6 +866,7 @@ export default function UserProfilePage() {
                       onUserStatusChange={handleAssetStatusUpdate} // Pass status update handler
                       isUpdatingStatusMap={isUpdatingAssetStatus} // Pass map of updating statuses
                       showSeeAllLink={false} // Don't show "See All" on profile
+                      showHeader={false} // Hide the internal LoraManager header on the profile page
                       // Omit filterText, onFilterTextChange, onRefreshData, onNavigateToUpload
                       // Omit hideCreatorInfo (handled by LoraManager or default)
                       // Omit visibility/autoplay props for now
@@ -874,7 +899,7 @@ export default function UserProfilePage() {
                    </Dialog>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
                   artVideos.length > 0 ? ( <> 
                     <div ref={artGridRef}> {/* Removed -mt-10 wrapper */}
@@ -926,7 +951,7 @@ export default function UserProfilePage() {
                   </Dialog>
                 )}
               </CardHeader>
-              <CardContent>
+              <CardContent className="pt-6">
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                   generationVideos.length > 0 ? ( <> 
                     <div ref={generationsGridRef}> {/* Removed -mt-10 wrapper */}

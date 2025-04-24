@@ -4,6 +4,7 @@ import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import { VideoEntry } from "@/lib/types";
 import VideoCard from "./VideoCard";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 // Define standard video resolutions and their aspect ratios
 const resolutions = [
@@ -62,8 +63,33 @@ export default function VideoGrid({
   forceCreatorHoverDesktop = false,
 }: VideoGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const sentinelRef = useRef<HTMLDivElement>(null);
   // Unique id for this grid instance so layoutIds don't clash across multiple grids on the page
   const gridId = useId();
+
+  const CHUNK_SIZE = 40; // number of videos to add each time on desktop
+  const INITIAL_CHUNK = 40; // initial items to render
+
+  // Track how many videos are currently visible (rendered)
+  const [visibleCount, setVisibleCount] = useState<number>(() => Math.min(videos.length, INITIAL_CHUNK));
+
+  // Reset visibleCount if the videos array changes significantly (e.g., new search)
+  useEffect(() => {
+    setVisibleCount(Math.min(videos.length, INITIAL_CHUNK));
+  }, [videos]);
+
+  // Use intersection observer on a sentinel element at the bottom of the grid to progressively load more
+  const isSentinelVisible = useIntersectionObserver(sentinelRef, { rootMargin: '300px', threshold: 0 });
+
+  useEffect(() => {
+    if (isSentinelVisible && visibleCount < videos.length) {
+      setVisibleCount(prev => Math.min(prev + CHUNK_SIZE, videos.length));
+    }
+  }, [isSentinelVisible, visibleCount, videos.length]);
+
+  // Slice the videos array based on visibleCount
+  const visibleVideos = useMemo(() => videos.slice(0, visibleCount), [videos, visibleCount]);
+
   const [containerWidth, setContainerWidth] = useState(0);
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
@@ -81,7 +107,7 @@ export default function VideoGrid({
     return () => window.removeEventListener("resize", measure);
   }, []);
 
-  // Calculate rows based on container width and items per row
+  // Calculate rows based on container width and items per row (only for visibleVideos)
   const rows = useMemo(() => {
     // Determine how many items we should show per row depending on the screen size
     const effectiveItemsPerRow = (() => {
@@ -96,7 +122,7 @@ export default function VideoGrid({
       return itemsPerRow;
     })();
 
-    if (!containerWidth || !videos.length) return [];
+    if (!containerWidth || !visibleVideos.length) return [];
     
     // Helper function to get the correct aspect ratio
     const getAspectRatio = (vid: VideoEntry): number => {
@@ -108,8 +134,8 @@ export default function VideoGrid({
     };
 
     // --- Single Video Case --- 
-    if (videos.length === 1) {
-      const video = videos[0];
+    if (visibleVideos.length === 1) {
+      const video = visibleVideos[0];
       const aspectRatio = getAspectRatio(video);
       let displayH = DEFAULT_ROW_HEIGHT * 1.5; // Make single videos a bit larger than default row height
       let displayW = aspectRatio * displayH;
@@ -134,7 +160,7 @@ export default function VideoGrid({
     
     // --- Mobile: Single Column Layout ---
     if (isMobile) {
-      return videos.map((video) => {
+      return visibleVideos.map((video) => {
         // Use the same helper as desktop to get the correct aspect ratio
         const aspectRatio = getAspectRatio(video);
         // Use full container width for the video
@@ -156,8 +182,8 @@ export default function VideoGrid({
     let cursor = 0;
     
     // Initial layout calculation
-    while (cursor < videos.length) {
-      const slice = videos.slice(cursor, cursor + effectiveItemsPerRow);
+    while (cursor < visibleVideos.length) {
+      const slice = visibleVideos.slice(cursor, cursor + effectiveItemsPerRow);
       const GAP_PX = 8; // Tailwind gap-2 equals 0.5rem (assuming root font-size 16px)
 
       const sumWidth = slice.reduce((acc, vid) => {
@@ -235,7 +261,7 @@ export default function VideoGrid({
     }
     
     return initialRows.filter(row => row.length > 0); 
-  }, [containerWidth, videos, itemsPerRow, isMobile]);
+  }, [containerWidth, visibleVideos, itemsPerRow, isMobile]);
 
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
     setHoveredVideoId(isHovering ? videoId : null);
@@ -283,6 +309,8 @@ export default function VideoGrid({
             </motion.div>
           ))}
         </AnimatePresence>
+        {/* Sentinel element to trigger loading more videos */}
+        <div ref={sentinelRef} className="w-full h-px" />
       </div>
     </LayoutGroup>
   );

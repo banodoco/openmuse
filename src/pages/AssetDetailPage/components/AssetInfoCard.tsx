@@ -207,12 +207,9 @@ const AssetInfoCard = ({
                   {/* Hidden Button */}
                   <Button
                     size="sm"
-                    variant={asset?.admin_status === 'Hidden' ? "destructive" : "outline"}
+                    variant={asset?.admin_status === 'Hidden' ? "secondary" : "outline"}
                     onClick={() => onAdminStatusChange('Hidden')}
-                    className={cn(
-                      "gap-1 h-8 text-xs",
-                      asset?.admin_status === 'Hidden' ? "" : "border-orange-500 text-orange-600 hover:bg-orange-50 hover:text-orange-700"
-                    )}
+                    className="gap-1 h-8 text-xs"
                     disabled={isUpdatingAdminStatus || asset?.admin_status === 'Hidden'}
                   >
                     <EyeOff className="h-4 w-4" /> Hide

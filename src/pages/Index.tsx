@@ -517,6 +517,25 @@ const Index: React.FC = () => {
   }, [refetchVideos]);
   // --- End Lightbox Handlers ---
 
+  // -----------------------------
+  // Open lightbox automatically if ?video query param is present
+  // -----------------------------
+  useEffect(() => {
+    const videoParam = searchParams.get('video');
+    if (!videoParam) return;
+
+    // If lightbox already open for this video, do nothing
+    if (lightboxVideo && lightboxVideo.id === videoParam) return;
+
+    // Once we have the video list, try to find the video and open it
+    if (videos && videos.length > 0) {
+      const found = videos.find(v => v.id === videoParam);
+      if (found) {
+        handleOpenLightbox(found);
+      }
+    }
+  }, [searchParams, videos, lightboxVideo, handleOpenLightbox]);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navigation />

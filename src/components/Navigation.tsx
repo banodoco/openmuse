@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
@@ -7,7 +6,7 @@ import AuthButton from './AuthButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
 
-const logoPath = 'https://i.ibb.co/C3ZhdXgS/cropped-Open-Muse-logo.png';
+const logoPath = '/Open-Muse-logo.png';
 
 const Navigation: React.FC = () => {
   const location = useLocation();

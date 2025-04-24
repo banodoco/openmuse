@@ -40,7 +40,7 @@ import {
 } from '@/components/ui/tooltip';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import LoraCreatorInfo from './lora/LoraCreatorInfo';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -121,6 +121,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     Rejected: XCircle, // Keep for mapping, though button won't be shown
   };
 
+  const [, setSearchParams] = useSearchParams();
+
   useEffect(() => {
     setEditableTitle(initialTitle || '');
     setEditableDescription(initialDescription || '');
@@ -173,6 +175,31 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
     fetchLoras();
   }, [isOpen, availableLoras.length, isFetchingLoras, toast]);
+
+  // --------------------------------------------------
+  // Keep ?video=<id> in the URL while the lightbox is open.
+  // --------------------------------------------------
+  // 1. Whenever `videoId` changes _and_ the lightbox is open → write param.
+  useEffect(() => {
+    if (!isOpen) return;
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev);
+      p.set('video', videoId);
+      return p;
+    }, { replace: true });
+  }, [videoId, isOpen, setSearchParams]);
+
+  // 2. When the lightbox is closed/unmounted → remove the param once.
+  useEffect(() => {
+    if (!isOpen) return;
+    return () => {
+      setSearchParams(prev => {
+        const p = new URLSearchParams(prev);
+        p.delete('video');
+        return p;
+      }, { replace: true });
+    };
+  }, [isOpen, setSearchParams]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -359,13 +386,37 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   return (
     <AlertDialog>
       <TooltipProvider delayDuration={100}>
-        <Dialog open={isOpen} onOpenChange={(open) => {
+        <Dialog
+          open={isOpen}
+          onOpenChange={(open) => {
             if (!open) {
-                if (isEditing) handleCancelEdit();
-                onClose();
+              // Remove ?video param immediately so parent pages don't auto-reopen
+              setSearchParams(prev => {
+                const p = new URLSearchParams(prev);
+                p.delete('video');
+                return p;
+              }, { replace: true });
+
+              if (isEditing) handleCancelEdit();
+              onClose();
             }
-        }}>
-          <DialogContent className="max-w-5xl p-0 bg-background max-h-[90vh] flex flex-col">
+          }}
+        >
+          <DialogContent
+            className="max-w-5xl p-0 bg-background max-h-[90vh] flex flex-col"
+            onClickCapture={(e) => {
+              const anchor = (e.target as HTMLElement).closest('a');
+              if (anchor) {
+                // Clear param then close lightbox so navigation proceeds cleanly
+                setSearchParams(prev => {
+                  const p = new URLSearchParams(prev);
+                  p.delete('video');
+                  return p;
+                }, { replace: true });
+                onClose();
+              }
+            }}
+          >
             <DialogHeader className="p-4 border-b">
               <DialogTitle>
                 {isEditing ? editableTitle : initialTitle || 'Video'}
@@ -596,7 +647,16 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                             <Link 
                               to={`/assets/${initialAssetId}`}
                               className="text-foreground underline"
-                              onClick={(e) => e.stopPropagation()} // Prevent closing lightbox on link click
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                // Clear URL param and close before navigating
+                                setSearchParams(prev => {
+                                  const p = new URLSearchParams(prev);
+                                  p.delete('video');
+                                  return p;
+                                }, { replace: true });
+                                onClose();
+                              }}
                             >
                               {loraName}
                             </Link>

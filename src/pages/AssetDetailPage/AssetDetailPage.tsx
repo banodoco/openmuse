@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Button } from '@/components/ui/button';
@@ -28,6 +28,8 @@ function AssetDetailPage() {
   const { user, isAdmin } = useAuth();
   const [lightboxOpen, setLightboxOpen] = useState(false);
   const [currentVideo, setCurrentVideo] = useState<VideoEntry | null>(null);
+  const [initialVideoParamHandled, setInitialVideoParamHandled] = useState(false);
+  const [searchParams] = useSearchParams();
   
   const {
     asset,
@@ -50,6 +52,7 @@ function AssetDetailPage() {
   const handleOpenLightbox = (video: VideoEntry) => {
     setCurrentVideo(video);
     setLightboxOpen(true);
+    setInitialVideoParamHandled(true);
   };
   
   const handleCloseLightbox = () => {
@@ -404,6 +407,18 @@ function AssetDetailPage() {
       setCurrentVideo(videoList[currentLightboxIndex + 1]);
     }
   }, [currentLightboxIndex, videoList]);
+  
+  const videoParam = searchParams.get('video');
+  useEffect(() => {
+    if (!videoParam) return;
+    if (initialVideoParamHandled) return;
+    if (currentVideo && currentVideo.id === videoParam) return;
+    const found = videos.find(v => v.id === videoParam);
+    if (found) {
+      handleOpenLightbox(found);
+      setInitialVideoParamHandled(true);
+    }
+  }, [videoParam, videos, currentVideo, initialVideoParamHandled, handleOpenLightbox]);
   
   // logger.log(`[AssetDetailPage Render] isLoading: ${isLoading}, asset exists: ${!!asset}`);
 

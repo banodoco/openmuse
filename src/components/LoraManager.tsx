@@ -29,6 +29,8 @@ interface LoraManagerProps {
   approvalFilter?: 'all' | 'curated';
   onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
   isUpdatingStatusMap?: Record<string, boolean>;
+  /** Optional prop to control the visibility of the internal header (h2 and See All link). Defaults to true. */
+  showHeader?: boolean;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
@@ -44,8 +46,9 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   approvalFilter = 'curated', // Default to 'curated' if not provided
   onUserStatusChange,
   isUpdatingStatusMap,
+  showHeader = true, // Default to true if not provided
 }) => {
-  logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, filterText=${filterText}, isAdmin=${isAdmin}`);
+  logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, filterText=${filterText}, isAdmin=${isAdmin}, showHeader=${showHeader}`);
 
   const { isAdmin: authIsAdmin } = useAuth();
   
@@ -59,19 +62,21 @@ const LoraManager: React.FC<LoraManagerProps> = ({
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h2 className="text-xl font-semibold leading-tight tracking-tight text-foreground">
-          LoRAs
-        </h2>
-        {showSeeAllLink && (
-          <Link
-            to="/loras"
-            className="text-sm text-primary hover:underline ml-auto"
-          >
-            See all {approvalFilter === 'curated' ? `curated ` : ''}LoRAs →
-          </Link>
-        )}
-      </div>
+      {showHeader && (
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-semibold leading-tight tracking-tight text-foreground">
+            LoRAs
+          </h2>
+          {showSeeAllLink && (
+            <Link
+              to="/loras"
+              className="text-sm text-primary hover:underline ml-auto"
+            >
+              See all {approvalFilter === 'curated' ? `curated ` : ''}LoRAs →
+            </Link>
+          )}
+        </div>
+      )}
 
       {isLoading ? (
         <LoadingState />

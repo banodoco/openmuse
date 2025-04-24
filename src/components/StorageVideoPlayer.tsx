@@ -64,7 +64,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState(true);
+  const [shouldLoadVideo, setShouldLoadVideo] = useState<boolean>(() => forcePreload || (isMobile && autoPlay));
   const [hasHovered, setHasHovered] = useState(forcePreload || (!isMobile && autoPlay));
   const [shouldPlay, setShouldPlay] = useState(isMobile ? false : (forcePreload || autoPlay));
   const prevVideoLocationRef = useRef<string | null>(null);
@@ -283,8 +283,13 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Determine visibility states
   const showVideo = !!videoUrl && !error;
-  const showLoadingSpinner = isLoadingVideoUrl && !error && !isVideoLoaded && (hasHovered || shouldLoadVideo);
-  const showThumbnail = !!thumbnailUrl && !error && !(isHovering && playOnHover) && (!isVideoLoaded || preventLoadingFlicker);
+  // Show the loading spinner only while the user is interacting (hovering) on desktop.
+  // Mobile devices don't have hover, so maintain previous behaviour there.
+  const showLoadingSpinner = isLoadingVideoUrl && !error && !isVideoLoaded && (isMobile || isHovering);
+  // Always keep thumbnail visible until the video has actually loaded. The
+  // previous condition hid it as soon as the user hovered, which resulted in
+  // a brief grey flash while the video element was still buffering.
+  const showThumbnail = !!thumbnailUrl && !error && (!isVideoLoaded || preventLoadingFlicker);
 
   // logger.log(`${logPrefix} Visibility states: showThumbnail=${showThumbnail}, showVideo=${showVideo}, showLoadingSpinner=${showLoadingSpinner}, isVideoLoaded=${isVideoLoaded}, hasHovered=${hasHovered}, videoUrl=${!!videoUrl}, error=${!!error}`);
 

@@ -70,7 +70,14 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const location = useLocation();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(null);
+  // Attempt to seed thumbnail from several possible fields, defaulting to a
+  // generic placeholder so the card never appears as a stark black square.
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(() =>
+    video.metadata?.placeholder_image ||
+    (video as any).placeholder_image ||
+    (video as any).thumbnailUrl ||
+    '/placeholder.svg',
+  );
   const cardRef = useRef<HTMLDivElement>(null);
   // ---------------------------------------------------------------
   // Use the dimensions calculated by the VideoGrid (displayW / displayH)
@@ -306,8 +313,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             creator={getCreatorName()}
             className="w-full h-full object-cover"
             isHovering={combinedHovering}
-            // On profile page: lazy-load until either hovered OR the card scrolls into view (desktop only)
-            lazyLoad={isProfilePage ? (!combinedHovering && !isInViewport) : false}
+            lazyLoad={false}
             thumbnailUrl={thumbnailUrl}
             onLoadedData={handleVideoLoad}
             onVisibilityChange={handleVisibilityChange}
