@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Logger } from '@/lib/logger';
 import LoraCreatorInfo from './LoraCreatorInfo';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 
 const logger = new Logger('LoraCard');
 
@@ -78,6 +79,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isVisible, setIsVisible] = useState(false);
   const [isInPreloadArea, setIsInPreloadArea] = useState(false);
   const isMobile = useIsMobile();
+  // Detect when the card is near/inside the viewport so we can start pre-loading.
+  const cardRef = useRef<HTMLDivElement>(null);
+  const isInViewport = useIntersectionObserver(cardRef, {
+    rootMargin: '0px 0px 300px 0px',
+    threshold: 0.05,
+  });
   
   useEffect(() => {
     setCurrentStatus(userStatus);
@@ -218,6 +225,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
         isOwnProfile && currentStatus === 'Hidden' && 'opacity-60 grayscale'
       )}
       onClick={handleView}
+      ref={cardRef}
     >
       <div 
         className="w-full overflow-hidden bg-muted relative"
@@ -233,7 +241,9 @@ const LoraCard: React.FC<LoraCardProps> = ({
                 url={videoUrl} 
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out" 
                 title={lora.name}
-                lazyLoad={true}
+                // Emulate VideoCard behavior: on profile & home pages, delay loading until
+                // either the card is hovered OR it’s close to the viewport.
+                lazyLoad={(isOnProfilePage || isOnHomePage) ? (!shouldBePlaying && !isInViewport) : false}
                 thumbnailUrl={thumbnailUrl}
                 onLoadedData={handleVideoLoad}
                 onVisibilityChange={handleVisibilityChange}
