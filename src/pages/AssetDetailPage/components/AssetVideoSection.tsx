@@ -218,11 +218,16 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
         <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
           <DialogTrigger asChild>
             <Button 
-              variant="outline"
+              variant="ghost"
               size={isMobile ? "sm" : "default"}
-              className="w-full md:w-auto"
+              className={cn(
+                "border border-input hover:bg-accent hover:text-accent-foreground",
+                "text-muted-foreground",
+                "w-full md:w-auto",
+                isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
+              )}
             >
-              Upload Video for {asset?.name}
+              Upload videos made using this
             </Button>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
