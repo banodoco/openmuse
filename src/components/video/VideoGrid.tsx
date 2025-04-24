@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from "react";
 import { Button } from "@/components/ui/button";
-import { motion } from "framer-motion";
+import { motion, LayoutGroup } from "framer-motion";
 import { VideoEntry } from "@/lib/types";
 import VideoCard from "./VideoCard";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -39,6 +39,8 @@ interface VideoGridProps {
   forceCreatorHoverDesktop?: boolean;
 }
 
+const TABLET_BREAKPOINT = 1024; // px – treat widths below this as tablet (but above mobile)
+
 export default function VideoGrid({
   videos,
   itemsPerRow = 4,
@@ -73,6 +75,19 @@ export default function VideoGrid({
 
   // Calculate rows based on container width and items per row
   const rows = useMemo(() => {
+    // Determine how many items we should show per row depending on the screen size
+    const effectiveItemsPerRow = (() => {
+      if (isMobile) return 1; // already handled separately below, but keep for clarity
+
+      // Tablet: between mobile and tablet breakpoint → show roughly half the usual density
+      if (containerWidth < TABLET_BREAKPOINT) {
+        return Math.max(2, Math.ceil(itemsPerRow / 2));
+      }
+
+      // Desktop/default
+      return itemsPerRow;
+    })();
+
     if (!containerWidth || !videos.length) return [];
     
     // Helper function to get the correct aspect ratio
@@ -134,7 +149,7 @@ export default function VideoGrid({
     
     // Initial layout calculation
     while (cursor < videos.length) {
-      const slice = videos.slice(cursor, cursor + itemsPerRow);
+      const slice = videos.slice(cursor, cursor + effectiveItemsPerRow);
       const GAP_PX = 8; // Tailwind gap-2 equals 0.5rem (assuming root font-size 16px)
 
       const sumWidth = slice.reduce((acc, vid) => {
@@ -169,9 +184,9 @@ export default function VideoGrid({
     if (initialRows.length >= 2) {
       const lastRow = initialRows[initialRows.length - 1];
       const secondLastRow = initialRows[initialRows.length - 2];
-      const threshold = Math.ceil(itemsPerRow / 2);
+      const threshold = Math.ceil(effectiveItemsPerRow / 2);
 
-      if (lastRow.length < threshold && secondLastRow.length >= itemsPerRow) { // Ensure secondLastRow has enough items to give one away
+      if (lastRow.length < threshold && secondLastRow.length >= effectiveItemsPerRow) { // Ensure secondLastRow has enough items to give one away
         const itemToMove = secondLastRow.pop(); 
         if (itemToMove) {
           lastRow.unshift(itemToMove); 
@@ -224,37 +239,44 @@ export default function VideoGrid({
   };
 
   return (
-    <div ref={containerRef} className="w-full">
-      {rows.map((row, rIdx) => (
-        <div key={rIdx} className="flex gap-2 mb-2">
-          {row.map((video: DisplayVideoEntry) => (
-            <motion.div
-              key={video.id}
-              layout
-              style={{ width: video.displayW, height: video.displayH }}
-              className="relative rounded-lg"
-            >
-              <VideoCard
-                video={video}
-                isAdmin={isAdmin}
-                isAuthorized={isAuthorized}
-                onOpenLightbox={onOpenLightbox}
-                onApproveVideo={onApproveVideo}
-                onDeleteVideo={onDeleteVideo}
-                onRejectVideo={onRejectVideo}
-                onSetPrimaryMedia={onSetPrimaryMedia}
-                isHovering={hoveredVideoId === video.id}
-                onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
-                onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
-                onVisibilityChange={handleVideoVisibilityChange}
-                shouldBePlaying={isMobile && video.id === visibleVideoId}
-                alwaysShowInfo={alwaysShowInfo}
-                forceCreatorHoverDesktop={forceCreatorHoverDesktop}
-              />
-            </motion.div>
-          ))}
-        </div>
-      ))}
-    </div>
+    <LayoutGroup>
+      <div ref={containerRef} className="w-full">
+        {rows.map((row, rIdx) => (
+          <motion.div
+            key={`row-${rIdx}`}
+            layout="position"
+            className="flex gap-2 mb-2"
+          >
+            {row.map((video: DisplayVideoEntry) => (
+              <motion.div
+                key={video.id}
+                layout
+                layoutId={video.id}
+                style={{ width: video.displayW, height: video.displayH }}
+                className="relative rounded-lg"
+              >
+                <VideoCard
+                  video={video}
+                  isAdmin={isAdmin}
+                  isAuthorized={isAuthorized}
+                  onOpenLightbox={onOpenLightbox}
+                  onApproveVideo={onApproveVideo}
+                  onDeleteVideo={onDeleteVideo}
+                  onRejectVideo={onRejectVideo}
+                  onSetPrimaryMedia={onSetPrimaryMedia}
+                  isHovering={hoveredVideoId === video.id}
+                  onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
+                  onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
+                  onVisibilityChange={handleVideoVisibilityChange}
+                  shouldBePlaying={isMobile && video.id === visibleVideoId}
+                  alwaysShowInfo={alwaysShowInfo}
+                  forceCreatorHoverDesktop={forceCreatorHoverDesktop}
+                />
+              </motion.div>
+            ))}
+          </motion.div>
+        ))}
+      </div>
+    </LayoutGroup>
   );
 } 
