@@ -15,71 +15,67 @@ export class SupabaseDatabase extends BaseDatabase {
     super('SupabaseDB');
   }
   
-  async getAllEntries(): Promise<VideoEntry[]> {
-    try {
-      this.logger.log("Getting all entries from media table");
-      
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('media')
-        .select('*, assets(id, name, description, type, creator)')
-        .eq('type', 'video')
-        .order('created_at', { ascending: false });
-      
-      if (mediaError) {
-        this.logger.error('Error getting media entries:', mediaError);
-        return [];
-      }
-      
-      this.logger.log(`Retrieved ${mediaData?.length || 0} media entries`);
-      
-      const entries: VideoEntry[] = mediaData.map(media => {
-        const asset = media.assets && media.assets.length > 0 ? media.assets[0] : null;
-        
-        return {
-          id: media.id,
-          url: media.url,
-          reviewer_name: media.creator || 'Unknown',
-          skipped: false,
-          created_at: media.created_at,
-          admin_status: media.admin_status || 'Listed',
-          user_status: media.user_status || null,
-          user_id: media.user_id,
-          metadata: {
-            title: media.title,
-            description: media.description || '',
-            creator: 'self',
-            creatorName: media.creator || 'Unknown',
-            classification: media.classification || 'art',
-            loraName: asset?.name,
-            loraDescription: asset?.description,
-            assetId: asset?.id,
-            isPrimary: false,
-            placeholder_image: media.placeholder_image,
-            aspectRatio: (media.metadata as any)?.aspectRatio ?? null
-          }
-        };
-      });
+  async getAllEntries(approvalFilter: 'all' | 'curated' = 'all'): Promise<VideoEntry[]> {
+    this.logger.log(`[getAllEntries] Fetching videos with filter: ${approvalFilter}`);
+    let query = supabase.from('media').select('*, assets(id, name, description, type, creator)');
 
-      const { data: assetMediaData, error: assetMediaError } = await supabase
-        .from('assets')
-        .select('id, primary_media_id');
+    if (approvalFilter === 'curated') {
+      this.logger.log('[getAllEntries] Applying curated filter: admin_status in (Curated, Featured)');
+      query = query.eq('admin_status', 'Curated');
+    }
+
+    const { data, error } = await query.eq('type', 'video').order('created_at', { ascending: false });
+
+    if (error) {
+      this.logger.error('[getAllEntries] Error fetching video entries:', error);
+      throw new Error(`Error fetching video entries: ${error.message}`);
+    }
+    this.logger.log(`[getAllEntries] Fetched ${data?.length ?? 0} entries.`);
+    
+    const entries: VideoEntry[] = data.map(media => {
+      const asset = media.assets && media.assets.length > 0 ? media.assets[0] : null;
       
-      if (!assetMediaError && assetMediaData) {
-        for (const entry of entries) {
-          if (entry.metadata?.assetId) {
-            const asset = assetMediaData.find(a => a.id === entry.metadata?.assetId);
-            if (asset && asset.primary_media_id === entry.id) {
-              entry.metadata.isPrimary = true;
-            }
+      return {
+        id: media.id,
+        url: media.url,
+        reviewer_name: media.creator || 'Unknown',
+        skipped: false,
+        created_at: media.created_at,
+        admin_status: media.admin_status || 'Listed',
+        user_status: media.user_status || null,
+        user_id: media.user_id,
+        metadata: {
+          title: media.title,
+          description: media.description || '',
+          creator: 'self',
+          creatorName: media.creator || 'Unknown',
+          classification: media.classification || 'art',
+          loraName: asset?.name,
+          loraDescription: asset?.description,
+          assetId: asset?.id,
+          isPrimary: false,
+          placeholder_image: media.placeholder_image,
+          aspectRatio: (media.metadata as any)?.aspectRatio ?? null
+        }
+      };
+    });
+
+    const { data: assetMediaData, error: assetMediaError } = await supabase
+      .from('assets')
+      .select('id, primary_media_id');
+    
+    if (!assetMediaError && assetMediaData) {
+      for (const entry of entries) {
+        if (entry.metadata?.assetId) {
+          const asset = assetMediaData.find(a => a.id === entry.metadata?.assetId);
+          if (asset && asset.primary_media_id === entry.id) {
+            entry.metadata.isPrimary = true;
           }
         }
       }
-      
-      return entries;
-    } catch (error) {
-      this.logger.error('Error getting entries:', error);
-      return [];
     }
+    
+    return entries;
   }
   
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {

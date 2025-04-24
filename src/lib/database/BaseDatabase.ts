@@ -18,7 +18,7 @@ export abstract class BaseDatabase {
   }
   
   // Core methods that all database implementations must provide
-  abstract getAllEntries(): Promise<VideoEntry[]>;
+  abstract getAllEntries(approvalFilter?: 'all' | 'curated'): Promise<VideoEntry[]>;
   abstract updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null>;
   abstract markAsSkipped(id: string): Promise<VideoEntry | null>;
   abstract setApprovalStatus(id: string, approved: string): Promise<VideoEntry | null>;

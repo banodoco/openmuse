@@ -27,6 +27,8 @@ interface VideoGallerySectionProps {
   itemsPerRow?: number;
   /** If true, forces creator info to only show on hover on desktop, overriding alwaysShowInfo for that element */
   forceCreatorHoverDesktop?: boolean;
+  /** The current approval filter state from the parent */
+  approvalFilter?: 'all' | 'curated';
 
   // Add props to pass down for actions and permissions
   isAdmin?: boolean;
@@ -52,10 +54,11 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   addButtonClassification = 'gen',
   itemsPerRow = 4,
   forceCreatorHoverDesktop = false,
+  approvalFilter = 'curated', // Default to 'curated' if not provided
   // Destructure new props
-  isAdmin = false, 
+  isAdmin = false,
   isAuthorized = false,
-  onOpenLightbox, 
+  onOpenLightbox,
   onApproveVideo,
   onDeleteVideo,
   onRejectVideo,
@@ -82,7 +85,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
               to={seeAllPath}
               className="text-sm text-primary hover:underline ml-auto"
             >
-              See all curated {header} →
+              See all {approvalFilter === 'curated' ? `curated ` : ''}{header} →
             </Link>
           )}
         </div>

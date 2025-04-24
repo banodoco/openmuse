@@ -40,6 +40,7 @@ import {
 } from '@/components/ui/tooltip';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import LoraCreatorInfo from './lora/LoraCreatorInfo';
+import { Link } from 'react-router-dom';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -129,7 +130,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   useEffect(() => {
     const fetchLoras = async () => {
-      if (isOpen && canEdit && availableLoras.length === 0 && !isFetchingLoras) {
+      if (isOpen && availableLoras.length === 0 && !isFetchingLoras) {
         setIsFetchingLoras(true);
         try {
           const { data, error } = await supabase
@@ -171,7 +172,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     };
 
     fetchLoras();
-  }, [isOpen, canEdit, availableLoras.length, isFetchingLoras, toast]);
+  }, [isOpen, availableLoras.length, isFetchingLoras, toast]);
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
@@ -586,6 +587,22 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                       {initialDescription && (
                           <p className="text-sm mt-2 whitespace-pre-wrap">{initialDescription}</p>
                       )}
+                      {initialAssetId && (() => {
+                        const loraName = availableLoras.find(l => l.id === initialAssetId)?.name;
+                        if (!loraName) return null; // Don't render if name not found (yet)
+                        return (
+                          <p className="text-sm mt-3 text-muted-foreground">
+                            Made with{' '}
+                            <Link 
+                              to={`/assets/${initialAssetId}`}
+                              className="text-foreground underline"
+                              onClick={(e) => e.stopPropagation()} // Prevent closing lightbox on link click
+                            >
+                              {loraName}
+                            </Link>
+                          </p>
+                        );
+                      })()}
                     </div>
                   )}
               </div>

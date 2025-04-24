@@ -6,6 +6,9 @@ import LoraManager from '@/components/LoraManager';
 import { useAuth } from '@/hooks/useAuth';
 import { Helmet } from 'react-helmet-async';
 import { Logger } from '@/lib/logger';
+import { usePersistentToggle } from '@/hooks/usePersistentToggle';
+import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
+import { Separator } from '@/components/ui/separator';
 
 const logger = new Logger('LorasPage');
 
@@ -13,39 +16,66 @@ const LorasPage: React.FC = () => {
   logger.log('LorasPage component rendering');
   const { user, isLoading: authLoading, isAdmin } = useAuth();
 
-  // Fetch all LoRAs with 'Featured' or 'Curated' status (same as index page)
+  const [approvalFilter, setApprovalFilter] = usePersistentToggle(
+    'lorasPageApprovalFilter', 
+    'curated'
+  );
+
   const { 
     loras, 
     isLoading: lorasLoading, 
-  } = useLoraManagement({ modelFilter: 'all', approvalFilter: 'all' });
+  } = useLoraManagement({ modelFilter: 'all', approvalFilter: approvalFilter });
 
   const isPageLoading = lorasLoading || authLoading;
+
+  const pageTitle = approvalFilter === 'all' ? 'All LoRAs' : 'Curated LoRAs';
+  const pageDescription = approvalFilter === 'all' 
+    ? 'Browse the full collection of LoRAs, including community uploads.'
+    : 'Browse the curated collection of high-quality LoRAs.';
 
   return (
     <div className="flex flex-col min-h-screen">
       <Helmet>
-        <title>All Featured LoRAs | OpenMuse</title>
-        <meta name="description" content="Browse all featured and curated LoRA assets for open source video models on OpenMuse." />
+        <title>{pageTitle} | OpenMuse</title>
+        <meta name="description" content={pageDescription} />
       </Helmet>
       <Navigation />
       <div className="flex-1 w-full">
         <div className="max-w-screen-2xl mx-auto p-4">
           <PageHeader 
-            title="All Featured LoRAs"
-            description="Browse the full collection of featured and curated LoRAs."
+            title={pageTitle}
+            description={pageDescription}
           />
+
+          <div className="flex justify-start mt-4 mb-6">
+            <ToggleGroup 
+              type="single" 
+              value={approvalFilter} 
+              onValueChange={(value) => {
+                if (value === 'curated' || value === 'all') {
+                   setApprovalFilter(value);
+                }
+              }}
+              className="bg-muted/50 p-1 rounded-lg"
+            >
+              <ToggleGroupItem value="curated" aria-label="Toggle curated" className="data-[state=on]:bg-background data-[state=on]:shadow-sm data-[state=on]:text-primary transition-all px-4 py-1.5">
+                Curated
+              </ToggleGroupItem>
+              <ToggleGroupItem value="all" aria-label="Toggle all" className="data-[state=on]:bg-background data-[state=on]:shadow-sm data-[state=on]:text-primary transition-all px-4 py-1.5">
+                All
+              </ToggleGroupItem>
+            </ToggleGroup>
+          </div>
+
+          <Separator className="mb-8" />
           
           <LoraManager
-            loras={loras} // Pass the fetched LoRAs directly
+            loras={loras}
             isLoading={isPageLoading}
-            lorasAreLoading={lorasLoading} // Use dedicated loading state
-            filterText="" // No initial text filter
-            onFilterTextChange={() => {}} // Placeholder, could add filtering later
-            modelFilter="all" // Show all models
-            onModelFilterChange={() => {}} // Placeholder
+            lorasAreLoading={lorasLoading}
+            approvalFilter={approvalFilter}
             isAdmin={isAdmin || false}
-            // No need for upload button or refresh here, simpler view
-            showSeeAllLink={false} // Don't show the link on the 'all' page
+            showSeeAllLink={false}
           />
         </div>
       </div>

@@ -575,11 +575,12 @@ const Index: React.FC = () => {
             isLoading={isPageLoading}
             lorasAreLoading={lorasLoading}
             filterText={filterText}
-            onFilterTextChange={setFilterText} 
+            onFilterTextChange={setFilterText}
             isAdmin={isAdmin || false}
             onNavigateToUpload={handleNavigateToUpload}
             onRefreshData={handleRefreshData}
             showSeeAllLink={true}
+            approvalFilter={currentApprovalFilter}
           />
 
           {/* Add LoRA Button and Dialog */}
@@ -621,6 +622,7 @@ const Index: React.FC = () => {
               addButtonClassification="art"
               itemsPerRow={ART_ITEMS_PER_ROW}
               onOpenLightbox={handleOpenLightbox}
+              approvalFilter={currentApprovalFilter}
             />
             {renderPaginationControls(artPage, displayArtVideos.totalPages, handleArtPageChange)}
           </div>
@@ -641,6 +643,7 @@ const Index: React.FC = () => {
               itemsPerRow={GENERATION_ITEMS_PER_ROW}
               forceCreatorHoverDesktop={true}
               onOpenLightbox={handleOpenLightbox}
+              approvalFilter={currentApprovalFilter}
             />
             {renderPaginationControls(generationPage, displayGenVideos.totalPages, handleGenerationPageChange)}
           </div>

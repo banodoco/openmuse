@@ -7,11 +7,13 @@ import { VideoEntry } from '../types';
  */
 export class VideoDatabase {
   /**
-   * Get all video entries
+   * Get all video entries, optionally filtering by approval status.
+   * @param approvalFilter Optional filter ('all' or 'curated')
+   * @returns A promise that resolves to an array of VideoEntry objects.
    */
-  async getAllEntries(): Promise<VideoEntry[]> {
+  async getAllEntries(approvalFilter?: 'all' | 'curated'): Promise<VideoEntry[]> {
     const db = await databaseProvider.getDatabase();
-    return db.getAllEntries();
+    return db.getAllEntries(approvalFilter);
   }
   
   /**

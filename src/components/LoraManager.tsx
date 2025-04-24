@@ -25,6 +25,8 @@ interface LoraManagerProps {
   onNavigateToUpload?: () => void;
   onRefreshData?: () => void;
   showSeeAllLink?: boolean;
+  /** The current approval filter state from the parent */
+  approvalFilter?: 'all' | 'curated';
   onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
   isUpdatingStatusMap?: Record<string, boolean>;
 }
@@ -39,6 +41,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   onNavigateToUpload,
   onRefreshData,
   showSeeAllLink,
+  approvalFilter = 'curated', // Default to 'curated' if not provided
   onUserStatusChange,
   isUpdatingStatusMap,
 }) => {
@@ -65,7 +68,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
             to="/loras"
             className="text-sm text-primary hover:underline ml-auto"
           >
-            See all curated LoRAs →
+            See all {approvalFilter === 'curated' ? `curated ` : ''}LoRAs →
           </Link>
         )}
       </div>
