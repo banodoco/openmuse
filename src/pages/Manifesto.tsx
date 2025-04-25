@@ -78,7 +78,7 @@ const ManifestoPage: React.FC = () => {
     // Play forward only if it's currently paused and not ended
     if (video.paused && !video.ended) {
       // Using 1x playback speed as per the example provided
-      video.playbackRate = 1;
+      video.playbackRate = 0.75;
       video.play().catch(error => {
         console.error("Video play failed on hover:", error);
       });
@@ -116,7 +116,7 @@ const ManifestoPage: React.FC = () => {
     if (video.paused) {
       // On desktop click, ensure poster is removed if needed (though hover usually handles it)
       // video.removeAttribute('poster'); // Probably not needed with hover logic
-      video.playbackRate = 1; // Ensure normal speed on click play
+      video.playbackRate = 0.75; // Ensure 50% speed on click play
       video.play().catch(e => console.error('Error playing video on click:', e));
     } else {
       video.pause();
@@ -193,7 +193,7 @@ const ManifestoPage: React.FC = () => {
         if (entry.target === container) {
           if (entry.intersectionRatio >= 0.5) {
             if (video.paused) {
-              video.playbackRate = 0.75;
+              video.playbackRate = 0.5;
               video.play().catch(() => {});
             }
           } else {
@@ -235,6 +235,7 @@ const ManifestoPage: React.FC = () => {
         if (entry.target === container) {
           if (entry.intersectionRatio >= 0.6) {
             if (video.paused) {
+              video.playbackRate = 0.75;
               video.play().catch(() => {});
             }
           } else {
@@ -311,6 +312,7 @@ const ManifestoPage: React.FC = () => {
             <p className="text-lg leading-relaxed mb-4">
               But to make this happen, we need your help. If you'd like to support this effort, please consider training LoRAs or creating art with them, and sharing your work here to inspire and empower others. 
             </p>
+
 
             <p className="text-lg leading-relaxed font-semibold mb-4">
               Together, we can create something beautiful!

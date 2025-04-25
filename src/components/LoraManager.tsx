@@ -77,12 +77,11 @@ const LoraManager: React.FC<LoraManagerProps> = ({
       {isLoading ? (
         <LoadingState />
       ) : lorasAreLoading ? (
-        <LoraGallerySkeleton count={6} />
+        <LoraGallerySkeleton count={3} />
       ) : !loras || loras.length === 0 ? (
-        <EmptyState 
-          title="No LoRAs Available" 
-          description="There are currently no LoRAs in the collection that match your filters. Upload a new LoRA or adjust filters!" 
-        />
+        <p className="text-muted-foreground text-sm">
+          There are no LoRAs matching the current filter.
+        </p>
       ) : (
         <LoraList 
           loras={filteredLoras} 

@@ -747,8 +747,10 @@ export default function UserProfilePage() {
 
   // Use the FULL lists (generationVideos, artVideos) for lightbox navigation
   const fullVideoListForLightbox = useMemo(() => {
-    // Combine the full, unsorted, unpaginated lists
-    return [...generationVideos, ...artVideos];
+    // Combine the full, unsorted, unpaginated lists, ensuring arrays are used
+    const gen = Array.isArray(generationVideos) ? generationVideos : [];
+    const art = Array.isArray(artVideos) ? artVideos : [];
+    return [...gen, ...art];
   }, [generationVideos, artVideos]); // Depend on the state variables holding the full lists
 
   // Find the index in the FULL list
