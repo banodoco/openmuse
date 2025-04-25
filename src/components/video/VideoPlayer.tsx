@@ -25,6 +25,7 @@ const DEFAULT_TIMEOUT_MS = 2500; // Fallback when we can't detect the network.
  * Decide an appropriate timeout based on the Network Information API.
  * Returns a value in milliseconds.
  */
+/*
 const getNetworkAwareTimeout = (): number => {
   if (typeof navigator === 'undefined') return DEFAULT_TIMEOUT_MS;
 
@@ -62,6 +63,7 @@ const getNetworkAwareTimeout = (): number => {
 
   return DEFAULT_TIMEOUT_MS;
 };
+*/
 
 interface VideoPlayerProps {
   src: string;
@@ -178,7 +180,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const initialPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const waitingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
-  const dynamicTimeoutMs = useMemo(() => getNetworkAwareTimeout(), []);
+  const dynamicTimeoutMs = DEFAULT_TIMEOUT_MS; // Use default timeout
   
   const {
     error,

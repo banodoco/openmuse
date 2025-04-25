@@ -5,13 +5,13 @@ import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const ManifestoPage: React.FC = () => {
   const isMobile = useIsMobile();
-  const [isHovering, setIsHovering] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const reverseAnimationIdRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const proseRef = useRef<HTMLDivElement>(null);
   const lockAtEndRef = useRef(false);
   const lastScrollYRef = useRef(0);
+  const [overlayVisible, setOverlayVisible] = useState(true);
 
   // Apply fade-in effect to the prose and video container
   useFadeInOnScroll(proseRef);
@@ -66,7 +66,6 @@ const ManifestoPage: React.FC = () => {
 
   // Mouse Enter Handler
   const handleMouseEnter = useCallback(() => {
-    setIsHovering(true); // Keep state for potential styling
     const video = videoRef.current;
     if (!video) return;
 
@@ -76,8 +75,8 @@ const ManifestoPage: React.FC = () => {
       reverseAnimationIdRef.current = null;
     }
 
-    // Play forward only if it's currently paused
-    if (video.paused) {
+    // Play forward only if it's currently paused and not ended
+    if (video.paused && !video.ended) {
       // Using 1x playback speed as per the example provided
       video.playbackRate = 1;
       video.play().catch(error => {
@@ -88,11 +87,19 @@ const ManifestoPage: React.FC = () => {
 
   // Mouse Leave Handler
   const handleMouseLeave = useCallback(() => {
-    setIsHovering(false);
     const video = videoRef.current;
     if (!video) return;
-    video.pause();
-  }, []);
+
+    // Pause immediately on leave before starting reverse
+    if (!video.paused) {
+      video.pause();
+    }
+
+    // Start reverse playback if not already at the beginning
+    if (video.currentTime > 0 && !reverseAnimationIdRef.current) {
+      startReversePlayback();
+    }
+  }, [startReversePlayback]);
 
   // Click/Tap Handler (now primarily for Desktop)
   const handleClick = useCallback(() => {
@@ -178,98 +185,76 @@ const ManifestoPage: React.FC = () => {
     const container = containerRef.current;
     if (!video || !container) return;
 
-    // Remove poster on mobile and ensure video is paused
-    video.removeAttribute('poster');
+    // Ensure video is paused initially (placeholder remains via poster attribute)
     video.pause();
 
-    // Initialize lastScrollYRef with current scroll position
-    lastScrollYRef.current = window.scrollY || window.pageYOffset;
-
-    // Updated: use delta-based scrubbing to update video time based on actual scroll direction
-    const updateTimeBasedOnScroll = () => {
-      if (!video.duration) return;
-      const currentScrollY = window.scrollY || window.pageYOffset;
-      // Only update if scrolled further down than ever before
-      if (currentScrollY <= lastScrollYRef.current) {
-        return;
-      }
-      const deltaY = currentScrollY - lastScrollYRef.current;
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-      const docHeight = document.documentElement.scrollHeight;
-      const scrollEndThreshold = docHeight - viewportHeight;
-
-      if ((scrollEndThreshold - currentScrollY) <= 10) {
-        video.currentTime = video.duration;
-        lastScrollYRef.current = currentScrollY;
-        return;
-      } else if (currentScrollY + viewportHeight >= docHeight - 50) {
-        lastScrollYRef.current = currentScrollY;
-        return;
-      }
-
-      const rect = container.getBoundingClientRect();
-      const containerTopOffset = rect.top + currentScrollY;
-      const scrollStartThreshold = containerTopOffset - viewportHeight;
-      const effectiveScrollRange = scrollEndThreshold - scrollStartThreshold;
-      const animationStartOffset = 100;
-      // Avoid division by zero
-      const scrubRange = effectiveScrollRange > animationStartOffset ? (effectiveScrollRange - animationStartOffset) : 1;
-      const factor = video.duration / scrubRange;
-
-      let newVideoTime = video.currentTime + deltaY * factor;
-      newVideoTime = Math.min(newVideoTime, video.duration);
-
-      if (Math.abs(video.currentTime - newVideoTime) > 0.01) {
-        video.currentTime = newVideoTime;
-        video.play().then(() => setTimeout(() => video.pause(), 20)).catch(() => {});
-      }
-
-      lastScrollYRef.current = currentScrollY;
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.target === container) {
+          if (entry.intersectionRatio >= 0.5) {
+            if (video.paused) {
+              video.playbackRate = 0.75;
+              video.play().catch(() => {});
+            }
+          } else {
+            if (!video.paused) {
+              video.pause();
+            }
+          }
+        }
+      });
     };
 
-    // The handleMetadata function remains unchanged for initial sync
-    const handleMetadata = () => {
-      const currentScrollY = window.scrollY || window.pageYOffset;
-      const rect = container.getBoundingClientRect();
-      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
-      const docHeight = document.documentElement.scrollHeight;
-      const scrollEndThreshold = docHeight - viewportHeight;
-      // If near the bottom (within 10px) then force video to its end
-      if ((scrollEndThreshold - currentScrollY) <= 10) {
-        video.currentTime = video.duration;
-        lastScrollYRef.current = currentScrollY;
-        return;
-      }
-      const containerTopOffset = rect.top + currentScrollY;
-      const scrollStartThreshold = containerTopOffset - viewportHeight;
-      const effectiveScrollRange = scrollEndThreshold - scrollStartThreshold;
-      const animationStartOffset = 100;
-      const effectiveScrollStart = scrollStartThreshold + animationStartOffset;
-      let progress = 0;
-      if (currentScrollY <= effectiveScrollStart) {
-        progress = 0;
-      } else if (effectiveScrollRange > animationStartOffset) {
-        progress = Math.min(Math.max((currentScrollY - effectiveScrollStart) / (effectiveScrollRange - animationStartOffset), 0), 1);
-      } else {
-        progress = 1;
-      }
-      video.currentTime = progress * video.duration;
-      video.play().then(() => setTimeout(() => video.pause(), 20)).catch(() => {});
-      lastScrollYRef.current = currentScrollY;
-    };
+    const observer = new IntersectionObserver(observerCallback, {
+      threshold: [0.5]
+    });
 
-    video.addEventListener('loadedmetadata', handleMetadata);
-    if (video.readyState >= 1) {
-      handleMetadata();
-    }
-    
-    window.addEventListener('scroll', updateTimeBasedOnScroll, { passive: true });
-    window.addEventListener('resize', updateTimeBasedOnScroll);
+    observer.observe(container);
 
     return () => {
-      video.removeEventListener('loadedmetadata', handleMetadata);
-      window.removeEventListener('scroll', updateTimeBasedOnScroll);
-      window.removeEventListener('resize', updateTimeBasedOnScroll);
+      observer.disconnect();
+    };
+  }, [isMobile]);
+
+  /* -----------------------------------------------------------
+     Scroll-driven video auto-play on desktop devices using overlay approach
+  -----------------------------------------------------------*/
+  useEffect(() => {
+    if (isMobile) return;
+
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container) return;
+
+    // Ensure the video is paused and overlay is visible initially
+    video.pause();
+    setOverlayVisible(true);
+
+    const observerCallback = (entries: IntersectionObserverEntry[]) => {
+      entries.forEach((entry) => {
+        if (entry.target === container) {
+          if (entry.intersectionRatio >= 0.6) {
+            if (video.paused) {
+              video.play().catch(() => {});
+            }
+          } else {
+            if (!video.paused) {
+              video.pause();
+              setOverlayVisible(true);
+            }
+          }
+        }
+      });
+    };
+
+    const observer = new IntersectionObserver(observerCallback, {
+      threshold: [0.6]
+    });
+
+    observer.observe(container);
+
+    return () => {
+      observer.disconnect();
     };
   }, [isMobile]);
 
@@ -338,7 +323,7 @@ const ManifestoPage: React.FC = () => {
 
           <div
             ref={containerRef}
-            className="max-w-3xl mx-auto pb-8 flex justify-center items-center cursor-pointer"
+            className="max-w-3xl mx-auto pb-8 flex justify-center items-center"
           >
             <div className="relative w-full max-w-3xl aspect-video overflow-hidden rounded-lg">
               <video
@@ -347,8 +332,18 @@ const ManifestoPage: React.FC = () => {
                 muted
                 playsInline
                 preload="auto"
-                poster={!isMobile ? "/first_frame.png" : undefined}
-                className="absolute top-0 left-0 w-full h-full object-contain"
+                onPlay={() => setOverlayVisible(false)}
+                className="absolute top-0 left-0 w-full h-full object-cover"
+              />
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  backgroundImage: "url('/first_frame.png')",
+                  backgroundSize: 'cover',
+                  backgroundPosition: 'center',
+                  transition: 'opacity 0.5s ease',
+                  opacity: overlayVisible ? 1 : 0
+                }}
               />
             </div>
           </div>
