@@ -437,15 +437,16 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   poster={thumbnailUrl}
                   className="absolute inset-0 w-full h-full object-contain"
                   controls
-                  autoPlay={!isMobile}
+                  autoPlay={true}
+                  muted={false}
                   isMobile={isMobile}
                   externallyControlled={isMobile}
                   isHovering={isMobile}
                   lazyLoad={false}
                 />
 
-                {/* Navigation Buttons - Moved inside the video player container */}
-                {hasPrev && (
+                {/* Desktop Navigation Buttons */}
+                {!isMobile && hasPrev && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -457,7 +458,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                     <ChevronLeft className="h-6 w-6" />
                   </Button>
                 )}
-                {hasNext && (
+                {!isMobile && hasNext && (
                   <Button
                     variant="ghost"
                     size="icon"
@@ -531,6 +532,36 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 )}
               </div>
               
+              {/* Mobile Navigation Buttons placed below the video container */}
+              {isMobile && (hasPrev || hasNext) && (
+                <div className="flex justify-center items-center space-x-4 mt-4">
+                  {hasPrev && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (onPrevVideo) onPrevVideo();
+                      }}
+                      className="h-10 w-10 bg-black/40 hover:bg-black/60 text-white"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </Button>
+                  )}
+                  {hasNext && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        if (onNextVideo) onNextVideo();
+                      }}
+                      className="h-10 w-10 bg-black/40 hover:bg-black/60 text-white"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </Button>
+                  )}
+                </div>
+              )}
+
               <div className="p-4 pt-0 flex-grow overflow-y-auto min-h-0">
                 {isEditing ? (() => { 
                     const selectValue = editableAssetId || "";

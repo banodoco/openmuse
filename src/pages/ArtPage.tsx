@@ -197,7 +197,7 @@ const ArtPage: React.FC = () => {
       }
       for (let i = startPage; i <= endPage; i++) {
         paginationItems.push(
-          <PaginationItem key={i}>
+          <PaginationItem key={i} className={cn(currentPage === i ? "" : "hidden md:list-item")}>
             <PaginationLink href="#" isActive={currentPage === i} onClick={(e) => { e.preventDefault(); handlePageChange(i); }}>
               {i}
             </PaginationLink>
