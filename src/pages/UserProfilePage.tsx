@@ -33,6 +33,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import UploadPage from '@/pages/upload/UploadPage';
 import LoraManager from '@/components/LoraManager';
 import VideoGallerySection from '@/components/video/VideoGallerySection';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('UserProfilePage');
 
@@ -136,6 +137,10 @@ export default function UserProfilePage() {
   const generationsGridRef = useRef<HTMLDivElement>(null);
   const artGridRef = useRef<HTMLDivElement>(null);
   const lorasGridRef = useRef<HTMLDivElement>(null); // Add ref for LoRAs too
+  // Refs for the parent Cards that will fade in
+  const loraCardRef = useRef<HTMLDivElement>(null);
+  const artCardRef = useRef<HTMLDivElement>(null);
+  const generationsCardRef = useRef<HTMLDivElement>(null);
 
   // Pagination State
   const [generationPage, setGenerationPage] = useState(1);
@@ -782,6 +787,11 @@ export default function UserProfilePage() {
     }
   }, [searchParams, lightboxVideo, initialVideoParamHandled, userVideos, handleOpenLightbox]);
 
+  // Apply fade-in on scroll to major sections
+  useFadeInOnScroll(loraCardRef);
+  useFadeInOnScroll(artCardRef);
+  useFadeInOnScroll(generationsCardRef);
+
   // --- JSX Rendering --- 
   return (
     <div className="w-full min-h-screen flex flex-col text-foreground">
@@ -831,7 +841,7 @@ export default function UserProfilePage() {
               )} 
             </div>
 
-            <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-cream-light/70 backdrop-blur-sm border border-cream-dark/20 animate-fade-in">
+            <Card ref={loraCardRef} className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-cream-light/70 backdrop-blur-sm border border-cream-dark/20">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
                 <CardTitle className="text-[#2F4F2E]/75">LoRAs</CardTitle>
                 {isOwner && !forceLoggedOutView && (
@@ -875,7 +885,7 @@ export default function UserProfilePage() {
                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't created any LoRAs yet. </div> )} 
               </CardContent>
             </Card>
-            <Card className="mt-8 mb-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20 animate-fade-in">
+            <Card ref={artCardRef} className="mt-8 mb-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
                 <CardTitle className="text-[#2F4F2E]/75">Art</CardTitle>
                 {isOwner && !forceLoggedOutView && (
@@ -927,7 +937,7 @@ export default function UserProfilePage() {
                  ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't added any art videos yet. </div> )} 
               </CardContent>
             </Card>
-            <Card className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20 animate-fade-in">
+            <Card ref={generationsCardRef} className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
                 <CardTitle className="text-[#2F4F2E]/75">Generations</CardTitle>
                 {isOwner && !forceLoggedOutView && (

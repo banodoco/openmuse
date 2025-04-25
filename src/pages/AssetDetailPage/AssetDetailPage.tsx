@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Navigation, { Footer } from '@/components/Navigation';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -481,10 +481,12 @@ function AssetDetailPage() {
           </Helmet>
           <Navigation />
           <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
-            <AssetHeader 
-              asset={asset} 
-              creatorName={getCreatorName()}
-            />
+            <div>
+              <AssetHeader 
+                asset={asset} 
+                creatorName={getCreatorName()}
+              />
+            </div>
             
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="md:col-span-1 space-y-4">

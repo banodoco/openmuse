@@ -31,6 +31,7 @@ import {
   PaginationPrevious,
 } from "@/components/ui/pagination";
 import VideoLightbox from '@/components/VideoLightbox';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('Index');
 // logger.log('Index page component module loaded');
@@ -536,13 +537,23 @@ const Index: React.FC = () => {
     }
   }, [searchParams, videos, lightboxVideo, handleOpenLightbox]);
 
+  // Refs for fade-in sections
+  const loraSectionRef = useRef<HTMLDivElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+
+  // Apply fade-in animation when each section scrolls into view
+  useFadeInOnScroll(loraSectionRef);
+  useFadeInOnScroll(artSectionRef);
+  useFadeInOnScroll(generationsSectionRef);
+  useFadeInOnScroll(heroRef);
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navigation />
       
       <div className="flex-1 w-full">
         <div className="max-w-screen-2xl mx-auto p-4">
-          <div className="pt-2 pb-0 mb-4">
+          <div ref={heroRef} className="pt-2 pb-0 mb-4">
             <PageHeader 
               title="Curated resources & art, with a focus on LoRAs for open video models"
               description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan." 
@@ -593,46 +604,49 @@ const Index: React.FC = () => {
 
           <Separator className="mt-0 mb-4" />
 
-          <LoraManager
-            loras={displayLoras}
-            isLoading={isPageLoading}
-            lorasAreLoading={lorasLoading}
-            filterText={filterText}
-            onFilterTextChange={setFilterText}
-            isAdmin={isAdmin || false}
-            onRefreshData={handleRefreshData}
-            approvalFilter={currentApprovalFilter}
-            headerAction={( 
-              <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-                <DialogTrigger asChild>
-                  <Button 
-                    variant="ghost"
-                    size={isMobile ? "sm" : "default"} 
-                    disabled={isActionDisabled} 
-                    className={cn(
-                      "border border-input hover:bg-accent hover:text-accent-foreground",
-                      "text-muted-foreground",
-                      isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
-                    )}
-                  >
-                    Add New LoRA
-                  </Button>
-                </DialogTrigger>
-                <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
-                  <UploadPage initialMode="lora" hideLayout={true} />
-                </DialogContent>
-              </Dialog>
-            )}
-          />
+          {/* LoRA Section */}
+          <div ref={loraSectionRef}>
+            <LoraManager
+              loras={displayLoras}
+              isLoading={isPageLoading}
+              lorasAreLoading={lorasLoading}
+              filterText={filterText}
+              onFilterTextChange={setFilterText}
+              isAdmin={isAdmin || false}
+              onRefreshData={handleRefreshData}
+              approvalFilter={currentApprovalFilter}
+              headerAction={( 
+                <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button 
+                      variant="ghost"
+                      size={isMobile ? "sm" : "default"} 
+                      disabled={isActionDisabled} 
+                      className={cn(
+                        "border border-input hover:bg-accent hover:text-accent-foreground",
+                        "text-muted-foreground",
+                        isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
+                      )}
+                    >
+                      Add New LoRA
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
+                    <UploadPage initialMode="lora" hideLayout={true} />
+                  </DialogContent>
+                </Dialog>
+              )}
+            />
 
-          <div className="mt-6 mb-8 flex justify-start">
-            <Link
-              to="/loras"
-              className="text-sm text-primary hover:underline group"
-            >
-              See all {currentApprovalFilter === 'curated' ? `curated ` : ''}LoRAs{' '}
-              <span className="inline-block transition-transform duration-200 ease-in-out group-hover:translate-x-1">→</span>
-            </Link>
+            <div className="mt-6 mb-8 flex justify-start">
+              <Link
+                to="/loras"
+                className="text-sm text-primary hover:underline group"
+              >
+                See all {currentApprovalFilter === 'curated' ? `curated ` : ''}LoRAs{' '}
+                <span className="inline-block transition-transform duration-200 ease-in-out group-hover:translate-x-1">→</span>
+              </Link>
+            </div>
           </div>
 
           <Separator className="mt-0 mb-4" />

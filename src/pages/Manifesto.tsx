@@ -1,11 +1,21 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
+import { useIsMobile } from '@/hooks/use-mobile';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const ManifestoPage: React.FC = () => {
+  const isMobile = useIsMobile();
   const [isHovering, setIsHovering] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const reverseAnimationIdRef = useRef<number | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
+  const proseRef = useRef<HTMLDivElement>(null);
+  const lockAtEndRef = useRef(false);
+  const lastScrollYRef = useRef(0);
+
+  // Apply fade-in effect to the prose and video container
+  useFadeInOnScroll(proseRef);
+  useFadeInOnScroll(containerRef);
 
   // Cleanup animation frame on unmount
   useEffect(() => {
@@ -78,22 +88,13 @@ const ManifestoPage: React.FC = () => {
 
   // Mouse Leave Handler
   const handleMouseLeave = useCallback(() => {
-    setIsHovering(false); // Keep state for potential styling
+    setIsHovering(false);
     const video = videoRef.current;
     if (!video) return;
+    video.pause();
+  }, []);
 
-    // Pause immediately on leave before starting reverse
-    if (!video.paused) {
-      video.pause();
-    }
-
-    // Start reverse playback if not already at the beginning
-    if (video.currentTime > 0 && !reverseAnimationIdRef.current) {
-      startReversePlayback();
-    }
-  }, [startReversePlayback]);
-
-  // Click/Tap Handler
+  // Click/Tap Handler (now primarily for Desktop)
   const handleClick = useCallback(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -106,12 +107,14 @@ const ManifestoPage: React.FC = () => {
 
     // Toggle play/pause
     if (video.paused) {
+      // On desktop click, ensure poster is removed if needed (though hover usually handles it)
+      // video.removeAttribute('poster'); // Probably not needed with hover logic
       video.playbackRate = 1; // Ensure normal speed on click play
       video.play().catch(e => console.error('Error playing video on click:', e));
     } else {
       video.pause();
     }
-  }, []);
+  }, []); // Removed isMobile dependency
 
   // Handle video ending naturally (while playing forward)
   const handleVideoEnded = useCallback(() => {
@@ -126,36 +129,149 @@ const ManifestoPage: React.FC = () => {
     }
   }, []);
 
-  // Effect to add/remove listeners to the container
+  // Effect to add/remove listeners and observer
   useEffect(() => {
     const node = containerRef.current;
     const videoNode = videoRef.current;
-    if (node) {
+    // Ensure elements exist before proceeding
+    if (!node || !videoNode) return;
+
+    if (!isMobile) {
+      // --- Desktop Setup --- 
       node.addEventListener('mouseenter', handleMouseEnter);
       node.addEventListener('mouseleave', handleMouseLeave);
       node.addEventListener('click', handleClick);
-    }
-    if (videoNode) {
       videoNode.addEventListener('ended', handleVideoEnded);
+    } else {
+      // --- Mobile Setup --- ensure video is paused; scroll handler will update currentTime
+      videoNode.pause();
     }
 
     // Cleanup listeners
     return () => {
-      if (node) {
+      // --- Desktop Cleanup --- 
+      if (!isMobile && node) { // Check node exists for cleanup
         node.removeEventListener('mouseenter', handleMouseEnter);
         node.removeEventListener('mouseleave', handleMouseLeave);
         node.removeEventListener('click', handleClick);
       }
-      if (videoNode) {
+
+      // --- Common Cleanup --- 
+      if (videoNode) { // Check videoNode exists for cleanup
         videoNode.removeEventListener('ended', handleVideoEnded);
       }
-      // Also ensure animation frame is cancelled on cleanup
+
       if (reverseAnimationIdRef.current) {
         cancelAnimationFrame(reverseAnimationIdRef.current);
+        reverseAnimationIdRef.current = null; // Clear the ref
       }
     };
-    // Add all callback dependencies
-  }, [handleMouseEnter, handleMouseLeave, handleClick, handleVideoEnded]);
+  }, [isMobile, handleMouseEnter, handleMouseLeave, handleClick, handleVideoEnded, startReversePlayback]);
+
+  /* -----------------------------------------------------------
+     Scroll-driven video scrubbing on mobile devices
+  -----------------------------------------------------------*/
+  useEffect(() => {
+    if (!isMobile) return;
+
+    const video = videoRef.current;
+    const container = containerRef.current;
+    if (!video || !container) return;
+
+    // Remove poster on mobile and ensure video is paused
+    video.removeAttribute('poster');
+    video.pause();
+
+    // Initialize lastScrollYRef with current scroll position
+    lastScrollYRef.current = window.scrollY || window.pageYOffset;
+
+    // Updated: use delta-based scrubbing to update video time based on actual scroll direction
+    const updateTimeBasedOnScroll = () => {
+      if (!video.duration) return;
+      const currentScrollY = window.scrollY || window.pageYOffset;
+      // Only update if scrolled further down than ever before
+      if (currentScrollY <= lastScrollYRef.current) {
+        return;
+      }
+      const deltaY = currentScrollY - lastScrollYRef.current;
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      const scrollEndThreshold = docHeight - viewportHeight;
+
+      if ((scrollEndThreshold - currentScrollY) <= 10) {
+        video.currentTime = video.duration;
+        lastScrollYRef.current = currentScrollY;
+        return;
+      } else if (currentScrollY + viewportHeight >= docHeight - 50) {
+        lastScrollYRef.current = currentScrollY;
+        return;
+      }
+
+      const rect = container.getBoundingClientRect();
+      const containerTopOffset = rect.top + currentScrollY;
+      const scrollStartThreshold = containerTopOffset - viewportHeight;
+      const effectiveScrollRange = scrollEndThreshold - scrollStartThreshold;
+      const animationStartOffset = 100;
+      // Avoid division by zero
+      const scrubRange = effectiveScrollRange > animationStartOffset ? (effectiveScrollRange - animationStartOffset) : 1;
+      const factor = video.duration / scrubRange;
+
+      let newVideoTime = video.currentTime + deltaY * factor;
+      newVideoTime = Math.min(newVideoTime, video.duration);
+
+      if (Math.abs(video.currentTime - newVideoTime) > 0.01) {
+        video.currentTime = newVideoTime;
+        video.play().then(() => setTimeout(() => video.pause(), 20)).catch(() => {});
+      }
+
+      lastScrollYRef.current = currentScrollY;
+    };
+
+    // The handleMetadata function remains unchanged for initial sync
+    const handleMetadata = () => {
+      const currentScrollY = window.scrollY || window.pageYOffset;
+      const rect = container.getBoundingClientRect();
+      const viewportHeight = window.innerHeight || document.documentElement.clientHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      const scrollEndThreshold = docHeight - viewportHeight;
+      // If near the bottom (within 10px) then force video to its end
+      if ((scrollEndThreshold - currentScrollY) <= 10) {
+        video.currentTime = video.duration;
+        lastScrollYRef.current = currentScrollY;
+        return;
+      }
+      const containerTopOffset = rect.top + currentScrollY;
+      const scrollStartThreshold = containerTopOffset - viewportHeight;
+      const effectiveScrollRange = scrollEndThreshold - scrollStartThreshold;
+      const animationStartOffset = 100;
+      const effectiveScrollStart = scrollStartThreshold + animationStartOffset;
+      let progress = 0;
+      if (currentScrollY <= effectiveScrollStart) {
+        progress = 0;
+      } else if (effectiveScrollRange > animationStartOffset) {
+        progress = Math.min(Math.max((currentScrollY - effectiveScrollStart) / (effectiveScrollRange - animationStartOffset), 0), 1);
+      } else {
+        progress = 1;
+      }
+      video.currentTime = progress * video.duration;
+      video.play().then(() => setTimeout(() => video.pause(), 20)).catch(() => {});
+      lastScrollYRef.current = currentScrollY;
+    };
+
+    video.addEventListener('loadedmetadata', handleMetadata);
+    if (video.readyState >= 1) {
+      handleMetadata();
+    }
+    
+    window.addEventListener('scroll', updateTimeBasedOnScroll, { passive: true });
+    window.addEventListener('resize', updateTimeBasedOnScroll);
+
+    return () => {
+      video.removeEventListener('loadedmetadata', handleMetadata);
+      window.removeEventListener('scroll', updateTimeBasedOnScroll);
+      window.removeEventListener('resize', updateTimeBasedOnScroll);
+    };
+  }, [isMobile]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -164,7 +280,7 @@ const ManifestoPage: React.FC = () => {
       <div className="flex-1 w-full">
         <div className="max-w-screen-2xl mx-auto p-4">
 
-          <div className="prose max-w-3xl mx-auto py-8">
+          <div ref={proseRef} className="prose max-w-3xl mx-auto py-8">
             <h2 className="text-3xl font-bold mb-6 text-left">Let's Build a Beautiful Home for Open-Source AI Art</h2>
 
             <p className="text-lg leading-relaxed mb-4">
@@ -225,18 +341,14 @@ const ManifestoPage: React.FC = () => {
             className="max-w-3xl mx-auto pb-8 flex justify-center items-center cursor-pointer"
           >
             <div className="relative w-full max-w-3xl aspect-video overflow-hidden rounded-lg">
-              <img
-                src="/first_frame.png"
-                alt="First frame of the creation video"
-                className={`absolute top-0 left-0 w-full h-full object-contain ${!videoRef.current || videoRef.current.paused ? 'opacity-0 pointer-events-none' : 'opacity-100'}`}
-              />
               <video
                 ref={videoRef}
                 src="/the_creation.mp4"
                 muted
                 playsInline
                 preload="auto"
-                className={`absolute top-0 left-0 w-full h-full object-contain`}
+                poster={!isMobile ? "/first_frame.png" : undefined}
+                className="absolute top-0 left-0 w-full h-full object-contain"
               />
             </div>
           </div>

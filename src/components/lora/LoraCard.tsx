@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import { LoraAsset } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
 import { Trash, Check, X, ExternalLink, ArrowUpRight, PinIcon, List, EyeOff, Loader2 } from 'lucide-react';
@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/badge";
 import { Logger } from '@/lib/logger';
 import LoraCreatorInfo from './LoraCreatorInfo';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('LoraCard');
 
@@ -78,6 +79,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isVisible, setIsVisible] = useState(false);
   const [isInPreloadArea, setIsInPreloadArea] = useState(false);
   const isMobile = useIsMobile();
+  const previewRef = useRef<HTMLDivElement>(null);
+  useFadeInOnScroll(previewRef);
   
   useEffect(() => {
     setCurrentStatus(userStatus);
@@ -212,14 +215,9 @@ const LoraCard: React.FC<LoraCardProps> = ({
   }, [lora?.primaryVideo?.metadata?.aspectRatio, aspectRatio]);
 
   return (
-    <Card 
-      className={cn(
-        "relative z-10 overflow-hidden flex flex-col cursor-pointer hover:shadow-lg transition-shadow duration-200 ease-in-out group",
-        isOwnProfile && currentStatus === 'Hidden' && 'opacity-60 grayscale'
-      )}
-      onClick={handleView}
-    >
+    <Card onClick={handleView} className="relative overflow-hidden shadow-lg group transition-all duration-300 ease-in-out hover:shadow-xl border-transparent hover:border-primary/30 bg-card/70 backdrop-blur-sm">
       <div 
+        ref={previewRef}
         className="w-full overflow-hidden bg-muted relative"
         style={finalAspectRatio != null
           ? { paddingBottom: `${(1 / finalAspectRatio) * 100}%` }

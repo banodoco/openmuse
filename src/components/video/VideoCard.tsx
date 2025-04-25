@@ -26,6 +26,7 @@ import VideoStatusControls from './VideoStatusControls';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import LoraCreatorInfo from '../lora/LoraCreatorInfo';
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('VideoCard');
 
@@ -47,6 +48,7 @@ interface VideoCardProps {
   alwaysShowInfo?: boolean;
   /** If true, forces creator info to only show on hover on desktop, overriding alwaysShowInfo for that element */
   forceCreatorHoverDesktop?: boolean;
+  compact?: boolean;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -66,6 +68,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   shouldBePlaying = false,
   alwaysShowInfo = false,
   forceCreatorHoverDesktop = false,
+  compact = false,
 }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -78,7 +81,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
     (video as any).thumbnailUrl ||
     '/placeholder.svg',
   );
-  const cardRef = useRef<HTMLDivElement>(null);
+  const previewRef = useRef<HTMLDivElement>(null);
+  useFadeInOnScroll(previewRef);
   // ---------------------------------------------------------------
   // Use the dimensions calculated by the VideoGrid (displayW / displayH)
   // to seed the local aspect-ratio state so that the placeholder box
@@ -116,7 +120,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const combinedHovering = isHovering || localHovering;
   
   // Detect when the card itself enters the viewport (desktop only)
-  const isInViewport = useIntersectionObserver(cardRef, {
+  const isInViewport = useIntersectionObserver(previewRef, {
     rootMargin: '0px 0px 300px 0px', // preload a bit before it actually appears
     threshold: 0.05,
   });
@@ -289,10 +293,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   return (
     <div 
-      ref={cardRef}
-      key={video.id} 
       className={cn(
-        "relative z-10 rounded-lg overflow-hidden shadow-md hover:shadow-lg transition-all duration-300 group cursor-pointer flex flex-col bg-white/5 backdrop-blur-sm border border-white/10 mb-4",
+        "relative group overflow-hidden rounded-lg cursor-pointer transition-all duration-300 ease-in-out",
+        "bg-card/60 backdrop-blur-sm",
         currentRelevantStatus === 'Hidden' && isAuthorized && "opacity-50 grayscale hover:opacity-75"
       )}
       onMouseEnter={handleMouseEnter}
@@ -302,6 +305,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
       data-video-id={video.id}
     >
       <div 
+        ref={previewRef}
         className="w-full overflow-hidden bg-muted relative max-h-[75vh] group"
         style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16 / 9' }}
       >

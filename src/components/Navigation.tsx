@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '@/lib/utils';
 import { LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logoPath = '/Open-Muse-logo.png';
 
@@ -14,12 +15,15 @@ const Navigation: React.FC = () => {
   const [imageError, setImageError] = useState(false);
   const isMobile = useIsMobile();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const navRef = useRef<HTMLDivElement>(null);
   
   useEffect(() => {
     if (!isLoading) {
       setIsAuthenticated(!!user);
     }
   }, [user, isLoading]);
+  
+  useFadeInOnScroll(navRef);
   
   const isActive = (path: string) => location.pathname === path;
   const isAuthPage = location.pathname === '/auth';
@@ -30,7 +34,7 @@ const Navigation: React.FC = () => {
   };
   
   return (
-    <div className="w-full border-b border-olive/20">
+    <div ref={navRef} className="w-full border-b border-olive/20">
       <nav className="w-full max-w-screen-2xl mx-auto px-3 py-4 flex justify-between items-center">
         <div className="flex items-center">
           <Link to="/" className="mr-3 flex items-center hover:opacity-80 transition-opacity">
