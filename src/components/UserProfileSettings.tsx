@@ -550,11 +550,11 @@ export default function UserProfileSettings() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {/* Username Input */}
             <div className="space-y-2">
-              <Label htmlFor="username" className="flex items-center">
+              <Label htmlFor="username">
                 Username
                 <HoverCard>
                   <HoverCardTrigger asChild>
-                    <HelpCircle className="h-4 w-4 ml-2 text-muted-foreground cursor-help p-1" />
+                    <HelpCircle className="inline-block h-5 w-5 ml-2 text-muted-foreground cursor-help p-1 align-middle" />
                   </HoverCardTrigger>
                   <HoverCardContent className="w-80 text-sm">
                     Your unique username (3-50 chars). Can contain letters, numbers, underscores (_), and hyphens (-).
@@ -639,11 +639,11 @@ export default function UserProfileSettings() {
 
             {/* Discord Username (Read-only) - Moved inside grid */}
             <div className="space-y-2">
-              <Label htmlFor="discord-username" className="flex items-center">
+              <Label htmlFor="discord-username">
                 Discord Username
                 <HoverCard>
                   <HoverCardTrigger asChild>
-                    <HelpCircle className="h-4 w-4 ml-2 text-muted-foreground cursor-help p-1" />
+                    <HelpCircle className="inline-block h-5 w-5 ml-2 text-muted-foreground cursor-help p-1 align-middle" />
                   </HoverCardTrigger>
                   <HoverCardContent className="w-80 text-sm">
                     This is synced from your Discord account. To change it, please update your username on Discord.
