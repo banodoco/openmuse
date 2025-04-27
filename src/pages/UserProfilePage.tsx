@@ -168,7 +168,7 @@ export default function UserProfilePage() {
   // Only this flag (not the whole query string) should trigger data refetch
   const loggedOutViewParam = searchParams.get('loggedOutView');
 
-  // --- Data Fetching Functions defined using useCallback --- 
+  // --- Data Fetching Functions defined using useCallback ---
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
     logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
     setIsLoadingAssets(true);
@@ -252,10 +252,6 @@ export default function UserProfilePage() {
     }
   }, []); // Dependencies likely needed: supabase
 
-  // Fetch videos for a user. The fourth parameter `showLoading` allows callers to
-  // skip toggling the `isLoadingVideos` flag – useful for lightweight refetches
-  // where we don't want to unmount the existing grid and reset scroll position
-  // (e.g. after an inline edit in the lightbox).
   const fetchUserVideos = useCallback(async (
     userId: string,
     currentViewerId: string | null | undefined,
@@ -355,7 +351,7 @@ export default function UserProfilePage() {
     }
   }, []); // Dependencies likely needed: supabase
 
-  // --- ADDED: Moved and wrapped handleOpenLightbox --- 
+  // --- ADDED: Moved and wrapped handleOpenLightbox ---
   const handleOpenLightbox = useCallback((video: VideoEntry) => {
     setLightboxVideo(video);
     setInitialVideoParamHandled(true);
@@ -363,7 +359,7 @@ export default function UserProfilePage() {
     // window.history.pushState({}, '', `${window.location.pathname}?video=${video.id}`);
   }, [setLightboxVideo, setInitialVideoParamHandled]); // Dependencies are stable setters
 
-  // --- Main Data Fetching Effect --- 
+  // --- Main Data Fetching Effect ---
   useEffect(() => {
     logger.log("Main data fetching effect triggered", { displayName, isAuthLoading, userId: user?.id, isAdmin, loggedOutViewParam });
     // --- ADDED: Wait for auth to finish loading --- 
@@ -499,7 +495,7 @@ export default function UserProfilePage() {
     // DEPENDENCIES: Ensure all external variables used are listed
   }, [displayName, user, isAdmin, isAuthLoading, loggedOutViewParam, fetchUserAssets, fetchUserVideos, loraPage, searchParams, initialVideoParamHandled, handleOpenLightbox, navigate]);
 
-  // --- Derived State with useMemo --- 
+  // --- Derived State with useMemo ---
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
   const artVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'art'), [userVideos]);
   const loraPageSize = useMemo(() => calculatePageSize(userAssets.length), [userAssets.length]);
@@ -515,7 +511,7 @@ export default function UserProfilePage() {
   const generationItemsForPage = useMemo(() => getPaginatedItems(generationVideos, generationPage, generationPageSize), [generationVideos, generationPage, generationPageSize]);
   const artItemsForPage = useMemo(() => getPaginatedItems(artVideos, artPage, artPageSize), [artVideos, artPage, artPageSize]);
 
-  // --- Define ALL useCallback Handlers BEFORE conditional return --- 
+  // --- Define ALL useCallback Handlers BEFORE conditional return ---
   const handleLocalVideoUserStatusUpdate = useCallback((videoId: string, newStatus: VideoDisplayStatus) => {
     logger.log(`[UserProfilePage] handleLocalVideoUserStatusUpdate called for video ${videoId} with status ${newStatus}`);
     setUserVideos(prev => sortProfileVideos(prev.map(video => video.id === videoId ? { ...video, user_status: newStatus } : video)));
@@ -713,86 +709,6 @@ export default function UserProfilePage() {
     }
   }, [profile, user, isAdmin, fetchUserVideos]);
 
-  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
-
-  // === Early return if AuthProvider is still loading ===
-  if (isAuthLoading) {
-    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
-    return (
-      <div className="w-full min-h-screen flex flex-col text-foreground">
-        <Navigation />
-        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
-          {/* Render a top-level loader */}
-          <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
-
-  // --- Helper Functions Defined Inside Component --- 
-  const getInitials = (name: string) => {
-    return name?.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2) || '??'; 
-  };
-
-  // --- UI Event Handlers (Keep these) --- 
-  const handleGenerationPageChange = (newPage: number) => {
-    scrollToElementWithOffset(generationsGridRef.current);
-    setTimeout(() => { if (!unmountedRef.current) setGenerationPage(newPage); }, 300);
-  };
-  const handleArtPageChange = (newPage: number) => {
-    scrollToElementWithOffset(artGridRef.current);
-    setTimeout(() => { if (!unmountedRef.current) setArtPage(newPage); }, 300);
-  };
-  const handleLoraPageChange = (newPage: number) => {
-    scrollToElementWithOffset(lorasGridRef.current);
-    setTimeout(() => { if (!unmountedRef.current) setLoraPage(newPage); }, 300);
-  };
-  const handleCloseLightbox = () => setLightboxVideo(null);
-  const handleHoverChange = (videoId: string, isHovering: boolean) => {
-    setHoveredVideoId(isHovering ? videoId : null);
-  };
-
-  // --- Constants defined inside component (Keep these) --- 
-   const breakpointColumnsObj = { default: 4, 1100: 3, 700: 2, 500: 1 };
-
-  // --- Render Helper functions inside component (Keep these) --- 
-  const renderProfileLinks = () => {
-    if (!profile?.links || profile.links.length === 0) return null; 
-    return ( 
-      <div className="flex flex-wrap gap-3 mt-4 justify-center"> 
-        {profile.links.map((link, index) => { 
-          try { const url = new URL(link); const domain = url.hostname; 
-            return ( 
-              <HoverCard key={index}> <HoverCardTrigger asChild> 
-                  <a href={link} target="_blank" rel="noopener noreferrer" className="relative flex items-center justify-center w-10 h-10 bg-accent/30 hover:bg-accent/50 rounded-full transition-colors shadow-sm hover:shadow-md"> 
-                    <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} alt="" className="w-5 h-5" /> 
-                  </a> 
-              </HoverCardTrigger> <HoverCardContent className="p-2 text-sm glass"> {domain} </HoverCardContent> </HoverCard> ); 
-          } catch (e) { return null; } 
-        })} 
-      </div> ); 
-  };
-
-  const renderPaginationControls = ( 
-    currentPage: number, 
-    totalPages: number, 
-    onPageChange: (page: number) => void, 
-  ) => {
-    if (totalPages <= 1) return null; 
-    return ( 
-      <Pagination className="mt-6"> <PaginationContent> 
-          <PaginationItem> <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (currentPage > 1) { onPageChange(currentPage - 1); } }} aria-disabled={currentPage === 1} className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
-          {[...Array(totalPages)].map((_, i) => { const page = i + 1; 
-            if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) { return ( <PaginationItem key={page}> <PaginationLink href="#" onClick={(e) => { e.preventDefault(); onPageChange(page); }} isActive={page === currentPage}> {page} </PaginationLink> </PaginationItem> ); } 
-            else if (Math.abs(page - currentPage) === 2) { return <PaginationEllipsis key={`ellipsis-${page}`} />; } 
-            return null; 
-          })} 
-          <PaginationItem> <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) { onPageChange(currentPage + 1); } }} aria-disabled={currentPage === totalPages} className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
-      </PaginationContent> </Pagination> ); 
-  };
-
   // Use the FULL lists (generationVideos, artVideos) for lightbox navigation
   const fullVideoListForLightbox = useMemo(() => {
     // Combine the full, unsorted, unpaginated lists, ensuring arrays are used
@@ -812,13 +728,13 @@ export default function UserProfilePage() {
     if (currentLightboxIndex > 0) {
       setLightboxVideo(fullVideoListForLightbox[currentLightboxIndex - 1]);
     }
-  }, [currentLightboxIndex, fullVideoListForLightbox]);
+  }, [currentLightboxIndex, fullVideoListForLightbox, setLightboxVideo]); // Added setLightboxVideo dependency
 
   const handleNextLightboxVideo = useCallback(() => {
     if (currentLightboxIndex !== -1 && currentLightboxIndex < fullVideoListForLightbox.length - 1) {
       setLightboxVideo(fullVideoListForLightbox[currentLightboxIndex + 1]);
     }
-  }, [currentLightboxIndex, fullVideoListForLightbox]);
+  }, [currentLightboxIndex, fullVideoListForLightbox, setLightboxVideo]); // Added setLightboxVideo dependency
 
   // --------------------------------------------------
   // Auto-open lightbox when ?video=<id> is present
@@ -829,12 +745,14 @@ export default function UserProfilePage() {
 
     if (initialVideoParamHandled) return;
     if (lightboxVideo && lightboxVideo.id === videoParam) return;
+    // Check userVideos state directly, which should be up-to-date
     if (userVideos && userVideos.length > 0) {
       const found = userVideos.find(v => v.id === videoParam);
       if (found) {
-        handleOpenLightbox(found);
+        handleOpenLightbox(found); // Use the stable callback
       }
     }
+    // Dependencies updated
   }, [searchParams, lightboxVideo, initialVideoParamHandled, userVideos, handleOpenLightbox]);
 
   // Apply fade-in on scroll to major sections
@@ -842,7 +760,87 @@ export default function UserProfilePage() {
   useFadeInOnScroll(artCardRef);
   useFadeInOnScroll(generationsCardRef);
 
-  // --- JSX Rendering --- 
+  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
+
+  // === Early return if AuthProvider is still loading ===
+  if (isAuthLoading) {
+    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
+    return (
+      <div className="w-full min-h-screen flex flex-col text-foreground">
+        <Navigation />
+        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
+          {/* Render a top-level loader */}
+          <Loader2 className="h-16 w-16 animate-spin text-primary" />
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
+
+  // --- Helper Functions Defined Inside Component ---
+  const getInitials = (name: string) => {
+    return name?.split(' ').map(part => part[0]).join('').toUpperCase().substring(0, 2) || '??';
+  };
+
+  // --- UI Event Handlers (Keep these) ---
+  const handleGenerationPageChange = (newPage: number) => {
+    scrollToElementWithOffset(generationsGridRef.current);
+    setTimeout(() => { if (!unmountedRef.current) setGenerationPage(newPage); }, 300);
+  };
+  const handleArtPageChange = (newPage: number) => {
+    scrollToElementWithOffset(artGridRef.current);
+    setTimeout(() => { if (!unmountedRef.current) setArtPage(newPage); }, 300);
+  };
+  const handleLoraPageChange = (newPage: number) => {
+    scrollToElementWithOffset(lorasGridRef.current);
+    setTimeout(() => { if (!unmountedRef.current) setLoraPage(newPage); }, 300);
+  };
+  const handleCloseLightbox = () => setLightboxVideo(null);
+  const handleHoverChange = (videoId: string, isHovering: boolean) => {
+    setHoveredVideoId(isHovering ? videoId : null);
+  };
+
+  // --- Constants defined inside component (Keep these) ---
+   const breakpointColumnsObj = { default: 4, 1100: 3, 700: 2, 500: 1 };
+
+  // --- Render Helper functions inside component (Keep these) ---
+  const renderProfileLinks = () => {
+    if (!profile?.links || profile.links.length === 0) return null; 
+    return ( 
+      <div className="flex flex-wrap gap-3 mt-4 justify-center"> 
+        {profile.links.map((link, index) => { 
+          try { const url = new URL(link); const domain = url.hostname; 
+            return ( 
+              <HoverCard key={index}> <HoverCardTrigger asChild> 
+                  <a href={link} target="_blank" rel="noopener noreferrer" className="relative flex items-center justify-center w-10 h-10 bg-accent/30 hover:bg-accent/50 rounded-full transition-colors shadow-sm hover:shadow-md"> 
+                    <img src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`} alt="" className="w-5 h-5" /> 
+                  </a> 
+              </HoverCardTrigger> <HoverCardContent className="p-2 text-sm glass"> {domain} </HoverCardContent> </HoverCard> ); 
+          } catch (e) { return null; } 
+        })} 
+      </div> ); 
+  };
+
+  const renderPaginationControls = (
+    currentPage: number,
+    totalPages: number,
+    onPageChange: (page: number) => void,
+  ) => {
+    if (totalPages <= 1) return null; 
+    return ( 
+      <Pagination className="mt-6"> <PaginationContent> 
+          <PaginationItem> <PaginationPrevious href="#" onClick={(e) => { e.preventDefault(); if (currentPage > 1) { onPageChange(currentPage - 1); } }} aria-disabled={currentPage === 1} className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
+          {[...Array(totalPages)].map((_, i) => { const page = i + 1; 
+            if (page === 1 || page === totalPages || Math.abs(page - currentPage) <= 1) { return ( <PaginationItem key={page}> <PaginationLink href="#" onClick={(e) => { e.preventDefault(); onPageChange(page); }} isActive={page === currentPage}> {page} </PaginationLink> </PaginationItem> ); } 
+            else if (Math.abs(page - currentPage) === 2) { return <PaginationEllipsis key={`ellipsis-${page}`} />; } 
+            return null; 
+          })} 
+          <PaginationItem> <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) { onPageChange(currentPage + 1); } }} aria-disabled={currentPage === totalPages} className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
+      </PaginationContent> </Pagination> ); 
+  };
+
+  // --- JSX Rendering ---
   return (
     <div className="w-full min-h-screen flex flex-col text-foreground">
        <Helmet>
@@ -881,7 +879,10 @@ export default function UserProfilePage() {
                       <div className="text-center"> 
                         <h2 className="text-2xl font-bold bg-gradient-to-r from-forest-dark to-olive-dark bg-clip-text text-transparent"> {profile.display_name} </h2> 
                         {profile.real_name && <p className="text-muted-foreground mt-1">{profile.real_name}</p>} 
-                        <p className="text-muted-foreground text-sm">{profile.username}</p> 
+                        {/* Show non-faded @ only if NOT the owner */}
+                        <p className="text-muted-foreground text-sm">
+                          {!isOwner && <span className="mr-0.5">@</span>}{profile.username}
+                        </p> 
                         {profile.description && <div className="mt-4 max-w-md mx-auto"> <p className="text-sm text-foreground/90 bg-muted/20 p-3 rounded-lg">{profile.description}</p> </div>} 
                         {renderProfileLinks()} 
                       </div> 

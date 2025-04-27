@@ -13,6 +13,7 @@ import { toast } from '@/hooks/use-toast';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
+import { cn } from '@/lib/utils';
 
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -183,6 +184,50 @@ export default function UserProfileSettings() {
     debouncedCheckUsername(trimmedUsername);
 
   }, [username, debouncedCheckUsername, initialUsername]);
+
+  // Helper function to check if any fields have changed
+  const hasChanges = useCallback(() => {
+    if (isLoading) return false;
+    const usernameChanged = username.trim() !== (initialUsername.current || '');
+    const displayNameChanged = displayName.trim() !== (initialDisplayName.current || '');
+    const realNameChanged = realName.trim() !== (initialRealName.current || '');
+    const descriptionChanged = description.trim() !== (initialDescription.current || '');
+    const linksChanged = JSON.stringify(links.map(l => l.trim()).filter(Boolean)) !== JSON.stringify((initialLinks.current || []).map(l => l.trim()).filter(Boolean));
+    const avatarChanged = avatarUrl !== (initialAvatarUrl.current || '');
+    const backgroundChanged = backgroundImageUrl !== (initialBackgroundImageUrl.current || '');
+
+    return usernameChanged || displayNameChanged || realNameChanged || descriptionChanged || linksChanged || avatarChanged || backgroundChanged;
+  }, [
+    isLoading,
+    username,
+    displayName,
+    realName,
+    description,
+    links,
+    avatarUrl,
+    backgroundImageUrl,
+    initialUsername,
+    initialDisplayName,
+    initialRealName,
+    initialDescription,
+    initialLinks,
+    initialAvatarUrl,
+    initialBackgroundImageUrl
+  ]);
+
+  // Helper function to get domain from URL for favicon
+  const getDomain = (url: string): string => {
+    try {
+      let domain = new URL(url).hostname;
+      // Remove www. if present
+      domain = domain.replace(/^www\./, '');
+      return domain;
+    } catch (e) {
+      // Return the original string if it's not a valid URL
+      // or handle differently if preferred
+      return url;
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -394,16 +439,6 @@ export default function UserProfileSettings() {
     setEditingLinkValue('');
   };
 
-  const hasPendingChanges = (
-    username !== initialUsername.current ||
-    displayName !== (profile?.display_name || profile?.username || '') ||
-    realName !== (profile?.real_name || '') ||
-    description !== (profile?.description || '') ||
-    JSON.stringify(links) !== JSON.stringify(profile?.links || []) ||
-    avatarUrl !== (profile?.avatar_url || '') ||
-    backgroundImageUrl !== (profile?.background_image_url || '')
-  );
-
   if (isLoading) {
     return (
       <Card className="w-full max-w-2xl mx-auto">
@@ -417,362 +452,274 @@ export default function UserProfileSettings() {
   }
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
-      <CardHeader>
-        <div className="flex items-center justify-between">
+    <Card className="max-w-2xl mx-auto my-8 bg-card/80 backdrop-blur-sm border border-border/20">
+      <form onSubmit={handleSubmit}>
+        <CardHeader>
           <CardTitle>Profile Settings</CardTitle>
-          <a 
-            href={`${location.pathname}?loggedOutView=true`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-            title="View public profile"
-          >
-            <ExternalLink className="h-4 w-4 mr-1" />
-            View Public
-          </a>
-        </div>
-        <CardDescription>
-          Update your profile information
-        </CardDescription>
-      </CardHeader>
-      <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <div className="relative group mb-6">
-            {backgroundImageUrl ? (
+          <CardDescription>Manage your public profile information.</CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          {error && <p className="text-destructive text-sm">{error}</p>}
+          
+          {/* Avatar and Background Image Section */}
+          <div className="space-y-4">
+            {/* Background Image Upload */}
+            <div>
+              <Label htmlFor="background-image" className="text-sm font-medium">Background Image</Label>
               <div 
-                className="w-full h-48 bg-cover bg-center rounded-lg cursor-pointer" 
-                style={{ backgroundImage: `url(${backgroundImageUrl})` }}
+                className="mt-1 h-32 rounded-md border border-dashed border-border flex items-center justify-center relative bg-cover bg-center cursor-pointer hover:border-primary group"
+                style={{ backgroundImage: backgroundImageUrl ? `url(${backgroundImageUrl})` : 'none' }}
                 onClick={handleBackgroundImageClick}
               >
-                <div className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <ImageIcon className="h-8 w-8 text-white" />
-                </div>
+                {!backgroundImageUrl && (
+                  <div className="text-center text-muted-foreground group-hover:text-primary">
+                    <ImageIcon className="mx-auto h-8 w-8" />
+                    <p className="text-xs mt-1">Click to upload</p>
+                  </div>
+                )}
+                {backgroundImageUrl && (
+                  <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Camera className="h-6 w-6 text-white" />
+                  </div>
+                )}
               </div>
-            ) : (
-              <div 
-                className="w-full h-48 bg-muted/30 rounded-lg flex items-center justify-center cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={handleBackgroundImageClick}
-              >
-                <ImageIcon className="h-8 w-8 text-muted-foreground" />
-                <span className="ml-2 text-muted-foreground">Add Background Image</span>
-              </div>
-            )}
-            <input 
-              type="file" 
-              ref={backgroundFileInputRef} 
-              onChange={handleBackgroundFileChange} 
-              accept="image/*" 
-              className="hidden" 
-            />
-          </div>
-          <div className="flex justify-center mb-6 -mt-20 relative z-10">
-            <div className="relative group">
-              <Avatar className="h-24 w-24 cursor-pointer border-4 border-white shadow-lg -mt-16" onClick={handleAvatarClick}>
-                <AvatarImage src={avatarUrl || ''} alt={profile?.display_name || profile?.username} />
-                <AvatarFallback>
-                  {profile ? getInitials(profile.display_name || profile.username) : '??'}
-                </AvatarFallback>
-              </Avatar>
-              <div 
-                className="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 rounded-full opacity-0 group-hover:opacity-100 transition-opacity cursor-pointer"
+              <input 
+                type="file" 
+                ref={backgroundFileInputRef} 
+                onChange={handleBackgroundFileChange} 
+                className="hidden" 
+                accept="image/png, image/jpeg, image/webp, image/gif"
+              />
+            </div>
+            
+            {/* Avatar Upload */}
+            <div className="flex items-center space-x-4">
+              <Avatar 
+                className="h-20 w-20 border border-border cursor-pointer relative group"
                 onClick={handleAvatarClick}
               >
-                <Camera className="h-6 w-6 text-white" />
-              </div>
+                <AvatarImage src={avatarUrl} alt={displayName} />
+                <AvatarFallback>{getInitials(displayName || username)}</AvatarFallback>
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                  <Camera className="h-6 w-6 text-white" />
+                </div>
+              </Avatar>
               <input 
                 type="file" 
                 ref={avatarFileInputRef} 
                 onChange={handleFileChange} 
-                accept="image/*" 
                 className="hidden" 
+                accept="image/png, image/jpeg, image/webp, image/gif"
               />
+              <div>
+                <Label htmlFor="avatar" className="text-sm font-medium">Avatar</Label>
+                <p className="text-xs text-muted-foreground">Click avatar to upload (PNG, JPG, GIF, WEBP).</p>
+              </div>
             </div>
           </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="username">Username</Label>
-              {username !== initialUsername.current && (
-                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
+
+          {/* Text Inputs Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Username Input */}
+            <div className="space-y-2">
+              <Label htmlFor="username" className="flex items-center">
+                Username
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <HelpCircle className="h-4 w-4 ml-1.5 text-muted-foreground cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 text-sm">
+                    Your unique username (3-50 chars). Can contain letters, numbers, underscores (_), and hyphens (-).
+                  </HoverCardContent>
+                </HoverCard>
+              </Label>
+              {/* Wrap Input with a relative div for positioning the @ symbol */}
+              <div className="relative flex items-center">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-sm opacity-50">
+                  @
+                </span>
+                <Input 
+                  id="username"
+                  value={username}
+                  onChange={(e) => setUsername(e.target.value)}
+                  className={cn(
+                    "pl-7", // Add padding to the left for the @ symbol
+                    !isUsernameValid ? 'border-destructive focus-visible:ring-destructive' : '',
+                    isCheckingUsername || isUsernameAvailable === null || isUsernameAvailable === false ? 'pr-10' : '' // Make space for icon
+                  )}
+                  required
+                  minLength={3}
+                  maxLength={50}
+                  pattern="^[a-zA-Z0-9_-]+$"
+                />
+                <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
+                  {isCheckingUsername && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
+                  {!isCheckingUsername && usernameCheckError && (
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <X className="h-4 w-4 text-destructive cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 text-sm text-destructive-foreground bg-destructive">
+                        Error: {usernameCheckError}
+                      </HoverCardContent>
+                    </HoverCard>
+                  )}
+                  {!isCheckingUsername && !usernameCheckError && isUsernameAvailable === true && username.trim() !== initialUsername.current && (
+                    <Check className="h-4 w-4 text-green-500" />
+                  )}
+                  {!isCheckingUsername && !usernameCheckError && isUsernameAvailable === false && (
+                    <HoverCard>
+                      <HoverCardTrigger asChild>
+                        <X className="h-4 w-4 text-destructive cursor-help" />
+                      </HoverCardTrigger>
+                      <HoverCardContent className="w-80 text-sm">
+                        This username is already taken.
+                      </HoverCardContent>
+                    </HoverCard>
+                  )}
+                </div>
+              </div>
+              {!isUsernameValid && (
+                <p className="text-xs text-destructive">
+                  Must be 3-50 chars: letters, numbers, _, - only.
+                </p>
               )}
             </div>
-            {!isUsernameValid && username.trim().length > 0 && (
-              <p className="text-sm text-destructive">
-                Username must be 3-50 characters long and contain only letters, numbers, underscores, or hyphens.
-              </p>
-            )}
-            <Input
-              id="username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              placeholder="Your unique username (min 3 chars)"
-              minLength={3}
-              maxLength={50}
-              required
-              className={
-                !isUsernameValid && username.trim().length > 0 ? 'border-destructive'
-                : (isUsernameAvailable === false ? 'border-destructive'
-                    : (isUsernameAvailable === true ? 'border-green-500' : ''))
-              }
-              aria-describedby="username-feedback"
-            />
-            <div id="username-feedback" className="text-sm min-h-[20px]">
-              {isCheckingUsername ? (
-                <span className="text-muted-foreground italic flex items-center">
-                   <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Checking availability...
-                 </span>
-              ) : usernameCheckError ? (
-                 <span className="text-destructive flex items-center">
-                   <X className="mr-1 h-3 w-3" /> {usernameCheckError}
-                 </span>
-               ) : isUsernameAvailable === true && username !== initialUsername.current ? (
-                 <span className="text-green-600 flex items-center">
-                   <Check className="mr-1 h-3 w-3" /> Username available!
-                 </span>
-               ) : isUsernameAvailable === false ? (
-                 <span className="text-destructive flex items-center">
-                   <X className="mr-1 h-3 w-3" /> Username already taken.
-                 </span>
-               ) : !isUsernameValid && username.trim().length > 0 ? (
-                 <span className="text-destructive">
-                   Invalid format. Only letters, numbers, '_', '-' allowed.
-                 </span>
-               ) : username !== initialUsername.current && isUsernameValid ? (
-                 <span className="text-muted-foreground italic">
-                   Remember to save changes.
-                 </span>
-               ) : (
-                  <span className="text-muted-foreground">
-                    Your unique identifier on the site. Must be at least 3 characters.
-                  </span>
-               )}
+            
+            {/* Display Name Input */}
+            <div className="space-y-2">
+              <Label htmlFor="display-name">Display Name</Label>
+              <Input 
+                id="display-name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                required
+                className={!displayName.trim() ? 'border-destructive focus-visible:ring-destructive' : ''}
+              />
+              {!displayName.trim() && <p className="text-xs text-destructive">Display name is required.</p>}
             </div>
           </div>
           
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="display_name">Display Name</Label>
-              {displayName !== initialDisplayName.current && (
-                 <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
-              )}
-            </div>
-            <Input
-              id="display_name"
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="How you want your name displayed"
-              maxLength={100}
-              required
-              className={error && error.toLowerCase().includes('display name') ? 'border-destructive' : ''}
-            />
-            <p className="text-sm text-muted-foreground">
-              How your name appears publicly (e.g., on leaderboards, comments).
-            </p>
-          </div>
-          
-          <div className="space-y-1">
-            <Label htmlFor="discord_username">Discord Username</Label>
-            <Input id="discord_username" value={profile?.discord_username || 'N/A'} readOnly disabled />
-            <p className="text-sm text-muted-foreground">Synced automatically from Discord. Cannot be changed here.</p>
-          </div>
-          
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="real_name">Real Name (Optional)</Label>
-              {realName !== initialRealName.current && (
-                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
-              )}
-            </div>
-            <Input
-              id="real_name"
+          {/* Real Name Input */}
+          <div className="space-y-2">
+            <Label htmlFor="real-name">Real Name (Optional)</Label>
+            <Input 
+              id="real-name"
               value={realName}
               onChange={(e) => setRealName(e.target.value)}
-              placeholder="Your real name (private)"
-              maxLength={100}
             />
-            <p className="text-sm text-muted-foreground">
-              Shown on profile if available.
-            </p>
           </div>
-          
+
+          {/* Description Textarea */}
           <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="description">About Me</Label>
-              {description !== initialDescription.current && (
-                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
-              )}
-            </div>
+            <Label htmlFor="description">Bio / Description (Optional)</Label>
             <Textarea 
               id="description"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
-              placeholder="Tell others about yourself"
-              className="min-h-[100px] resize-y"
+              placeholder="Tell us a little about yourself..."
+              className="min-h-[80px]"
+              maxLength={500}
             />
-            <p className="text-xs text-muted-foreground">
-              A brief description that will appear on your profile page
+             <p className="text-xs text-muted-foreground text-right">
+              {description.length} / 500
             </p>
           </div>
-          
-          <div className="space-y-2">
-            <div className="flex items-center justify-between">
-              <Label htmlFor="links">Links</Label>
-              {JSON.stringify(links) !== JSON.stringify(initialLinks.current || []) && (
-                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
-              )}
-            </div>
-            <div className="flex space-x-2">
-              <Input 
-                id="links"
-                value={newLink}
-                onChange={(e) => setNewLink(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder="Add website link (e.g., github.com)"
-                className="flex-grow"
-              />
-              <Button 
-                type="button" 
-                onClick={handleAddLink}
-                size="icon"
-                variant="outline"
-                className="shrink-0"
-              >
-                <Plus className="h-4 w-4" />
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Add links to your website, social media, or other profiles
-            </p>
-            
-            {links.length > 0 && (
-              <div className="flex flex-wrap gap-2 mt-2">
-                {links.map((link, index) => {
-                  let domain;
-                  try {
-                    domain = new URL(link).hostname;
-                  } catch (e) {
-                    domain = link;
-                  }
-                  
-                  return (
-                    <HoverCard key={index}>
-                      <HoverCardTrigger>
-                        <div className="relative flex items-center justify-center">
-                          {editingLinkIndex === index ? (
-                            <div className="flex items-center gap-2">
-                              <Input
-                                value={editingLinkValue}
-                                onChange={(e) => setEditingLinkValue(e.target.value)}
-                                onKeyDown={(e) => {
-                                  if (e.key === 'Enter') {
-                                    handleSaveEditedLink(index);
-                                  } else if (e.key === 'Escape') {
-                                    handleCancelEdit();
-                                  }
-                                }}
-                                className="w-48 h-8 text-xs"
-                                autoFocus
-                              />
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8"
-                                onClick={() => handleSaveEditedLink(index)}
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                type="button"
-                                size="icon"
-                                variant="ghost"
-                                className="h-8 w-8"
-                                onClick={handleCancelEdit}
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          ) : (
-                            <>
-                              <div className="flex items-center justify-center w-10 h-10 bg-muted/30 hover:bg-muted/50 rounded-full transition-colors">
-                                <img 
-                                  src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
-                                  alt=""
-                                  className="w-6 h-6 object-contain"
-                                />
-                              </div>
-                              <div className="flex gap-1 absolute -top-2 -right-2">
-                                <Button 
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-5 w-5 rounded-full bg-muted p-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleEditLink(index);
-                                  }}
-                                >
-                                  <Pencil className="h-3 w-3" />
-                                </Button>
-                                <Button 
-                                  type="button"
-                                  size="icon"
-                                  variant="ghost"
-                                  className="h-5 w-5 rounded-full bg-muted p-0"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    handleRemoveLink(index);
-                                  }}
-                                >
-                                  <X className="h-3 w-3" />
-                                </Button>
-                              </div>
-                            </>
-                          )}
-                        </div>
-                      </HoverCardTrigger>
-                      <HoverCardContent className="p-2 text-xs">
-                        {editingLinkIndex === index ? editingLinkValue : domain}
-                      </HoverCardContent>
-                    </HoverCard>
-                  );
-                })}
+
+          {/* Links Section */}
+          <div className="space-y-4">
+            <Label>Links (Optional)</Label>
+            {links.map((link, index) => (
+              <div key={index} className="flex items-center space-x-2">
+                {editingLinkIndex === index ? (
+                  <Input
+                    type="text"
+                    value={editingLinkValue}
+                    onChange={(e) => setEditingLinkValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleSaveEditedLink(index);
+                      } else if (e.key === 'Escape') {
+                        handleCancelEdit();
+                      }
+                    }}
+                    className="flex-grow"
+                    placeholder="https://example.com"
+                    autoFocus
+                  />
+                ) : (
+                  <div className="flex-grow flex items-center space-x-2 p-2 border rounded-md bg-background">
+                     <img 
+                        src={`https://www.google.com/s2/favicons?domain=${getDomain(link)}&sz=16`}
+                        alt="" 
+                        className="w-4 h-4"
+                        onError={(e) => (e.currentTarget.style.display = 'none')} // Hide if favicon fails
+                      />
+                     <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm truncate hover:underline flex-grow">
+                        {link}
+                     </a>
+                  </div>
+                )}
+
+                {editingLinkIndex === index ? (
+                   <>
+                      <Button type="button" size="icon" variant="ghost" onClick={() => handleSaveEditedLink(index)} disabled={!isValidUrl(editingLinkValue)} className="h-8 w-8">
+                          <Check className="h-4 w-4" />
+                      </Button>
+                      <Button type="button" size="icon" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8">
+                          <X className="h-4 w-4" />
+                      </Button>
+                   </>
+                 ) : (
+                  <Button type="button" size="icon" variant="ghost" onClick={() => handleEditLink(index)} className="h-8 w-8">
+                    <Pencil className="h-4 w-4" />
+                  </Button>
+                 )}
+                <Button type="button" size="icon" variant="ghost" onClick={() => handleRemoveLink(index)} className="h-8 w-8">
+                  <X className="h-4 w-4 text-destructive/70 hover:text-destructive" />
+                </Button>
+              </div>
+            ))}
+             {editingLinkIndex === null && links.length < 5 && (
+              <div className="flex items-center space-x-2">
+                <Input
+                  type="text"
+                  value={newLink}
+                  onChange={(e) => setNewLink(e.target.value)}
+                  onKeyDown={handleKeyDown} // Use keydown handler
+                  placeholder="Add a link (e.g., https://portfolio.com)"
+                  className="flex-grow"
+                />
+                <Button type="button" size="icon" variant="ghost" onClick={handleAddLink} disabled={!isValidUrl(newLink) || links.length >= 5} className="h-8 w-8">
+                  <Plus className="h-4 w-4" />
+                </Button>
               </div>
             )}
+            {links.length >= 5 && editingLinkIndex === null && <p className="text-xs text-muted-foreground">Maximum of 5 links reached.</p>}
           </div>
-          
-          {error && (
-            <div className="p-3 bg-destructive/10 border border-destructive/20 rounded-md text-destructive text-sm">
-              {error}
-            </div>
-          )}
-        </form>
-      </CardContent>
-      <CardFooter className="flex flex-col gap-4">
-        <Button
-          onClick={handleSubmit}
-          disabled={
-             isSaving ||
-             isLoading ||
-             !hasPendingChanges ||
-             !isUsernameValid ||
-             !displayName.trim() ||
-             isCheckingUsername ||
-             isUsernameAvailable === false
-           }
-          className="w-full"
-          variant={justSaved ? "outline" : "default"}
-        >
-          {isSaving ? (
-            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
-          ) : justSaved ? (
-            <><Check className="mr-2 h-4 w-4" /> Changes Saved</>
-          ) : (
-            'Save Changes'
-          )}
-        </Button>
-      </CardFooter>
+        </CardContent>
+        <CardFooter className="border-t pt-6 flex justify-between items-center">
+          <Button 
+             type="button" 
+             variant="outline"
+             onClick={() => window.open(`/profile/${profile?.username}?loggedOutView=true`, '_blank')} // Use profile?.username which should exist here
+             disabled={!profile?.username}
+          >
+            <ExternalLink className="mr-2 h-4 w-4" />
+             View Public Profile
+          </Button>
+          <Button type="submit" disabled={isLoading || isSaving || !isUsernameValid || isUsernameAvailable === false || (isUsernameAvailable === null && username !== initialUsername.current) || !displayName.trim() || !hasChanges()}>
+            {isSaving ? (
+              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+            ) : justSaved ? (
+               <><Check className="mr-2 h-4 w-4" /> Saved!</>
+            ) : (
+              'Save Changes'
+            )}
+          </Button>
+        </CardFooter>
+      </form>
     </Card>
   );
 }
