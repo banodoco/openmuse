@@ -161,46 +161,66 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // --- Username Sync Check ---
         if (currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
           const userId = currentSession.user.id;
-          // Assuming 'preferred_username' based on common Discord provider setup and AuthButton usage
+          // Get Discord info from metadata
           const discordUsername = currentSession.user.user_metadata?.preferred_username;
+          const discordUserId = currentSession.user.user_metadata?.provider_id;
 
-          if (discordUsername) {
-            logger.log(`[Auth Listener] Checking Discord username sync for user ${userId}`);
+          if (discordUsername || discordUserId) { // Check if we have either username or ID from Discord
+            logger.log(`[Auth Listener] Checking Discord ID/Username sync for user ${userId}`);
             try {
-              // Fetch current profile directly from DB to bypass cache
+              // Fetch only the discord fields from the profile
               const { data: profileData, error: profileError } = await supabase
                 .from('profiles')
-                .select('username')
+                .select('discord_user_id, discord_username') // Only select discord fields
                 .eq('id', userId)
                 .maybeSingle();
 
               if (profileError) {
-                logger.error(`[Auth Listener] Error fetching profile for username sync for user ${userId}:`, profileError);
-              } else if (profileData && profileData.username !== discordUsername) {
-                logger.log(`[Auth Listener] Discord username mismatch for ${userId}. Stored: "${profileData.username}", Discord: "${discordUsername}". Updating profile.`);
+                logger.error(`[Auth Listener] Error fetching profile for Discord sync for user ${userId}:`, profileError);
+              } else if (profileData) {
+                // Determine if an update is needed ONLY for discord fields
+                const updatePayload: { discord_user_id?: string; discord_username?: string } = {};
+                let needsUpdate = false;
 
-                const { error: updateError } = await supabase
-                  .from('profiles')
-                  .update({ username: discordUsername })
-                  .eq('id', userId);
-
-                if (updateError) {
-                  logger.error(`[Auth Listener] Error updating username in profile for ${userId}:`, updateError);
-                } else {
-                  logger.log(`[Auth Listener] Successfully updated username for ${userId}. Clearing profile cache.`);
-                  userProfileCache.delete(userId); // Invalidate cache
+                // Sync discord_username
+                if (discordUsername && profileData.discord_username !== discordUsername) {
+                  logger.log(`[Auth Listener] Discord username sync needed for ${userId}. DB: "${profileData.discord_username}", Discord: "${discordUsername}".`);
+                  updatePayload.discord_username = discordUsername;
+                  needsUpdate = true;
                 }
+
+                // Sync discord_user_id
+                if (discordUserId && profileData.discord_user_id !== discordUserId) {
+                   logger.log(`[Auth Listener] Discord user ID sync needed for ${userId}. DB: "${profileData.discord_user_id}", Discord: "${discordUserId}".`);
+                  updatePayload.discord_user_id = discordUserId;
+                  needsUpdate = true;
+                }
+
+                if (needsUpdate) {
+                  logger.log(`[Auth Listener] Updating profile for ${userId} with Discord fields:`, updatePayload);
+                  const { error: updateError } = await supabase
+                    .from('profiles')
+                    .update(updatePayload) // Only update discord fields
+                    .eq('id', userId);
+
+                  if (updateError) {
+                    logger.error(`[Auth Listener] Error updating profile with Discord fields for ${userId}:`, updateError);
+                  } else {
+                    logger.log(`[Auth Listener] Successfully updated Discord fields for ${userId}. Clearing profile cache.`);
+                    userProfileCache.delete(userId); // Invalidate cache as profile data changed
+                  }
+                } else {
+                   logger.log(`[Auth Listener] Discord fields for ${userId} (Username: '${profileData.discord_username}', ID: '${profileData.discord_user_id}') are already in sync.`);
+                }
+
               } else if (!profileData) {
-                // This might happen if profile creation is delayed or failed after signup
-                logger.warn(`[Auth Listener] Profile not found for user ${userId} during username sync check.`);
-              } else {
-                logger.log(`[Auth Listener] Username for ${userId} ('${profileData.username}') is already in sync with Discord ('${discordUsername}').`);
+                logger.warn(`[Auth Listener] Profile not found for user ${userId} during Discord sync check. Cannot update Discord fields.`);
               }
             } catch (syncError) {
-              logger.error(`[Auth Listener] Unexpected error during username sync check for ${userId}:`, syncError);
+              logger.error(`[Auth Listener] Unexpected error during Discord sync check for ${userId}:`, syncError);
             }
           } else {
-            logger.log(`[Auth Listener] No Discord username (preferred_username) found in metadata for ${userId}, skipping sync check.`);
+            logger.log(`[Auth Listener] No Discord username or provider_id found in metadata for ${userId}, skipping sync check.`);
           }
         }
         // --- End Username Sync Check ---

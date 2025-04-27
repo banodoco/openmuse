@@ -69,7 +69,7 @@ export const getCurrentUserProfile = async (): Promise<UserProfile | null> => {
 export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<UserProfile | null> => {
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-    
+
     if (sessionError || !session) {
       toast({
         title: "Error",
@@ -78,45 +78,61 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
       });
       return null;
     }
-    
+
     const userId = session.user.id;
     logger.log('Updating user profile:', userId, updates);
-    
-    // Check if display_name is unique if it's being updated
-    if (updates.display_name) {
-      const { data: existingUser, error: checkError } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('display_name', updates.display_name)
-        .neq('id', userId)
-        .limit(1);
-      
-      if (checkError) {
-        logger.error('Error checking display name uniqueness:', checkError);
+
+    // Check if username is unique if it's being updated
+    if (updates.username) {
+      // Validate username format/length client-side (already done in component)
+      if (updates.username.length < 3) {
+        // This check is redundant if component enforces it, but good for safety
         toast({
           title: "Error",
-          description: "Failed to check if display name is available",
+          description: "Username must be at least 3 characters long.",
           variant: "destructive"
         });
         return null;
       }
-      
+
+      const { data: existingUser, error: checkError } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('username', updates.username) // Check username column
+        .neq('id', userId)
+        .limit(1);
+
+      if (checkError) {
+        logger.error('Error checking username uniqueness:', checkError);
+        toast({
+          title: "Error",
+          description: "Failed to check if username is available",
+          variant: "destructive"
+        });
+        return null;
+      }
+
       if (existingUser && existingUser.length > 0) {
         toast({
           title: "Error",
-          description: "This display name is already taken. Please choose another one.",
+          description: "This username is already taken. Please choose another one.",
           variant: "destructive"
         });
         return null;
       }
     }
-    
+
+    // Remove discord_username and discord_user_id from updates object before saving,
+    // as these should only be updated by the AuthProvider sync
+    const { discord_username, discord_user_id, ...safeUpdates } = updates;
+
     // Create sanitized updates that includes all necessary properties
-    const sanitizedUpdates: Partial<UserProfile> = { ...updates };
-    
+    // Use safeUpdates which excludes the discord fields
+    const sanitizedUpdates: Partial<UserProfile> = { ...safeUpdates };
+
     // Sanitize links to ensure they are valid URLs
-    if (updates.links) {
-      sanitizedUpdates.links = updates.links.filter(link => {
+    if (safeUpdates.links) { // Check links in safeUpdates
+      sanitizedUpdates.links = safeUpdates.links.filter(link => {
         try {
           // Make sure link has a protocol
           if (!/^https?:\/\//i.test(link)) {
@@ -130,39 +146,134 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
       });
     }
 
-    // Perform the update
+    // Perform the update using sanitizedUpdates
     const { data, error } = await supabase
       .from('profiles')
-      .update(sanitizedUpdates)
+      .update(sanitizedUpdates) // Use sanitizedUpdates
       .eq('id', userId)
       .select()
       .single();
-    
+
     if (error) {
       logger.error('Error updating user profile:', error);
+      // Extract Supabase error details if available
+      const errorMsg = error.message || "Failed to update profile";
       toast({
         title: "Error",
-        description: "Failed to update profile",
+        description: errorMsg,
         variant: "destructive"
       });
       return null;
     }
-    
+
     // Clear cache
     userProfileCache.delete(userId);
-    
-    toast({
-      title: "Success",
-      description: "Profile updated successfully",
-    });
+
+    // Success toast is now handled in the component handleSubmit
+    // toast({
+    //   title: "Success",
+    //   description: "Profile updated successfully",
+    // });
     return data as UserProfile;
   } catch (error) {
     logger.error('Error in updateUserProfile:', error);
     toast({
       title: "Error",
-      description: "An error occurred while updating your profile",
+      description: "An unexpected error occurred while updating your profile",
       variant: "destructive"
     });
     return null;
   }
 };
+
+// REVISED: Function to merge a preexisting profile based on discord user ID or username
+export async function mergeProfileIfExists(supabaseClient: any, authUserId: string, identifiers: { discordUsername?: string, discordUserId?: string }) {
+  const { discordUsername, discordUserId } = identifiers;
+  let profileData = null;
+  let queryError = null;
+
+  logger.log(`Attempting merge for user ${authUserId} with identifiers:`, identifiers);
+
+  // 1. Try to find by Discord User ID first (more reliable)
+  if (discordUserId) {
+    logger.log(`Searching for unclaimed profile with discord_user_id: ${discordUserId}`);
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('discord_user_id', discordUserId)
+      .is('user_id', null)
+      .single();
+    
+    // Ignore 'not found' error (PGRST116), store others
+    if (error && error.code !== 'PGRST116') {
+      logger.error(`Error querying by discord_user_id: ${discordUserId}`, error);
+      queryError = error;
+    } else if (data) {
+      logger.log(`Found profile by discord_user_id: ${data.id}`);
+      profileData = data;
+    } else {
+      logger.log(`No unclaimed profile found for discord_user_id: ${discordUserId}`);
+    }
+  }
+
+  // 2. If not found by ID and no error occurred, try by Discord Username
+  if (!profileData && !queryError && discordUsername) {
+    logger.log(`Searching for unclaimed profile with username (Discord username): ${discordUsername}`);
+    const { data, error } = await supabaseClient
+      .from('profiles')
+      .select('*')
+      .eq('username', discordUsername) // Assuming 'username' stores the Discord username
+      .is('user_id', null)
+      .single();
+
+    // Ignore 'not found' error (PGRST116), store others
+    if (error && error.code !== 'PGRST116') {
+      logger.error(`Error querying by username: ${discordUsername}`, error);
+      queryError = error;
+    } else if (data) {
+      logger.log(`Found profile by username: ${data.id}`);
+      profileData = data;
+    } else {
+        logger.log(`No unclaimed profile found for username: ${discordUsername}`);
+    }
+  }
+
+  // Handle any query errors that occurred
+  if (queryError) {
+    logger.error('Error occurred during profile search, cannot merge.', queryError);
+    return null;
+  }
+
+  // 3. If a profile was found by either method, update and claim it
+  if (profileData) {
+    logger.log(`Found unclaimed profile (ID: ${profileData.id}) matching Discord identifiers, attempting merge.`);
+    const updatePayload = {
+      user_id: authUserId,
+      status: 'active',
+      // Optionally update username/discord_id if they were missing on the pre-created profile
+      discord_user_id: profileData.discord_user_id ?? discordUserId,
+      username: profileData.username ?? discordUsername
+    };
+    logger.log('Update payload for merge:', updatePayload);
+
+    const { error: updateError } = await supabaseClient
+      .from('profiles')
+      .update(updatePayload)
+      .eq('id', profileData.id);
+      
+    if (updateError) {
+      logger.error(`Error merging profile ID: ${profileData.id}`, updateError);
+      return null; // Failed to merge
+    }
+    logger.log(`Successfully merged profile ID: ${profileData.id} with user ID: ${authUserId}`);
+    // Clear cache for the potentially updated profile (using its own ID if different from authUserId)
+    userProfileCache.delete(profileData.id);
+    // Also clear cache for the auth user ID, as their profile data might now exist/be different
+    userProfileCache.delete(authUserId);
+    return profileData; // Return the original profile data that was merged
+  }
+
+  // No unclaimed profile found matching the criteria
+  logger.log('No matching unclaimed profile found for merge.');
+  return null;
+}

@@ -17,6 +17,7 @@ export default function UserProfileSettings() {
   const { user } = useAuth();
   const location = useLocation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [username, setUsername] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [realName, setRealName] = useState('');
   const [description, setDescription] = useState('');
@@ -41,6 +42,7 @@ export default function UserProfileSettings() {
           setIsLoading(true);
           const userProfile = await getCurrentUserProfile();
           setProfile(userProfile);
+          setUsername(userProfile?.username || '');
           setDisplayName(userProfile?.display_name || userProfile?.username || '');
           setRealName(userProfile?.real_name || '');
           setDescription(userProfile?.description || '');
@@ -62,8 +64,23 @@ export default function UserProfileSettings() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (!username.trim() || username.trim().length < 3) {
+      setError('Username must be at least 3 characters long');
+      toast({
+        title: "Validation Error",
+        description: 'Username must be at least 3 characters long',
+        variant: "destructive"
+      });
+      return;
+    }
+    
     if (!displayName.trim()) {
       setError('Display name cannot be empty');
+      toast({
+        title: "Validation Error",
+        description: 'Display name cannot be empty',
+        variant: "destructive"
+      });
       return;
     }
     
@@ -72,6 +89,7 @@ export default function UserProfileSettings() {
       setError(null);
       
       const updatedProfile = await updateUserProfile({
+        username: username.trim(),
         display_name: displayName.trim(),
         real_name: realName.trim(),
         description: description.trim(),
@@ -82,14 +100,25 @@ export default function UserProfileSettings() {
       
       if (updatedProfile) {
         setProfile(updatedProfile);
+        setUsername(updatedProfile.username);
+        setDisplayName(updatedProfile.display_name || '');
         setJustSaved(true);
+        toast({
+          title: "Success",
+          description: "Profile updated successfully",
+        });
         setTimeout(() => {
           setJustSaved(false);
         }, 2000);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error updating profile:', err);
-      setError('Failed to update profile');
+      setError(err.message || 'Failed to update profile');
+      toast({
+        title: "Error",
+        description: err.message || 'Failed to update profile',
+        variant: "destructive"
+      });
     } finally {
       setIsSaving(false);
     }
@@ -292,42 +321,56 @@ export default function UserProfileSettings() {
             </div>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="username">Username (From Discord)</Label>
-            <Input 
+          <div className="space-y-1">
+            <Label htmlFor="username">Username</Label>
+            <Input
               id="username"
-              value={profile?.username || ''}
-              disabled
-              className="bg-muted/50"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              placeholder="Your unique username (min 3 chars)"
+              minLength={3}
+              maxLength={50}
+              required
+              className={error && error.toLowerCase().includes('username') ? 'border-destructive' : ''}
             />
-            <p className="text-xs text-muted-foreground">
-              This is your Discord username and cannot be changed
+            <p className="text-sm text-muted-foreground">
+              Your unique identifier on the site. Must be at least 3 characters.
             </p>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="displayName">Display Name</Label>
-            <Input 
-              id="displayName"
+          <div className="space-y-1">
+            <Label htmlFor="display_name">Display Name</Label>
+            <Input
+              id="display_name"
               value={displayName}
               onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Enter your preferred display name"
+              placeholder="How you want your name displayed"
+              maxLength={100}
+              required
+              className={error && error.toLowerCase().includes('display name') ? 'border-destructive' : ''}
             />
-            <p className="text-xs text-muted-foreground">
-              This is the name that will be displayed to other users. It must be unique.
+            <p className="text-sm text-muted-foreground">
+              How your name appears publicly (e.g., on leaderboards, comments).
             </p>
           </div>
           
-          <div className="space-y-2">
-            <Label htmlFor="realName">Real Name (Optional)</Label>
-            <Input 
-              id="realName"
+          <div className="space-y-1">
+            <Label htmlFor="discord_username">Discord Username</Label>
+            <Input id="discord_username" value={profile?.discord_username || 'N/A'} readOnly disabled />
+            <p className="text-sm text-muted-foreground">Synced automatically from Discord. Cannot be changed here.</p>
+          </div>
+          
+          <div className="space-y-1">
+            <Label htmlFor="real_name">Real Name (Optional)</Label>
+            <Input
+              id="real_name"
               value={realName}
               onChange={(e) => setRealName(e.target.value)}
-              placeholder="Enter your real name (optional)"
+              placeholder="Your real name (private)"
+              maxLength={100}
             />
-            <p className="text-xs text-muted-foreground">
-              This will be displayed on your profile if provided
+            <p className="text-sm text-muted-foreground">
+              Only visible to administrators.
             </p>
           </div>
           

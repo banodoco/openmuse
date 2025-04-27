@@ -77,6 +77,7 @@ export interface UserProfile {
   description?: string;
   links?: string[];
   background_image_url?: string;
+  discord_user_id?: string | null;
 }
 
 export interface LoraAsset {

@@ -62,6 +62,8 @@ export interface Database {
           avatar_url?: string | null
           created_at: string
           video_upload_consent?: boolean | null
+          discord_user_id?: string | null
+          discord_username?: string | null
         }
       }
     }

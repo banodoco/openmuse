@@ -3,6 +3,8 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Loader2 } from 'lucide-react';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
+import { supabase } from '../integrations/supabase/client';
+import { mergeProfileIfExists } from '../lib/auth/userProfile';
 
 const logger = new Logger('AuthCallback');
 
@@ -49,6 +51,19 @@ const AuthCallback = () => {
       // Manually clear the hash to prevent Supabase client from re-reading it
       // logger.log('AuthCallback: Clearing window.location.hash');
       window.location.hash = '';
+      
+      // Attempt to merge an unclaimed profile if it exists using Discord identifiers
+      const userMetadata = user.user_metadata;
+      const discordUsername = userMetadata?.user_name || userMetadata?.discord_username; // Check common keys
+      const discordUserId = userMetadata?.provider_id || userMetadata?.discord_user_id; // Check common keys for Discord ID
+
+      if (discordUsername || discordUserId) {
+        logger.log('Attempting merge with identifiers:', { discordUsername, discordUserId });
+        // Pass both identifiers to the merge function
+        mergeProfileIfExists(supabase, user.id, { discordUsername, discordUserId });
+      } else {
+        logger.log('No Discord identifiers found in user metadata for potential merge.');
+      }
       
       queueMicrotask(() => {
          navigate(returnUrl, { replace: true });
