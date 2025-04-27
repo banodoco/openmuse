@@ -55,27 +55,29 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 }) => {
   const componentId = useRef(`storage_video_${Math.random().toString(36).substring(2, 9)}`).current;
   const logPrefix = `[SVP_DEBUG][${componentId}]`;
-  // logger.log(`${logPrefix} Rendering. Initial props: thumbnailUrl=${!!thumbnailUrl}, forcePreload=${forcePreload}, autoPlay=${autoPlay}`);
+  // logger.log(`${logPrefix} Rendering. Initial props: thumbnailUrl=${!!thumbnailUrl}, forcePreload=${forcePreload}, autoPlay=${autoPlay}, shouldBePlaying=${shouldBePlaying}`);
 
   const [videoUrl, setVideoUrl] = useState<string>('');
-  const [isLoadingVideoUrl, setIsLoadingVideoUrl] = useState<boolean>(false); 
-  const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false); 
+  const [isLoadingVideoUrl, setIsLoadingVideoUrl] = useState<boolean>(false);
+  const [isVideoLoaded, setIsVideoLoaded] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  // Internal hover state, synced with external if provided, otherwise manual
   const [isHovering, setIsHovering] = useState(isHoveringExternally || false);
-  const [shouldLoadVideo, setShouldLoadVideo] = useState<boolean>(() => forcePreload || (isMobile && autoPlay));
-  const [hasHovered, setHasHovered] = useState(forcePreload || (!isMobile && autoPlay));
-  const [shouldPlay, setShouldPlay] = useState(isMobile ? false : (forcePreload || autoPlay));
+  const [shouldLoadVideo, setShouldLoadVideo] = useState<boolean>(() => forcePreload || (isMobile && autoPlay)); // Keep initial load logic
+  const [hasHovered, setHasHovered] = useState(forcePreload || (!isMobile && autoPlay)); // Keep initial hasHovered logic
+  // This state now primarily reflects the *intent* to play based on props/hover
+  const [shouldPlay, setShouldPlay] = useState(false);
   const prevVideoLocationRef = useRef<string | null>(null);
   const [preloadTriggered, setPreloadTriggered] = useState(false);
 
-  // logger.log(`${logPrefix} Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}`);
+  // logger.log(`${logPrefix} Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}, shouldPlay=${shouldPlay}`);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
-  const isHoveringRef = useRef(isHoveringExternally || false);
+  const isHoveringRef = useRef(isHoveringExternally || false); // Ref to track hover state
   const unmountedRef = useRef(false);
   
   const isBlobUrl = videoLocation.startsWith('blob:');
@@ -89,27 +91,49 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     };
   }, []);
 
-  // Sync external hover state
+  // Effect to sync external hover state and trigger video loading on hover
   useEffect(() => {
     isHoveringRef.current = isHoveringExternally || false;
     if (isHoveringExternally !== undefined && !unmountedRef.current) {
       // logger.log(`${logPrefix} isHoveringExternally changed to ${isHoveringExternally}`);
-      setIsHovering(isHoveringExternally);
+      setIsHovering(isHoveringExternally); // Update internal hover state for consistency
       if (isHoveringExternally) {
-        setHasHovered(true); 
-        setShouldLoadVideo(true);
-        // Update shouldPlay when hovering starts
-        if (!isMobile) {
-          setShouldPlay(true);
+        // Trigger loading on hover start if not already loading/loaded
+        if (!shouldLoadVideo && !videoUrl && !error) {
+           // logger.log(`${logPrefix} Triggering load on external hover start`);
+           setShouldLoadVideo(true);
+           setHasHovered(true); // Mark as interacted
         }
-      } else {
-        // Stop playing when hover ends
-        setShouldPlay(false);
       }
+      // NOTE: Play decision is handled in the dedicated effect below
     }
-  }, [isHoveringExternally, isMobile]);
+  }, [isHoveringExternally, shouldLoadVideo, videoUrl, error]);
 
-  // Effect to handle mobile state – only auto–load if `forcePreload` is set.
+  // Effect to determine if the video should be playing based on props and state
+  useEffect(() => {
+    if (unmountedRef.current) return;
+
+    // logger.log(`${logPrefix} Play control effect triggered. shouldBePlaying=${shouldBePlaying}, isHovering=${isHovering}, isMobile=${isMobile}, playOnHover=${playOnHover}`);
+
+    if (shouldBePlaying) {
+      // logger.log(`${logPrefix} Setting shouldPlay = true because shouldBePlaying is true`);
+      setShouldPlay(true);
+      // Ensure video loading is also triggered if needed
+      if (!shouldLoadVideo && !videoUrl && !error) {
+        // logger.log(`${logPrefix} Triggering load because shouldPlay is true and video not loading/loaded`);
+        setShouldLoadVideo(true);
+        setHasHovered(true); // Treat as "interacted"
+      }
+    } else {
+      // If shouldBePlaying is false, determine play state based on hover (desktop only)
+      const playBasedOnHover = playOnHover && isHovering && !isMobile;
+      // logger.log(`${logPrefix} Setting shouldPlay based on hover: ${playBasedOnHover}`);
+      setShouldPlay(playBasedOnHover);
+    }
+
+  }, [shouldBePlaying, isHovering, isMobile, playOnHover, shouldLoadVideo, videoUrl, error]);
+
+  // Effect to handle initial mobile state + forcePreload
   useEffect(() => {
     if (isMobile && forcePreload && !unmountedRef.current) {
       // logger.log(`${logPrefix} Mobile + forcePreload: Setting shouldLoadVideo=true, hasHovered=true`);
@@ -118,15 +142,16 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     }
   }, [isMobile, forcePreload]);
 
-  // Handle manual hover events
+  // Handle manual hover events (only trigger load, play logic handled above)
   const handleManualHoverStart = () => {
     if (isHoveringExternally === undefined && !unmountedRef.current) {
       // logger.log(`${logPrefix} Manual hover start`);
       setIsHovering(true);
-      setHasHovered(true);
-      setShouldLoadVideo(true);
-      if (!isMobile) {
-        setShouldPlay(true);
+      // Trigger loading on hover if not already loading/loaded
+      if (!shouldLoadVideo && !videoUrl && !error) {
+        // logger.log(`${logPrefix} Triggering load on manual hover start`);
+        setShouldLoadVideo(true);
+        setHasHovered(true);
       }
     }
   };
@@ -135,7 +160,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
     if (isHoveringExternally === undefined && !unmountedRef.current) {
       // logger.log(`${logPrefix} Manual hover end`);
       setIsHovering(false);
-      setShouldPlay(false);
+      // Play state will be updated by the dedicated effect based on isHovering=false
     }
   };
   
@@ -374,9 +399,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             )}
             controls={controls && !previewMode} 
             autoPlay={false}
-            triggerPlay={shouldBePlaying}
+            triggerPlay={shouldPlay}
             muted={muted}
-            loop={shouldBePlaying || (playOnHover && isHovering) || loop}
+            loop={loop}
             playOnHover={playOnHover && !isMobile}
             onError={handleVideoError}
             showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}

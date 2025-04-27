@@ -88,7 +88,7 @@ const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
     // Display linked avatar and name if profile exists
     const displayName = creatorProfile.display_name || creatorProfile.username;
     const fallbackChar = displayName[0].toUpperCase();
-    const profilePath = `/profile/${encodeURIComponent(displayName)}`;
+    const profilePath = `/profile/${encodeURIComponent(creatorProfile.username)}`;
 
     return (
       <Link
