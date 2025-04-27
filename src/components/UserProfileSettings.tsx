@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
@@ -8,10 +8,23 @@ import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil, ExternalLink } from 'lucide-react';
+import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil, ExternalLink, HelpCircle } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
+import { supabase } from '@/integrations/supabase/client';
+
+function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
+  let timeout: ReturnType<typeof setTimeout> | null = null;
+  return (...args: Parameters<T>) => {
+    if (timeout) {
+      clearTimeout(timeout);
+    }
+    timeout = setTimeout(() => {
+      func(...args);
+    }, wait);
+  };
+}
 
 export default function UserProfileSettings() {
   const { user } = useAuth();
@@ -34,15 +47,26 @@ export default function UserProfileSettings() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const avatarFileInputRef = useRef<HTMLInputElement>(null);
   const backgroundFileInputRef = useRef<HTMLInputElement>(null);
+  const [isUsernameValid, setIsUsernameValid] = useState(true);
+
+  const [isCheckingUsername, setIsCheckingUsername] = useState(false);
+  const [isUsernameAvailable, setIsUsernameAvailable] = useState<boolean | null>(null);
+  const [usernameCheckError, setUsernameCheckError] = useState<string | null>(null);
+  const initialUsername = useRef<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
       if (user) {
         try {
           setIsLoading(true);
+          setIsUsernameAvailable(null);
+          setUsernameCheckError(null);
           const userProfile = await getCurrentUserProfile();
           setProfile(userProfile);
-          setUsername(userProfile?.username || '');
+          const loadedUsername = userProfile?.username || '';
+          setUsername(loadedUsername);
+          initialUsername.current = loadedUsername;
+          setIsUsernameValid(true);
           setDisplayName(userProfile?.display_name || userProfile?.username || '');
           setRealName(userProfile?.real_name || '');
           setDescription(userProfile?.description || '');
@@ -61,17 +85,100 @@ export default function UserProfileSettings() {
     loadProfile();
   }, [user]);
 
+  const debouncedCheckUsername = useCallback(
+    debounce(async (nameToCheck: string) => {
+      if (!nameToCheck || nameToCheck.trim().length < 3) {
+         setIsUsernameAvailable(null);
+         setIsCheckingUsername(false);
+         setUsernameCheckError(null);
+        return;
+      }
+      if (nameToCheck === initialUsername.current) {
+         setIsUsernameAvailable(true);
+         setIsCheckingUsername(false);
+         setUsernameCheckError(null);
+         return;
+      }
+
+      setIsCheckingUsername(true);
+      setIsUsernameAvailable(null);
+      setUsernameCheckError(null);
+
+      try {
+        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        if (sessionError || !sessionData?.session?.access_token) {
+           throw new Error('Authentication error. Cannot check username.');
+        }
+
+        const { data, error: funcError } = await supabase.functions.invoke('check-username-availability', {
+          body: { username: nameToCheck },
+          headers: { Authorization: `Bearer ${sessionData.session.access_token}` }
+        });
+
+        if (funcError) {
+           console.error('Supabase function error:', funcError);
+           throw new Error(`Failed to check username: ${funcError.message}`);
+        }
+
+        if (data?.isAvailable === true) {
+          setIsUsernameAvailable(true);
+        } else if (data?.isAvailable === false) {
+          setIsUsernameAvailable(false);
+        } else {
+          throw new Error('Unexpected response from availability check.');
+        }
+      } catch (err: any) {
+        console.error("Username check failed:", err);
+        setIsUsernameAvailable(null);
+        setUsernameCheckError(err.message || "Could not verify username availability.");
+      } finally {
+        setIsCheckingUsername(false);
+      }
+    }, 500),
+    [initialUsername]
+  );
+
+  useEffect(() => {
+    const isValidLength = !username || username.trim().length >= 3;
+    setIsUsernameValid(isValidLength);
+
+    if (isValidLength && username !== initialUsername.current) {
+       debouncedCheckUsername(username);
+    } else {
+       setIsCheckingUsername(false);
+       setIsUsernameAvailable(username === initialUsername.current ? true : null);
+       setUsernameCheckError(null);
+    }
+  }, [username, debouncedCheckUsername, initialUsername]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!username.trim() || username.trim().length < 3) {
-      setError('Username must be at least 3 characters long');
+    if (!isUsernameValid) {
       toast({
         title: "Validation Error",
         description: 'Username must be at least 3 characters long',
         variant: "destructive"
       });
       return;
+    }
+    
+    if (isUsernameAvailable === false) {
+      toast({
+        title: "Validation Error",
+        description: 'Username is already taken. Please choose another.',
+        variant: "destructive"
+      });
+      return;
+    }
+    
+    if (isUsernameAvailable === null && username !== initialUsername.current) {
+       toast({
+         title: "Validation Error",
+         description: 'Please wait for username availability check to complete.',
+         variant: "destructive"
+       });
+       return;
     }
     
     if (!displayName.trim()) {
@@ -100,8 +207,15 @@ export default function UserProfileSettings() {
       
       if (updatedProfile) {
         setProfile(updatedProfile);
+        initialUsername.current = updatedProfile.username;
         setUsername(updatedProfile.username);
         setDisplayName(updatedProfile.display_name || '');
+        setRealName(updatedProfile.real_name || '');
+        setDescription(updatedProfile.description || '');
+        setLinks(updatedProfile.links || []);
+        setAvatarUrl(updatedProfile.avatar_url || '');
+        setBackgroundImageUrl(updatedProfile.background_image_url || '');
+        setIsUsernameAvailable(null);
         setJustSaved(true);
         toast({
           title: "Success",
@@ -113,12 +227,12 @@ export default function UserProfileSettings() {
       }
     } catch (err: any) {
       console.error('Error updating profile:', err);
-      setError(err.message || 'Failed to update profile');
-      toast({
-        title: "Error",
-        description: err.message || 'Failed to update profile',
-        variant: "destructive"
-      });
+      if (err.message?.toLowerCase().includes('username is already taken')) {
+         setIsUsernameAvailable(false);
+         setUsernameCheckError(err.message);
+      } else {
+         setError(err.message || 'Failed to update profile');
+      }
     } finally {
       setIsSaving(false);
     }
@@ -170,14 +284,17 @@ export default function UserProfileSettings() {
   };
 
   const handleAvatarClick = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
-    }
+    avatarFileInputRef.current?.click();
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 5 * 1024 * 1024) {
+         toast({ title: "Error", description: "Avatar image cannot exceed 5MB.", variant: "destructive" });
+         return;
+       }
+
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
@@ -191,6 +308,10 @@ export default function UserProfileSettings() {
   const handleBackgroundFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      if (file.size > 10 * 1024 * 1024) {
+         toast({ title: "Error", description: "Background image cannot exceed 10MB.", variant: "destructive" });
+         return;
+       }
       const reader = new FileReader();
       reader.onload = () => {
         if (typeof reader.result === 'string') {
@@ -202,9 +323,7 @@ export default function UserProfileSettings() {
   };
 
   const handleBackgroundImageClick = () => {
-    if (backgroundFileInputRef.current) {
-      backgroundFileInputRef.current.click();
-    }
+    backgroundFileInputRef.current?.click();
   };
 
   const handleEditLink = (index: number) => {
@@ -234,6 +353,16 @@ export default function UserProfileSettings() {
     setEditingLinkIndex(null);
     setEditingLinkValue('');
   };
+
+  const hasPendingChanges = (
+    username !== initialUsername.current ||
+    displayName !== (profile?.display_name || profile?.username || '') ||
+    realName !== (profile?.real_name || '') ||
+    description !== (profile?.description || '') ||
+    JSON.stringify(links) !== JSON.stringify(profile?.links || []) ||
+    avatarUrl !== (profile?.avatar_url || '') ||
+    backgroundImageUrl !== (profile?.background_image_url || '')
+  );
 
   if (isLoading) {
     return (
@@ -313,7 +442,7 @@ export default function UserProfileSettings() {
               </div>
               <input 
                 type="file" 
-                ref={fileInputRef} 
+                ref={avatarFileInputRef} 
                 onChange={handleFileChange} 
                 accept="image/*" 
                 className="hidden" 
@@ -323,6 +452,11 @@ export default function UserProfileSettings() {
           
           <div className="space-y-1">
             <Label htmlFor="username">Username</Label>
+            {!isUsernameValid && username.trim().length > 0 && (
+              <p className="text-sm text-destructive">
+                Username must be at least 3 characters long.
+              </p>
+            )}
             <Input
               id="username"
               value={username}
@@ -331,11 +465,40 @@ export default function UserProfileSettings() {
               minLength={3}
               maxLength={50}
               required
-              className={error && error.toLowerCase().includes('username') ? 'border-destructive' : ''}
+              className={
+                !isUsernameValid && username.trim().length > 0 ? 'border-destructive'
+                : (isUsernameAvailable === false ? 'border-destructive'
+                    : (isUsernameAvailable === true ? 'border-green-500' : ''))
+              }
+              aria-describedby="username-feedback"
             />
-            <p className="text-sm text-muted-foreground">
-              Your unique identifier on the site. Must be at least 3 characters.
-            </p>
+            <div id="username-feedback" className="text-sm min-h-[20px]">
+              {isCheckingUsername ? (
+                <span className="text-muted-foreground italic flex items-center">
+                   <Loader2 className="mr-1 h-3 w-3 animate-spin" /> Checking availability...
+                 </span>
+              ) : usernameCheckError ? (
+                 <span className="text-destructive flex items-center">
+                   <X className="mr-1 h-3 w-3" /> {usernameCheckError}
+                 </span>
+               ) : isUsernameAvailable === true && username !== initialUsername.current ? (
+                 <span className="text-green-600 flex items-center">
+                   <Check className="mr-1 h-3 w-3" /> Username available!
+                 </span>
+               ) : isUsernameAvailable === false ? (
+                 <span className="text-destructive flex items-center">
+                   <X className="mr-1 h-3 w-3" /> Username already taken.
+                 </span>
+               ) : username !== initialUsername.current && isUsernameValid ? (
+                 <span className="text-muted-foreground italic">
+                   Remember to save changes.
+                 </span>
+               ) : (
+                  <span className="text-muted-foreground">
+                    Your unique identifier on the site. Must be at least 3 characters.
+                  </span>
+               )}
+            </div>
           </div>
           
           <div className="space-y-1">
@@ -518,27 +681,24 @@ export default function UserProfileSettings() {
         </form>
       </CardContent>
       <CardFooter className="flex flex-col gap-4">
-        <Button 
-          onClick={handleSubmit} 
-          disabled={isSaving || isLoading || !displayName.trim() || (
-            displayName === profile?.display_name && 
-            realName === profile?.real_name && 
-            description === profile?.description && 
-            JSON.stringify(links) === JSON.stringify(profile?.links || []) &&
-            avatarUrl === profile?.avatar_url &&
-            backgroundImageUrl === profile?.background_image_url
-          )}
+        <Button
+          onClick={handleSubmit}
+          disabled={
+             isSaving ||
+             isLoading ||
+             !hasPendingChanges ||
+             !isUsernameValid ||
+             !displayName.trim() ||
+             isCheckingUsername ||
+             isUsernameAvailable === false
+           }
           className="w-full"
           variant={justSaved ? "outline" : "default"}
         >
           {isSaving ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...
-            </>
+            <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
           ) : justSaved ? (
-            <>
-              <Check className="mr-2 h-4 w-4" /> Changes Saved
-            </>
+            <><Check className="mr-2 h-4 w-4" /> Changes Saved</>
           ) : (
             'Save Changes'
           )}
