@@ -69,26 +69,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (!adminCheckInProgress.current) {
             adminCheckInProgress.current = true;
             logger.log(`[Initial Check] Starting admin check for user: ${data.session.user.id}`);
-            try {
-              const adminStatus = await checkIsAdmin(data.session.user.id);
-               if (!isMounted.current) {
-                 logger.log('[Initial Check] Component unmounted during admin check, aborting status update.');
-                 adminCheckInProgress.current = false; // Reset flag if aborting
-                 return;
-               }
-              logger.log(`[Initial Check] Admin check result for ${data.session.user.id}: ${adminStatus}`);
-              setIsAdmin(adminStatus);
-            } catch (adminError) {
-              logger.error('[Initial Check] Error checking admin status:', adminError);
-              if (isMounted.current) setIsAdmin(false); // Set admin false on error if still mounted
-            } finally {
-               if (isMounted.current) {
-                 logger.log('[Initial Check] Admin check finished.');
-                 adminCheckInProgress.current = false;
-               } else {
-                 logger.log('[Initial Check] Admin check finished, but component unmounted.');
-               }
-            }
+            // Wrap the async admin check call in a self-invoking async function
+            // so the main checkInitialSessionAndAdmin flow doesn't await it.
+            (async () => {
+                try {
+                  const adminStatus = await checkIsAdmin(data.session.user.id); // Await happens inside the IIFE
+                   if (!isMounted.current) {
+                     logger.log('[Initial Check] Component unmounted during admin check, aborting status update.');
+                     adminCheckInProgress.current = false; // Reset flag if aborting
+                     return;
+                   }
+                  logger.log(`[Initial Check] Admin check result for ${data.session.user.id}: ${adminStatus}`);
+                  setIsAdmin(adminStatus);
+                } catch (adminError) {
+                  logger.error('[Initial Check] Error checking admin status:', adminError);
+                  if (isMounted.current) setIsAdmin(false); // Set admin false on error if still mounted
+                } finally {
+                   if (isMounted.current) {
+                     logger.log('[Initial Check] Admin check finished.');
+                     adminCheckInProgress.current = false;
+                   } else {
+                     logger.log('[Initial Check] Admin check finished, but component unmounted.');
+                      // Also ensure flag is reset if unmounted
+                     adminCheckInProgress.current = false;
+                   }
+                }
+            })(); // Immediately invoke the async function
           } else {
             logger.log('[Initial Check] Admin check already in progress, skipping.');
           }
