@@ -598,33 +598,56 @@ export default function UserProfileSettings() {
               />
               {!displayName.trim() && <p className="text-xs text-destructive">Display name is required.</p>}
             </div>
-          </div>
           
-          {/* Real Name Input */}
-          <div className="space-y-2">
-            <Label htmlFor="real-name">Real Name (Optional)</Label>
-            <Input 
-              id="real-name"
-              value={realName}
-              onChange={(e) => setRealName(e.target.value)}
-            />
-          </div>
+            {/* Real Name Input - Moved inside grid */}
+            <div className="space-y-2">
+              <Label htmlFor="real-name">Real Name (Optional)</Label>
+              <Input 
+                id="real-name"
+                value={realName}
+                onChange={(e) => setRealName(e.target.value)}
+              />
+            </div>
 
-          {/* Description Textarea */}
-          <div className="space-y-2">
-            <Label htmlFor="description">Bio / Description (Optional)</Label>
-            <Textarea 
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Tell us a little about yourself..."
-              className="min-h-[80px]"
-              maxLength={500}
-            />
-             <p className="text-xs text-muted-foreground text-right">
-              {description.length} / 500
-            </p>
-          </div>
+            {/* Discord Username (Read-only) - Moved inside grid */}
+            <div className="space-y-2">
+              <Label htmlFor="discord-username" className="flex items-center">
+                Discord Username
+                <HoverCard>
+                  <HoverCardTrigger asChild>
+                    <HelpCircle className="h-4 w-4 ml-1.5 text-muted-foreground cursor-help" />
+                  </HoverCardTrigger>
+                  <HoverCardContent className="w-80 text-sm">
+                    This is synced from your Discord account. To change it, please update your username on Discord.
+                  </HoverCardContent>
+                </HoverCard>
+              </Label>
+              <Input
+                id="discord-username"
+                value={profile?.discord_username || 'N/A'} // Display fetched profile data
+                readOnly
+                disabled
+                className="cursor-not-allowed opacity-70" // Add styling for disabled look
+              />
+              <p className="text-xs text-muted-foreground">Synced from Discord</p>
+            </div>
+
+            {/* Description Textarea - Moved inside grid and spanning columns */}
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="description">Bio / Description (Optional)</Label>
+              <Textarea 
+                id="description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Tell us a little about yourself..."
+                className="min-h-[80px]"
+                maxLength={500}
+              />
+               <p className="text-xs text-muted-foreground text-right">
+                {description.length} / 500
+              </p>
+            </div>
+          </div> {/* End of the main text input grid */}
 
           {/* Links Section */}
           <div className="space-y-4">
