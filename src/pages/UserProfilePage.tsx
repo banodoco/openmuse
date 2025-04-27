@@ -355,97 +355,149 @@ export default function UserProfilePage() {
     }
   }, []); // Dependencies likely needed: supabase
 
+  // --- ADDED: Moved and wrapped handleOpenLightbox --- 
+  const handleOpenLightbox = useCallback((video: VideoEntry) => {
+    setLightboxVideo(video);
+    setInitialVideoParamHandled(true);
+    // Add history push state here if needed to update URL without reload
+    // window.history.pushState({}, '', `${window.location.pathname}?video=${video.id}`);
+  }, [setLightboxVideo, setInitialVideoParamHandled]); // Dependencies are stable setters
+
   // --- Main Data Fetching Effect --- 
   useEffect(() => {
-    const shouldForceLoggedOutView = loggedOutViewParam === 'true';
-    setForceLoggedOutView(shouldForceLoggedOutView);
-    let isMounted = true;
+    logger.log("Main data fetching effect triggered", { displayName, isAuthLoading, userId: user?.id, isAdmin, loggedOutViewParam });
+    // --- ADDED: Wait for auth to finish loading --- 
+    if (isAuthLoading) {
+      logger.log("Auth is loading, deferring profile fetch...");
+      return; // Don't proceed until auth is resolved
+    }
+    // --- END ADDED CHECK ---
+
+    // Define isMounted flag here, in the useEffect scope
+    let isMounted = true; 
+
+    // Determine if user should see the public view
+    const forcePublic = loggedOutViewParam === 'true';
+    setForceLoggedOutView(forcePublic);
+
     const fetchProfileAndInitialData = async () => {
-      if (!displayName) return;
-      if (isMounted) {
-        setIsLoadingProfile(true);
-        setIsLoadingAssets(true); 
-        setIsLoadingVideos(true);
-        setProfile(null); 
-        setUserAssets([]); setTotalAssets(0);
-        setUserVideos([]); setTotalGenerationVideos(0); setTotalArtVideos(0);
-        setIsOwner(false);
-        setCanEdit(false);
-        setGenerationPage(1);
-        setArtPage(1);
-        setLoraPage(1);
+      if (!displayName) {
+        logger.warn("No displayName in URL parameters, cannot fetch profile.");
+        setIsLoadingProfile(false);
+        setProfile(null);
+        setUserAssets([]);
+        setUserVideos([]);
+        return;
       }
+      
+      logger.log("Fetching profile for displayName:", displayName);
+      setIsLoadingProfile(true);
+      setIsLoadingAssets(true);
+      setIsLoadingVideos(true);
+
       try {
-        const decodedDisplayName = decodeURIComponent(displayName);
-        // First attempt a fast lookup by `username` (which should be indexed and unique). This avoids the
-        // expensive `or()` scan across both `display_name` and `username` columns that was previously causing
-        // full‑table scans and noticeably slower profile load times.
-        let { data: profileData, error: profileError } = await supabase
+        // Fetch profile by username (which is unique)
+        const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('username', decodedDisplayName)
-          .maybeSingle();
+          .eq('username', displayName) // Use username (unique) instead of display_name
+          .single();
 
-        if (!profileData && !profileError) {
-          // Fallback: if no profile matched the username, try display_name. This secondary lookup is only
-          // executed when necessary and therefore does not impact the common happy‑path performance.
-          ({ data: profileData, error: profileError } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('display_name', decodedDisplayName)
-            .maybeSingle());
-        }
+        // Use the isMounted flag defined in the outer scope
+        if (!isMounted) return; 
 
-        if (!isMounted) return;
-        if (profileError || !profileData) {
-            logger.error('Error fetching profile or profile not found:', profileError);
-            if (isMounted) {
-                toast.error(profileError?.message || "Profile not found.");
-                setIsLoadingProfile(false);
-                setIsLoadingAssets(false);
-                setIsLoadingVideos(false);
-                navigate('/');
-            }
-            return;
-        }
-        const currentProfile = profileData as UserProfile;
-        const ownerStatus = !shouldForceLoggedOutView && user?.id === currentProfile.id;
-        const currentIsAdmin = !!isAdmin && !shouldForceLoggedOutView; 
-        const editPermissions = ownerStatus || currentIsAdmin;
-        if (isMounted) { 
-            setProfile(currentProfile);
-            setIsOwner(ownerStatus);
-            setCanEdit(editPermissions);
-            setIsLoadingProfile(false);
-        } else {
-            return;
-        }
-        if (currentProfile.id) {
-          const canSeeHidden = editPermissions;
-          await Promise.allSettled([
-            fetchUserAssets(currentProfile.id, canSeeHidden, 1),
-            fetchUserVideos(currentProfile.id, user?.id, currentIsAdmin)
-          ]);
-        } else {
-            logger.warn("Profile fetched but has no ID, skipping asset/video fetch.", currentProfile);
-             if (isMounted) { 
-                setIsLoadingAssets(false);
-                setIsLoadingVideos(false);
-            }
-        }
-      } catch (err) {
-        logger.error('Unexpected error in fetchProfileAndData process:', err);
-        if (isMounted) {
-          toast.error("An unexpected error occurred loading profile data.");
+        if (profileError) {
+          if (profileError.code === 'PGRST116') { // Resource Not Found
+            logger.warn(`Profile not found for username: ${displayName}`);
+            toast.error("User profile not found.");
+          } else {
+            logger.error(`Error fetching profile for ${displayName}:`, profileError);
+            toast.error("Failed to load profile information.");
+          }
+          setProfile(null);
           setIsLoadingProfile(false);
           setIsLoadingAssets(false);
           setIsLoadingVideos(false);
+          navigate('/', { replace: true }); // Redirect if profile not found/error
+          return;
+        }
+
+        if (profileData) {
+          logger.log("Profile found:", profileData.id);
+          setProfile(profileData as UserProfile);
+          const ownerStatus = !forcePublic && user?.id === profileData.id;
+          const editStatus = !forcePublic && (ownerStatus || isAdmin);
+          setIsOwner(ownerStatus);
+          setCanEdit(editStatus);
+          logger.log("Profile owner/edit status determined", { ownerStatus, editStatus });
+
+          // Now fetch assets and videos associated with this profile ID
+          const profileUserId = profileData.id;
+          // Fetch assets and videos CONCURRENTLY 
+          // Pass editStatus to determine if hidden items should be fetched/shown
+          await Promise.all([
+            fetchUserAssets(profileUserId, editStatus, loraPage), // Initial fetch uses loraPage
+            fetchUserVideos(profileUserId, user?.id, isAdmin) // Pass viewer context
+          ]);
+          logger.log("Initial asset and video fetch complete for profile:", profileUserId);
+          
+          // Handle initial video param after data is loaded
+          const videoParam = searchParams.get('video');
+          if (videoParam && !initialVideoParamHandled) {
+             // Re-fetch the latest videos state before finding the video
+            const currentVideos = userVideos; // Assuming fetchUserVideos updated state
+            const found = currentVideos.find(v => v.id === videoParam);
+            if (found) {
+              handleOpenLightbox(found);
+              setInitialVideoParamHandled(true);
+            } else {
+              logger.warn(`Video ID ${videoParam} from URL not found in user's videos.`);
+            }
+          }
+
+        } else {
+          // This case should ideally be handled by the PGRST116 error check above
+          logger.warn(`Profile data unexpectedly null for username: ${displayName}`);
+          setProfile(null);
+          setIsOwner(false);
+          setCanEdit(false);
+          navigate('/', { replace: true });
+        }
+      } catch (err: any) {
+        // Use the isMounted flag defined in the outer scope
+        if (isMounted) {
+          logger.error('General error in fetchProfileAndInitialData:', err);
+          toast.error("An error occurred while loading the profile.");
+          setProfile(null);
+          setIsOwner(false);
+          setCanEdit(false);
+          // Consider navigation or showing an error state
+        }
+      } finally {
+        // Use the isMounted flag defined in the outer scope
+        if (isMounted) {
+          setIsLoadingProfile(false);
+          // Assets/Videos loading state is handled within their respective functions
         }
       }
     };
-    fetchProfileAndInitialData();
-    return () => { isMounted = false }; 
-  }, [displayName, user, navigate, isAdmin, loggedOutViewParam, fetchUserAssets, fetchUserVideos]);
+
+    // Call the fetch function only if auth is ready and we have a displayName
+    if (displayName) {
+      fetchProfileAndInitialData();
+    } else {
+      logger.warn("No displayName in URL parameter, skipping fetch.");
+      setIsLoadingProfile(false); // Ensure loading stops if no name
+      setProfile(null);
+    }
+
+    return () => { 
+      // This cleanup function now correctly references the isMounted flag from its scope
+      isMounted = false;
+      logger.log("Main data fetching effect cleanup");
+    }; 
+    // DEPENDENCIES: Ensure all external variables used are listed
+  }, [displayName, user, isAdmin, isAuthLoading, loggedOutViewParam, fetchUserAssets, fetchUserVideos, loraPage, searchParams, initialVideoParamHandled, handleOpenLightbox, navigate]);
 
   // --- Derived State with useMemo --- 
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
@@ -696,10 +748,6 @@ export default function UserProfilePage() {
   const handleLoraPageChange = (newPage: number) => {
     scrollToElementWithOffset(lorasGridRef.current);
     setTimeout(() => { if (!unmountedRef.current) setLoraPage(newPage); }, 300);
-  };
-  const handleOpenLightbox = (video: VideoEntry) => {
-    setLightboxVideo(video);
-    setInitialVideoParamHandled(true);
   };
   const handleCloseLightbox = () => setLightboxVideo(null);
   const handleHoverChange = (videoId: string, isHovering: boolean) => {

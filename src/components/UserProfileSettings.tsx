@@ -157,25 +157,41 @@ export default function UserProfileSettings() {
   );
 
   useEffect(() => {
-    const isValidLength = !username || username.trim().length >= 3;
-    setIsUsernameValid(isValidLength);
+    // Regex for validation (should match the Edge Function)
+    const USERNAME_REGEX = /^[a-zA-Z0-9_-]+$/;
+    const trimmedUsername = username.trim();
 
-    if (isValidLength && username !== initialUsername.current) {
-       debouncedCheckUsername(username);
-    } else {
+    // Check both format and length
+    const isValidFormat = !trimmedUsername || USERNAME_REGEX.test(trimmedUsername);
+    const isValidLength = !trimmedUsername || (trimmedUsername.length >= 3 && trimmedUsername.length <= 50);
+
+    // Update the validation state
+    setIsUsernameValid(isValidFormat && isValidLength);
+
+    // Reset check state if format/length are invalid or username hasn't changed meaningfully
+    if (!isValidFormat || !isValidLength || trimmedUsername === initialUsername.current) {
        setIsCheckingUsername(false);
-       setIsUsernameAvailable(username === initialUsername.current ? true : null);
+       // Set availability true only if it's the initial username and valid
+       setIsUsernameAvailable(trimmedUsername === initialUsername.current && isValidFormat && isValidLength ? true : null);
        setUsernameCheckError(null);
+       // Don't proceed to debounce check if invalid or unchanged
+       return;
     }
+
+    // Only call debounce check if format/length ARE valid AND username has changed
+    // This block is only reached if the username is valid format, valid length, and different from initial
+    debouncedCheckUsername(trimmedUsername);
+
   }, [username, debouncedCheckUsername, initialUsername]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Re-check validation state before submitting
     if (!isUsernameValid) {
       toast({
         title: "Validation Error",
-        description: 'Username must be at least 3 characters long',
+        description: 'Username must be 3-50 characters long and contain only letters, numbers, underscores, or hyphens.',
         variant: "destructive"
       });
       return;
@@ -478,12 +494,12 @@ export default function UserProfileSettings() {
             <div className="flex items-center justify-between">
               <Label htmlFor="username">Username</Label>
               {username !== initialUsername.current && (
-                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
               )}
             </div>
             {!isUsernameValid && username.trim().length > 0 && (
               <p className="text-sm text-destructive">
-                Username must be at least 3 characters long.
+                Username must be 3-50 characters long and contain only letters, numbers, underscores, or hyphens.
               </p>
             )}
             <Input
@@ -518,6 +534,10 @@ export default function UserProfileSettings() {
                  <span className="text-destructive flex items-center">
                    <X className="mr-1 h-3 w-3" /> Username already taken.
                  </span>
+               ) : !isUsernameValid && username.trim().length > 0 ? (
+                 <span className="text-destructive">
+                   Invalid format. Only letters, numbers, '_', '-' allowed.
+                 </span>
                ) : username !== initialUsername.current && isUsernameValid ? (
                  <span className="text-muted-foreground italic">
                    Remember to save changes.
@@ -534,7 +554,7 @@ export default function UserProfileSettings() {
             <div className="flex items-center justify-between">
               <Label htmlFor="display_name">Display Name</Label>
               {displayName !== initialDisplayName.current && (
-                 <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+                 <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
               )}
             </div>
             <Input
@@ -561,7 +581,7 @@ export default function UserProfileSettings() {
             <div className="flex items-center justify-between">
               <Label htmlFor="real_name">Real Name (Optional)</Label>
               {realName !== initialRealName.current && (
-                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
               )}
             </div>
             <Input
@@ -572,7 +592,7 @@ export default function UserProfileSettings() {
               maxLength={100}
             />
             <p className="text-sm text-muted-foreground">
-              Only visible to administrators.
+              Shown on profile if available.
             </p>
           </div>
           
@@ -580,7 +600,7 @@ export default function UserProfileSettings() {
             <div className="flex items-center justify-between">
               <Label htmlFor="description">About Me</Label>
               {description !== initialDescription.current && (
-                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
               )}
             </div>
             <Textarea 
@@ -599,7 +619,7 @@ export default function UserProfileSettings() {
             <div className="flex items-center justify-between">
               <Label htmlFor="links">Links</Label>
               {JSON.stringify(links) !== JSON.stringify(initialLinks.current || []) && (
-                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+                <span className="text-xs text-amber-600 dark:text-amber-400 font-semibold italic">(Needs saving)</span>
               )}
             </div>
             <div className="flex space-x-2">
