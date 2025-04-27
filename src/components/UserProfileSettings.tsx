@@ -229,6 +229,34 @@ export default function UserProfileSettings() {
     }
   };
 
+  // === ADDED: Function to handle discarding changes ===
+  const handleDiscardChanges = useCallback(() => {
+    // Reset state variables to initial values stored in refs
+    setUsername(initialUsername.current || '');
+    setDisplayName(initialDisplayName.current || '');
+    setRealName(initialRealName.current || '');
+    setDescription(initialDescription.current || '');
+    setLinks(initialLinks.current || []);
+    setAvatarUrl(initialAvatarUrl.current || '');
+    setBackgroundImageUrl(initialBackgroundImageUrl.current || '');
+
+    // Reset validation and error states
+    setIsUsernameValid(true);
+    setIsCheckingUsername(false);
+    setIsUsernameAvailable(null);
+    setUsernameCheckError(null);
+    setError(null); // Clear general form errors
+    setNewLink(''); // Clear the new link input
+    setEditingLinkIndex(null); // Exit link editing mode
+    setEditingLinkValue('');
+
+    // Optionally, provide user feedback
+    toast({
+      title: "Changes Discarded",
+      description: "Your profile settings have been reset to the last saved state.",
+    });
+  }, []); // Dependencies are refs, so they don't need to be listed
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -526,7 +554,7 @@ export default function UserProfileSettings() {
                 Username
                 <HoverCard>
                   <HoverCardTrigger asChild>
-                    <HelpCircle className="h-4 w-4 ml-1.5 text-muted-foreground cursor-help" />
+                    <HelpCircle className="h-4 w-4 ml-2 text-muted-foreground cursor-help p-1" />
                   </HoverCardTrigger>
                   <HoverCardContent className="w-80 text-sm">
                     Your unique username (3-50 chars). Can contain letters, numbers, underscores (_), and hyphens (-).
@@ -615,7 +643,7 @@ export default function UserProfileSettings() {
                 Discord Username
                 <HoverCard>
                   <HoverCardTrigger asChild>
-                    <HelpCircle className="h-4 w-4 ml-1.5 text-muted-foreground cursor-help" />
+                    <HelpCircle className="h-4 w-4 ml-2 text-muted-foreground cursor-help p-1" />
                   </HoverCardTrigger>
                   <HoverCardContent className="w-80 text-sm">
                     This is synced from your Discord account. To change it, please update your username on Discord.
@@ -629,7 +657,6 @@ export default function UserProfileSettings() {
                 disabled
                 className="cursor-not-allowed opacity-70" // Add styling for disabled look
               />
-              <p className="text-xs text-muted-foreground">Synced from Discord</p>
             </div>
 
             {/* Description Textarea - Moved inside grid and spanning columns */}
@@ -732,15 +759,29 @@ export default function UserProfileSettings() {
             <ExternalLink className="mr-2 h-4 w-4" />
              View Public Profile
           </Button>
-          <Button type="submit" disabled={isLoading || isSaving || !isUsernameValid || isUsernameAvailable === false || (isUsernameAvailable === null && username !== initialUsername.current) || !displayName.trim() || !hasChanges()}>
-            {isSaving ? (
-              <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
-            ) : justSaved ? (
-               <><Check className="mr-2 h-4 w-4" /> Saved!</>
-            ) : (
-              'Save Changes'
-            )}
-          </Button>
+          {/* === ADDED: Discard and Save buttons group === */}
+          <div className="flex items-center space-x-2">
+             <Button 
+                type="button"
+                variant="outline" // Or "ghost"
+                onClick={handleDiscardChanges}
+                disabled={!hasChanges()} // Disable if no changes
+             >
+               Discard Changes
+             </Button>
+             <Button 
+               type="submit" 
+               disabled={isLoading || isSaving || !isUsernameValid || isUsernameAvailable === false || (isUsernameAvailable === null && username !== initialUsername.current) || !displayName.trim() || !hasChanges()}
+              >
+               {isSaving ? (
+                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>
+               ) : justSaved ? (
+                  <><Check className="mr-2 h-4 w-4" /> Saved!</>
+               ) : (
+                 'Save Changes'
+               )}
+             </Button>
+          </div>
         </CardFooter>
       </form>
     </Card>
