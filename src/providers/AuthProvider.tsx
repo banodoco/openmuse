@@ -151,13 +151,46 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              logger.log(`[Auth Listener] Initial check not yet complete, deferring full processing of event: ${event}`);
              // It might be useful to still update the session/user optimistically here if SIGNED_IN
              // but wait for the initial check to finish before setting isLoading=false or checking admin
+
+             // ---> MODIFIED LOGIC START <---
              if (event === 'SIGNED_IN' && currentSession) {
-                logger.log(`[Auth Listener] Optimistically setting session/user for deferred SIGNED_IN.`);
-                setSession(currentSession);
-                setUser(currentSession.user);
-                // DO NOT set isAdmin or isLoading here yet
+                logger.log(`[Auth Listener] SIGNED_IN received before initial check complete. Processing immediately.`);
+                if (isMounted.current) {
+                    setSession(currentSession);
+                    setUser(currentSession.user);
+                    // Mark initial check complete AND set loading false
+                    initialCheckCompleted.current = true;
+                    setIsLoading(false);
+                    // Trigger non-blocking admin check if user exists
+                    if (currentSession.user) { // Check if user exists
+                        if (!adminCheckInProgress.current) {
+                            adminCheckInProgress.current = true;
+                            logger.log(`[Auth Listener] Triggering initial admin check for ${currentSession.user.id}`);
+                            // Non-blocking admin check (similar to the one in the initial check logic)
+                            (async () => {
+                                try {
+                                    const adminStatus = await checkIsAdmin(currentSession.user.id);
+                                    if (isMounted.current) setIsAdmin(adminStatus);
+                                } catch (adminError) {
+                                    logger.error('[Auth Listener] Error checking initial admin status:', adminError);
+                                    if (isMounted.current) setIsAdmin(false);
+                                } finally {
+                                     // Ensure flag is reset regardless of mount status after async operation
+                                     adminCheckInProgress.current = false;
+                                     if (isMounted.current) {
+                                        logger.log('[Auth Listener] Initial admin check finished.');
+                                     } else {
+                                        logger.log('[Auth Listener] Initial admin check finished after unmount.');
+                                     }
+                                }
+                            })();
+                        }
+                    }
+                }
+                return; // We've handled it, don't wait for the initial check anymore
              }
-             return; // Wait for initial check to complete fully
+             // ---> MODIFIED LOGIC END <---
+             return; // Wait for initial check to complete fully for other events
            }
         }
 
