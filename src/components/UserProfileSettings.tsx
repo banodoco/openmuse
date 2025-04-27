@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil, ExternalLink, HelpCircle } from 'lucide-react';
+import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil, ExternalLink, HelpCircle, Trash2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
@@ -694,19 +694,19 @@ export default function UserProfileSettings() {
                         handleCancelEdit();
                       }
                     }}
-                    className="flex-grow"
+                    className="flex-grow min-w-0"
                     placeholder="https://example.com"
                     autoFocus
                   />
                 ) : (
-                  <div className="flex-grow flex items-center space-x-2 p-2 border rounded-md bg-background">
+                  <div className="flex-grow flex items-center space-x-2 p-2 border rounded-md bg-background overflow-hidden min-w-0">
                      <img 
                         src={`https://www.google.com/s2/favicons?domain=${getDomain(link)}&sz=16`}
                         alt="" 
-                        className="w-4 h-4"
-                        onError={(e) => (e.currentTarget.style.display = 'none')} // Hide if favicon fails
+                        className="w-4 h-4 flex-shrink-0"
+                        onError={(e) => (e.currentTarget.style.display = 'none')}
                       />
-                     <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm truncate hover:underline flex-grow">
+                     <a href={link} target="_blank" rel="noopener noreferrer" className="text-sm truncate hover:underline flex-grow min-w-0">
                         {link}
                      </a>
                   </div>
@@ -714,20 +714,20 @@ export default function UserProfileSettings() {
 
                 {editingLinkIndex === index ? (
                    <>
-                      <Button type="button" size="icon" variant="ghost" onClick={() => handleSaveEditedLink(index)} disabled={!isValidUrl(editingLinkValue)} className="h-8 w-8">
+                      <Button type="button" size="icon" variant="ghost" onClick={() => handleSaveEditedLink(index)} disabled={!isValidUrl(editingLinkValue)} className="h-8 w-8 flex-shrink-0">
                           <Check className="h-4 w-4" />
                       </Button>
-                      <Button type="button" size="icon" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8">
+                      <Button type="button" size="icon" variant="ghost" onClick={handleCancelEdit} className="h-8 w-8 flex-shrink-0">
                           <X className="h-4 w-4" />
                       </Button>
                    </>
                  ) : (
-                  <Button type="button" size="icon" variant="ghost" onClick={() => handleEditLink(index)} className="h-8 w-8">
+                  <Button type="button" size="icon" variant="ghost" onClick={() => handleEditLink(index)} className="h-8 w-8 flex-shrink-0">
                     <Pencil className="h-4 w-4" />
                   </Button>
                  )}
-                <Button type="button" size="icon" variant="ghost" onClick={() => handleRemoveLink(index)} className="h-8 w-8">
-                  <X className="h-4 w-4 text-destructive/70 hover:text-destructive" />
+                <Button type="button" size="icon" variant="ghost" onClick={() => handleRemoveLink(index)} className="h-8 w-8 flex-shrink-0">
+                  <Trash2 className="h-4 w-4 text-destructive/70 hover:text-destructive" />
                 </Button>
               </div>
             ))}
@@ -737,7 +737,7 @@ export default function UserProfileSettings() {
                   type="text"
                   value={newLink}
                   onChange={(e) => setNewLink(e.target.value)}
-                  onKeyDown={handleKeyDown} // Use keydown handler
+                  onKeyDown={handleKeyDown}
                   placeholder="Add a link (e.g., https://portfolio.com)"
                   className="flex-grow"
                 />
@@ -749,29 +749,31 @@ export default function UserProfileSettings() {
             {links.length >= 5 && editingLinkIndex === null && <p className="text-xs text-muted-foreground">Maximum of 5 links reached.</p>}
           </div>
         </CardContent>
-        <CardFooter className="border-t pt-6 flex justify-between items-center">
+        <CardFooter className="border-t pt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-2">
           <Button 
              type="button" 
              variant="outline"
-             onClick={() => window.open(`/profile/${profile?.username}?loggedOutView=true`, '_blank')} // Use profile?.username which should exist here
+             onClick={() => window.open(`/profile/${profile?.username}?loggedOutView=true`, '_blank')}
              disabled={!profile?.username}
+             className="w-full sm:w-auto"
           >
             <ExternalLink className="mr-2 h-4 w-4" />
              View Public Profile
           </Button>
-          {/* === ADDED: Discard and Save buttons group === */}
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
              <Button 
                 type="button"
-                variant="outline" // Or "ghost"
+                variant="outline"
                 onClick={handleDiscardChanges}
-                disabled={!hasChanges()} // Disable if no changes
+                disabled={!hasChanges()}
+                className="flex-grow sm:flex-grow-0"
              >
                Discard Changes
              </Button>
              <Button 
                type="submit" 
                disabled={isLoading || isSaving || !isUsernameValid || isUsernameAvailable === false || (isUsernameAvailable === null && username !== initialUsername.current) || !displayName.trim() || !hasChanges()}
+               className="flex-grow sm:flex-grow-0"
               >
                {isSaving ? (
                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</>

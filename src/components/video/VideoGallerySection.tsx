@@ -41,6 +41,7 @@ interface VideoGallerySectionProps {
   onRejectVideo?: (id: string) => Promise<void>;
   onUpdateLocalVideoStatus?: (id: string, newStatus: VideoDisplayStatus) => void;
   compact?: boolean; // New prop to render section without default margins/header
+  onUploadSuccess?: () => void; // Add optional callback for upload success
 }
 
 const logger = new Logger('VideoGallerySection');
@@ -68,6 +69,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   onRejectVideo,
   onUpdateLocalVideoStatus,
   compact = false,
+  onUploadSuccess,
 }) => {
   const isMobile = useIsMobile();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -76,6 +78,14 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   useEffect(() => {
     setGalleryVideos(videos);
   }, [videos]);
+
+  // New handler for upload success
+  const handleUploadSuccess = useCallback(() => {
+    setIsUploadModalOpen(false);
+    if (onUploadSuccess) {
+      onUploadSuccess(); // Call the parent's callback if provided
+    }
+  }, [onUploadSuccess]);
 
   return (
     <section className={compact ? "space-y-4" : "space-y-4 mt-4"}>
@@ -100,7 +110,12 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
                 </Button>
               </DialogTrigger>
               <DialogContent className="rounded-lg w-[90vw] max-w-[90vw] sm:max-w-[80vw] max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
-                <UploadPage initialMode="media" defaultClassification={addButtonClassification} hideLayout={true} />
+                <UploadPage 
+                  initialMode="media" 
+                  defaultClassification={addButtonClassification} 
+                  hideLayout={true} 
+                  onSuccess={handleUploadSuccess} // Use the new handler
+                />
               </DialogContent>
             </Dialog>
           )}

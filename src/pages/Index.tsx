@@ -280,6 +280,26 @@ const Index: React.FC = () => {
     }
   }, [refetchLoras, user]); // Added user dependency
   
+  // --- Upload Success Handlers ---
+  const handleLoraUploadSuccess = useCallback(() => {
+    setIsUploadModalOpen(false);
+    // Refetch LoRAs to show the newly added one
+    refetchLoras();
+    toast.success("LoRA added successfully!");
+  }, [refetchLoras]);
+
+  const handleArtUploadSuccess = useCallback(() => {
+    setIsUploadModalOpen(false); // Close the specific modal
+    refetchVideos(); // Refetch videos
+    toast.success("Art uploaded successfully!");
+  }, [refetchVideos]);
+
+  const handleGenerationUploadSuccess = useCallback(() => {
+    setIsUploadModalOpen(false); // Close the specific modal
+    refetchVideos(); // Refetch videos
+    toast.success("Generation uploaded successfully!");
+  }, [refetchVideos]);
+
   // logger.log(`Index rendering return. videosLoading=${videosLoading}, lorasLoading=${lorasLoading}, authLoading=${authLoading}, displayLoras count=${displayLoras.length}`);
   // Page loading state now depends on videos finishing
   const isPageLoading = videosLoading;
@@ -634,7 +654,11 @@ const Index: React.FC = () => {
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="rounded-lg w-[90vw] max-w-[90vw] sm:max-w-[80vw] max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
-                    <UploadPage initialMode="lora" hideLayout={true} />
+                    <UploadPage 
+                      initialMode="lora" 
+                      hideLayout={true} 
+                      onSuccess={handleLoraUploadSuccess}
+                    />
                   </DialogContent>
                 </Dialog>
               )}
@@ -668,6 +692,7 @@ const Index: React.FC = () => {
               onOpenLightbox={handleOpenLightbox}
               approvalFilter={currentApprovalFilter}
               headerTextClass="text-[#2F4F2E]/75"
+              onUploadSuccess={handleArtUploadSuccess}
             />
             {renderPaginationControls(artPage, displayArtVideos.totalPages, handleArtPageChange)}
           </div>
@@ -690,6 +715,7 @@ const Index: React.FC = () => {
               onOpenLightbox={handleOpenLightbox}
               approvalFilter={currentApprovalFilter}
               headerTextClass="text-[#2F4F2E]/75"
+              onUploadSuccess={handleGenerationUploadSuccess}
             />
             {renderPaginationControls(generationPage, displayGenVideos.totalPages, handleGenerationPageChange)}
           </div>
