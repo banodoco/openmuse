@@ -902,7 +902,7 @@ export default function UserProfilePage() {
                         Add LoRA
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
+                    <DialogContent className="rounded-lg w-[90vw] max-w-[90vw] sm:max-w-[80vw] max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
                       <DialogHeader>
                         <DialogTitle>Add LoRA</DialogTitle>
                       </DialogHeader>
@@ -946,7 +946,7 @@ export default function UserProfilePage() {
                          Add Art
                        </Button>
                      </DialogTrigger>
-                     <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
+                     <DialogContent className="rounded-lg w-[90vw] max-w-[90vw] sm:max-w-[80vw] max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
                        <DialogHeader>
                          <DialogTitle>Upload Art</DialogTitle>
                        </DialogHeader>
@@ -981,7 +981,7 @@ export default function UserProfilePage() {
                         // Don't show add button or see all link here
                         showAddButton={false}
                         seeAllPath=""
-                        emptyMessage="This user hasn't added any art videos yet." // Custom empty message
+                        emptyMessage="This user hasn't added any art yet." // Custom empty message
                       />
                     </div>
                     {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)} </> 
@@ -998,7 +998,7 @@ export default function UserProfilePage() {
                         Add Generation
                       </Button>
                     </DialogTrigger>
-                    <DialogContent className="sm:max-w-[80vw] max-h-[90vh] overflow-y-auto top-[5vh] translate-y-0">
+                    <DialogContent className="rounded-lg w-[90vw] max-w-[90vw] sm:max-w-[80vw] max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
                       <DialogHeader>
                         <DialogTitle>Upload Generation</DialogTitle>
                       </DialogHeader>
@@ -1033,7 +1033,7 @@ export default function UserProfilePage() {
                          forceCreatorHoverDesktop={true} // Match Index page for Generations
                          showAddButton={false}
                          seeAllPath=""
-                         emptyMessage="This user hasn't generated any videos yet." // Custom empty message
+                         emptyMessage="This user hasn't added any generations yet." // Custom empty message
                        />
                      </div>
                      {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 
