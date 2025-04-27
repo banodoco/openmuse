@@ -65,17 +65,16 @@ const AuthButton: React.FC = () => {
   };
 
   const handleProfileClick = () => {
-    // If user is logged in and has a profile, navigate to their profile
-    if (user) {
-      const displayName = userProfile?.display_name || userProfile?.username || user.user_metadata.preferred_username;
-      
-      if (displayName) {
-        navigate(`/profile/${encodeURIComponent(displayName)}`);
-      } else {
-        // Fallback to a generic profile route if no display name is available
-        navigate('/profile');
-      }
+    // If user is logged in and has a profile with a username, navigate there
+    if (user && userProfile?.username) {
+      navigate(`/profile/${userProfile.username}`); // Use username directly
+    } else if (user) {
+      // Log an error or navigate to a safe fallback like home or settings
+      // This case should ideally not happen if a logged-in user always has a profile
+      logger.warn('Profile button clicked, but user profile or username is missing. Navigating home.', { userId: user.id, profileExists: !!userProfile });
+      navigate('/'); 
     }
+    // If no user, the button shouldn't be clickable in this state anyway
   };
   
   const getDisplayName = () => {
