@@ -161,12 +161,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // --- Username Sync Check ---
         if (currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
           const userId = currentSession.user.id;
-          // Get Discord info from metadata
-          const discordUsername = currentSession.user.user_metadata?.preferred_username;
+          // Get Discord info from metadata - Use 'name' instead of 'preferred_username'
+          const discordUsername = currentSession.user.user_metadata?.name;
           const discordUserId = currentSession.user.user_metadata?.provider_id;
 
           if (discordUsername || discordUserId) { // Check if we have either username or ID from Discord
-            logger.log(`[Auth Listener] Checking Discord ID/Username sync for user ${userId}`);
+            logger.log(`[Auth Listener] Checking Discord ID/Username sync for user ${userId}. Metadata values - ID: ${discordUserId}, Username: ${discordUsername}`);
             try {
               // Fetch only the discord fields from the profile
               const { data: profileData, error: profileError } = await supabase
@@ -220,7 +220,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               logger.error(`[Auth Listener] Unexpected error during Discord sync check for ${userId}:`, syncError);
             }
           } else {
-            logger.log(`[Auth Listener] No Discord username or provider_id found in metadata for ${userId}, skipping sync check.`);
+            logger.log(`[Auth Listener] No Discord username ('name') or provider_id found in metadata for ${userId}, skipping sync check.`);
           }
         }
         // --- End Username Sync Check ---
