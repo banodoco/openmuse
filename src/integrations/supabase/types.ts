@@ -119,12 +119,10 @@ export type Database = {
           admin_status: string | null
           classification: string | null
           created_at: string
-          creator: string | null
           description: string | null
           id: string
-          model_variant: string | null
-          placeholder_image: string | null
           metadata: Json | null
+          placeholder_image: string | null
           title: string
           type: string
           url: string
@@ -136,12 +134,10 @@ export type Database = {
           admin_status?: string | null
           classification?: string | null
           created_at?: string
-          creator?: string | null
           description?: string | null
           id?: string
-          model_variant?: string | null
-          placeholder_image?: string | null
           metadata?: Json | null
+          placeholder_image?: string | null
           title: string
           type: string
           url: string
@@ -153,12 +149,10 @@ export type Database = {
           admin_status?: string | null
           classification?: string | null
           created_at?: string
-          creator?: string | null
           description?: string | null
           id?: string
-          model_variant?: string | null
-          placeholder_image?: string | null
           metadata?: Json | null
+          placeholder_image?: string | null
           title?: string
           type?: string
           url?: string
@@ -173,6 +167,8 @@ export type Database = {
           background_image_url: string | null
           created_at: string
           description: string | null
+          discord_user_id: string | null
+          discord_username: string | null
           display_name: string | null
           id: string
           links: string[] | null
@@ -185,6 +181,8 @@ export type Database = {
           background_image_url?: string | null
           created_at?: string
           description?: string | null
+          discord_user_id?: string | null
+          discord_username?: string | null
           display_name?: string | null
           id: string
           links?: string[] | null
@@ -197,6 +195,8 @@ export type Database = {
           background_image_url?: string | null
           created_at?: string
           description?: string | null
+          discord_user_id?: string | null
+          discord_username?: string | null
           display_name?: string | null
           id?: string
           links?: string[] | null

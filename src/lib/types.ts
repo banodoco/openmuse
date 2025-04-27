@@ -69,7 +69,8 @@ export interface UserProfile {
   id: string;
   username: string;
   display_name?: string;
-  discord_username?: string;
+  discord_username?: string; // Added
+  discord_user_id?: string;  // Added
   real_name?: string;
   avatar_url?: string;
   video_upload_consent?: boolean;
@@ -128,5 +129,5 @@ export interface VideoItem {
   metadata: VideoMetadataForm;
   associatedLoraIds?: string[];
 }
- 
+
 export type { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
