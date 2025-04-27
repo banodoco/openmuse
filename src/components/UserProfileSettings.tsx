@@ -53,6 +53,12 @@ export default function UserProfileSettings() {
   const [isUsernameAvailable, setIsUsernameAvailable] = useState<boolean | null>(null);
   const [usernameCheckError, setUsernameCheckError] = useState<string | null>(null);
   const initialUsername = useRef<string | null>(null);
+  const initialDisplayName = useRef<string | null>(null);
+  const initialRealName = useRef<string | null>(null);
+  const initialDescription = useRef<string | null>(null);
+  const initialLinks = useRef<string[] | null>(null);
+  const initialAvatarUrl = useRef<string | null>(null);
+  const initialBackgroundImageUrl = useRef<string | null>(null);
 
   useEffect(() => {
     async function loadProfile() {
@@ -66,13 +72,25 @@ export default function UserProfileSettings() {
           const loadedUsername = userProfile?.username || '';
           setUsername(loadedUsername);
           initialUsername.current = loadedUsername;
+          const loadedDisplayName = userProfile?.display_name || userProfile?.username || '';
+          setDisplayName(loadedDisplayName);
+          initialDisplayName.current = loadedDisplayName;
+          const loadedRealName = userProfile?.real_name || '';
+          setRealName(loadedRealName);
+          initialRealName.current = loadedRealName;
+          const loadedDescription = userProfile?.description || '';
+          setDescription(loadedDescription);
+          initialDescription.current = loadedDescription;
+          const loadedLinks = userProfile?.links || [];
+          setLinks(loadedLinks);
+          initialLinks.current = loadedLinks;
+          const loadedAvatarUrl = userProfile?.avatar_url || '';
+          setAvatarUrl(loadedAvatarUrl);
+          initialAvatarUrl.current = loadedAvatarUrl;
+          const loadedBackgroundImageUrl = userProfile?.background_image_url || '';
+          setBackgroundImageUrl(loadedBackgroundImageUrl);
+          initialBackgroundImageUrl.current = loadedBackgroundImageUrl;
           setIsUsernameValid(true);
-          setDisplayName(userProfile?.display_name || userProfile?.username || '');
-          setRealName(userProfile?.real_name || '');
-          setDescription(userProfile?.description || '');
-          setLinks(userProfile?.links || []);
-          setAvatarUrl(userProfile?.avatar_url || '');
-          setBackgroundImageUrl(userProfile?.background_image_url || '');
         } catch (err) {
           console.error('Error loading profile:', err);
           setError('Failed to load profile information');
@@ -209,11 +227,17 @@ export default function UserProfileSettings() {
         setProfile(updatedProfile);
         initialUsername.current = updatedProfile.username;
         setUsername(updatedProfile.username);
+        initialDisplayName.current = updatedProfile.display_name || '';
         setDisplayName(updatedProfile.display_name || '');
+        initialRealName.current = updatedProfile.real_name || '';
         setRealName(updatedProfile.real_name || '');
+        initialDescription.current = updatedProfile.description || '';
         setDescription(updatedProfile.description || '');
+        initialLinks.current = updatedProfile.links || [];
         setLinks(updatedProfile.links || []);
+        initialAvatarUrl.current = updatedProfile.avatar_url || '';
         setAvatarUrl(updatedProfile.avatar_url || '');
+        initialBackgroundImageUrl.current = updatedProfile.background_image_url || '';
         setBackgroundImageUrl(updatedProfile.background_image_url || '');
         setIsUsernameAvailable(null);
         setJustSaved(true);
@@ -451,7 +475,12 @@ export default function UserProfileSettings() {
           </div>
           
           <div className="space-y-1">
-            <Label htmlFor="username">Username</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="username">Username</Label>
+              {username !== initialUsername.current && (
+                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+              )}
+            </div>
             {!isUsernameValid && username.trim().length > 0 && (
               <p className="text-sm text-destructive">
                 Username must be at least 3 characters long.
@@ -502,7 +531,12 @@ export default function UserProfileSettings() {
           </div>
           
           <div className="space-y-1">
-            <Label htmlFor="display_name">Display Name</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="display_name">Display Name</Label>
+              {displayName !== initialDisplayName.current && (
+                 <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+              )}
+            </div>
             <Input
               id="display_name"
               value={displayName}
@@ -524,7 +558,12 @@ export default function UserProfileSettings() {
           </div>
           
           <div className="space-y-1">
-            <Label htmlFor="real_name">Real Name (Optional)</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="real_name">Real Name (Optional)</Label>
+              {realName !== initialRealName.current && (
+                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+              )}
+            </div>
             <Input
               id="real_name"
               value={realName}
@@ -538,7 +577,12 @@ export default function UserProfileSettings() {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="description">About Me</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="description">About Me</Label>
+              {description !== initialDescription.current && (
+                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+              )}
+            </div>
             <Textarea 
               id="description"
               value={description}
@@ -552,7 +596,12 @@ export default function UserProfileSettings() {
           </div>
           
           <div className="space-y-2">
-            <Label htmlFor="links">Links</Label>
+            <div className="flex items-center justify-between">
+              <Label htmlFor="links">Links</Label>
+              {JSON.stringify(links) !== JSON.stringify(initialLinks.current || []) && (
+                <span className="text-xs text-muted-foreground italic">(Needs saving)</span>
+              )}
+            </div>
             <div className="flex space-x-2">
               <Input 
                 id="links"
