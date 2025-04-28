@@ -39,6 +39,7 @@ interface VideoGallerySectionProps {
   onApproveVideo?: (id: string) => Promise<void>;
   onDeleteVideo?: (id: string) => Promise<void>;
   onRejectVideo?: (id: string) => Promise<void>;
+  onSetPrimaryMedia?: (id: string) => Promise<void>;
   onUpdateLocalVideoStatus?: (id: string, newStatus: VideoDisplayStatus) => void;
   compact?: boolean; // New prop to render section without default margins/header
   onUploadSuccess?: () => void; // Add optional callback for upload success
@@ -67,6 +68,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   onApproveVideo,
   onDeleteVideo,
   onRejectVideo,
+  onSetPrimaryMedia,
   onUpdateLocalVideoStatus,
   compact = false,
   onUploadSuccess,
@@ -136,6 +138,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
           onApproveVideo={onApproveVideo}
           onDeleteVideo={onDeleteVideo}
           onRejectVideo={onRejectVideo}
+          onSetPrimaryMedia={onSetPrimaryMedia}
           onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
           alwaysShowInfo={alwaysShowInfo}
           forceCreatorHoverDesktop={forceCreatorHoverDesktop}
