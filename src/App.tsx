@@ -48,11 +48,27 @@ const App: React.FC = () => {
         console.log('Global autoplay unlock listener removed.');
       };
     }
-  }, []); // Empty dependency array ensures this runs only once on mount
+  }, []);
+
+  // Global Animation Restart on Page Show for Mobile
+  useEffect(() => {
+    const handlePageShow = () => {
+      console.log('pageshow event detected, restarting animations');
+      const container = document.getElementById('app-container');
+      if (container) {
+        container.classList.remove('restart-animations');
+        // Force reflow
+        void container.offsetWidth;
+        container.classList.add('restart-animations');
+      }
+    };
+    window.addEventListener('pageshow', handlePageShow);
+    return () => window.removeEventListener('pageshow', handlePageShow);
+  }, []);
 
   return (
     <AuthProvider>
-      <div className="min-h-screen bg-gradient-to-br from-[#FEFDF4] via-[#FEFDF4] to-[#C3C6AD]">
+      <div id="app-container" className="min-h-screen bg-gradient-to-br from-[#FEFDF4] via-[#FEFDF4] to-[#C3C6AD]">
         <Router>
           <Suspense fallback={<LoadingState />}>
             <Routes>
