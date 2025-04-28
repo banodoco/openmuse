@@ -76,12 +76,17 @@ const App: React.FC = () => {
   const [showRefreshToast, setShowRefreshToast] = useState(false);
   useEffect(() => {
     const handleFocus = () => {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      console.log('[handleFocus] isMobile:', isMobile, 'userAgent:', navigator.userAgent); // DEBUG LOG
       const videos = document.querySelectorAll('video');
       const allStuck = videos.length > 0 && Array.from(videos).every(video => video.paused || video.readyState < 3);
-      if (allStuck) {
-        console.log('All videos are stuck on focus; showing refresh toast.');
+      console.log('[handleFocus] allStuck:', allStuck); // DEBUG LOG
+      if (isMobile && allStuck) {
+        console.log('All videos are stuck on focus on mobile; showing refresh toast.');
         setShowRefreshToast(true);
       } else {
+        // Only log if we are actively setting it to false when it was true
+        // if (showRefreshToast) console.log('[handleFocus] Hiding toast. Reason: isMobile=', isMobile, 'allStuck=', allStuck);
         setShowRefreshToast(false);
       }
     };
@@ -92,12 +97,17 @@ const App: React.FC = () => {
   // Periodic check if videos remain stuck (fallback)
   useEffect(() => {
     const checkVideosStuck = () => {
+      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+      console.log('[checkVideosStuck] isMobile:', isMobile, 'userAgent:', navigator.userAgent); // DEBUG LOG
       const videos = document.querySelectorAll('video');
       const allStuck = videos.length > 0 && Array.from(videos).every(video => video.paused || video.readyState < 3);
-      if (allStuck) {
-        console.log('Periodic check: all videos remain stuck, showing refresh toast.');
+      console.log('[checkVideosStuck] allStuck:', allStuck); // DEBUG LOG
+      if (isMobile && allStuck) {
+        console.log('Periodic check: all videos remain stuck on mobile, showing refresh toast.');
         setShowRefreshToast(true);
       } else {
+        // Only log if we are actively setting it to false when it was true
+        // if (showRefreshToast) console.log('[checkVideosStuck] Hiding toast. Reason: isMobile=', isMobile, 'allStuck=', allStuck);
         setShowRefreshToast(false);
       }
     };

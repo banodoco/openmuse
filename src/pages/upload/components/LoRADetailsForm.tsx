@@ -71,6 +71,7 @@ const LoRADetailsForm: React.FC<LoRADetailsFormProps> = ({ onCancel }) => {
             lora_base_model: values.baseModel,
             model_variant: values.modelVariant || null,
             lora_link: values.loraLink,
+            admin_status: 'Listed',
           },
         ])
         .select();

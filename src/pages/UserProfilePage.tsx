@@ -362,15 +362,12 @@ export default function UserProfilePage() {
   // --- Main Data Fetching Effect ---
   useEffect(() => {
     logger.log("Main data fetching effect triggered", { displayName, isAuthLoading, userId: user?.id, isAdmin, loggedOutViewParam });
-    // --- ADDED: Wait for auth to finish loading --- 
     if (isAuthLoading) {
       logger.log("Auth is loading, deferring profile fetch...");
       return; // Don't proceed until auth is resolved
     }
-    // --- END ADDED CHECK ---
-
     // Define isMounted flag here, in the useEffect scope
-    let isMounted = true; 
+    let isMounted = true;
 
     // Determine if user should see the public view
     const forcePublic = loggedOutViewParam === 'true';
@@ -400,7 +397,7 @@ export default function UserProfilePage() {
           .single();
 
         // Use the isMounted flag defined in the outer scope
-        if (!isMounted) return; 
+        if (!isMounted) return;
 
         if (profileError) {
           if (profileError.code === 'PGRST116') { // Resource Not Found
@@ -420,7 +417,7 @@ export default function UserProfilePage() {
 
         if (profileData) {
           logger.log("Profile found:", profileData.id);
-          setProfile(profileData as UserProfile);
+          setProfile(profileData);
           const ownerStatus = !forcePublic && user?.id === profileData.id;
           const editStatus = !forcePublic && (ownerStatus || isAdmin);
           setIsOwner(ownerStatus);
@@ -452,48 +449,41 @@ export default function UserProfilePage() {
           }
 
         } else {
-          // This case should ideally be handled by the PGRST116 error check above
           logger.warn(`Profile data unexpectedly null for username: ${displayName}`);
           setProfile(null);
           setIsOwner(false);
           setCanEdit(false);
           navigate('/', { replace: true });
         }
-      } catch (err: any) {
-        // Use the isMounted flag defined in the outer scope
+      } catch (err) {
         if (isMounted) {
           logger.error('General error in fetchProfileAndInitialData:', err);
           toast.error("An error occurred while loading the profile.");
           setProfile(null);
           setIsOwner(false);
           setCanEdit(false);
-          // Consider navigation or showing an error state
         }
       } finally {
-        // Use the isMounted flag defined in the outer scope
         if (isMounted) {
           setIsLoadingProfile(false);
-          // Assets/Videos loading state is handled within their respective functions
         }
       }
     };
 
-    // Call the fetch function only if auth is ready and we have a displayName
     if (displayName) {
       fetchProfileAndInitialData();
     } else {
       logger.warn("No displayName in URL parameter, skipping fetch.");
-      setIsLoadingProfile(false); // Ensure loading stops if no name
+      setIsLoadingProfile(false);
       setProfile(null);
     }
 
     return () => { 
-      // This cleanup function now correctly references the isMounted flag from its scope
       isMounted = false;
       logger.log("Main data fetching effect cleanup");
-    }; 
+    };
     // DEPENDENCIES: Ensure all external variables used are listed
-  }, [displayName, user, isAdmin, isAuthLoading, loggedOutViewParam, fetchUserAssets, fetchUserVideos, loraPage, searchParams, initialVideoParamHandled, handleOpenLightbox, navigate]);
+  }, [displayName, user, isAdmin, isAuthLoading, loggedOutViewParam, fetchUserAssets, fetchUserVideos, loraPage, navigate]);
 
   // --- Derived State with useMemo ---
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
@@ -936,7 +926,7 @@ export default function UserProfilePage() {
                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't created any LoRAs yet. </div> )} 
               </CardContent>
             </Card>
-            <Card ref={artCardRef} className="mt-8 mb-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20">
+            <Card ref={artCardRef} className="mt-8 mb-8 overflow-visible shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
                 <CardTitle className="text-[#2F4F2E]/75">Art</CardTitle>
                 {isOwner && !forceLoggedOutView && (
@@ -988,7 +978,7 @@ export default function UserProfilePage() {
                  ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't added any art videos yet. </div> )} 
               </CardContent>
             </Card>
-            <Card ref={generationsCardRef} className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20">
+            <Card ref={generationsCardRef} className="mt-8 overflow-visible shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20">
               <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
                 <CardTitle className="text-[#2F4F2E]/75">Generations</CardTitle>
                 {isOwner && !forceLoggedOutView && (

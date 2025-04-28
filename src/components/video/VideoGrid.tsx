@@ -184,34 +184,42 @@ export default function VideoGrid({
     // Initial layout calculation
     while (cursor < visibleVideos.length) {
       const slice = visibleVideos.slice(cursor, cursor + effectiveItemsPerRow);
-      const GAP_PX = 8; // Tailwind gap-2 equals 0.5rem (assuming root font-size 16px)
-
-      const sumWidth = slice.reduce((acc, vid) => {
-        const aspectRatio = getAspectRatio(vid);
-        return acc + aspectRatio * DEFAULT_ROW_HEIGHT;
-      }, 0);
-
-      // Account for total horizontal gaps in the current row to avoid overflow
+      const GAP_PX = 8; // Tailwind gap-2 equals 0.5rem
       const totalGapWidth = (slice.length - 1) * GAP_PX;
 
-      const availableWidth = containerWidth - totalGapWidth;
-
-      const scale = availableWidth / sumWidth;
-      const rowH = DEFAULT_ROW_HEIGHT * scale;
-      
-      initialRows.push(
-        slice.map(video => {
-          // Use metadata.aspectRatio again
-          const aspectRatio = getAspectRatio(video);
-          return {
-            ...video,
-            displayW: aspectRatio * rowH,
-            displayH: rowH,
-          };
-        })
-      );
-      
-      cursor += slice.length; 
+      // Check if this is the last row and it's incomplete
+      if ((cursor + slice.length) === visibleVideos.length && slice.length < effectiveItemsPerRow) {
+        // For an incomplete row, allocate equal width per item and calculate individual heights based on aspect ratio
+        const allocatedWidth = (containerWidth - totalGapWidth) / slice.length;
+        initialRows.push(
+          slice.map(video => {
+            const aspectRatio = getAspectRatio(video);
+            const displayH = allocatedWidth / aspectRatio;
+            return {
+              ...video,
+              displayW: allocatedWidth,
+              displayH,
+            };
+          })
+        );
+      } else {
+        // Justified row calculation
+        const sumWidth = slice.reduce((acc, vid) => acc + getAspectRatio(vid) * DEFAULT_ROW_HEIGHT, 0);
+        const availableWidth = containerWidth - totalGapWidth;
+        const scale = availableWidth / sumWidth;
+        const rowH = DEFAULT_ROW_HEIGHT * scale;
+        initialRows.push(
+          slice.map(video => {
+            const aspectRatio = getAspectRatio(video);
+            return {
+              ...video,
+              displayW: aspectRatio * rowH,
+              displayH: rowH,
+            };
+          })
+        );
+      }
+      cursor += slice.length;
     }
 
     // --- Row Balancing Logic ---

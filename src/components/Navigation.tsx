@@ -102,15 +102,20 @@ export const Footer = () => {
   return (
     <div className="w-full border-t border-border">
       <footer className="w-full max-w-screen-2xl mx-auto px-4 py-4 text-center text-sm text-muted-foreground flex flex-col items-center justify-center space-y-1">
-        <div className="pt-1">
-          Made with 🦾 by <a 
+        <img 
+          src="/banodoco.png" 
+          alt="Banodoco Logo" 
+          className="h-8 w-auto"
+        />
+        <div>
+          Part of the <a 
             href="https://banodoco.ai/" 
             target="_blank" 
             rel="noopener noreferrer" 
             className="underline hover:text-foreground transition-colors"
           >
             Banodoco
-          </a>
+          </a> ecosystem
         </div>
         <hr className="w-[12.5%] border-t-2 border-border/50" />
         <div className="flex items-center text-xs pb-1">
@@ -121,13 +126,6 @@ export const Footer = () => {
             className="underline hover:text-foreground transition-colors"
           >
             Code
-          </a>
-          <span className="mx-2">|</span>
-          <a 
-            href="#" 
-            className="underline hover:text-foreground transition-colors"
-          >
-            Data
           </a>
         </div>
       </footer>
