@@ -1,3 +1,4 @@
+
 import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 
 export interface VideoMetadata {
@@ -23,12 +24,10 @@ export interface VideoMetadata {
   associatedLoraIds?: string[];
 }
 
-export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';
-
 // Update AdminStatus to include 'Rejected'
 export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Rejected';
 
-// Update VideoDisplayStatus to match AdminStatus values
+// Set VideoDisplayStatus to be the same as AdminStatus
 export type VideoDisplayStatus = AdminStatus;
 
 export interface VideoEntry {
@@ -37,8 +36,7 @@ export interface VideoEntry {
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
-  admin_status?: AdminStatus | null; // Use the new AdminStatus type
-  assetMediaDisplayStatus?: VideoDisplayStatus | null;
+  admin_status?: AdminStatus | null;
   user_status?: VideoDisplayStatus | null;
   user_id?: string | null;
   metadata?: VideoMetadata;
@@ -48,7 +46,7 @@ export interface VideoEntry {
   thumbnailUrl?: string;
   title?: string;
   description?: string;
-  admin_reviewed?: boolean;  // Add optional boolean field
+  admin_reviewed?: boolean;
 }
 
 export interface RecordedVideo {
@@ -70,55 +68,20 @@ export interface UserProfile {
   id: string;
   username: string;
   display_name?: string;
-  discord_username?: string; // Added
-  discord_user_id?: string;  // Added
+  discord_username?: string;
+  discord_user_id?: string;
   real_name?: string;
   avatar_url?: string;
   video_upload_consent?: boolean;
   description?: string;
   links?: string[];
   background_image_url?: string;
-  discord_user_id?: string | null;
-}
-
-export interface LoraAsset {
-  id: string;
-  name: string;
-  description?: string;
-  creator?: string;
-  creatorDisplayName?: string;
-  type: string;
-  created_at: string;
-  user_id?: string;
-  primary_media_id?: string;
-  admin_status?: AdminStatus | null;
-  user_status?: UserAssetPreferenceStatus | null;
-  lora_type?: string;
-  lora_base_model?: string;
-  model_variant?: string;
-  lora_link?: string;
-  primaryVideo?: VideoEntry;
-  videos?: VideoEntry[];
-  user_preference_status?: UserAssetPreferenceStatus | null;
-  associatedThumbnails?: (string | null)[];
-  associatedMedia?: Array<{
-    id: string;
-    url?: string;
-    thumbnailUrl?: string;
-    title?: string;
-  }>;
-  admin_reviewed?: boolean;  // Add optional boolean field
-}
-
-export interface LoraManagerProps {
-  loras: LoraAsset[];
-  isLoading: boolean;
 }
 
 // Standard video metadata form interface to be used across components
 export interface VideoMetadataForm {
   title: string;
-  description: string
+  description: string;
   classification: 'art' | 'gen';
   isPrimary?: boolean;
 }
