@@ -55,6 +55,15 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 }) => {
   const componentId = useRef(`storage_video_${Math.random().toString(36).substring(2, 9)}`).current;
   const logPrefix = `[SVP_DEBUG][${componentId}]`;
+
+  // DEBUG LOGGING: Track key props on mobile
+  useEffect(() => {
+    if (isMobile) {
+      logger.log(`${logPrefix} Mobile props update: isMobile=${isMobile}, autoPlay=${autoPlay}, isHoveringExternally=${isHoveringExternally}, shouldBePlaying=${shouldBePlaying}`);
+    }
+  }, [isMobile, autoPlay, isHoveringExternally, shouldBePlaying]);
+  // END DEBUG LOGGING
+
   // logger.log(`${logPrefix} Rendering. Initial props: thumbnailUrl=${!!thumbnailUrl}, forcePreload=${forcePreload}, autoPlay=${autoPlay}, shouldBePlaying=${shouldBePlaying}`);
 
   const [videoUrl, setVideoUrl] = useState<string>('');
@@ -112,6 +121,16 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   // Effect to determine if the video should be playing based on props and state
   useEffect(() => {
     if (unmountedRef.current) return;
+
+    // If we're on mobile and autoPlay is enabled, force playback immediately
+    if (isMobile && autoPlay) {
+      setShouldPlay(true);
+      if (!shouldLoadVideo && !videoUrl && !error) {
+        setShouldLoadVideo(true);
+        setHasHovered(true);
+      }
+      return;
+    }
 
     // logger.log(`${logPrefix} Play control effect triggered. shouldBePlaying=${shouldBePlaying}, isHovering=${isHovering}, isMobile=${isMobile}, playOnHover=${playOnHover}`);
 
@@ -397,11 +416,12 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
               "absolute inset-0 w-full h-full object-cover transition-opacity duration-300",
               isVideoLoaded ? "opacity-100" : "opacity-0"
             )}
-            controls={controls && !previewMode} 
-            autoPlay={false}
-            triggerPlay={shouldPlay}
+            controls={controls && !previewMode}
+            autoPlay={shouldPlay}
+            playsInline
+            triggerPlay={shouldBePlaying}
             muted={muted}
-            loop={loop}
+            loop={shouldBePlaying || (playOnHover && isHovering) || loop}
             playOnHover={playOnHover && !isMobile}
             onError={handleVideoError}
             showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}

@@ -1,0 +1,57 @@
+- `a3f1791`: Medium probability. Introduced aspect ratio/thumbnail generation. Layout changes or new logic could affect mobile.
+- `41fd023`: High probability. Major metadata refactor (creator field removal, types.ts changes), affecting VideoEntry/VideoMetadata structure used across many components. Default aspect ratio logic added.
+- `aefdac0`: Low probability. Navigation logic changes and modal integration.
+- `ff62442`: Low probability. Further refinement of navigation logic.
+- `459af0e`: Medium probability. Made LoRA selection optional, changing video-LoRA linking logic. Could affect components expecting linked media.
+- `6dae119`: Low probability. Added extensive logging.
+- `8cf154a`: Low probability. Added more logging.
+- `2fae710`: Low probability. More logging.
+- `e6b10c1`: Low probability. Navigation logic changes.
+- `c81a73a`: Low probability. Navigation logic changes.
+- `c71a4ae`: Low probability. Modal success handling.
+- `94acf6e`: Low probability. Default status change on upload.
+- `35d4ffe`: Low probability. Default status change on upload.
+- `a2e4336`: Low probability. Default status change on upload.
+- `70c5ec2`: Very low probability. UI interaction fix in LoRA selector.
+- `beb5404`: Very low probability. LoRA selector logic simplification.
+- `219b03d`: Low probability. Refactored LoRA selector component implementation (cmdk).
+- `57e2dca`: Very low probability. LoRA selector mouse interaction fix.
+- `0c92a95`: Medium probability. Removed LoRA selector from media uploads entirely. Could affect logic relying on `associatedLoraIds` for non-LoRA-associated media.
+- `3a258a6`: High probability. Major refactor replacing Masonry with VideoGrid, changing layout logic across multiple pages (Index, UserProfilePage, AssetDetail), updating aspect ratio/hover logic in VideoCard/LoraCard. Very likely source of layout/playback issues on mobile.
+- `06bc5a3`: Very High probability. Introduced complex changes to VideoCard hover/lazy-loading logic (`combinedHovering`, `isInViewport`), added lightbox navigation, adjusted aspect ratio handling, and potentially removed/reverted the `VideoGrid` system. Changes in `VideoCard` interaction logic are highly suspect for mobile playback issues. Also modified `StorageVideoPlayer` loading/thumbnail logic (Medium probability). PlantAnimation added (Low probability).
+- `9c9b89c`: Very low probability. Removed PlantAnimation. Might improve performance slightly.
+- `5b78546`: Very low probability. Upload modal styling.
+- `f70dbd3`: Low probability. Dialog styling + minor tweak to StorageVideoPlayer initial load.
+- `27b5738`: Low probability. Video loading spinner UX improvement.
+- `aff200b`: Medium probability. Added viewport-based lazy loading to LoraCard, similar to the potentially problematic VideoCard logic.
+- `4931a4b`: Low probability. Reverted a previous change in StorageVideoPlayer.
+- `dc043e1`: Very low probability. Upload modal CSS fix.
+- `1c84bb2`: Medium probability. Added persistent All/Curated filter. Modified data fetching (`useVideoManagement`), added new hook (`usePersistentToggle`), and updated multiple components to use/pass the filter state. Changes in data flow and state management could have indirect effects.
+- `c6220a3`: Low probability. Added pagination to Art/Generations pages.
+- `e9e2b88`: Very low probability. Button styling in AssetVideoSection.
+- `74fec46`: Medium probability. Refactored AssetVideoSection to use VideoGallerySection. Updated VideoCard aspect ratio logic to use displayW/H (could be broken if VideoGrid changed).
+- `93b2083`: Medium probability. Added framer-motion animations and tablet breakpoint to VideoGrid. Animation complexity and responsive changes could affect mobile.
+- `cb58040`: Low probability. Fix for VideoGrid layout flicker.
+- `0b34e1b`: Very low probability. VideoGrid animation conflict fix.
+- `30de6a2`: Low probability. VideoGrid animation refinement.
+- `92cd94a`: Very low probability. Reverted VideoGrid key change.
+- `f6f2f03`: Medium-High probability. Refactored VideoGrid to use flex-wrap instead of rows. Major change to layout structure that could affect mobile responsiveness/interaction.
+- `bfd5c74`: Very low probability. Reduced pagination size.
+- `ccef762`: Medium probability. Added entry animations to VideoGrid tiles. Potential mobile performance impact.
+- `53f048d`: Medium-High probability. Added progressive grid loading (scroll-based rendering), lightbox query param handling, and changes to StorageVideoPlayer load timing.
+- `ae674e3`: Very low probability. UI consistency tweaks.
+- `82d3c02`: Very low probability. UI consistency tweaks.
+- `f833066`: Very low probability. Type definitions update.
+- `523a53f`: Very low probability. Profile settings backend/UI.
+- `7c569ee`: Very low probability. Profile settings username check.
+- `2fc8c73`: Very low probability. Profile settings UI indicators.
+- `7a9a873`: Low probability. Profile page hook fix / settings refactor.
+- `0bba78e`: Very low probability. Profile navigation link fix.
+- `884f855`: Very low probability. Profile page auth loading fix / settings refactor.
+- `a6ea3ef`: Very low probability. Profile settings UI icon/text.
+- `5de839a`: Very low probability. Profile settings discard button.
+- `b73747b`: Very low probability. Profile settings help icon styling.
+- `e2d6f4a`: Very low probability. Upload modal styling.
+- `d423750`: Low probability. Profile settings UI fixes, upload success feedback.
+- `c7076e0`: Medium-High probability. Directly touched mobile video play trigger logic (`shouldPlay` state determination) in StorageVideoPlayer. Could have broken mobile tap interaction logic.
+- `0ed8771`: Low probability. Manifesto page changes, minor UI/data handling.

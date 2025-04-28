@@ -69,6 +69,7 @@ interface VideoPlayerProps {
   src: string;
   autoPlay?: boolean;
   triggerPlay?: boolean;
+  playsInline?: boolean;
   muted?: boolean;
   loop?: boolean;
   className?: string;
@@ -119,6 +120,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   src,
   autoPlay = false,
   triggerPlay = false,
+  playsInline = true,
   muted = true,
   loop = false,
   className = '',
@@ -214,7 +216,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   
   useVideoPlayback({
     videoRef,
-    externallyControlled,
+    externallyControlled: !isMobile && externallyControlled,
     isHovering: externallyControlled ? isHovering : isInternallyHovering,
     muted,
     isMobile,
@@ -325,7 +327,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   logger.log(`[${componentId}] Visibility: shouldShowLoading=${shouldShowLoading}, videoOpacity=${(lazyLoad && poster && !hasInteracted && !externallyControlled) ? 0 : 1}`);
 
   const effectivePreload = showFirstFrameAsPoster ? 'metadata' : (preloadProp || 'auto');
-  const effectiveAutoPlay = showFirstFrameAsPoster ? false : autoPlay;
+  const effectiveAutoPlay = autoPlay;
 
   const handleLoadedDataInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event> | Event) => {
     logger.log(`[${componentId}] onLoadedData triggered. showFirstFrameAsPoster: ${showFirstFrameAsPoster}, initialFrameLoaded: ${initialFrameLoaded}`);
@@ -415,12 +417,13 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   }, [isInPreloadArea, onEnterPreloadArea]);
 
   useEffect(() => {
-    if (isIntersecting && isMobile && videoRef.current && videoRef.current.paused && !unmountedRef.current) {
-      logger.log(`[${componentId}] Mobile intersection detected, attempting autoplay.`);
-      videoRef.current.play().catch(err => {
-        logger.error(`[${componentId}] Mobile autoplay failed:`, err);
-      });
-    }
+    // REMOVED: Automatic play call on intersection for mobile causes NotAllowedError
+    // if (isIntersecting && isMobile && videoRef.current && videoRef.current.paused && !unmountedRef.current) {
+    //   logger.log(`[${componentId}] Mobile intersection detected, attempting autoplay.`);
+    //   videoRef.current.play().catch(err => {
+    //     logger.error(`[${componentId}] Mobile autoplay failed:`, err);
+    //   });
+    // }
   }, [isIntersecting, isMobile, videoRef]);
 
   // --- Timeout Reset Logic ---
@@ -503,13 +506,14 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       }, dynamicTimeoutMs);
 
       // Attempt immediate play logic (only for mobile intersect case?)
-      if (shouldTimeoutMobile) {
-         logger.log(`[${componentId}] Mobile intersection detected, attempting immediate autoplay.`);
-         video.play().catch(err => {
-           logger.error(`[${componentId}] Mobile immediate autoplay failed:`, err);
-           // Let timeout handle reset
-         });
-      }
+      // REMOVED: Automatic play call here also causes NotAllowedError
+      // if (shouldTimeoutMobile) {
+      //    logger.log(`[${componentId}] Mobile intersection detected, attempting immediate autoplay.`);
+      //    video.play().catch(err => {
+      //      logger.error(`[${componentId}] Mobile immediate autoplay failed:`, err);
+      //      // Let timeout handle reset
+      //    });
+      // }
 
     } else if (!isIntersecting && isMobile) {
       // Clear timeout if mobile and no longer intersecting (and not explicitly triggered)
@@ -637,7 +641,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
         muted={muted}
         loop={loop}
         controls={controls}
-        playsInline
+        playsInline={playsInline}
         poster={poster}
         preload={effectivePreload}
         src={src}

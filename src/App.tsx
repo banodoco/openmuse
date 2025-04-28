@@ -1,4 +1,4 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import LoadingState from '@/components/LoadingState';
@@ -18,7 +18,38 @@ const LorasPage = lazy(() => import('./pages/LorasPage'));
 const ArtPage = lazy(() => import('./pages/ArtPage'));
 const GenerationsPage = lazy(() => import('./pages/GenerationsPage'));
 
-function App() {
+const App: React.FC = () => {
+  // Global Autoplay Unlock for Mobile
+  useEffect(() => {
+    const unlockAutoplay = () => {
+      document.querySelectorAll('video').forEach(video => {
+        if (video.paused) { // Only try to play if paused
+          video.play().catch(err => {
+            // Log errors but don't spam the console if it's the known interaction error
+            if (err.name !== 'NotAllowedError') {
+              console.error('Failed to unlock video autoplay:', err);
+            }
+          });
+        }
+      });
+      // Listener is { once: true }, so it removes itself
+      console.log('Global touchstart detected, attempted to unlock video autoplay.');
+    };
+
+    // Check if we're on a mobile device before adding the listener
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    if (isMobile) {
+      document.addEventListener('touchstart', unlockAutoplay, { once: true, passive: true });
+      console.log('Global autoplay unlock listener added for mobile.');
+
+      // Cleanup function to remove listener if component unmounts before interaction
+      return () => {
+        document.removeEventListener('touchstart', unlockAutoplay);
+        console.log('Global autoplay unlock listener removed.');
+      };
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
   return (
     <AuthProvider>
       <div className="min-h-screen bg-gradient-to-br from-[#FEFDF4] via-[#FEFDF4] to-[#C3C6AD]">
@@ -56,6 +87,6 @@ function App() {
       </div>
     </AuthProvider>
   );
-}
+};
 
 export default App;
