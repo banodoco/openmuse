@@ -10,7 +10,6 @@ import { X, Pencil, Save, XCircle, Trash, List, ListChecks, Flame, EyeOff, Loade
 import VideoPlayer from '@/components/video/VideoPlayer';
 import { supabase } from '@/integrations/supabase/client';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { AuthContext } from '@/contexts/AuthContext';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -42,6 +41,7 @@ import {
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import LoraCreatorInfo from './lora/LoraCreatorInfo';
 import { Link, useSearchParams } from 'react-router-dom';
+import { useLoras } from '@/contexts/LoraContext';
 
 interface VideoLightboxProps {
   isOpen: boolean;
@@ -69,11 +69,6 @@ interface VideoLightboxProps {
   classification?: 'art' | 'gen';
 }
 
-interface LoraOption {
-  id: string;
-  name: string;
-}
-
 const VideoLightbox: React.FC<VideoLightboxProps> = ({
   isOpen,
   onClose,
@@ -98,6 +93,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   classification: initialClassification = 'gen'
 }) => {
   const { user, isAdmin } = useAuth();
+  const { loras: availableLoras, isLoading: isFetchingLoras, error: loraFetchError } = useLoras();
 
   const { toast } = useToast();
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -110,9 +106,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [editableClassification, setEditableClassification] = useState<'art' | 'gen'>(initialClassification);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
-
-  const [availableLoras, setAvailableLoras] = useState<LoraOption[]>([]);
-  const [isFetchingLoras, setIsFetchingLoras] = useState(false);
 
   const canEdit = isAdmin || (user?.id && user.id === creatorId);
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
@@ -136,49 +129,14 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   }, [videoId, initialTitle, initialDescription, initialAssetId, initialClassification]);
 
   useEffect(() => {
-    const fetchLoras = async () => {
-      if (isOpen && availableLoras.length === 0 && !isFetchingLoras) {
-        setIsFetchingLoras(true);
-        try {
-          const { data, error } = await supabase
-            .from('assets')
-            .select('id, name')
-            .eq('type', 'lora')
-            .order('name', { ascending: true });
-
-          if (error) {
-            throw new Error(error.message);
-          }
-
-          if (data) {
-            const formattedLoras: LoraOption[] = data.map((item: any) => ({
-              id: item.id,
-              name: item.name
-            }));
-            
-            // Filter out the specific LoRA ID
-            const filteredLoras = formattedLoras.filter(lora => lora.id !== '3f7885ef-389d-4208-bf20-0e4df29388d2');
-            
-            setAvailableLoras(filteredLoras);
-          } else {
-            setAvailableLoras([]);
-          }
-        } catch (error: any) {
-          console.error('[VideoLightboxDebug] LoRA fetch error:', error);
-          toast({
-            title: "Could not load LoRAs",
-            description: error.message || "Failed to fetch LoRA list for selection.",
-            variant: "destructive",
-          });
-          setAvailableLoras([]);
-        } finally {
-          setIsFetchingLoras(false);
-        }
-      }
-    };
-
-    fetchLoras();
-  }, [isOpen, availableLoras.length, isFetchingLoras, toast]);
+    if (loraFetchError) {
+      toast({
+        title: "Could not load LoRAs",
+        description: loraFetchError || "Failed to fetch LoRA list for selection.",
+        variant: "destructive",
+      });
+    }
+  }, [loraFetchError, toast]);
 
   // --------------------------------------------------
   // Keep ?video=<id> in the URL while the lightbox is open.
@@ -237,7 +195,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       setEditableTitle(initialTitle || '');
       setEditableDescription(initialDescription || '');
       setEditableAssetId(initialAssetId || '');
+      setEditableClassification(initialClassification);
     } else {
+      // No action needed when exiting edit mode here
     } 
     setIsEditing(!isEditing);
   };
@@ -436,7 +396,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             <div className="relative flex flex-col h-full">
               <div className={cn(
                 "relative w-full aspect-video bg-black transition-[max-height] duration-300 ease-in-out",
-                isEditing ? "max-h-[35vh] flex-shrink" : "max-h-[65vh] flex-shrink-0"
+                isEditing 
+                  ? (isMobile ? "max-h-[20vh] flex-shrink" : "max-h-[35vh] flex-shrink") 
+                  : "max-h-[65vh] flex-shrink-0"
               )}>
                 <VideoPlayer
                   src={videoUrl}
@@ -624,7 +586,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                               onValueChange={(value) => {
                                 setEditableAssetId(value === "__NONE__" ? "" : value);
                               }}
-                              disabled={isSaving}
+                              disabled={isSaving || isFetchingLoras}
                               name="videoLora"
                             >
                               <SelectTrigger id="videoLora">
@@ -639,6 +601,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                 ))}
                               </SelectContent>
                             </Select>
+                          )}
+                          {loraFetchError && (
+                            <p className="text-sm text-destructive mt-1.5">Error loading LoRAs. Please try again later.</p>
                           )}
                         </div>
                         
