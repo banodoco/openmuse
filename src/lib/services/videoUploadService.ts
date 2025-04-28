@@ -7,6 +7,28 @@ import { getVideoAspectRatio } from '../utils/videoDimensionUtils';
 
 const logger = new Logger('VideoUploadService');
 
+const createMetadata = (data: any, assetId: string): VideoMetadata => ({
+  title: data.title,
+  description: data.description,
+  assetId,
+  creatorName: data.creatorName,
+  classification: data.classification || 'art', // Ensure classification is always set
+  isPrimary: data.isPrimary,
+  loraName: data.loraName,
+  loraDescription: data.loraDescription,
+  loraType: data.loraType,
+  loraLink: data.loraLink,
+  model: data.model,
+  modelVariant: data.modelVariant,
+  baseModel: data.baseModel,
+  placeholder_image: data.placeholder_image,
+  trainingSteps: data.trainingSteps,
+  resolution: data.resolution,
+  trainingDataset: data.trainingDataset,
+  aspectRatio: data.aspectRatio,
+  associatedLoraIds: data.associatedLoraIds
+});
+
 class VideoUploadService {
   private currentUserId: string | null = null;
   

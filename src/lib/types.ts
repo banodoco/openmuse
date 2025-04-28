@@ -28,7 +28,8 @@ export type VideoDisplayStatus = 'Pinned' | 'View' | 'Hidden';
 // Update AdminStatus to include 'Rejected'
 export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Rejected';
 
-export type AssetType = 'lora' | 'other'; // Example, adjust as needed
+// Update VideoDisplayStatus to match AdminStatus values
+export type VideoDisplayStatus = AdminStatus;
 
 export interface VideoEntry {
   id: string;

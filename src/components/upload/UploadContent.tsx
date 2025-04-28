@@ -65,21 +65,41 @@ const UploadContent: React.FC<UploadContentProps> = ({
     return videoUrl;
   };
   
+  const createVideoMetadata = (data: any): VideoMetadata => ({
+    title: data.title || 'Untitled',
+    description: data.description || '',
+    classification: data.classification || 'art',
+    creatorName: data.creatorName,
+    isPrimary: data.isPrimary,
+    loraName: data.loraName,
+    loraDescription: data.loraDescription,
+    assetId: data.assetId,
+    loraType: data.loraType,
+    loraLink: data.loraLink,
+    model: data.model,
+    modelVariant: data.modelVariant,
+    baseModel: data.baseModel,
+    placeholder_image: data.placeholder_image,
+    trainingSteps: data.trainingSteps,
+    resolution: data.resolution,
+    trainingDataset: data.trainingDataset,
+    aspectRatio: data.aspectRatio,
+    associatedLoraIds: data.associatedLoraIds
+  });
+  
   const createVideoEntry = async (videoUrl: string) => {
     if (!user) {
       throw new Error("User not authenticated for creating entry");
     }
     logger.log('Creating video entry in database...');
-    const metadata: VideoMetadata = {
-      model,
-      modelVariant,
+    const metadata = createVideoMetadata({
       title,
       description,
-      classification: classification,
+      classification,
       creator,
       creatorName,
       isPrimary
-    };
+    });
     
     const db = await databaseSwitcher.getDatabase();
     const result = await db.addEntry({
@@ -114,17 +134,14 @@ const UploadContent: React.FC<UploadContentProps> = ({
       setVideoFile(null);
       setCreator('self');
       setCreatorName('');
-      // Add other resets if needed
       logger.log('Form state reset.');
 
-      // Call the passed-in onSuccess callback if it exists
       if (onSuccess) {
         logger.log('Calling external onSuccess callback...');
         onSuccess();
         logger.log('External onSuccess callback finished.');
       }
       
-      // Call refetchVideos if it exists
       if (refetchVideos) {
           logger.log('Calling refetchVideos...');
           Promise.resolve(refetchVideos()).catch(err => {
@@ -139,7 +156,6 @@ const UploadContent: React.FC<UploadContentProps> = ({
     },
     onError: (error: any) => {
       logger.error('Mutation onError triggered. Error:', error);
-      // Check if it's an AbortError which might be less critical sometimes
       if (error.name === 'AbortError') {
         toast.warning("Upload cancelled or interrupted.");
       } else {
@@ -149,8 +165,6 @@ const UploadContent: React.FC<UploadContentProps> = ({
     },
     onSettled: () => {
        logger.log('Mutation onSettled triggered (runs after onSuccess or onError).');
-       // This is a good place to ensure loading states are *always* reset,
-       // regardless of success or failure, though isPending should handle this.
     }
   });
   
