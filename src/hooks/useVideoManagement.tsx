@@ -20,6 +20,8 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
   const [videoIsLoading, setVideoIsLoading] = useState(true);
   const isMounted = useRef(true);
   const fetchAttempted = useRef(false);
+  const fetchInProgress = useRef(false); // Add fetch in progress flag
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Add timeout ref
 
   const { user, isLoading: authIsLoading } = useAuth();
   const userId = user?.id || null;
@@ -31,10 +33,27 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
       logger.log("[loadAllVideos] Skipping: Component not mounted");
       return;
     }
+    if (fetchInProgress.current) {
+      logger.log("[loadAllVideos] Skipping: Fetch already in progress");
+      return;
+    }
 
-    logger.log('[loadAllVideos] Setting videoIsLoading = true');
+    logger.log('[loadAllVideos] Setting videoIsLoading = true, fetchInProgress = true');
+    fetchInProgress.current = true;
     setVideoIsLoading(true);
-    fetchAttempted.current = true;
+    // fetchAttempted.current = true; // Consider if this is still needed
+
+    // Clear previous timeout if exists
+    if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    // Set new timeout
+    loadingTimeoutRef.current = setTimeout(() => {
+      if (isMounted.current && videoIsLoading) {
+        logger.warn("[loadAllVideos] Timeout reached (10s), forcing videoIsLoading=false");
+        setVideoIsLoading(false);
+        fetchInProgress.current = false; // Also reset progress flag on timeout
+      }
+    }, 10000); // 10 second timeout
+
     logger.log(`[loadAllVideos] Fetching videos (User ID: ${userId}, Filter: ${approvalFilter})`);
 
     try {
@@ -69,6 +88,7 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
       logger.log("[loadAllVideos] Setting videos state and videoIsLoading = false");
       setVideos(transformedEntries);
       setVideoIsLoading(false);
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current); // Clear timeout on success
 
     } catch (error) {
       logger.error(`[loadAllVideos] Error loading videos (filter: ${approvalFilter}):`, error);
@@ -76,6 +96,17 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
         toast.error("Error loading videos. Please try again.");
         logger.log("[loadAllVideos] Setting videoIsLoading = false after error");
         setVideoIsLoading(false);
+        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current); // Clear timeout on error
+      }
+    } finally {
+      // Ensure fetchInProgress is reset regardless of success/error/unmount
+      if (isMounted.current) {
+         logger.log("[loadAllVideos] FINALLY block: Setting fetchInProgress = false");
+         fetchInProgress.current = false;
+      } else {
+         logger.log("[loadAllVideos] FINALLY block: Component unmounted, fetchInProgress remains", fetchInProgress.current);
+         // Reset flag even if unmounted to prevent potential issues on remount
+         fetchInProgress.current = false; 
       }
     }
   }, [userId, approvalFilter]); // Add approvalFilter as a dependency
@@ -92,19 +123,25 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
     return () => {
       logger.log('[Effect Cleanup] Setting isMounted = false');
       isMounted.current = false;
+      // Clear timeout on unmount
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       logger.log("useVideoManagement cleanup complete");
     };
   }, [loadAllVideos, approvalFilter]); // Add approvalFilter to dependency array
 
   const refetchVideos = useCallback(async () => {
     logger.log(`[refetchVideos] Attempting refetch with filter: ${approvalFilter}...`);
-    if (isMounted.current && !authIsLoading) {
-      logger.log(`[refetchVideos] Conditions met (mounted, auth not loading), calling loadAllVideos with filter: ${approvalFilter}`);
-      fetchAttempted.current = false; // Reset flag
+    // Check fetchInProgress flag before refetching
+    if (isMounted.current && !authIsLoading && !fetchInProgress.current) {
+      logger.log(`[refetchVideos] Conditions met (mounted, auth not loading, not in progress), calling loadAllVideos with filter: ${approvalFilter}`);
+      // fetchAttempted.current = false; // Consider removing if fetchAttempted isn't used elsewhere
       await loadAllVideos();
       toast.success("Videos refreshed");
     } else {
-      logger.log(`[refetchVideos] Skipping refetch: isMounted=${isMounted.current}, authIsLoading=${authIsLoading}`);
+      logger.log(`[refetchVideos] Skipping refetch: isMounted=${isMounted.current}, authIsLoading=${authIsLoading}, fetchInProgress=${fetchInProgress.current}`);
     }
   }, [loadAllVideos, authIsLoading, approvalFilter]); // Add approvalFilter dependency
 

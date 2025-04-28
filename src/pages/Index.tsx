@@ -661,7 +661,7 @@ const Index: React.FC = () => {
           <div ref={loraSectionRef}>
             <LoraManager
               loras={displayLoras}
-              isLoading={isPageLoading}
+              isLoading={lorasLoading}
               lorasAreLoading={lorasLoading}
               filterText={filterText}
               onFilterTextChange={setFilterText}

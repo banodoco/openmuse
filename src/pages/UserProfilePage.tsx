@@ -918,6 +918,7 @@ export default function UserProfilePage() {
                       isUpdatingStatusMap={isUpdatingAssetStatus} // Pass map of updating statuses
                       showSeeAllLink={false} // Don't show "See All" on profile
                       showHeader={false} // Hide the internal LoraManager header on the profile page
+                      hideCreatorInfo={true}
                       // Omit filterText, onFilterTextChange, onRefreshData, onNavigateToUpload
                       // Omit hideCreatorInfo (handled by LoraManager or default)
                       // Omit visibility/autoplay props for now

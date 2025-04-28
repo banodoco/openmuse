@@ -226,7 +226,7 @@ export default function UserProfileSettings() {
 
   useEffect(() => {
     // Regex for validation (should match the Edge Function)
-    const USERNAME_REGEX = /^[a-zA-Z0-9_-]+$/;
+    const USERNAME_REGEX = /^[a-zA-Z0-9_\-]+$/;
     const trimmedUsername = username.trim();
 
     // Check both format and length
@@ -638,7 +638,7 @@ export default function UserProfileSettings() {
                   required
                   minLength={3}
                   maxLength={50}
-                  pattern="^[a-zA-Z0-9_-]+$"
+                  pattern="^[a-zA-Z0-9_\-]+$"
                 />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
                   {isCheckingUsername && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}

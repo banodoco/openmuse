@@ -33,6 +33,8 @@ interface LoraManagerProps {
   showHeader?: boolean;
   /** Optional ReactNode to render in the header, typically the 'Add New' button */
   headerAction?: React.ReactNode;
+  /** Optional prop to hide creator info on the LoraCard. Defaults to false. */
+  hideCreatorInfo?: boolean;
 }
 
 const LoraManager: React.FC<LoraManagerProps> = ({ 
@@ -50,6 +52,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   isUpdatingStatusMap,
   showHeader = true, // Default to true if not provided
   headerAction, // Add new prop
+  hideCreatorInfo = false, // Default to false
 }) => {
   logger.log(`LoraManager rendering/initializing. Props: isLoading (videos)=${isLoading}, lorasAreLoading=${lorasAreLoading}, loras count=${loras?.length || 0}, filterText=${filterText}, isAdmin=${isAdmin}, showHeader=${showHeader}`);
 
@@ -88,6 +91,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
           onUserStatusChange={onUserStatusChange}
           isUpdatingStatusMap={isUpdatingStatusMap}
           isAdmin={isAdmin}
+          hideCreatorInfo={hideCreatorInfo}
         />
       )}
     </div>

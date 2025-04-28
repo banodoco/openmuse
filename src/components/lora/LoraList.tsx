@@ -21,13 +21,16 @@ interface LoraListProps {
   isAdmin?: boolean;
   onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
   isUpdatingStatusMap?: Record<string, boolean>;
+  /** Whether to hide creator info on the LoraCard. Defaults to false. */
+  hideCreatorInfo?: boolean;
 }
 
 const LoraList: React.FC<LoraListProps> = ({ 
   loras, 
   isAdmin, 
   onUserStatusChange, 
-  isUpdatingStatusMap 
+  isUpdatingStatusMap,
+  hideCreatorInfo = false,
 }) => {
   const isMobile = useIsMobile();
   
@@ -118,6 +121,7 @@ const LoraList: React.FC<LoraListProps> = ({
               onVisibilityChange={handleVideoVisibilityChange}
               shouldBePlaying={isMobile && lora.id === visibleVideoId}
               onEnterPreloadArea={handleEnterPreloadArea}
+              hideCreatorInfo={hideCreatorInfo}
             />
           ))}
         </div>
