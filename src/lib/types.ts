@@ -37,6 +37,7 @@ export interface VideoEntry {
   created_at: string;
   admin_status?: AdminStatus | null;
   user_status?: VideoDisplayStatus | null;
+  assetMediaDisplayStatus?: VideoDisplayStatus | null;
   user_id?: string | null;
   metadata?: VideoMetadata;
   associatedAssetId?: string | null;

@@ -71,6 +71,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         .select(`
           status,
           is_primary,
+          asset_id,
           media:media_id!inner(*)
         `)
         .eq('asset_id', assetId);
@@ -157,7 +158,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
             return {
               id: media.id,
               url: videoUrl,
-              associatedAssetId: assetId,
+              associatedAssetId: item.asset_id,
               is_primary: isPrimary,
               reviewer_name: media.creator || 'Unknown',
               skipped: false,
@@ -173,7 +174,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 model: processedAsset.lora_base_model || media.type,
                 loraName: processedAsset.name,
                 loraDescription: processedAsset.description,
-                assetId: processedAsset.id,
+                assetId: item.asset_id,
                 loraType: processedAsset.lora_type,
                 loraLink: processedAsset.lora_link,
                 modelVariant: processedAsset.model_variant,

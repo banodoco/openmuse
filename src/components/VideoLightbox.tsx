@@ -18,6 +18,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Skeleton } from "@/components/ui/skeleton";
 import { Label } from "@/components/ui/label";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -65,6 +66,7 @@ interface VideoLightboxProps {
   /** If true, shows a button to navigate to the next video and fires the callback when clicked */
   hasNext?: boolean;
   onNextVideo?: () => void;
+  classification?: 'art' | 'gen';
 }
 
 interface LoraOption {
@@ -92,7 +94,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   hasPrev,
   onPrevVideo,
   hasNext,
-  onNextVideo
+  onNextVideo,
+  classification: initialClassification = 'gen'
 }) => {
   const { user, isAdmin } = useAuth();
 
@@ -104,6 +107,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [editableTitle, setEditableTitle] = useState(initialTitle || '');
   const [editableDescription, setEditableDescription] = useState(initialDescription || '');
   const [editableAssetId, setEditableAssetId] = useState(initialAssetId || '');
+  const [editableClassification, setEditableClassification] = useState<'art' | 'gen'>(initialClassification);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -127,8 +131,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setEditableTitle(initialTitle || '');
     setEditableDescription(initialDescription || '');
     setEditableAssetId(initialAssetId || '');
+    setEditableClassification(initialClassification);
     setIsEditing(false);
-  }, [videoId, initialTitle, initialDescription, initialAssetId]);
+  }, [videoId, initialTitle, initialDescription, initialAssetId, initialClassification]);
 
   useEffect(() => {
     const fetchLoras = async () => {
@@ -138,12 +143,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           const { data, error } = await supabase
             .from('assets')
             .select('id, name')
-            .eq('type', 'LoRA')
+            .eq('type', 'lora')
             .order('name', { ascending: true });
 
           if (error) {
-             console.error("Supabase error fetching LoRAs:", error);
-             throw new Error(error.message);
+            throw new Error(error.message);
           }
 
           if (data) {
@@ -245,12 +249,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     const newAssetId = editableAssetId === "" ? null : editableAssetId;
 
     try {
-      // Step 1: Update media title and description
+      // Step 1: Update media title, description and classification
       const { error: mediaUpdateError } = await supabase
         .from('media')
         .update({
           title: editableTitle,
-          description: editableDescription
+          description: editableDescription,
+          classification: editableClassification
         })
         .eq('id', videoId);
 
@@ -304,9 +309,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       }
 
     } catch (error: any) {
+      console.error('[VideoLightboxDebug] Save error:', error);
       toast({
-        title: "Error updating video",
-        description: error.message || "Could not save changes.",
+        title: "Failed to save changes",
+        description: error.message || "An error occurred while saving your changes.",
         variant: "destructive",
       });
     } finally {
@@ -566,67 +572,100 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 {isEditing ? (() => { 
                     const selectValue = editableAssetId || "";
                     return (
-                      <div className="space-y-3">
+                      <div className="space-y-4">
                         <div>
-                            <label htmlFor="videoTitle" className="text-sm font-medium text-muted-foreground">Title</label>
-                            <Input
-                                id="videoTitle"
-                                value={editableTitle}
-                                onChange={(e) => setEditableTitle(e.target.value)}
-                                placeholder="Video Title"
-                                disabled={isSaving}
-                            />
+                          <Label htmlFor="videoTitle" className="text-sm font-medium text-muted-foreground block mb-1.5">Title</Label>
+                          <Input
+                            id="videoTitle"
+                            value={editableTitle}
+                            onChange={(e) => setEditableTitle(e.target.value)}
+                            placeholder="Enter a title..."
+                            disabled={isSaving}
+                          />
                         </div>
-                         <div>
-                            <label htmlFor="videoDesc" className="text-sm font-medium text-muted-foreground">Description</label>
-                            <Textarea
-                                id="videoDesc"
-                                value={editableDescription}
-                                onChange={(e) => setEditableDescription(e.target.value)}
-                                placeholder="Video Description"
-                                rows={3}
-                                disabled={isSaving}
-                            />
+                        
+                        <div>
+                          <Label htmlFor="videoDescription" className="text-sm font-medium text-muted-foreground block mb-1.5">Description</Label>
+                          <Textarea
+                            id="videoDescription"
+                            value={editableDescription}
+                            onChange={(e) => setEditableDescription(e.target.value)}
+                            placeholder="Enter a description..."
+                            disabled={isSaving}
+                          />
                         </div>
-                         <div>
-                           <Label htmlFor="videoLora" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA (Optional)</Label>
-                           {isFetchingLoras ? (
-                              <Skeleton className="h-10 w-full" />
-                           ) : (
-                             <Select
-                               value={selectValue}
-                               onValueChange={(value) => {
-                                 setEditableAssetId(value === "__NONE__" ? "" : value);
-                               }}
-                               disabled={isSaving}
-                               name="videoLora"
-                             >
-                               <SelectTrigger id="videoLora">
-                                 <SelectValue placeholder="Select a LoRA..." />
-                               </SelectTrigger>
-                               <SelectContent>
-                                 <SelectItem value="__NONE__">-- None --</SelectItem>
-                                 {availableLoras.map((lora) => (
-                                   <SelectItem key={lora.id} value={lora.id}>
-                                     {lora.name}
-                                   </SelectItem>
-                                 ))}
-                               </SelectContent>
-                             </Select>
-                           )}
-                         </div>
-                        <div className="flex justify-end space-x-2 pt-2">
-                           <Button variant="outline" onClick={handleCancelEdit} disabled={isSaving}>
-                               <XCircle className="mr-2 h-4 w-4" /> Cancel
-                           </Button>
-                           <Button
-                              onClick={(e) => {
-                                  handleSaveEdit();
+
+                        <div>
+                          <Label className="text-sm font-medium text-muted-foreground block mb-1.5">Classification</Label>
+                          <RadioGroup
+                            value={editableClassification}
+                            onValueChange={(value) => setEditableClassification(value as 'art' | 'gen')}
+                            className="flex gap-4"
+                            disabled={isSaving}
+                          >
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="gen" id="classification-gen" />
+                              <Label htmlFor="classification-gen">Generation</Label>
+                            </div>
+                            <div className="flex items-center space-x-2">
+                              <RadioGroupItem value="art" id="classification-art" />
+                              <Label htmlFor="classification-art">Art</Label>
+                            </div>
+                          </RadioGroup>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="videoLora" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA (Optional)</Label>
+                          {isFetchingLoras ? (
+                             <Skeleton className="h-10 w-full" />
+                          ) : (
+                            <Select
+                              value={selectValue}
+                              onValueChange={(value) => {
+                                setEditableAssetId(value === "__NONE__" ? "" : value);
                               }}
                               disabled={isSaving}
-                           >
-                               <Save className="mr-2 h-4 w-4" /> {isSaving ? 'Saving...' : 'Save Changes'}
-                           </Button>
+                              name="videoLora"
+                            >
+                              <SelectTrigger id="videoLora">
+                                <SelectValue placeholder="Select a LoRA..." />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="__NONE__">-- None --</SelectItem>
+                                {availableLoras.map((lora) => (
+                                  <SelectItem key={lora.id} value={lora.id}>
+                                    {lora.name}
+                                  </SelectItem>
+                                ))}
+                              </SelectContent>
+                            </Select>
+                          )}
+                        </div>
+                        
+                        <div className="flex justify-end gap-2 pt-2">
+                          <Button
+                            variant="outline"
+                            onClick={handleCancelEdit}
+                            disabled={isSaving}
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleSaveEdit}
+                            disabled={isSaving}
+                          >
+                            {isSaving ? (
+                              <>
+                                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                Saving...
+                              </>
+                            ) : (
+                              <>
+                                <Save className="mr-2 h-4 w-4" />
+                                Save Changes
+                              </>
+                            )}
+                          </Button>
                         </div>
                       </div>
                     );
