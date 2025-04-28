@@ -426,29 +426,44 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     // }
   }, [isIntersecting, isMobile, videoRef]);
 
-  // --- Timeout Reset Logic ---
+  // --- Timeout Reset Logic (Reverted to Local Implementation) ---
   const attemptReset = useCallback(() => {
-    if (videoRef.current && !unmountedRef.current && !error) {
-      const video = videoRef.current;
-      logger.warn(`[${componentId}] Video stalled, attempting reset. Current time: ${video.currentTime}, Ready state: ${video.readyState}, Paused: ${video.paused}`);
-      // Store current time to restore position after load
-      const currentTime = video.currentTime;
-      video.load(); // Force reload of the video source
-      video.play().then(() => {
-        // Restore position slightly after play starts to ensure it takes effect
-        setTimeout(() => {
-          if (videoRef.current && !unmountedRef.current && video.currentTime === 0 && currentTime > 0) {
-             video.currentTime = currentTime;
-             logger.log(`[${componentId}] Reset successful, restored time to ${currentTime}`);
-          } else if (videoRef.current) {
-             logger.log(`[${componentId}] Reset play successful, current time is now ${video.currentTime}`);
-          }
-        }, 100);
-      }).catch(err => {
-        logger.error(`[${componentId}] Error playing after reset:`, err);
-      });
+    // Get the video element safely
+    const video = videoRef.current;
+    if (!video || unmountedRef.current || error) {
+      logger.warn(`[${componentId}] attemptReset called but conditions not met (video: ${!!video}, unmounted: ${unmountedRef.current}, error: ${!!error})`);
+      return;
     }
-  }, [videoRef, componentId, error]);
+    
+    logger.warn(`[${componentId}] Video stalled or timed out, attempting LOCAL reset. Current time: ${video.currentTime}, Ready state: ${video.readyState}, Paused: ${video.paused}`);
+    
+    // Reinstate the local reset logic:
+    const currentTime = video.currentTime;
+    video.load(); // Force reload of the video source
+    video.play().then(() => {
+      // Restore position slightly after play starts to ensure it takes effect
+      // Add a small delay before setting time, helps prevent race conditions after load()
+      setTimeout(() => {
+        if (videoRef.current && !unmountedRef.current) {
+          // Check if time needs restoring (sometimes load() resets it)
+          if (video.currentTime === 0 && currentTime > 0) { 
+             video.currentTime = currentTime;
+             logger.log(`[${componentId}] Local reset successful, restored time to ${currentTime}`);
+          } else {
+             logger.log(`[${componentId}] Local reset play successful, current time is now ${video.currentTime}`);
+          }
+        }
+      }, 100); // 100ms delay
+    }).catch(err => {
+      // Log specific errors, avoid spamming NotAllowedError
+      if (err.name !== 'NotAllowedError') {
+         logger.error(`[${componentId}] Error playing after local reset:`, err);
+      } else {
+         logger.warn(`[${componentId}] Autoplay prevented after local reset.`);
+      }
+    });
+  // Dependencies now only include local refs/state/props used
+  }, [videoRef, componentId, error]); 
 
   // --- Timeout Clearing ---
   const clearInitialPlayTimeout = useCallback(() => {

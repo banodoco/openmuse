@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useState, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import LoadingState from '@/components/LoadingState';
@@ -42,13 +42,12 @@ const App: React.FC = () => {
     // Check if we're on a mobile device before adding the listener
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     if (isMobile) {
-      document.addEventListener('touchstart', unlockAutoplay, { once: true, passive: true });
-      console.log('Global autoplay unlock listener added for mobile.');
+      document.addEventListener('touchstart', unlockAutoplay, { passive: true });
+      console.log('Persistent global autoplay unlock listener added for mobile (fires on every touchstart).');
 
-      // Cleanup function to remove listener if component unmounts before interaction
+      // No cleanup removal – we want it to persist for the lifetime of the SPA
       return () => {
-        document.removeEventListener('touchstart', unlockAutoplay);
-        console.log('Global autoplay unlock listener removed.');
+        // Do nothing – keep listener.
       };
     }
   }, []);
@@ -74,60 +73,6 @@ const App: React.FC = () => {
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
   }, []);
-
-  // Global Refresh Toast on Window Focus when videos remain paused or stuck
-  const [showRefreshToast, setShowRefreshToast] = useState(false);
-  useEffect(() => {
-    const handleFocus = () => {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      console.log('[handleFocus] isMobile:', isMobile, 'userAgent:', navigator.userAgent); // DEBUG LOG
-      const videos = document.querySelectorAll('video');
-      const allStuck = videos.length > 0 && Array.from(videos).every(video => video.paused || video.readyState < 3);
-      console.log('[handleFocus] allStuck:', allStuck); // DEBUG LOG
-      if (isMobile && allStuck) {
-        console.log('All videos are stuck on focus on mobile; showing refresh toast.');
-        setShowRefreshToast(true);
-      } else {
-        // Only log if we are actively setting it to false when it was true
-        // if (showRefreshToast) console.log('[handleFocus] Hiding toast. Reason: isMobile=', isMobile, 'allStuck=', allStuck);
-        setShowRefreshToast(false);
-      }
-    };
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
-  }, []);
-
-  // Periodic check if videos remain stuck (fallback)
-  useEffect(() => {
-    const checkVideosStuck = () => {
-      const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-      console.log('[checkVideosStuck] isMobile:', isMobile, 'userAgent:', navigator.userAgent); // DEBUG LOG
-      const videos = document.querySelectorAll('video');
-      const allStuck = videos.length > 0 && Array.from(videos).every(video => video.paused || video.readyState < 3);
-      console.log('[checkVideosStuck] allStuck:', allStuck); // DEBUG LOG
-      if (isMobile && allStuck) {
-        console.log('Periodic check: all videos remain stuck on mobile, showing refresh toast.');
-        setShowRefreshToast(true);
-      } else {
-        // Only log if we are actively setting it to false when it was true
-        // if (showRefreshToast) console.log('[checkVideosStuck] Hiding toast. Reason: isMobile=', isMobile, 'allStuck=', allStuck);
-        setShowRefreshToast(false);
-      }
-    };
-    const intervalId = setInterval(checkVideosStuck, 10000); // check every 10 seconds
-    return () => clearInterval(intervalId);
-  }, []);
-
-  const refreshStuckVideos = () => {
-    document.querySelectorAll('video').forEach(video => {
-      if (video.paused || video.readyState < 3) {
-        video.pause();
-        video.load();
-        video.play().catch(err => console.error('Error refreshing video playback:', err));
-      }
-    });
-    console.log('Refreshed stuck videos');
-  };
 
   return (
     <HelmetProvider>
@@ -170,12 +115,6 @@ const App: React.FC = () => {
             </LoraProvider>
           </AuthProvider>
           <Toaster />
-          {showRefreshToast && (
-            <div className="fixed bottom-4 right-4 z-50 bg-gray-800 text-white px-4 py-2 rounded shadow-lg cursor-pointer"
-                 onClick={refreshStuckVideos}>
-              Refresh to fix animations
-            </div>
-          )}
         </TooltipProvider>
       </ErrorBoundary>
     </HelmetProvider>

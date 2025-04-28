@@ -111,9 +111,11 @@ export const useVideoLoader = ({
 
     prevSrcRef.current = src;
 
-    const handleLoadedData = () => {
-      if (prevSrcRef.current !== video.currentSrc && !(isBlobUrl && video.currentSrc?.startsWith('blob:'))) {
-         logger.warn(`[${src.substring(0,15)}] handleLoadedData called for old src (${video.currentSrc?.substring(0,15)}). Ignoring.`);
+    // Define handlers INSIDE the effect so they capture the correct scope and refs
+    // and can be included in the dependency array properly.
+    const handleLoadedData = (event: Event) => { // Ensure event type is correct
+      if (prevSrcRef.current !== video?.currentSrc && !(isBlobUrl && video?.currentSrc?.startsWith('blob:'))) {
+         logger.warn(`[${src.substring(0,15)}] handleLoadedData called for old src (${video?.currentSrc?.substring(0,15)}). Ignoring.`);
          return;
       }
       if (unmountedRef.current) return;
@@ -127,27 +129,12 @@ export const useVideoLoader = ({
         onLoadedData(event);
       }
       
-      if (autoPlay && !playOnHover && !externallyControlled && !isMobile) {
-        setTimeout(() => {
-          attemptVideoPlay(video, muted);
-        }, 150);
-      }
-      
-      if (!isMobile && ((externallyControlled && isHovering) || (playOnHover && isHovering))) {
-        logger.log('VideoPlayer: Initially hovering - playing video immediately');
-        setTimeout(() => {
-          attemptVideoPlay(video, muted).then(() => {
-            logger.log('Auto-play successful in lightbox');
-          }).catch(err => {
-            logger.error('Auto-play failed in lightbox:', err);
-          });
-        }, 150);
-      }
+      // Play attempts REMOVED from here
     };
     
     const handleError = () => {
-      if (prevSrcRef.current !== video.src && !(isBlobUrl && video.src?.startsWith('blob:'))) {
-        logger.warn(`[${src.substring(0,15)}] handleError called for old src (${video.src?.substring(0,15)}). Ignoring.`);
+      if (!video || prevSrcRef.current !== video.src && !(isBlobUrl && video.src?.startsWith('blob:'))) {
+        logger.warn(`[${src.substring(0,15)}] handleError called for old src (${video?.src?.substring(0,15)}) or no video. Ignoring.`);
         return;
       }
       if (unmountedRef.current) return;
@@ -173,18 +160,22 @@ export const useVideoLoader = ({
       if (onError) onError(message);
     };
     
-    if (prevSrcRef.current === src) {
+    // Add listeners only if the source hasn't changed
+    if (prevSrcRef.current === src && video) {
        video.addEventListener('loadeddata', handleLoadedData);
        video.addEventListener('error', handleError);
     }
 
+    // Ensure cleanup removes the specific handlers
     return () => {
       if (video) {
+         // Use the handlers defined within this effect scope for removal
          video.removeEventListener('loadeddata', handleLoadedData);
          video.removeEventListener('error', handleError);
       }
     };
-  }, [src, autoPlay, muted, onLoadedData, videoRef, onError, poster, playOnHover, isBlobUrl, externallyControlled, isHovering, isMobile]);
+  // Dependencies now include state setters and props used within the handlers defined inside
+  }, [src, videoRef, onError, poster, isBlobUrl, setIsLoading, setLoadedDataFired, setError, setErrorDetails, onLoadedData]);
 
   const handleRetry = () => {
     const video = videoRef.current;

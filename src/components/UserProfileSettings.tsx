@@ -14,6 +14,7 @@ import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/h
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
+import { Skeleton } from '@/components/ui/skeleton';
 
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -25,6 +26,72 @@ function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (..
       func(...args);
     }, wait);
   };
+}
+
+// Skeleton Loader Component
+function UserProfileSettingsSkeleton() {
+  return (
+    <Card className="max-w-2xl mx-auto my-8 bg-card/80 backdrop-blur-sm border border-border/20">
+      <CardHeader>
+        <Skeleton className="h-6 w-1/3" />
+        <Skeleton className="h-4 w-2/3" />
+      </CardHeader>
+      <CardContent className="space-y-6">
+        {/* Image Section Skeleton */}
+        <div className="space-y-4">
+          <div>
+            <Skeleton className="h-4 w-1/4 mb-1" />
+            <Skeleton className="h-32 w-full rounded-md" />
+          </div>
+          <div className="flex items-center space-x-4">
+            <Skeleton className="h-20 w-20 rounded-full" />
+            <div className="space-y-1">
+              <Skeleton className="h-4 w-20" />
+              <Skeleton className="h-3 w-40" />
+            </div>
+          </div>
+        </div>
+
+        {/* Text Inputs Skeleton */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-1/3" />
+            <Skeleton className="h-10 w-full" />
+          </div>
+          <div className="space-y-2 md:col-span-2">
+            <Skeleton className="h-4 w-1/4" />
+            <Skeleton className="h-20 w-full" />
+          </div>
+        </div>
+
+        {/* Links Skeleton */}
+        <div className="space-y-4">
+          <Skeleton className="h-4 w-1/4" />
+          <Skeleton className="h-10 w-full" />
+          <Skeleton className="h-10 w-full" />
+        </div>
+      </CardContent>
+      <CardFooter className="border-t pt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-2">
+        <Skeleton className="h-10 w-full sm:w-40" />
+        <div className="flex items-center space-x-2 w-full sm:w-auto justify-end">
+           <Skeleton className="h-10 w-full sm:w-32" />
+           <Skeleton className="h-10 w-full sm:w-32" />
+        </div>
+      </CardFooter>
+    </Card>
+  );
 }
 
 export default function UserProfileSettings() {
@@ -467,20 +534,13 @@ export default function UserProfileSettings() {
     setEditingLinkValue('');
   };
 
+  // Use the skeleton loader when isLoading is true
   if (isLoading) {
-    return (
-      <Card className="w-full max-w-2xl mx-auto">
-        <CardContent className="py-8">
-          <div className="flex justify-center">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        </CardContent>
-      </Card>
-    );
+    return <UserProfileSettingsSkeleton />;
   }
 
   return (
-    <Card className="max-w-2xl mx-auto my-8 bg-card/80 backdrop-blur-sm border border-border/20">
+    <Card className="max-w-2xl mx-auto my-8 bg-card/80 backdrop-blur-sm border border-border/20 animate-fade-in">
       <form onSubmit={handleSubmit}>
         <CardHeader>
           <CardTitle>Profile Settings</CardTitle>
