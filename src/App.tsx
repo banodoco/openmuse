@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { BrowserRouter as Router, Route, Routes } from 'react-router-dom';
 import { Toaster } from '@/components/ui/toaster';
 import LoadingState from '@/components/LoadingState';
@@ -52,19 +52,69 @@ const App: React.FC = () => {
 
   // Global Animation Restart on Page Show for Mobile
   useEffect(() => {
-    const handlePageShow = () => {
-      console.log('pageshow event detected, restarting animations');
-      const container = document.getElementById('app-container');
-      if (container) {
-        container.classList.remove('restart-animations');
-        // Force reflow
-        void container.offsetWidth;
-        container.classList.add('restart-animations');
+    const handlePageShow = (event) => {
+      console.log('pageshow event detected. Persisted:', event.persisted);
+      if (event.persisted) {
+        console.log('Page restored from bfcache, refreshing to restart videos and animations.');
+        window.location.reload();
+      } else {
+        // If not from bfcache, just restart animations
+        const container = document.getElementById('app-container');
+        if (container) {
+          container.classList.remove('restart-animations');
+          // Force reflow
+          void container.offsetWidth;
+          container.classList.add('restart-animations');
+        }
       }
     };
     window.addEventListener('pageshow', handlePageShow);
     return () => window.removeEventListener('pageshow', handlePageShow);
   }, []);
+
+  // Global Refresh Toast on Window Focus when videos remain paused or stuck
+  const [showRefreshToast, setShowRefreshToast] = useState(false);
+  useEffect(() => {
+    const handleFocus = () => {
+      const videos = document.querySelectorAll('video');
+      const allStuck = videos.length > 0 && Array.from(videos).every(video => video.paused || video.readyState < 3);
+      if (allStuck) {
+        console.log('All videos are stuck on focus; showing refresh toast.');
+        setShowRefreshToast(true);
+      } else {
+        setShowRefreshToast(false);
+      }
+    };
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, []);
+
+  // Periodic check if videos remain stuck (fallback)
+  useEffect(() => {
+    const checkVideosStuck = () => {
+      const videos = document.querySelectorAll('video');
+      const allStuck = videos.length > 0 && Array.from(videos).every(video => video.paused || video.readyState < 3);
+      if (allStuck) {
+        console.log('Periodic check: all videos remain stuck, showing refresh toast.');
+        setShowRefreshToast(true);
+      } else {
+        setShowRefreshToast(false);
+      }
+    };
+    const intervalId = setInterval(checkVideosStuck, 10000); // check every 10 seconds
+    return () => clearInterval(intervalId);
+  }, []);
+
+  const refreshStuckVideos = () => {
+    document.querySelectorAll('video').forEach(video => {
+      if (video.paused || video.readyState < 3) {
+        video.pause();
+        video.load();
+        video.play().catch(err => console.error('Error refreshing video playback:', err));
+      }
+    });
+    console.log('Refreshed stuck videos');
+  };
 
   return (
     <AuthProvider>
@@ -99,6 +149,12 @@ const App: React.FC = () => {
             </Routes>
           </Suspense>
           <Toaster />
+          {showRefreshToast && (
+            <div className="fixed bottom-4 right-4 z-50 bg-gray-800 text-white px-4 py-2 rounded shadow-lg cursor-pointer"
+                 onClick={refreshStuckVideos}>
+              Refresh to fix animations
+            </div>
+          )}
         </Router>
       </div>
     </AuthProvider>

@@ -92,14 +92,13 @@ const VideoThumbnailGenerator: React.FC<VideoThumbnailGeneratorProps> = ({
       const fileUrl = URL.createObjectURL(file);
       
       videoRef.current.src = fileUrl;
-      videoRef.current.currentTime = 0; // Set to first frame
       videoRef.current.muted = true;
       videoRef.current.preload = 'metadata';
       
       videoRef.current.onloadedmetadata = () => {
         if (videoRef.current && !unmountedRef.current) {
-          logger.log('Video metadata loaded, seeking to first frame');
-          videoRef.current.currentTime = 0; // Ensure we're at the first frame
+          logger.log('Video metadata loaded, seeking to slightly after first frame (0.1s)');
+          videoRef.current.currentTime = 0.1; // Seek slightly after the beginning
         }
       };
       
