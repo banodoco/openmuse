@@ -1,4 +1,3 @@
-
 import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 
 export interface VideoMetadata {
@@ -76,9 +75,43 @@ export interface UserProfile {
   description?: string;
   links?: string[];
   background_image_url?: string;
+  discord_connected?: boolean;
 }
 
-// Standard video metadata form interface to be used across components
+export interface LoraAsset {
+  id: string;
+  name: string;
+  description?: string;
+  creator?: string;
+  creatorDisplayName?: string;
+  type: string;
+  created_at: string;
+  user_id?: string;
+  primary_media_id?: string;
+  admin_status?: AdminStatus | null;
+  user_status?: UserAssetPreferenceStatus | null;
+  lora_type?: string;
+  lora_base_model?: string;
+  model_variant?: string;
+  lora_link?: string;
+  primaryVideo?: VideoEntry;
+  videos?: VideoEntry[];
+  user_preference_status?: UserAssetPreferenceStatus | null;
+  associatedThumbnails?: (string | null)[];
+  associatedMedia?: Array<{
+    id: string;
+    url?: string;
+    thumbnailUrl?: string;
+    title?: string;
+  }>;
+  admin_reviewed?: boolean;
+}
+
+export interface LoraManagerProps {
+  loras: LoraAsset[];
+  isLoading: boolean;
+}
+
 export interface VideoMetadataForm {
   title: string;
   description: string;
@@ -86,7 +119,6 @@ export interface VideoMetadataForm {
   isPrimary?: boolean;
 }
 
-// Standard video item interface to be used across components
 export interface VideoItem {
   id: string;
   file: File | null;

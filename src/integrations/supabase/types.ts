@@ -167,6 +167,7 @@ export type Database = {
           background_image_url: string | null
           created_at: string
           description: string | null
+          discord_connected: boolean | null
           discord_user_id: string | null
           discord_username: string | null
           display_name: string | null
@@ -181,10 +182,11 @@ export type Database = {
           background_image_url?: string | null
           created_at?: string
           description?: string | null
+          discord_connected?: boolean | null
           discord_user_id?: string | null
           discord_username?: string | null
           display_name?: string | null
-          id: string
+          id?: string
           links?: string[] | null
           real_name?: string | null
           username: string
@@ -195,6 +197,7 @@ export type Database = {
           background_image_url?: string | null
           created_at?: string
           description?: string | null
+          discord_connected?: boolean | null
           discord_user_id?: string | null
           discord_username?: string | null
           display_name?: string | null
