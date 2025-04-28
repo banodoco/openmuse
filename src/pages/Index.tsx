@@ -90,6 +90,37 @@ const Index: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const modelFilterFromUrl = searchParams.get('model') || 'all';
   // logger.log(`Index: Model filter from URL: ${modelFilterFromUrl}`);
+
+  // Add state to store asset_media associations
+  const [videoAssetMap, setVideoAssetMap] = useState<Record<string, string>>({});
+
+  // Add effect to fetch asset_media associations when videos change
+  useEffect(() => {
+    if (!videos || videos.length === 0) return;
+    
+    const fetchAssetAssociations = async () => {
+      const videoIds = videos.map(v => v.id);
+      const { data: assetLinks, error: linksError } = await supabase
+        .from('asset_media')
+        .select('media_id, asset_id')
+        .in('media_id', videoIds);
+
+      if (linksError) {
+        logger.error('Error fetching asset_media links:', linksError);
+        return;
+      }
+
+      const newMap: Record<string, string> = {};
+      assetLinks?.forEach(link => {
+        if (link.media_id && link.asset_id) {
+          newMap[link.media_id] = link.asset_id;
+        }
+      });
+      setVideoAssetMap(newMap);
+    };
+
+    fetchAssetAssociations();
+  }, [videos]);
   
   // LIFTED STATE:
   const [currentModelFilter, setCurrentModelFilter] = useState(modelFilterFromUrl);
@@ -732,6 +763,7 @@ const Index: React.FC = () => {
           videoId={lightboxVideo.id}
           title={lightboxVideo.metadata?.title}
           description={lightboxVideo.metadata?.description}
+          initialAssetId={videoAssetMap[lightboxVideo.id]}
           thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           creatorId={lightboxVideo.user_id}
           isAuthorized={isAdmin}
