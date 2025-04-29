@@ -155,9 +155,9 @@ const AuthButton: React.FC = () => {
         variant="ghost" 
         size="icon"
         className={cn(
-          "absolute -top-10 right-0 z-10",
-          "md:-top-2 md:-right-2",
-          "flex items-center justify-center rounded-full",
+          "mb-2 self-end", 
+          "md:absolute md:-top-2 md:-right-2 md:mb-0 md:self-auto",
+          "z-10 flex items-center justify-center rounded-full",
           "h-7 w-auto px-2",
           "bg-background/70 backdrop-blur-sm text-muted-foreground",
           "border border-olive/30",
