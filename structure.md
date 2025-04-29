@@ -163,7 +163,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── database/       # Abstraction layer and utilities for database interactions
 │   │   │   ├── BaseDatabase.ts # Base class or interface for database operations
 │   │   │   ├── DatabaseProvider.ts # Provider component that manages database access with optimized session handling, caching, and timeout management (v1.2.0)
-│   │   │   ├── SupabaseDatabase.ts # Supabase-specific implementation of database operations
+│   │   │   ├── SupabaseDatabase.ts # Supabase-specific implementation of database operations with query timeout safeguards to prevent UI hangs
 │   │   │   ├── SupabaseDatabaseOperations.ts # Detailed Supabase database operations (CRUD)
 │   │   │   └── index.ts        # Barrel file exporting database utilities
 │   │   ├── services/       # Modules acting as clients for backend APIs or specific data operations
