@@ -155,14 +155,16 @@ const AuthButton: React.FC = () => {
         variant="ghost" 
         size="icon"
         className={cn(
-          "mb-2 self-end", 
-          "md:absolute md:-top-2 md:-right-2 md:mb-0 md:self-auto",
-          "z-10 flex items-center justify-center rounded-full",
-          "h-7 w-auto px-2",
+          // Mobile: Full width, centered content
+          "mb-2 w-full flex justify-end",
+          // Desktop: Reset width and position for corner overlap
+          "md:w-auto md:absolute md:-top-2 md:-right-2 md:mb-0",
+          "z-10 flex items-center rounded-full",
+          "h-7 px-2",
           "bg-background/70 backdrop-blur-sm text-muted-foreground",
           "border border-olive/30",
           "transition-all duration-200 ease-in-out",
-          "md:h-6 md:w-6 md:px-0",
+          "md:h-6 md:w-6 md:px-0 md:justify-center",
           "md:group-hover:scale-110",
           "md:hover:bg-muted/90 md:hover:text-foreground md:hover:w-auto md:hover:px-2",
           "md:hover:border-olive/50"
