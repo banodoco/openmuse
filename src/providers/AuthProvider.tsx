@@ -25,6 +25,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const isMounted = useRef(true);
   const initialCheckCompleted = useRef(false);
   const adminCheckInProgress = useRef(false);
+  const sessionFallbackTimeout = useRef<NodeJS.Timeout | null>(null); // NEW REF
 
   /**
    * Safely update the isAdmin flag *only* if the component is still mounted **and**
@@ -402,6 +403,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     logger.log(`[Effect Setup][v${PROVIDER_VERSION}] Invoking checkInitialSessionAndAdmin`);
     checkInitialSessionAndAdmin();
 
+    // NEW: Fallback timeout – ensure we don't stay stuck in loading forever
+    if (sessionFallbackTimeout.current) {
+      clearTimeout(sessionFallbackTimeout.current);
+    }
+    sessionFallbackTimeout.current = setTimeout(() => {
+      if (isMounted.current && isLoading) {
+        logger.warn(`[Timeout][v${PROVIDER_VERSION}] Initial session check exceeded 5000ms. Forcing isLoading=false`);
+        setIsLoading(false);
+        if (!initialCheckCompleted.current) {
+          initialCheckCompleted.current = true;
+        }
+      }
+    }, 5000); // 5 seconds fallback
+
     // Cleanup function
     return () => {
       logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}] Unsubscribing and setting isMounted=false`);
@@ -410,6 +425,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Ensure any long-running admin check can't block future mounts.
       logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}] Resetting adminCheckInProgress flag.`);
       adminCheckInProgress.current = false;
+      // Clear fallback timeout
+      if (sessionFallbackTimeout.current) {
+        clearTimeout(sessionFallbackTimeout.current);
+        sessionFallbackTimeout.current = null;
+      }
     };
   // IMPORTANT: Minimal dependencies. This effect should run essentially once on mount.
   // Adding dependencies like `isLoading` can cause infinite loops.
