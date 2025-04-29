@@ -25,6 +25,11 @@ interface LeaderInfo {
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const tabId = useRef<string>(uuidv4()); // Generate ID immediately
+
+  // --- DEBUGGING ---
+  console.log('AuthProvider Mounting: Checking logger instance:', typeof logger, logger);
+  // --- END DEBUGGING ---
+
   logger.log(`AuthProvider component mounting [v${PROVIDER_VERSION}] - Tab ID: ${tabId.current}`);
 
   const [user, setUser] = useState<User | null>(null);
