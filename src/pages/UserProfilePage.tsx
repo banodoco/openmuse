@@ -175,6 +175,13 @@ export default function UserProfilePage() {
   // Only this flag (not the whole query string) should trigger data refetch
   const loggedOutViewParam = searchParams.get('loggedOutView');
 
+  // === Move useMemo hook HERE, before conditional return ===
+  const featuredCount = useMemo(() => {
+    const videoFeatured = userVideos.filter(v => v.admin_status === 'Curated' || v.admin_status === 'Featured').length;
+    const assetFeatured = userAssets.filter(a => a.admin_status === 'Curated' || a.admin_status === 'Featured').length;
+    return videoFeatured + assetFeatured;
+  }, [userVideos, userAssets]);
+
   // --- Data Fetching Functions defined using useCallback ---
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
     logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
@@ -836,14 +843,6 @@ export default function UserProfilePage() {
           <PaginationItem> <PaginationNext href="#" onClick={(e) => { e.preventDefault(); if (currentPage < totalPages) { onPageChange(currentPage + 1); } }} aria-disabled={currentPage === totalPages} className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined} /> </PaginationItem> 
       </PaginationContent> </Pagination> ); 
   };
-
-  // Add the following useMemo hook along with other useMemo hooks, e.g., after the declarations of userVideos and userAssets:
-
-  const featuredCount = useMemo(() => {
-    const videoFeatured = userVideos.filter(v => v.admin_status === 'Curated' || v.admin_status === 'Featured').length;
-    const assetFeatured = userAssets.filter(a => a.admin_status === 'Curated' || a.admin_status === 'Featured').length;
-    return videoFeatured + assetFeatured;
-  }, [userVideos, userAssets]);
 
   // --- JSX Rendering ---
   return (
