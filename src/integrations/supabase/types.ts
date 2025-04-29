@@ -123,7 +123,7 @@ export type Database = {
           id: string
           metadata: Json | null
           placeholder_image: string | null
-          title: string
+          title: string | null
           type: string
           url: string
           user_id: string | null
@@ -138,7 +138,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           placeholder_image?: string | null
-          title: string
+          title?: string | null
           type: string
           url: string
           user_id?: string | null
@@ -153,7 +153,7 @@ export type Database = {
           id?: string
           metadata?: Json | null
           placeholder_image?: string | null
-          title?: string
+          title?: string | null
           type?: string
           url?: string
           user_id?: string | null
