@@ -1,15 +1,16 @@
-
 import { supabaseDatabaseOperations } from './SupabaseDatabaseOperations';
 import { supabase } from '@/integrations/supabase/client';
 import { Logger } from '../logger';
 import { BaseDatabase } from './BaseDatabase';
+
+const PROVIDER_VERSION = '1.1.0';
 
 /**
  * Database provider that returns the appropriate database implementation
  * and handles authentication state
  */
 export class DatabaseProvider {
-  private readonly logger = new Logger('DatabaseProvider');
+  private readonly logger = new Logger(`DatabaseProvider[v${PROVIDER_VERSION}]`);
   private isCheckingAuth = false;
   private lastAuthCheck = 0;
   private authCheckCooldown = 10000; // Increased to 10 seconds cooldown between checks
@@ -26,7 +27,7 @@ export class DatabaseProvider {
       
       // Prevent too frequent auth checks
       if (this.isCheckingAuth || (now - this.lastAuthCheck < this.authCheckCooldown)) {
-        this.logger.log("Auth check prevented (in progress or cooldown active), using current database state");
+        this.logger.log(`[v${PROVIDER_VERSION}] Auth check prevented (in progress or cooldown active), using current database state`);
         return supabaseDatabaseOperations;
       }
       
@@ -39,16 +40,18 @@ export class DatabaseProvider {
       this.isCheckingAuth = true;
       this.lastAuthCheck = now;
       
+      const checkStart = performance.now();
+      
       // Create a new session check promise
       this.sessionPromise = new Promise<void>(async (resolve) => {
         try {
-          this.logger.log("Getting current user");
+          this.logger.log(`[v${PROVIDER_VERSION}] Getting current user`);
           
           // Simplified session check with proper error handling
           const { data, error } = await supabase.auth.getSession();
           
           if (error) {
-            this.logger.error("Session check error:", error);
+            this.logger.error(`[v${PROVIDER_VERSION}] Session check error:`, error);
             // Only clear user ID if we previously had one and now we don't
             if (this.currentUserId !== null) {
               this.currentUserId = null;
@@ -59,21 +62,23 @@ export class DatabaseProvider {
             
             // Only update if the user ID changed
             if (this.currentUserId !== userId) {
-              this.logger.log(`User authenticated from session, ID: ${userId}`);
+              this.logger.log(`[v${PROVIDER_VERSION}] Session found. User ID: ${userId}`);
               this.currentUserId = userId;
               supabaseDatabaseOperations.setCurrentUserId(userId);
             }
           } else if (this.currentUserId !== null) {
             // Only clear if we previously had a user ID
-            this.logger.log('Not authenticated, using anonymous access');
+            this.logger.log(`[v${PROVIDER_VERSION}] No session. Using anonymous access`);
             this.currentUserId = null;
             supabaseDatabaseOperations.setCurrentUserId(null);
           }
         } catch (sessionError) {
-          this.logger.error("Error checking session:", sessionError);
+          this.logger.error(`[v${PROVIDER_VERSION}] Error checking session:`, sessionError);
         } finally {
           this.isCheckingAuth = false;
           this.sessionPromise = null;
+          const duration = (performance.now() - checkStart).toFixed(2);
+          this.logger.log(`[v${PROVIDER_VERSION}] Session check finished in ${duration} ms`);
           resolve();
         }
       });
