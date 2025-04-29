@@ -14,14 +14,14 @@ interface UseVideoManagementOptions {
 }
 
 export const useVideoManagement = (options?: UseVideoManagementOptions) => {
-  const { approvalFilter = 'all' } = options || {}; // Default to 'all' if no options or filter provided
+  const { approvalFilter = 'all' } = options || {};
   logger.log(`useVideoManagement executing with options: ${JSON.stringify(options)}`);
   const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [videoIsLoading, setVideoIsLoading] = useState(true);
   const isMounted = useRef(true);
-  const fetchAttempted = useRef(false);
-  const fetchInProgress = useRef(false); // Add fetch in progress flag
-  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Add timeout ref
+  const fetchInProgress = useRef(false);
+  const loadingTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Timeout ref
+  const lastFetchErrorRef = useRef<Error | null>(null); // Ref to store last error
 
   const { user, isLoading: authIsLoading } = useAuth();
   const userId = user?.id || null;
@@ -45,16 +45,19 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
     logger.log('[loadAllVideos] Setting videoIsLoading = true, fetchInProgress = true');
     fetchInProgress.current = true;
     setVideoIsLoading(true);
-    // fetchAttempted.current = true; // Consider if this is still needed
+    lastFetchErrorRef.current = null; // Reset last error on new attempt
 
     // Clear previous timeout if exists
     if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     // Set new timeout
     loadingTimeoutRef.current = setTimeout(() => {
-      if (isMounted.current && videoIsLoading) {
+      if (isMounted.current && fetchInProgress.current) { // Check fetchInProgress too
         logger.warn("[loadAllVideos] Timeout reached (10s), forcing videoIsLoading=false");
+        const timeoutError = new Error("Video loading timed out.");
+        lastFetchErrorRef.current = timeoutError; // Store timeout error
         setVideoIsLoading(false);
-        fetchInProgress.current = false; // Also reset progress flag on timeout
+        fetchInProgress.current = false;
+        toast.error(timeoutError.message); // Show toast on timeout
       }
     }, 10000); // 10 second timeout
 
@@ -71,12 +74,15 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
 
       if (!isMounted.current) {
         logger.log("[loadAllVideos] Component unmounted during fetch, discarding results.");
+        // Clear timeout if unmounted during fetch
+        if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+        fetchInProgress.current = false; // Reset flag on unmount during fetch
         return;
       }
 
       logger.log(`[loadAllVideos] Loaded entries count: ${allEntries.length} for filter: ${approvalFilter}`);
 
-      // Original transformation logic (can remain the same)
+      // Transformation logic (can remain the same)
       const transformedEntries = allEntries.map(entry => {
         if (entry.metadata && entry.metadata.assetId) {
           const isPrimary = entry.metadata.isPrimary === true;
@@ -98,8 +104,10 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
 
     } catch (error) {
       logger.error(`[loadAllVideos] Error loading videos (filter: ${approvalFilter}):`, error);
+      lastFetchErrorRef.current = error as Error; // Store actual error
       if (isMounted.current) {
-        toast.error("Error loading videos. Please try again.");
+        // Use specific error message if available, otherwise generic
+        toast.error((error as Error).message || "Error loading videos. Please try again.");
         logger.log("[loadAllVideos] Setting videoIsLoading = false after error");
         setVideoIsLoading(false);
         if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current); // Clear timeout on error
@@ -110,22 +118,28 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
          logger.log("[loadAllVideos] FINALLY block: Setting fetchInProgress = false");
          fetchInProgress.current = false;
       } else {
-         logger.log("[loadAllVideos] FINALLY block: Component unmounted, fetchInProgress remains", fetchInProgress.current);
-         // Reset flag even if unmounted to prevent potential issues on remount
+         logger.log("[loadAllVideos] FINALLY block: Component unmounted, resetting fetchInProgress=false");
          fetchInProgress.current = false; 
       }
+      // Clear timeout in finally just in case (should already be cleared on success/error/timeout)
+      if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     }
-  }, [userId, approvalFilter, authIsLoading]); // Include authIsLoading
+  }, [userId, approvalFilter, authIsLoading]);
 
   useEffect(() => {
     logger.log(`[Effect Mount/Filter Change] Running effect. Filter: ${approvalFilter}`);
     isMounted.current = true;
-    fetchAttempted.current = false; // Reset fetch attempt flag on mount or filter change
+    lastFetchErrorRef.current = null; // Clear error on mount/filter change
 
-    logger.log(`[Effect Mount/Filter Change] Current state: fetchAttempted=${fetchAttempted.current}`);
+    logger.log(`[Effect Mount/Filter Change] Current state: fetchInProgress=${fetchInProgress.current}`);
     
     if (!authIsLoading) {
-      loadAllVideos(); // Only load if auth finished
+      // Prevent duplicate fetch if one is already running from a previous render/effect cycle
+      if (!fetchInProgress.current) {
+        loadAllVideos();
+      } else {
+        logger.log('[Effect Mount/Filter Change] Fetch already in progress, skipping immediate loadAllVideos call');
+      }
     } else {
       logger.log('[Effect Mount/Filter Change] Auth still loading, deferring initial video fetch');
     }
@@ -147,24 +161,30 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
     // Check fetchInProgress flag before refetching
     if (isMounted.current && !authIsLoading && !fetchInProgress.current) {
       logger.log(`[refetchVideos] Conditions met (mounted, auth not loading, not in progress), calling loadAllVideos with filter: ${approvalFilter}`);
-      // fetchAttempted.current = false; // Consider removing if fetchAttempted isn't used elsewhere
       await loadAllVideos();
-      toast.success("Videos refreshed");
+      if (!lastFetchErrorRef.current) { // Only toast success if no error occurred
+        toast.success("Videos refreshed");
+      }
     } else {
       logger.log(`[refetchVideos] Skipping refetch: isMounted=${isMounted.current}, authIsLoading=${authIsLoading}, fetchInProgress=${fetchInProgress.current}`);
+      if (fetchInProgress.current) {
+        toast.info('Video fetch already in progress.', { duration: 2000 });
+      }
+      if (lastFetchErrorRef.current) {
+        toast.error(`Cannot refresh: ${lastFetchErrorRef.current.message}`, { duration: 3000 });
+      }
     }
-  }, [loadAllVideos, authIsLoading, approvalFilter]); // Add approvalFilter dependency
+  }, [loadAllVideos, authIsLoading, approvalFilter]);
 
-  // --- CRUD operations (remain largely the same, but state updates trigger re-renders with potentially filtered data) ---
+  // --- CRUD operations (remain largely the same) ---
   const deleteVideo = useCallback(async (id: string) => {
-    // ... (implementation is the same, but relies on loadAllVideos/refetch potentially filtering)
     logger.log(`[deleteVideo] Attempting to delete video ID: ${id}`);
     try {
       const db = await databaseSwitcher.getDatabase();
       await db.deleteEntry(id);
       logger.log(`[deleteVideo] Successfully deleted ID: ${id}. Refetching videos.`);
-      await refetchVideos(); // Refetch to update the list based on the current filter
-      toast.success("Video deleted successfully.");
+      await refetchVideos(); // Refetch will handle its own success/error toast
+      // toast.success("Video deleted successfully."); // Remove redundant toast
       return true;
     } catch (error) {
       logger.error(`[deleteVideo] Error deleting video ID ${id}:`, error);
@@ -174,15 +194,14 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
   }, [refetchVideos]);
 
   const approveVideo = useCallback(async (id: string) => {
-    // ... (implementation is the same, but relies on loadAllVideos/refetch potentially filtering)
     logger.log(`[approveVideo] Attempting to approve video ID: ${id}`);
     try {
       const db = await databaseSwitcher.getDatabase();
       const updatedVideo = await db.setApprovalStatus(id, "Curated");
       logger.log(`[approveVideo] Successfully approved ID: ${id}. Refetching videos.`);
-      await refetchVideos(); // Refetch to update the list based on the current filter
-      toast.success("Video approved successfully.");
-      return updatedVideo; // Return the single updated video from DB if needed
+      await refetchVideos();
+      // toast.success("Video approved successfully."); // Remove redundant toast
+      return updatedVideo;
     } catch (error) {
       logger.error(`[approveVideo] Error approving video ID ${id}:`, error);
       toast.error("Failed to approve video.");
@@ -191,15 +210,14 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
   }, [refetchVideos]);
 
   const rejectVideo = useCallback(async (id: string) => {
-    // ... (implementation is the same, but relies on loadAllVideos/refetch potentially filtering)
     logger.log(`[rejectVideo] Attempting to reject video ID: ${id}`);
     try {
       const db = await databaseSwitcher.getDatabase();
       const updatedVideo = await db.setApprovalStatus(id, "Rejected");
       logger.log(`[rejectVideo] Successfully rejected ID: ${id}. Refetching videos.`);
-      await refetchVideos(); // Refetch to update the list based on the current filter
-      toast.success("Video rejected successfully.");
-      return updatedVideo; // Return the single updated video from DB if needed
+      await refetchVideos();
+      // toast.success("Video rejected successfully."); // Remove redundant toast
+      return updatedVideo;
     } catch (error) {
       logger.error(`[rejectVideo] Error rejecting video ID ${id}:`, error);
       toast.error("Failed to reject video.");

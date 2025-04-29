@@ -14,9 +14,11 @@ export class DatabaseProvider {
   private readonly logger = new Logger(`DatabaseProvider[v${PROVIDER_VERSION}]`, true, LOG_TAG);
   private isCheckingAuth = false;
   private lastAuthCheck = 0;
-  private authCheckCooldown = 10000; // Increased to 10 seconds cooldown between checks
+  private authCheckCooldown = 10000; // 10 seconds cooldown between checks
   private currentUserId: string | null = null;
   private sessionPromise: Promise<void> | null = null;
+  private lastError: Error | null = null;
+  private completionPromise: Promise<void> | null = null;
   
   /**
    * Get the appropriate database instance based on current configuration
@@ -26,9 +28,21 @@ export class DatabaseProvider {
     try {
       const now = Date.now();
       
-      // Prevent too frequent auth checks
-      if (this.isCheckingAuth || (now - this.lastAuthCheck < this.authCheckCooldown)) {
-        this.logger.log(`[v${PROVIDER_VERSION}] Auth check prevented (in progress or cooldown active), using current database state`);
+      // If we have a completion promise from a previous call, wait for it
+      if (this.completionPromise) {
+        this.logger.log(`[v${PROVIDER_VERSION}] Waiting for previous operation to complete...`);
+        await this.completionPromise;
+      }
+
+      // If we had an error in the last attempt, wait before retrying
+      if (this.lastError && (now - this.lastAuthCheck < this.authCheckCooldown)) {
+        this.logger.warn(`[v${PROVIDER_VERSION}] Recent error, waiting before retry:`, this.lastError);
+        return supabaseDatabaseOperations;
+      }
+      
+      // Prevent concurrent auth checks
+      if (this.isCheckingAuth) {
+        this.logger.log(`[v${PROVIDER_VERSION}] Auth check in progress, using current database state`);
         return supabaseDatabaseOperations;
       }
       
@@ -40,25 +54,35 @@ export class DatabaseProvider {
       
       this.isCheckingAuth = true;
       this.lastAuthCheck = now;
+      this.lastError = null;
       
       const checkStart = performance.now();
       
-      // Create a new session check promise
-      this.sessionPromise = new Promise<void>(async (resolve) => {
+      // Create a new completion promise
+      this.completionPromise = new Promise<void>(async (resolve, reject) => {
         try {
           this.logger.log(`[v${PROVIDER_VERSION}] Getting current user`);
           
-          // Simplified session check with proper error handling
-          const { data, error } = await supabase.auth.getSession();
+          // Create a timeout promise
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error('Database provider timeout')), 10000);
+          });
+          
+          // Race between session check and timeout
+          const { data, error } = await Promise.race([
+            supabase.auth.getSession(),
+            timeoutPromise
+          ]);
           
           if (error) {
             this.logger.error(`[v${PROVIDER_VERSION}] Session check error:`, error);
+            this.lastError = error;
             // Only clear user ID if we previously had one and now we don't
             if (this.currentUserId !== null) {
               this.currentUserId = null;
               supabaseDatabaseOperations.setCurrentUserId(null);
             }
-          } else if (data.session?.user) {
+          } else if (data?.session?.user) {
             const userId = data.session.user.id;
             
             // Only update if the user ID changed
@@ -73,23 +97,31 @@ export class DatabaseProvider {
             this.currentUserId = null;
             supabaseDatabaseOperations.setCurrentUserId(null);
           }
-        } catch (sessionError) {
-          this.logger.error(`[v${PROVIDER_VERSION}] Error checking session:`, sessionError);
+          
+          resolve();
+        } catch (error) {
+          this.logger.error(`[v${PROVIDER_VERSION}] Error in getDatabase:`, error);
+          this.lastError = error as Error;
+          reject(error);
         } finally {
           this.isCheckingAuth = false;
           this.sessionPromise = null;
           const duration = (performance.now() - checkStart).toFixed(2);
           this.logger.log(`[v${PROVIDER_VERSION}] Session check finished in ${duration} ms`);
-          resolve();
         }
       });
       
-      // Wait for the session check to complete
-      await this.sessionPromise;
+      // Wait for completion
+      await this.completionPromise;
+      
     } catch (error) {
       this.logger.error('Error in getDatabase:', error);
+      this.lastError = error as Error;
       this.isCheckingAuth = false;
       this.sessionPromise = null;
+    } finally {
+      // Clear completion promise
+      this.completionPromise = null;
     }
     
     return supabaseDatabaseOperations;
