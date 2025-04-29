@@ -27,7 +27,7 @@ export interface VideoMetadata {
 export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Rejected';
 
 // Set VideoDisplayStatus to be the same as AdminStatus
-export type VideoDisplayStatus = AdminStatus;
+export type VideoDisplayStatus = AdminStatus | 'View';
 
 export interface VideoEntry {
   id: string;
