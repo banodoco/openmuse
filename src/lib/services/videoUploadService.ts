@@ -4,6 +4,7 @@ import { supabase } from '../supabase';
 import { Logger } from '../logger';
 import { thumbnailService } from './thumbnailService';
 import { getVideoAspectRatio } from '../utils/videoDimensionUtils';
+import { VideoMetadata } from '../types';
 
 const logger = new Logger('VideoUploadService');
 
@@ -411,10 +412,14 @@ class VideoUploadService {
         user_status: null,
         user_id: mediaData.user_id,
         metadata: {
+          title: mediaData.title || '',
+          description: mediaData.description || '',
+          classification: entryData.metadata?.classification || 'art', // Default
+          assetId: assetId,
           ...(entryData.metadata || {}),
-          title: mediaData.title,
-          description: mediaData.description,
-          assetId
+          // Make sure required fields from VideoMetadata are present
+          placeholder_image: entryData.metadata?.placeholder_image,
+          aspectRatio: entryData.metadata?.aspectRatio,
         }
       };
       
@@ -483,19 +488,17 @@ class VideoUploadService {
         user_status: null,
         user_id: mediaData.user_id,
         metadata: {
+          title: mediaData.title || '',
+          description: mediaData.description || '',
+          classification: entryData.metadata?.classification || 'art', // Default
+          assetId: assetId,
           ...(entryData.metadata || {}),
-          title: mediaData.title,
-          description: mediaData.description,
-          assetId
+          // Make sure required fields from VideoMetadata are present
+          placeholder_image: thumbnailUrl, // Use potentially generated thumbnail
+          aspectRatio: aspectRatio, // Use calculated aspect ratio
         }
       };
       
       return newEntry;
     } catch (error) {
-      logger.error(`Error in addEntryToExistingAsset for asset ${assetId}:`, error);
-      throw error;
-    }
-  }
-}
-
-export const videoUploadService = new VideoUploadService();
+      logger.error(`
