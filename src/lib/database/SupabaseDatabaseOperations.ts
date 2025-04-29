@@ -1,12 +1,18 @@
-import { VideoEntry } from '../types';
+import { VideoEntry, AdminStatus } from '../types';
 import { supabase } from '@/integrations/supabase/client';
 import { SupabaseDatabase } from './SupabaseDatabase';
+import { Logger } from '@/lib/logger';
 import { getVideoAspectRatio } from '../utils/videoDimensionUtils';
+
+// Tag for logging
+const LOG_TAG = 'SessionPersist';
 
 /**
  * Implementation of the more complex database operations for Supabase
  */
 export class SupabaseDatabaseOperations extends SupabaseDatabase {
+  protected logger = new Logger(`SupabaseOperations`, true, LOG_TAG); // Initialize logger with tag
+
   async deleteEntry(id: string): Promise<boolean> {
     try {
       // First check if this is a primary media for any asset

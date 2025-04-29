@@ -7,7 +7,7 @@ import { AuthContext } from '@/contexts/AuthContext';
 import { checkIsAdmin } from '@/lib/auth';
 import { userProfileCache } from '@/lib/auth/cache';
 
-const logger = new Logger('AuthProvider');
+const logger = new Logger('AuthProvider', true, 'SessionPersist');
 const PROVIDER_VERSION = '1.3.0'; // Increment this on significant changes
 logger.log(`--- AuthProvider Module Initial Load [v${PROVIDER_VERSION}] ---`); // Log when the module itself is first processed
 

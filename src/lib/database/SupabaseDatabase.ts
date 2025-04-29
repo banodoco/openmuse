@@ -7,12 +7,15 @@ import { checkIsAdmin } from "@/lib/auth/userRoles";
 import { PostgrestError } from "@supabase/supabase-js";
 import { databaseSwitcher } from "@/lib/databaseSwitcher";
 
+// Tag for logging
+const LOG_TAG = 'SessionPersist';
+
 /**
  * Supabase implementation of the video database
  */
 export class SupabaseDatabase extends BaseDatabase {
   constructor() {
-    super('SupabaseDB');
+    super('SupabaseDB', true, LOG_TAG);
   }
   
   async getAllEntries(approvalFilter: 'all' | 'curated' = 'all'): Promise<VideoEntry[]> {

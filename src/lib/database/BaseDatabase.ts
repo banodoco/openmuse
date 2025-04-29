@@ -7,9 +7,13 @@ import { Logger } from '../logger';
 export abstract class BaseDatabase {
   protected logger: Logger;
   protected currentUserId: string | null = null;
+  protected debug: boolean; // Store debug state
+  protected tag?: string;    // Store optional tag
   
-  constructor(loggerName: string) {
-    this.logger = new Logger(loggerName);
+  constructor(loggerName: string, debug = true, tag?: string) {
+    this.logger = new Logger(loggerName, debug, tag);
+    this.debug = debug;
+    this.tag = tag;
   }
   
   setCurrentUserId(userId: string | null) {

@@ -4,13 +4,14 @@ import { Logger } from '../logger';
 import { BaseDatabase } from './BaseDatabase';
 
 const PROVIDER_VERSION = '1.1.0';
+const LOG_TAG = 'SessionPersist'; // Define the tag
 
 /**
  * Database provider that returns the appropriate database implementation
  * and handles authentication state
  */
 export class DatabaseProvider {
-  private readonly logger = new Logger(`DatabaseProvider[v${PROVIDER_VERSION}]`);
+  private readonly logger = new Logger(`DatabaseProvider[v${PROVIDER_VERSION}]`, true, LOG_TAG);
   private isCheckingAuth = false;
   private lastAuthCheck = 0;
   private authCheckCooldown = 10000; // Increased to 10 seconds cooldown between checks
