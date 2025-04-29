@@ -33,8 +33,7 @@ import {
 import VideoLightbox from '@/components/VideoLightbox';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
-const logger = new Logger('Index');
-// logger.log('Index page component module loaded');
+const logger = new Logger('IndexPage', true, 'SessionPersist');
 
 // === Helper Functions (Copied from UserProfilePage) ===
 
@@ -60,7 +59,7 @@ const scrollToElementWithOffset = (element: HTMLElement | null, offset: number =
 };
 
 const Index: React.FC = () => {
-  // logger.log('Index component rendering/mounting');
+  logger.log('[Index] component rendered');
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const location = useLocation();
