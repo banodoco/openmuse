@@ -100,26 +100,30 @@ export class DatabaseProvider {
       }
     });
 
-    try {
-      await this.sessionPromise; // Wait for the current check to complete
-    } catch (e) {
-      this.logger.warn(`[v${PROVIDER_VERSION}][checkSession] Caught error from sessionPromise, but allowing getDatabase to proceed. Error:`, e);
-      // Don't re-throw, let getDatabase return the instance anyway
-    }
+    // Wait for the session check promise to resolve or reject.
+    // NO try/catch here anymore - let errors propagate up to getDatabase
+    await this.sessionPromise;
   }
 
   /**
    * Get the database operations instance.
-   * It triggers an asynchronous session check if needed but returns the instance immediately.
+   * It triggers an asynchronous session check if needed AND WAITS FOR IT before returning.
    */
-  getDatabase(): BaseDatabase {
+  async getDatabase(): Promise<BaseDatabase> {
     this.logger.log(`[v${PROVIDER_VERSION}] getDatabase() called.`);
-    // Trigger the session check, but don't wait for it.
-    // The checkSessionAndUpdateUserId function handles its own locking and cooldown.
-    this.checkSessionAndUpdateUserId();
+    // Trigger the session check AND wait for it.
+    await this.checkSessionAndUpdateUserId();
 
-    // Return the database operations instance immediately.
-    // The user ID will be updated asynchronously if necessary.
+    // If checkSessionAndUpdateUserId threw an error (e.g., timeout), it will propagate here.
+    // Consider adding error handling here if needed, otherwise let the caller handle it.
+    if (this.lastError) {
+      this.logger.error(`[v${PROVIDER_VERSION}] getDatabase() proceeding after session check failed:`, this.lastError);
+      // Optionally throw the error to the caller: throw this.lastError;
+      // For now, let's proceed but log the error clearly.
+    }
+
+    // Return the database operations instance.
+    // The user ID should be correctly set (or null if session check failed).
     return supabaseDatabaseOperations;
   }
 }
