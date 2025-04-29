@@ -162,7 +162,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   └── userRoles.ts    # Utilities related to user roles and permissions
 │   │   ├── database/       # Abstraction layer and utilities for database interactions
 │   │   │   ├── BaseDatabase.ts # Base class or interface for database operations
-│   │   │   ├── DatabaseProvider.ts # React component or setup for providing database access, potentially context-based
+│   │   │   ├── DatabaseProvider.ts # Provider component that manages database access with optimized session handling, caching, and timeout management (v1.2.0)
 │   │   │   ├── SupabaseDatabase.ts # Supabase-specific implementation of database operations
 │   │   │   ├── SupabaseDatabaseOperations.ts # Detailed Supabase database operations (CRUD)
 │   │   │   └── index.ts        # Barrel file exporting database utilities

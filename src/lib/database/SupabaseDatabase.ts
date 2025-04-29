@@ -20,68 +20,93 @@ export class SupabaseDatabase extends BaseDatabase {
   
   async getAllEntries(approvalFilter: 'all' | 'curated' = 'all'): Promise<VideoEntry[]> {
     this.logger.log(`[getAllEntries] Fetching videos with filter: ${approvalFilter}`);
-    let query = supabase.from('media').select('*, assets(id, name, description, type, creator)');
+    const queryStart = performance.now(); // Start timing before query construction
+    try {
+      let query = supabase.from('media').select('*, assets(id, name, description, type, creator)');
 
-    if (approvalFilter === 'curated') {
-      this.logger.log('[getAllEntries] Applying curated filter: admin_status in (Curated, Featured)');
-      query = query.eq('admin_status', 'Curated');
-    }
+      if (approvalFilter === 'curated') {
+        this.logger.log('[getAllEntries] Applying curated filter: admin_status in (Curated, Featured)');
+        query = query.in('admin_status', ['Curated', 'Featured']); // Correctly use IN for multiple values
+      }
 
-    const queryStart = performance.now();
-    const { data, error } = await query.eq('type', 'video').order('created_at', { ascending: false });
-    const queryDuration = (performance.now() - queryStart).toFixed(2);
-    this.logger.log(`[getAllEntries] Supabase query resolved in ${queryDuration} ms`);
-
-    if (error) {
-      this.logger.error('[getAllEntries] Error fetching video entries:', error);
-      throw new Error(`Error fetching video entries: ${error.message}`);
-    }
-    this.logger.log(`[getAllEntries] Fetched ${data?.length ?? 0} entries.`);
-    
-    const entries: VideoEntry[] = data.map(media => {
-      const asset = media.assets && media.assets.length > 0 ? media.assets[0] : null;
+      query = query.eq('type', 'video').order('created_at', { ascending: false });
       
-      return {
-        id: media.id,
-        url: media.url,
-        reviewer_name: media.creator || 'Unknown',
-        skipped: false,
-        created_at: media.created_at,
-        admin_status: media.admin_status || 'Listed',
-        user_status: media.user_status || null,
-        user_id: media.user_id,
-        metadata: {
-          title: media.title,
-          description: media.description || '',
-          creator: 'self',
-          creatorName: media.creator || 'Unknown',
-          classification: media.classification || 'art',
-          loraName: asset?.name,
-          loraDescription: asset?.description,
-          assetId: asset?.id,
-          isPrimary: false,
-          placeholder_image: media.placeholder_image,
-          aspectRatio: (media.metadata as any)?.aspectRatio ?? null
-        }
-      };
-    });
+      this.logger.log(`[getAllEntries] Executing Supabase query...`);
+      const { data, error } = await query;
+      const queryDuration = (performance.now() - queryStart).toFixed(2);
+      this.logger.log(`[getAllEntries] Supabase query finished in ${queryDuration} ms`);
 
-    const { data: assetMediaData, error: assetMediaError } = await supabase
-      .from('assets')
-      .select('id, primary_media_id');
-    
-    if (!assetMediaError && assetMediaData) {
-      for (const entry of entries) {
-        if (entry.metadata?.assetId) {
-          const asset = assetMediaData.find(a => a.id === entry.metadata?.assetId);
-          if (asset && asset.primary_media_id === entry.id) {
-            entry.metadata.isPrimary = true;
+      if (error) {
+        this.logger.error('[getAllEntries] Supabase query error:', error);
+        // Re-throw the error so the caller (useVideoManagement) can catch it
+        throw new Error(`Error fetching video entries: ${error.message}`);
+      }
+
+      if (!data) {
+        this.logger.warn('[getAllEntries] Supabase query returned null data.');
+        return []; // Return empty array if data is null
+      }
+      
+      this.logger.log(`[getAllEntries] Fetched ${data.length} raw media entries.`);
+      
+      // Map entries (Consider adding timing here if mapping is complex)
+      const entries: VideoEntry[] = data.map(media => {
+        const asset = media.assets && media.assets.length > 0 ? media.assets[0] : null;
+        
+        return {
+          id: media.id,
+          url: media.url,
+          reviewer_name: media.creator || 'Unknown',
+          skipped: false,
+          created_at: media.created_at,
+          admin_status: media.admin_status || 'Listed',
+          user_status: media.user_status || null,
+          user_id: media.user_id,
+          metadata: {
+            title: media.title,
+            description: media.description || '',
+            creator: 'self',
+            creatorName: media.creator || 'Unknown',
+            classification: media.classification || 'art',
+            loraName: asset?.name,
+            loraDescription: asset?.description,
+            assetId: asset?.id,
+            isPrimary: false, // This will be updated later
+            placeholder_image: media.placeholder_image,
+            aspectRatio: (media.metadata as any)?.aspectRatio ?? null
+          }
+        };
+      });
+
+      // Fetch asset primary media info (Consider adding timing)
+      const { data: assetMediaData, error: assetMediaError } = await supabase
+        .from('assets')
+        .select('id, primary_media_id');
+      
+      if (assetMediaError) {
+        this.logger.error('[getAllEntries] Error fetching asset primary_media_id:', assetMediaError);
+        // Continue without primary info if this fails, but log it
+      } else if (assetMediaData) {
+        const primaryMap = new Map(assetMediaData.map(a => [a.id, a.primary_media_id]));
+        for (const entry of entries) {
+          if (entry.metadata?.assetId) {
+            const primaryMediaId = primaryMap.get(entry.metadata.assetId);
+            if (primaryMediaId === entry.id) {
+              entry.metadata.isPrimary = true;
+            }
           }
         }
       }
+      
+      this.logger.log(`[getAllEntries] Returning ${entries.length} processed entries.`);
+      return entries;
+    } catch (e) {
+      // Catch any error from the try block (query error, processing error)
+      const totalDuration = (performance.now() - queryStart).toFixed(2);
+      this.logger.error(`[getAllEntries] Error encountered after ${totalDuration} ms:`, e);
+      // Re-throw the caught error
+      throw e;
     }
-    
-    return entries;
   }
   
   async updateEntry(id: string, update: Partial<VideoEntry>): Promise<VideoEntry | null> {
