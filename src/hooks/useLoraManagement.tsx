@@ -13,7 +13,7 @@ interface LoraFilters {
 }
 
 const MAX_RETRIES = 3;
-const INITIAL_DELAY_MS = 2000;
+const INITIAL_DELAY_MS = 5000;
 
 export const useLoraManagement = (filters: LoraFilters) => {
   const { modelFilter, approvalFilter } = filters;
@@ -173,7 +173,7 @@ export const useLoraManagement = (filters: LoraFilters) => {
         logger.error(`[loadAllLoras] Attempt ${attempt}/${MAX_RETRIES} failed:`, error);
 
         if (attempt < MAX_RETRIES) {
-          const delay = INITIAL_DELAY_MS * Math.pow(2, attempt - 1);
+          const delay = INITIAL_DELAY_MS * attempt;
           logger.log(`[loadAllLoras] Retrying in ${delay / 1000}s...`);
           await new Promise(resolve => setTimeout(resolve, delay));
           // Continue to next iteration

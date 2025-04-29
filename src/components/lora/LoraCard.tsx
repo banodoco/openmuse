@@ -279,10 +279,20 @@ const LoraCard: React.FC<LoraCardProps> = ({
       
       <CardContent className="p-3 flex-grow">
         <div className="flex items-center justify-between mb-1">
-          <h3 className="font-medium text-sm truncate flex-1 group-hover:text-primary transition-colors">{lora.name}</h3>
+          <div className="flex items-center">
+            {isOnProfilePage && (lora.admin_status === 'Curated' || lora.admin_status === 'Featured') && (
+              <img
+                src="/reward.png"
+                alt="Featured by OpenMuse"
+                title="Featured by OpenMuse"
+                className="h-6 w-6 mr-2 transition-transform duration-200 group-hover:scale-110"
+              />
+            )}
+            <h3 className="font-medium text-sm truncate group-hover:text-primary transition-colors">{lora.name}</h3>
+          </div>
           {getModelDisplay() && (
-            <Badge 
-              variant="model" 
+            <Badge
+              variant="model"
               className={cn("ml-2 text-xs px-2 py-0.5 h-5", getModelColor(lora.lora_base_model))}
             >
               {getModelDisplay()}

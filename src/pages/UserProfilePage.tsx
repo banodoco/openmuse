@@ -61,10 +61,16 @@ const calculatePageSize = (totalItems: number): number => {
 };
 
 const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
-  const statusOrder: { [key in VideoDisplayStatus]: number } = { 'Pinned': 1, 'View': 2, 'Hidden': 3 };
+  const statusOrder: { [key in VideoDisplayStatus]: number } = {
+    Listed: 1,
+    Curated: 2,
+    Featured: 3,
+    Hidden: 4,
+    Rejected: 5,
+  };
   return [...videos].sort((a, b) => {
-    const statusA = a.user_status || 'View';
-    const statusB = b.user_status || 'View';
+    const statusA = a.user_status || 'Listed';
+    const statusB = b.user_status || 'Listed';
     const orderA = statusOrder[statusA] || 2;
     const orderB = statusOrder[statusB] || 2;
     if (orderA !== orderB) return orderA - orderB;
@@ -830,6 +836,14 @@ export default function UserProfilePage() {
       </PaginationContent> </Pagination> ); 
   };
 
+  // Add the following useMemo hook along with other useMemo hooks, e.g., after the declarations of userVideos and userAssets:
+
+  const featuredCount = useMemo(() => {
+    const videoFeatured = userVideos.filter(v => v.admin_status === 'Curated' || v.admin_status === 'Featured').length;
+    const assetFeatured = userAssets.filter(a => a.admin_status === 'Curated' || a.admin_status === 'Featured').length;
+    return videoFeatured + assetFeatured;
+  }, [userVideos, userAssets]);
+
   // --- JSX Rendering ---
   return (
     <div className="w-full min-h-screen flex flex-col text-foreground">
@@ -867,12 +881,28 @@ export default function UserProfilePage() {
                         <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white"> {getInitials(profile.display_name || profile.username)} </AvatarFallback> 
                       </Avatar> 
                       <div className="text-center"> 
-                        <h2 className="text-2xl font-bold bg-gradient-to-r from-forest-dark to-olive-dark bg-clip-text text-transparent"> {profile.display_name} </h2> 
+                        <div className="flex items-center justify-center space-x-2">
+                          <h2 className="text-2xl font-bold bg-gradient-to-r from-forest-dark to-olive-dark bg-clip-text text-transparent">{profile.display_name}</h2>
+                          {featuredCount > 0 && (
+                            <HoverCard openDelay={0}>
+                              <HoverCardTrigger asChild>
+                                <img src="/reward.png" alt="Featured" className="h-6 w-6" />
+                              </HoverCardTrigger>
+                              <HoverCardContent 
+                                className="p-2 text-sm" 
+                                side="top" 
+                                align="start" 
+                                sideOffset={5}
+                              >
+                                {`Featured by OpenMuse ${featuredCount} times`}
+                              </HoverCardContent>
+                            </HoverCard>
+                          )}
+                        </div>
                         {profile.real_name && <p className="text-muted-foreground mt-1">{profile.real_name}</p>} 
-                        {/* Show non-faded @ only if NOT the owner */}
                         <p className="text-muted-foreground text-sm">
                           {!isOwner && <span className="mr-0.5">@</span>}{profile.username}
-                        </p> 
+                        </p>
                         {profile.description && <div className="mt-4 max-w-md mx-auto"> <p className="text-sm text-foreground/90 bg-muted/20 p-3 rounded-lg">{profile.description}</p> </div>} 
                         {renderProfileLinks()} 
                       </div> 
@@ -1021,10 +1051,9 @@ export default function UserProfilePage() {
                          onDeleteVideo={deleteVideo}
                          onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
                          alwaysShowInfo={true} // Always show on profile
-                         forceCreatorHoverDesktop={true} // Match Index page for Generations
                          showAddButton={false}
                          seeAllPath=""
-                         emptyMessage="This user hasn't added any generations yet." // Custom empty message
+                         emptyMessage="This user hasn't added any generations yet."
                        />
                      </div>
                      {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 

@@ -216,6 +216,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const isProfilePage = pageContext === 'profile';
   const isLoRAAssetPage = pageContext === 'asset';
   
+  // Display badge for videos curated/featured by OpenMuse
+  const shouldShowBadge = video.admin_status === 'Curated' || video.admin_status === 'Featured';
+  
   // (debug) render
 
   const handleStatusChange = async (newStatus: VideoDisplayStatus) => {
@@ -291,6 +294,48 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   // No need to log every hover state change; handled in handlers.
 
+  // ---------------------------------------------------------------------------
+  // Fetch Creator Profile (avatar + display name) when NOT on profile page
+  // ---------------------------------------------------------------------------
+  const [creatorProfile, setCreatorProfile] = useState<{ avatar_url: string | null; display_name: string | null; username: string | null } | null>(null);
+
+  useEffect(() => {
+    // Only fetch when we are NOT already on that creator's profile page
+    if (isProfilePage) return;
+    if (!video.user_id) return;
+
+    let cancelled = false;
+    const fetchProfile = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('avatar_url, display_name, username')
+          .eq('id', video.user_id)
+          .single();
+        if (cancelled) return;
+        if (error) {
+          console.warn('[VideoCard] Failed to fetch creator profile:', error.message);
+        } else if (data) {
+          setCreatorProfile(data as any);
+        }
+      } catch (err) {
+        if (!cancelled) console.warn('[VideoCard] Error fetching creator profile:', err);
+      }
+    };
+
+    fetchProfile();
+    return () => {
+      cancelled = true;
+    };
+  }, [video.user_id, isProfilePage]);
+
+  const creatorAvatar = creatorProfile?.avatar_url ?? (video as any).creator_avatar_url ?? undefined;
+  const creatorDisplayName = creatorProfile?.display_name || creatorProfile?.username || getCreatorName();
+
+  // Insert new variables before the return block
+  const isGeneration = isProfilePage && video.metadata?.classification === 'gen';
+  const shouldAlwaysShowInfo = alwaysShowInfo && !isGeneration;
+
   return (
     <div 
       className={cn(
@@ -334,47 +379,59 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Title and creator info for mobile (conditionally show creator) */}
-          {isMobile && (video.metadata?.title || (!isProfilePage && video.user_id)) && (
-            <div
-              className="absolute top-2 left-2 z-20 bg-black/30 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
-            >
-              {video.metadata?.title && (
-                <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
-                  {video.metadata.title}
-                </span>
-              )}
-              {video.user_id && !isProfilePage && (
-                <div className="mt-0.5">
-                  <LoraCreatorInfo
-                    asset={{ user_id: video.user_id } as any}
-                    avatarSize="h-4 w-4"
-                    textSize="text-xs"
-                    overrideTextColor="text-white/80"
-                  />
-                </div>
-              )}
+          {/* Title, badge for mobile on profile */}
+          {isMobile && (video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+            <div className="absolute top-2 left-2 z-20 flex flex-col">
+              <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
+                {video.metadata?.title && (
+                  <span className="block text-white text-xs font-medium leading-snug">
+                    {video.metadata.title}
+                  </span>
+                )}
+                {isProfilePage && shouldShowBadge && (
+                  <div className="mt-1 pointer-events-auto">
+                    <img
+                      src="/reward.png"
+                      alt="Featured by OpenMuse"
+                      title="Featured by OpenMuse"
+                      className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
+                    />
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
-          {/* Title and creator info for desktop when alwaysShowInfo is true AND hover isn't forced */}
-          {!isMobile && alwaysShowInfo && !forceCreatorHoverDesktop && (video.metadata?.title || (!isProfilePage && video.user_id)) && (
-            <div
-              className="absolute top-2 left-2 z-20 bg-black/30 backdrop-blur-sm rounded-md p-1.5 max-w-[70%] pointer-events-none"
-            >
-              {video.metadata?.title && (
-                <span className="block text-white text-xs font-medium leading-snug line-clamp-2">
-                  {video.metadata.title}
-                </span>
-              )}
-              {/* Show creator info only if not on profile page */}
-              {video.user_id && !isProfilePage && (
-                <div className="mt-0.5">
-                  <LoraCreatorInfo
-                    asset={{ user_id: video.user_id } as any}
-                    avatarSize="h-4 w-4"
-                    textSize="text-xs"
-                    overrideTextColor="text-white/80"
+          {/* Title, badge for desktop on profile when shouldAlwaysShowInfo is true */}
+          {!isMobile && shouldAlwaysShowInfo && !forceCreatorHoverDesktop && (video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+            <div className="absolute top-2 left-2 z-20 flex flex-col">
+              <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
+                {video.metadata?.title && (
+                  <span className="block text-white text-xs font-medium leading-snug">
+                    {video.metadata.title}
+                  </span>
+                )}
+                {!isProfilePage && (
+                  <span className="flex items-center space-x-1">
+                    <Avatar className="h-4 w-4 border-0 bg-white/20">
+                      <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
+                      <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
+                        {creatorDisplayName[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-white text-[10px] leading-none line-clamp-1">
+                      {creatorDisplayName}
+                    </span>
+                  </span>
+                )}
+              </div>
+              {isProfilePage && shouldShowBadge && (
+                <div className="mt-1 pointer-events-auto">
+                  <img
+                    src="/reward.png"
+                    alt="Featured by OpenMuse"
+                    title="Featured by OpenMuse"
+                    className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
                   />
                 </div>
               )}
@@ -481,26 +538,37 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Gradient overlay and text (Show on hover if !alwaysShowInfo OR forceCreatorHoverDesktop, but NOT on profile page) */}
-          {!isMobile && !isProfilePage && (!alwaysShowInfo || forceCreatorHoverDesktop) && (
+          {/* Desktop: Info overlay that shows on hover when info is not always visible */}
+          {!isMobile && (!shouldAlwaysShowInfo || forceCreatorHoverDesktop) && (video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
-              <div className="absolute top-2 left-2 z-20 bg-black/30 backdrop-blur-sm rounded-md p-1.5 max-w-[70%]">
-                {video.metadata?.title && (
-                  <span className="block text-white text-xs font-medium leading-snug line-clamp-2 pointer-events-auto">
-                    {video.metadata.title}
-                  </span>
-                )}
-                {video.user_id && (
-                  <div 
-                    style={{ pointerEvents: 'auto' }} 
-                    className="mt-0.5" 
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <LoraCreatorInfo
-                      asset={{ user_id: video.user_id } as any}
-                      avatarSize="h-4 w-4"
-                      textSize="text-xs"
-                      overrideTextColor="text-white/80"
+              <div className="absolute top-2 left-2 z-20 flex flex-col">
+                <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
+                  {video.metadata?.title && (
+                    <span className="block text-white text-xs font-medium leading-snug pointer-events-auto">
+                      {video.metadata.title}
+                    </span>
+                  )}
+                  {!isProfilePage && (
+                    <span className="flex items-center space-x-1 pointer-events-auto">
+                      <Avatar className="h-4 w-4 border-0 bg-white/20">
+                        <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
+                        <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
+                          {creatorDisplayName[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white text-[10px] leading-none line-clamp-1">
+                        {creatorDisplayName}
+                      </span>
+                    </span>
+                  )}
+                </div>
+                {isProfilePage && shouldShowBadge && (
+                  <div className="mt-1 pointer-events-auto">
+                    <img
+                      src="/reward.png"
+                      alt="Featured by OpenMuse"
+                      title="Featured by OpenMuse"
+                      className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
                     />
                   </div>
                 )}

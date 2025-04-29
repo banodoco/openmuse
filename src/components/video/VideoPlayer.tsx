@@ -21,6 +21,9 @@ const logger = new Logger('VideoPlayer');
 
 const DEFAULT_TIMEOUT_MS = 2500; // Fallback when we can't detect the network.
 
+// Define retry delays in milliseconds
+const RETRY_DELAYS_MS = [2500, 5000, 10000];
+
 /**
  * Decide an appropriate timeout based on the Network Information API.
  * Returns a value in milliseconds.
@@ -179,11 +182,12 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   const [forcedPlay, setForcedPlay] = useState(false);
   const unmountedRef = useRef(false);
   const [initialFrameLoaded, setInitialFrameLoaded] = useState(false);
-  const initialPlayTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const waitingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
-  const dynamicTimeoutMs = DEFAULT_TIMEOUT_MS; // Use default timeout
   
+  // State for retry logic
+  const [retryAttempt, setRetryAttempt] = useState(0);
+  const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
   const {
     error,
     isLoading,
@@ -426,163 +430,183 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     // }
   }, [isIntersecting, isMobile, videoRef]);
 
-  // --- Timeout Reset Logic (Reverted to Local Implementation) ---
-  const attemptReset = useCallback(() => {
-    // Get the video element safely
+  // --- Retry Timeout Logic ---
+  const clearRetryTimeout = useCallback(() => {
+    if (retryTimeoutRef.current) {
+      clearTimeout(retryTimeoutRef.current);
+      retryTimeoutRef.current = null;
+      // logger.log(`[${componentId}] Cleared retry timeout.`);
+    }
+  }, []);
+
+  // Function to perform the actual video reset action
+  const performActualReset = useCallback(() => {
     const video = videoRef.current;
     if (!video || unmountedRef.current || error) {
-      logger.warn(`[${componentId}] attemptReset called but conditions not met (video: ${!!video}, unmounted: ${unmountedRef.current}, error: ${!!error})`);
+      logger.warn(`[${componentId}] performActualReset called but conditions not met (video: ${!!video}, unmounted: ${unmountedRef.current}, error: ${!!error})`);
       return;
     }
+
+    logger.warn(`[${componentId}] Performing video reset. Attempt: ${retryAttempt + 1}. Current time: ${video.currentTime}, Ready state: ${video.readyState}, Paused: ${video.paused}`);
     
-    logger.warn(`[${componentId}] Video stalled or timed out, attempting LOCAL reset. Current time: ${video.currentTime}, Ready state: ${video.readyState}, Paused: ${video.paused}`);
-    
-    // Reinstate the local reset logic:
     const currentTime = video.currentTime;
     video.load(); // Force reload of the video source
     video.play().then(() => {
-      // Restore position slightly after play starts to ensure it takes effect
-      // Add a small delay before setting time, helps prevent race conditions after load()
+      // Restore position slightly after play starts
       setTimeout(() => {
         if (videoRef.current && !unmountedRef.current) {
-          // Check if time needs restoring (sometimes load() resets it)
-          if (video.currentTime === 0 && currentTime > 0) { 
+          if (video.currentTime === 0 && currentTime > 0) {
              video.currentTime = currentTime;
-             logger.log(`[${componentId}] Local reset successful, restored time to ${currentTime}`);
+             logger.log(`[${componentId}] Reset successful, restored time to ${currentTime}`);
           } else {
-             logger.log(`[${componentId}] Local reset play successful, current time is now ${video.currentTime}`);
+             logger.log(`[${componentId}] Reset play successful, current time is now ${video.currentTime}`);
           }
+          // Successfully played after reset, clear future retries for this specific stall
+          setRetryAttempt(0); 
+          clearRetryTimeout(); 
         }
-      }, 100); // 100ms delay
+      }, 100);
     }).catch(err => {
-      // Log specific errors, avoid spamming NotAllowedError
       if (err.name !== 'NotAllowedError') {
-         logger.error(`[${componentId}] Error playing after local reset:`, err);
+         logger.error(`[${componentId}] Error playing after reset (Attempt ${retryAttempt + 1}):`, err);
       } else {
-         logger.warn(`[${componentId}] Autoplay prevented after local reset.`);
+         logger.warn(`[${componentId}] Autoplay prevented after reset (Attempt ${retryAttempt + 1}).`);
       }
+      // IMPORTANT: Schedule the *next* retry attempt even if play fails here, 
+      // as the failure might be temporary (e.g., interaction needed).
+      // The 'waiting' or initial play logic will handle rescheduling if the video remains stuck.
+      // However, we increment the attempt count *before* scheduling the next one via 'waiting' or initial play.
+      setRetryAttempt(prev => prev + 1); // Increment for the next potential trigger
     });
-  // Dependencies now only include local refs/state/props used
-  }, [videoRef, componentId, error]); 
+  }, [videoRef, componentId, error, retryAttempt, clearRetryTimeout]); // Added retryAttempt and clearRetryTimeout
 
-  // --- Timeout Clearing ---
-  const clearInitialPlayTimeout = useCallback(() => {
-    if (initialPlayTimeoutRef.current) {
-      clearTimeout(initialPlayTimeoutRef.current);
-      initialPlayTimeoutRef.current = null;
-      // logger.log(`[${componentId}] Cleared initial play timeout.`);
-    }
-  }, []);
+  // Function to schedule the next retry attempt
+  const scheduleNextRetry = useCallback(() => {
+    clearRetryTimeout(); // Clear any existing timeout first
 
-  const clearWaitingTimeout = useCallback(() => {
-    if (waitingTimeoutRef.current) {
-      clearTimeout(waitingTimeoutRef.current);
-      waitingTimeoutRef.current = null;
-      // logger.log(`[${componentId}] Cleared waiting timeout.`);
+    if (error || unmountedRef.current) {
+      logger.log(`[${componentId}] Not scheduling retry: Error exists or component unmounted.`);
+      return;
     }
-  }, []);
+
+    if (retryAttempt >= RETRY_DELAYS_MS.length) {
+      logger.error(`[${componentId}] Maximum retry attempts (${RETRY_DELAYS_MS.length}) reached. Giving up.`);
+      // Optionally: Set a specific error state here to indicate persistent failure?
+      return;
+    }
+
+    const delay = RETRY_DELAYS_MS[retryAttempt];
+    logger.warn(`[${componentId}] Video stalled or failed to start. Scheduling retry attempt ${retryAttempt + 1}/${RETRY_DELAYS_MS.length} in ${delay}ms.`);
+
+    retryTimeoutRef.current = setTimeout(() => {
+      // Check conditions *again* inside the timeout, state might have changed
+      const video = videoRef.current;
+      if (video && !unmountedRef.current && !error && (video.paused || video.readyState < 3)) {
+        logger.log(`[${componentId}] Retry timeout expired. Performing reset action.`);
+        performActualReset(); 
+        // Note: performActualReset now increments the attempt count if play() fails,
+        // preparing for the *next* waiting/initial trigger.
+      } else {
+        logger.log(`[${componentId}] Retry timeout expired, but video state is now OK (playing, loaded, errored, or unmounted). Reset aborted.`);
+        // Reset attempt count if condition resolved itself? Maybe not, let successful play handle it.
+      }
+    }, delay);
+
+  }, [retryAttempt, videoRef, error, clearRetryTimeout, performActualReset, componentId]); // Added dependencies
+
+  // --- Timeout Clearing (Old functions removed) ---
+  // const clearInitialPlayTimeout = useCallback(() => { ... }); // REMOVED
+  // const clearWaitingTimeout = useCallback(() => { ... }); // REMOVED
 
   // Cleanup timeouts on unmount
   useEffect(() => {
     return () => {
-      clearInitialPlayTimeout();
-      clearWaitingTimeout();
-      // logger.log(`[${componentId}] Unmounting, cleared timeouts.`);
-      unmountedRef.current = true; // Ensure unmountedRef is set here as well
+      // clearInitialPlayTimeout(); // REMOVED
+      // clearWaitingTimeout(); // REMOVED
+      clearRetryTimeout(); // Use the new unified clear function
+      logger.log(`[${componentId}] Unmounting, cleared timeouts.`);
+      unmountedRef.current = true;
     };
-  }, [clearInitialPlayTimeout, clearWaitingTimeout]);
+  // }, [clearInitialPlayTimeout, clearWaitingTimeout]); // REMOVED
+  }, [clearRetryTimeout]); // Updated dependency
 
-  // --- Initial Play Timeout Logic ---
+  // --- Initial Play Timeout Logic (Modified) ---
   useEffect(() => {
     const video = videoRef.current;
+    // Need video, not played yet, no error, not unmounted, and video is currently paused
     if (!video || hasPlayedOnce || error || unmountedRef.current || !video.paused) {
-      // If video already played, errored, unmounted, or is not paused, no need for timeout.
-      clearInitialPlayTimeout();
+      clearRetryTimeout(); // Clear if condition is no longer met
       return;
     }
 
-    // Condition 1: Mobile and intersecting (implicit autoplay expected)
-    const shouldTimeoutMobile = isIntersecting && isMobile;
-    // Condition 2: Desktop, play has been attempted (e.g., via autoplay, hover, click)
-    const shouldTimeoutDesktop = !isMobile && playAttempted; // Use playAttempted from useVideoLoader
+    const shouldAttemptPlay = (isIntersecting && isMobile) || (!isMobile && playAttempted);
 
-    if (shouldTimeoutMobile || shouldTimeoutDesktop) {
-      logger.log(`[${componentId}] Starting initial play timeout (${dynamicTimeoutMs}ms). Reason: ${shouldTimeoutMobile ? 'Mobile Intersect' : 'Desktop Play Attempted'}`);
-      clearInitialPlayTimeout(); // Clear previous just in case
-
-      initialPlayTimeoutRef.current = setTimeout(() => {
-        // Check again inside timeout in case state changed
-        if (videoRef.current && videoRef.current.paused && !hasPlayedOnce && !error && !unmountedRef.current) {
-          logger.warn(`[${componentId}] Initial play timeout expired, video hasn't played.`);
-          attemptReset();
-        } else {
-           logger.log(`[${componentId}] Initial play timeout expired, but video state changed during timeout. No reset needed.`);
-        }
-      }, dynamicTimeoutMs);
-
-      // Attempt immediate play logic (only for mobile intersect case?)
-      // REMOVED: Automatic play call here also causes NotAllowedError
-      // if (shouldTimeoutMobile) {
-      //    logger.log(`[${componentId}] Mobile intersection detected, attempting immediate autoplay.`);
-      //    video.play().catch(err => {
-      //      logger.error(`[${componentId}] Mobile immediate autoplay failed:`, err);
-      //      // Let timeout handle reset
-      //    });
-      // }
-
-    } else if (!isIntersecting && isMobile) {
-      // Clear timeout if mobile and no longer intersecting (and not explicitly triggered)
-      // Desktop cases rely on playAttempted, which persists even if not intersecting.
-      clearInitialPlayTimeout();
+    if (shouldAttemptPlay) {
+       logger.log(`[${componentId}] Condition met for initial play/retry check. Attempt: ${retryAttempt}`);
+      // Instead of setting a timeout directly, schedule the first retry check.
+      // If play succeeds before the timeout, handlePlay will clear it.
+      // If it stalls, handleWaiting will take over scheduling subsequent retries.
+       scheduleNextRetry();
+    } else {
+       // If conditions like intersection are no longer met, clear pending retry.
+       clearRetryTimeout();
     }
 
-    // Cleanup function is handled by the main unmount effect
-
-  // Dependencies: MUST include everything used in the conditions and logic
-  }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, clearInitialPlayTimeout, attemptReset, componentId, dynamicTimeoutMs, playAttempted]); // Added playAttempted
+  // }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, clearInitialPlayTimeout, attemptReset, componentId, dynamicTimeoutMs, playAttempted]); // Old dependencies
+  }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, playAttempted, scheduleNextRetry, clearRetryTimeout, componentId, retryAttempt]); // Updated dependencies
 
 
   // --- Video Event Handlers ---
   const handlePlayInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
-    logger.log(`[${componentId}] onPlay event fired.`);
+    logger.log(`[${componentId}] onPlay event fired. Playback successful.`);
     setHasPlayedOnce(true);
-    clearInitialPlayTimeout();
-    clearWaitingTimeout();
+    setRetryAttempt(0); // Reset retry count on successful play
+    // clearInitialPlayTimeout(); // REMOVED
+    // clearWaitingTimeout(); // REMOVED
+    clearRetryTimeout(); // Clear any pending retry check
     if (onPlayProp) onPlayProp(event);
-  }, [onPlayProp, clearInitialPlayTimeout, clearWaitingTimeout, componentId]);
+  // }, [onPlayProp, clearInitialPlayTimeout, clearWaitingTimeout, componentId]); // Old dependencies
+  }, [onPlayProp, clearRetryTimeout, componentId]); // Updated dependencies
 
   const handlePauseInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     // logger.log(`[${componentId}] onPause event fired.`);
-    clearWaitingTimeout(); // Clear waiting timeout if paused
+    // clearWaitingTimeout(); // REMOVED
+    // Clear retry timeout ONLY if the pause seems intentional (end of video OR not intersecting on mobile)
+    // If paused unexpectedly while intersecting on mobile, let the waiting handler/timeout handle it.
+    const video = videoRef.current;
+    if (video && (video.ended || !isIntersecting || !isMobile)) {
+       clearRetryTimeout();
+       // logger.log(`[${componentId}] Intentional pause or end detected, clearing retry timeout.`);
+    } else if (isMobile && isIntersecting) {
+       // logger.log(`[${componentId}] Pause while intersecting on mobile, potential stall - NOT clearing retry timeout.`);
+    }
+
     if (onPause) onPause(event);
 
-    // Attempt to resume if paused unexpectedly while visible on mobile
-    if (isMobile && isIntersecting && videoRef.current && !videoRef.current.ended && !unmountedRef.current) {
+    // Attempt to resume if paused unexpectedly while visible on mobile (Keep this logic)
+    if (isMobile && isIntersecting && video && !video.ended && !unmountedRef.current) {
       logger.log(`[${componentId}] Paused while intersecting on mobile, attempting to resume shortly.`);
       setTimeout(() => {
         if (videoRef.current && videoRef.current.paused && isIntersecting && !videoRef.current.ended && !unmountedRef.current) {
           logger.log(`[${componentId}] Resuming play after pause.`);
           videoRef.current.play().catch(err => {
+            // Don't reset retry attempts here, let 'waiting' handle failures
             logger.error(`[${componentId}] Error resuming play after pause:`, err);
           });
         }
-      }, 200); // Short delay before resuming
+      }, 200);
     }
-  }, [onPause, clearWaitingTimeout, isMobile, isIntersecting, videoRef, componentId]);
+  // }, [onPause, clearWaitingTimeout, isMobile, isIntersecting, videoRef, componentId]); // Old dependencies
+  }, [onPause, clearRetryTimeout, isMobile, isIntersecting, videoRef, componentId]); // Updated dependencies
 
   const handleWaitingInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
-    logger.warn(`[${componentId}] onWaiting event fired.`);
-    clearWaitingTimeout(); // Clear previous waiting timeout
-    waitingTimeoutRef.current = setTimeout(() => {
-      if (videoRef.current && videoRef.current.readyState < 3 && !videoRef.current.paused && !error && !unmountedRef.current) { // readyState < 3 means not enough data
-         logger.warn(`[${componentId}] Waiting timeout expired, video still buffering.`);
-         attemptReset();
-      } else {
-         logger.log(`[${componentId}] Waiting timeout expired, but video state changed (loaded, paused, errored, or unmounted). No reset needed.`);
-      }
-    }, dynamicTimeoutMs);
+    logger.warn(`[${componentId}] onWaiting event fired. Attempt: ${retryAttempt}`);
+    // clearWaitingTimeout(); // REMOVED
+    // Schedule the next retry attempt based on the current attempt count
+    scheduleNextRetry(); 
     if (onWaitingProp) onWaitingProp(event);
-  }, [onWaitingProp, clearWaitingTimeout, attemptReset, error, videoRef, componentId, dynamicTimeoutMs]);
+  // }, [onWaitingProp, clearWaitingTimeout, attemptReset, error, videoRef, componentId, dynamicTimeoutMs]); // Old dependencies
+  }, [onWaitingProp, scheduleNextRetry, componentId, retryAttempt]); // Updated dependencies
 
   // --- Ended Event Handler ---
   const handleEndedInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
