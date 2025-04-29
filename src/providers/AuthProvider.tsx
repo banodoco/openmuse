@@ -1,12 +1,19 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-// ... other imports
-import { v4 as uuidv4 } from 'uuid'; // Need to install uuid: npm install uuid @types/uuid
+import { supabase } from '@/integrations/supabase/client';
+import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
+import { toast } from 'sonner';
+import { Logger } from '@/lib/logger';
+import { AuthContext } from '@/contexts/AuthContext';
+import { checkIsAdmin } from '@/lib/auth';
+import { userProfileCache } from '@/lib/auth/cache';
+import { v4 as uuidv4 } from 'uuid';
 
 // ... logger, PROVIDER_VERSION etc.
 
 const AUTH_CHANNEL_NAME = 'auth_leader_channel';
 const HEARTBEAT_INTERVAL = 4000; // Check leadership every 4s
 const LEADERSHIP_TIMEOUT = 5000; // Assume leadership if no contest within 5s
+const PROVIDER_VERSION = '1.3.0'; // Keep version constant here
 
 // Message Types for BroadcastChannel
 enum AuthChannelMessage {
@@ -26,6 +33,17 @@ interface AuthMessageData {
 
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  // --- Instantiate Logger inside component using useRef ---
+  const loggerRef = useRef<Logger | null>(null);
+  if (!loggerRef.current) {
+    loggerRef.current = new Logger('AuthProvider', true, 'SessionPersist');
+    // Log when the *instance* is first created
+    loggerRef.current.log(`--- AuthProvider Instance Initial Load [v${PROVIDER_VERSION}] ---`);
+  }
+  // Use the logger instance from the ref
+  const logger = loggerRef.current!;
+
+  // Now this line should work
   logger.log(`AuthProvider component mounting [v${PROVIDER_VERSION}]`);
 
   const [user, setUser] = useState<User | null>(null);
@@ -49,6 +67,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
   const lastHeartbeatReceived = useRef<Record<string, number>>({}); // Track heartbeats from other tabs
 
+  // --- Define safeSetIsAdmin EARLIER --- 
+  const safeSetIsAdmin = useCallback((userId: string | null | undefined, value: boolean) => {
+    const currentUserId = userRef.current?.id;
+    const checkUserId = userId || 'null_user_id_placeholder';
+
+    if (isMounted.current && (currentUserId === checkUserId || currentUserId === null)) {
+      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
+      setIsAdmin(value);
+    } else {
+      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Skipped stale admin result for user ${checkUserId}. Current userRef: ${currentUserId}`);
+    }
+  }, [logger]); // Add logger dependency
+
   // --- Leader Election Logic ---
 
   const stopHeartbeat = useCallback(() => {
@@ -57,7 +88,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       clearInterval(heartbeatInterval.current);
       heartbeatInterval.current = null;
     }
-  }, []);
+  }, [logger]);
 
   const startHeartbeat = useCallback(() => {
     stopHeartbeat(); // Ensure no duplicate intervals
@@ -75,7 +106,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
          stopHeartbeat(); // Stop if no longer leader
        }
     }, HEARTBEAT_INTERVAL);
-  }, [isLeader, stopHeartbeat]); // Dependency on isLeader state
+  }, [isLeader, stopHeartbeat, logger]);
 
   const relinquishLeadership = useCallback((silent = false) => {
     logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Relinquishing leadership. Current leader: ${leaderId.current}. Silent: ${silent}`);
@@ -100,7 +131,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearTimeout(leadershipClaimTimeout.current);
         leadershipClaimTimeout.current = null;
      }
-  }, [isLeader, stopHeartbeat]); // Dependency on isLeader state
+  }, [isLeader, stopHeartbeat, logger]);
 
 
   const claimLeadership = useCallback(() => {
@@ -150,7 +181,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }, LEADERSHIP_TIMEOUT / 2); // Shorter timeout for claiming
     }
 
-  }, [startHeartbeat, stopHeartbeat]);
+  }, [startHeartbeat, stopHeartbeat, logger]);
 
 
   const handleBroadcastMessage = useCallback((event: MessageEvent) => {
@@ -264,7 +295,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
        }
      });
 
-  }, [isLeader, claimLeadership, relinquishLeadership, stopHeartbeat]); // Include isLeader here
+  }, [isLeader, claimLeadership, relinquishLeadership, stopHeartbeat, logger]);
 
   // --- Effect for Broadcast Channel & Leader Election Setup ---
   useEffect(() => {
@@ -328,7 +359,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Leader election cleanup complete.`);
     };
      // Add dependencies that trigger re-setup if they change (should be minimal)
-  }, [claimLeadership, handleBroadcastMessage, relinquishLeadership, stopHeartbeat]);
+  }, [claimLeadership, handleBroadcastMessage, relinquishLeadership, stopHeartbeat, logger]);
 
 
   // --- Original useEffect for Auth State Changes ---
@@ -567,7 +598,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
   // IMPORTANT: Minimal dependencies. This effect should run essentially once on mount.
-  }, [isLeader, safeSetIsAdmin]); // Added isLeader dependency to log it correctly, safeSetIsAdmin for its definition
+  }, [isLeader, safeSetIsAdmin, logger]); // Added isLeader dependency to log it correctly, safeSetIsAdmin for its definition
 
   // --- Modified Sign-in function ---
   const signIn = async (email: string, password: string) => {
@@ -623,36 +654,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  // Add safeSetIsAdmin definition (moved from within useEffect)
-  /**
-   * Safely update the isAdmin flag *only* if the component is still mounted **and**
-   * the user has not changed since the async admin check was initiated. Prevents
-   * a race where an admin check for an old user finishes after a new user has
-   * logged in (or the original user has logged out), which could otherwise
-   * leave the `isAdmin` state in the wrong value for the current user.
-   */
-  const safeSetIsAdmin = useCallback((userId: string | null | undefined, value: boolean) => {
-    const currentUserId = userRef.current?.id;
-    const checkUserId = userId || 'null_user_id_placeholder';
-
-    if (isMounted.current && (currentUserId === checkUserId || currentUserId === null)) {
-      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
-      setIsAdmin(value);
-    } else {
-      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Skipped stale admin result for user ${checkUserId}. Current userRef: ${currentUserId}`);
-    }
-  }, []); // No dependencies needed as it uses refs
-
-
+  // --- Ref Update Effects --- (Ensure they use logger)
   useEffect(() => {
     userRef.current = user;
      logger.log(`[Ref Update][v${PROVIDER_VERSION}][${tabId.current}] User state updated in ref:`, user?.id || 'null');
-  }, [user]);
+  }, [user, logger]); // Add logger dependency
 
   useEffect(() => {
     sessionRef.current = session;
     logger.log(`[Ref Update][v${PROVIDER_VERSION}][${tabId.current}] Session state updated in ref:`, session ? 'present' : 'null');
-  }, [session]);
+  }, [session, logger]); // Add logger dependency
 
 
   logger.log(`[Render][v${PROVIDER_VERSION}][${tabId.current}] AuthProvider rendering. State: isLoading=${isLoading}, user=${user?.id || 'null'}, session=${!!session}, isAdmin=${isAdmin}, isLeader=${isLeader}, initialCheckCompleted=${initialCheckCompleted.current}, adminCheckInProgress=${adminCheckInProgress.current}`);
