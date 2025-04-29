@@ -50,6 +50,9 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
       setTimeout(() => reject(new Error(`Admin check timed out after ${ADMIN_CHECK_TIMEOUT_MS / 1000} seconds`)), ADMIN_CHECK_TIMEOUT_MS);
     });
 
+    // Add specific timing for the query itself
+    const queryStart = performance.now();
+    logger.log(`[Admin Check][${userId}] Starting Supabase query race...`);
     // Race between the actual query and the timeout
     const response = await Promise.race([
       supabase
@@ -61,6 +64,9 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
       timeoutPromise
     ]) as any; // Type assertion needed because of the race
 
+    const queryDuration = (performance.now() - queryStart).toFixed(2);
+    logger.log(`[Admin Check][${userId}] Supabase query race finished in ${queryDuration} ms.`);
+    
     logger.log(`Received response from Supabase for admin check: ${userId}`);
     
     if (response.error) {
