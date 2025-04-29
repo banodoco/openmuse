@@ -884,17 +884,17 @@ export default function UserProfilePage() {
                         <div className="flex items-center justify-center space-x-2">
                           <h2 className="text-2xl font-bold bg-gradient-to-r from-forest-dark to-olive-dark bg-clip-text text-transparent">{profile.display_name}</h2>
                           {featuredCount > 0 && (
-                            <HoverCard openDelay={0}>
+                            <HoverCard openDelay={0} closeDelay={0}>
                               <HoverCardTrigger asChild>
-                                <img src="/reward.png" alt="Featured" className="h-6 w-6" />
+                                <img src="/reward.png" alt="Featured" className="h-6 w-6 rounded-full" />
                               </HoverCardTrigger>
                               <HoverCardContent 
-                                className="p-2 text-sm" 
+                                className="p-2 text-sm w-fit min-w-0" 
                                 side="top" 
                                 align="start" 
                                 sideOffset={5}
                               >
-                                {`Featured by OpenMuse ${featuredCount} times`}
+                                {`Featured ${featuredCount} ${featuredCount === 1 ? 'time' : 'times'}`}
                               </HoverCardContent>
                             </HoverCard>
                           )}

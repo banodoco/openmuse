@@ -19,15 +19,36 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const userRef = useRef<User | null>(null);
+  const sessionRef = useRef<Session | null>(null);
 
   const isMounted = useRef(true);
   const initialCheckCompleted = useRef(false);
   const adminCheckInProgress = useRef(false);
 
+  /**
+   * Safely update the isAdmin flag *only* if the component is still mounted **and**
+   * the user has not changed since the async admin check was initiated.  Prevents
+   * a race where an admin check for an old user finishes after a new user has
+   * logged in (or the original user has logged out), which could otherwise
+   * leave the `isAdmin` state in the wrong value for the current user.
+   */
+  const safeSetIsAdmin = (userId: string, value: boolean) => {
+    if (isMounted.current && userRef.current?.id === userId) {
+      setIsAdmin(value);
+    } else {
+      logger.log('[Admin Check] Skipped stale admin result for user', userId);
+    }
+  };
+
   useEffect(() => {
     userRef.current = user;
     logger.log('[Ref Update] User state updated in ref:', user?.id || 'null');
   }, [user]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+    logger.log('[Ref Update] Session state updated in ref:', session ? 'present' : 'null');
+  }, [session]);
 
   useEffect(() => {
     logger.log('[Effect Setup] AuthProvider effect setup starting');
@@ -80,7 +101,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                      return;
                    }
                   logger.log(`[Initial Check] Admin check result for ${data.session.user.id}: ${adminStatus}`);
-                  setIsAdmin(adminStatus);
+                  safeSetIsAdmin(data.session.user.id, adminStatus);
                 } catch (adminError) {
                   logger.error('[Initial Check] Error checking admin status:', adminError);
                   if (isMounted.current) setIsAdmin(false); // Set admin false on error if still mounted
@@ -136,7 +157,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // However, if the initial check hasn't completed and we get a definitive sign-out,
         // we can potentially short-circuit and mark as complete & logged out.
         if (!initialCheckCompleted.current) {
-           if (event === 'SIGNED_OUT' && !session) { // Only if we don't have a session from getSession yet
+           if (event === 'SIGNED_OUT' && !sessionRef.current) { // Only if we don't have a session from getSession yet
              logger.log(`[Auth Listener] Initial check not complete, but definitive SIGNED_OUT received. Updating state.`);
              if (isMounted.current) {
                setSession(null);
@@ -153,7 +174,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              // but wait for the initial check to finish before setting isLoading=false or checking admin
 
              // ---> MODIFIED LOGIC START <---
-             if (event === 'SIGNED_IN' && currentSession) {
+             if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION') && currentSession) {
                 logger.log(`[Auth Listener] SIGNED_IN received before initial check complete. Processing immediately.`);
                 if (isMounted.current) {
                     setSession(currentSession);
@@ -170,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             (async () => {
                                 try {
                                     const adminStatus = await checkIsAdmin(currentSession.user.id);
-                                    if (isMounted.current) setIsAdmin(adminStatus);
+                                    if (isMounted.current) safeSetIsAdmin(currentSession.user.id, adminStatus);
                                 } catch (adminError) {
                                     logger.error('[Auth Listener] Error checking initial admin status:', adminError);
                                     if (isMounted.current) setIsAdmin(false);
@@ -295,7 +316,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                  return;
               }
               logger.log(`[Auth Listener] Admin check result for ${newUser.id}: ${adminStatus}`);
-              setIsAdmin(adminStatus);
+              safeSetIsAdmin(newUser.id, adminStatus);
             } catch (adminError) {
               logger.error('[Auth Listener] Error checking admin status:', adminError);
               if (isMounted.current) setIsAdmin(false);
@@ -318,10 +339,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              // Simplified re-check logic (consider reusing above block if complex)
              adminCheckInProgress.current = true;
              checkIsAdmin(newUser.id).then(status => {
-               if(isMounted.current) setIsAdmin(status);
+               safeSetIsAdmin(newUser.id, status);
              }).catch(err => {
                logger.error('[Auth Listener] Error in admin re-check:', err);
-               if(isMounted.current) setIsAdmin(false);
+               safeSetIsAdmin(newUser.id, false);
              }).finally(() => {
                if(isMounted.current) adminCheckInProgress.current = false;
              });

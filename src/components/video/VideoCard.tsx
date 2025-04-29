@@ -383,10 +383,23 @@ const VideoCard: React.FC<VideoCardProps> = ({
           {isMobile && (video.metadata?.title || (!isProfilePage && creatorDisplayName) || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute top-2 left-2 z-20 flex flex-col">
               <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
-                {video.metadata?.title && (
-                  <span className="block text-white text-xs font-medium leading-snug">
-                    {video.metadata.title}
-                  </span>
+                {/* Combine Badge and Title */}
+                {(video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+                  <div className="flex items-center space-x-1">
+                    {isProfilePage && shouldShowBadge && (
+                      <img
+                        src="/reward.png"
+                        alt="Featured by OpenMuse"
+                        title="Featured by OpenMuse"
+                        className="h-6 w-6 flex-shrink-0" // Adjusted size
+                      />
+                    )}
+                    {video.metadata?.title && (
+                      <span className="block text-white text-xs font-medium leading-snug">
+                        {video.metadata.title}
+                      </span>
+                    )}
+                  </div>
                 )}
                 {/* Only show creator info when NOT on profile page */}
                 {!isProfilePage && creatorDisplayName && (
@@ -402,31 +415,35 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     </span>
                   </span>
                 )}
-                {isProfilePage && shouldShowBadge && (
-                  <div className="mt-1 pointer-events-auto">
-                    <img
-                      src="/reward.png"
-                      alt="Featured by OpenMuse"
-                      title="Featured by OpenMuse"
-                      className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
-                    />
-                  </div>
-                )}
               </div>
             </div>
           )}
 
           {/* Title, badge for desktop on profile when shouldAlwaysShowInfo is true */}
-          {!isMobile && shouldAlwaysShowInfo && !forceCreatorHoverDesktop && (video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+          {!isMobile && shouldAlwaysShowInfo && !forceCreatorHoverDesktop && (video.metadata?.title || (!isProfilePage && creatorDisplayName) || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute top-2 left-2 z-20 flex flex-col">
               <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
-                {video.metadata?.title && (
-                  <span className="block text-white text-xs font-medium leading-snug">
-                    {video.metadata.title}
-                  </span>
+                {/* Combine Badge and Title */}
+                {(video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+                  <div className="flex items-center space-x-1">
+                     {isProfilePage && shouldShowBadge && (
+                      <img
+                        src="/reward.png"
+                        alt="Featured by OpenMuse"
+                        title="Featured by OpenMuse"
+                        className="h-5 w-5 flex-shrink-0" // Adjusted size
+                      />
+                    )}
+                    {video.metadata?.title && (
+                      <span className="block text-white text-xs font-medium leading-snug">
+                        {video.metadata.title}
+                      </span>
+                    )}
+                  </div>
                 )}
-                {!isProfilePage && (
-                  <span className="flex items-center space-x-1">
+                {/* Creator Info (Only when NOT on profile page) */}
+                {!isProfilePage && creatorDisplayName && (
+                  <span className="flex items-center space-x-1 mt-1">
                     <Avatar className="h-4 w-4 border-0 bg-white/20">
                       <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
                       <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
@@ -439,16 +456,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
                   </span>
                 )}
               </div>
-              {isProfilePage && shouldShowBadge && (
-                <div className="mt-1 pointer-events-auto">
-                  <img
-                    src="/reward.png"
-                    alt="Featured by OpenMuse"
-                    title="Featured by OpenMuse"
-                    className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
-                  />
-                </div>
-              )}
             </div>
           )}
 
@@ -553,17 +560,31 @@ const VideoCard: React.FC<VideoCardProps> = ({
           )}
 
           {/* Desktop: Info overlay that shows on hover when info is not always visible */}
-          {!isMobile && (!shouldAlwaysShowInfo || forceCreatorHoverDesktop) && (video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+          {!isMobile && (!shouldAlwaysShowInfo || forceCreatorHoverDesktop) && (video.metadata?.title || (!isProfilePage && creatorDisplayName) || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
               <div className="absolute top-2 left-2 z-20 flex flex-col">
                 <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
-                  {video.metadata?.title && (
-                    <span className="block text-white text-xs font-medium leading-snug pointer-events-auto">
-                      {video.metadata.title}
-                    </span>
+                  {/* Combine Badge and Title */}
+                  {(video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+                    <div className="flex items-center space-x-1 pointer-events-auto"> {/* Added pointer-events-auto here */}
+                       {isProfilePage && shouldShowBadge && (
+                        <img
+                          src="/reward.png"
+                          alt="Featured by OpenMuse"
+                          title="Featured by OpenMuse"
+                          className="h-5 w-5 flex-shrink-0" // Adjusted size
+                        />
+                      )}
+                      {video.metadata?.title && (
+                        <span className="block text-white text-xs font-medium leading-snug">
+                          {video.metadata.title}
+                        </span>
+                      )}
+                    </div>
                   )}
-                  {!isProfilePage && (
-                    <span className="flex items-center space-x-1 pointer-events-auto">
+                  {/* Creator Info (Only when NOT on profile page) */}
+                  {!isProfilePage && creatorDisplayName && (
+                    <span className="flex items-center space-x-1 mt-1 pointer-events-auto"> {/* Added pointer-events-auto here */}
                       <Avatar className="h-4 w-4 border-0 bg-white/20">
                         <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
                         <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
@@ -576,16 +597,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     </span>
                   )}
                 </div>
-                {isProfilePage && shouldShowBadge && (
-                  <div className="mt-1 pointer-events-auto">
-                    <img
-                      src="/reward.png"
-                      alt="Featured by OpenMuse"
-                      title="Featured by OpenMuse"
-                      className="h-6 w-6 transition-transform duration-200 group-hover:scale-110"
-                    />
-                  </div>
-                )}
               </div>
             </div>
           )}
