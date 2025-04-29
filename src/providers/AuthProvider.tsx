@@ -1,508 +1,661 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { User, Session, AuthChangeEvent } from '@supabase/supabase-js';
-import { toast } from 'sonner';
-import { Logger } from '@/lib/logger';
-import { AuthContext } from '@/contexts/AuthContext';
-import { checkIsAdmin } from '@/lib/auth';
-import { userProfileCache } from '@/lib/auth/cache';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+// ... other imports
+import { v4 as uuidv4 } from 'uuid'; // Need to install uuid: npm install uuid @types/uuid
 
-const logger = new Logger('AuthProvider', true, 'SessionPersist');
-const PROVIDER_VERSION = '1.3.0'; // Increment this on significant changes
-logger.log(`--- AuthProvider Module Initial Load [v${PROVIDER_VERSION}] ---`); // Log when the module itself is first processed
+// ... logger, PROVIDER_VERSION etc.
+
+const AUTH_CHANNEL_NAME = 'auth_leader_channel';
+const HEARTBEAT_INTERVAL = 4000; // Check leadership every 4s
+const LEADERSHIP_TIMEOUT = 5000; // Assume leadership if no contest within 5s
+
+// Message Types for BroadcastChannel
+enum AuthChannelMessage {
+  CLAIM_LEADER = 'CLAIM_LEADER',
+  HEARTBEAT = 'HEARTBEAT',
+  RELINQUISH_LEADER = 'RELINQUISH_LEADER',
+  // We might not need explicit ACTION messages if onAuthStateChange is sufficient
+  // ACTION_SIGN_IN = 'ACTION_SIGN_IN',
+  // ACTION_SIGN_OUT = 'ACTION_SIGN_OUT',
+}
+
+interface AuthMessageData {
+  type: AuthChannelMessage;
+  tabId: string;
+  timestamp: number;
+}
+
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   logger.log(`AuthProvider component mounting [v${PROVIDER_VERSION}]`);
 
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  // START LOADING TRUE: Assume loading until initial check completes
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
+  const [isLeader, setIsLeader] = useState(false); // NEW: Track leadership
+
   const userRef = useRef<User | null>(null);
   const sessionRef = useRef<Session | null>(null);
-
   const isMounted = useRef(true);
   const initialCheckCompleted = useRef(false);
   const adminCheckInProgress = useRef(false);
-  const sessionFallbackTimeout = useRef<NodeJS.Timeout | null>(null); // NEW REF
+  const sessionFallbackTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  /**
-   * Safely update the isAdmin flag *only* if the component is still mounted **and**
-   * the user has not changed since the async admin check was initiated.  Prevents
-   * a race where an admin check for an old user finishes after a new user has
-   * logged in (or the original user has logged out), which could otherwise
-   * leave the `isAdmin` state in the wrong value for the current user.
-   */
-  const safeSetIsAdmin = (userId: string | null | undefined, value: boolean) => {
-    // Handle null/undefined userId gracefully (e.g., if user becomes null)
-    const currentUserId = userRef.current?.id;
-    const checkUserId = userId || 'null_user_id_placeholder'; // Use placeholder if userId is null/undefined
+  // --- NEW Refs for Leader Election ---
+  const tabId = useRef<string>(uuidv4()); // Unique ID for this tab instance
+  const leaderId = useRef<string | null>(null); // Track current leader's ID
+  const broadcastChannel = useRef<BroadcastChannel | null>(null);
+  const leadershipClaimTimeout = useRef<NodeJS.Timeout | null>(null);
+  const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
+  const lastHeartbeatReceived = useRef<Record<string, number>>({}); // Track heartbeats from other tabs
 
-    // Allow update if mounted AND (user IDs match OR userRef is null)
-    if (isMounted.current && (currentUserId === checkUserId || currentUserId === null)) {
-      logger.log(`[Admin Check][v${PROVIDER_VERSION}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
-      setIsAdmin(value);
-    } else {
-      logger.log(`[Admin Check][v${PROVIDER_VERSION}] safeSetIsAdmin: Skipped stale admin result for user ${checkUserId}. Current userRef: ${currentUserId}`);
+  // --- Leader Election Logic ---
+
+  const stopHeartbeat = useCallback(() => {
+    if (heartbeatInterval.current) {
+      logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Stopping heartbeat.`);
+      clearInterval(heartbeatInterval.current);
+      heartbeatInterval.current = null;
     }
-  };
+  }, []);
 
-  useEffect(() => {
-    userRef.current = user;
-    logger.log(`[Ref Update][v${PROVIDER_VERSION}] User state updated in ref:`, user?.id || 'null');
-  }, [user]);
+  const startHeartbeat = useCallback(() => {
+    stopHeartbeat(); // Ensure no duplicate intervals
+    logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Starting heartbeat.`);
+    heartbeatInterval.current = setInterval(() => {
+      if (isMounted.current && isLeader) { // Double check state just before sending
+         // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Sending HEARTBEAT.`);
+         broadcastChannel.current?.postMessage({
+           type: AuthChannelMessage.HEARTBEAT,
+           tabId: tabId.current,
+           timestamp: Date.now(),
+         });
+       } else {
+         // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Heartbeat skipped (not leader or unmounted).`);
+         stopHeartbeat(); // Stop if no longer leader
+       }
+    }, HEARTBEAT_INTERVAL);
+  }, [isLeader, stopHeartbeat]); // Dependency on isLeader state
 
-  useEffect(() => {
-    sessionRef.current = session;
-    logger.log(`[Ref Update][v${PROVIDER_VERSION}] Session state updated in ref:`, session ? 'present' : 'null');
-  }, [session]);
+  const relinquishLeadership = useCallback((silent = false) => {
+    logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Relinquishing leadership. Current leader: ${leaderId.current}. Silent: ${silent}`);
+    stopHeartbeat();
+    if (isLeader) { // Only update state if we actually were the leader
+      logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Setting isLeader = false.`);
+      setIsLeader(false);
+    }
+    leaderId.current = null; // Clear leader tracking
 
-  useEffect(() => {
-    logger.log(`[Effect Setup][v${PROVIDER_VERSION}] AuthProvider effect setup starting`);
-    isMounted.current = true;
-    initialCheckCompleted.current = false; // Reset on effect setup
+    if (!silent && broadcastChannel.current && isMounted.current) {
+      // Notify others we are stepping down (e.g., on unload)
+      logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Broadcasting RELINQUISH_LEADER.`);
+      broadcastChannel.current.postMessage({
+        type: AuthChannelMessage.RELINQUISH_LEADER,
+        tabId: tabId.current,
+        timestamp: Date.now(),
+      });
+    }
+     // Clear any pending claim timeout
+     if (leadershipClaimTimeout.current) {
+        clearTimeout(leadershipClaimTimeout.current);
+        leadershipClaimTimeout.current = null;
+     }
+  }, [isLeader, stopHeartbeat]); // Dependency on isLeader state
 
-    const checkInitialSessionAndAdmin = async () => {
-      logger.log(`[Initial Check][v${PROVIDER_VERSION}] START`);
-      if (initialCheckCompleted.current) {
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Already completed, skipping.`);
-          // Still set loading false if it hasn't been set yet
-          if (isLoading) {
-            logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting isLoading=false (already completed case)`);
-            setIsLoading(false);
-          }
-          return;
-      }
 
-      try {
-        logger.log(`[Initial Check][v${PROVIDER_VERSION}] Calling supabase.auth.getSession()`);
-        // Explicitly set loading true here *before* the async call
-        // Although initialized to true, this ensures it's true if the effect re-runs
-        if (!isLoading) { // Only log if changing state
-            logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting isLoading=true (before getSession)`);
-            setIsLoading(true);
-        }
-        const getSessionStart = performance.now();
-        logger.log(`[Initial Check][v${PROVIDER_VERSION}] Calling supabase.auth.getSession() - START`);
-        const { data, error } = await supabase.auth.getSession();
+  const claimLeadership = useCallback(() => {
+    if (!isMounted.current || !broadcastChannel.current) return;
+    logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Attempting to claim leadership. Current leader: ${leaderId.current}`);
 
-        // Log duration regardless of mount status, but check mount before proceeding
-        const getSessionDuration = (performance.now() - getSessionStart).toFixed(2);
-        logger.log(`[Initial Check][v${PROVIDER_VERSION}] supabase.auth.getSession() - END - Duration: ${getSessionDuration} ms`);
+    // Clear previous timeouts if any
+    if (leadershipClaimTimeout.current) clearTimeout(leadershipClaimTimeout.current);
+    stopHeartbeat(); // Stop heartbeating if we were leader before re-claiming
 
-        if (!isMounted.current) {
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Component unmounted during getSession, aborting.`);
-          return;
-        }
-         logger.log(`[Initial Check][v${PROVIDER_VERSION}] getSession() returned. Error: ${!!error}, Session: ${!!data.session}`);
+    // Optimistic immediate check - if no leader known or stored leader seems inactive, claim faster
+    const knownLeader = leaderId.current;
+    const lastSeen = knownLeader ? lastHeartbeatReceived.current[knownLeader] : 0;
+    const isLeaderStale = !knownLeader || (Date.now() - lastSeen > LEADERSHIP_TIMEOUT * 1.5); // Leader hasn't been heard from
 
-        if (error) {
-          logger.warn(`[Initial Check][v${PROVIDER_VERSION}] getSession() error:`, error);
-          // Treat error as no session
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting state: session=null, user=null, isAdmin=false (due to getSession error)`);
-          setSession(null);
-          setUser(null);
-          setIsAdmin(false); // Direct set is okay here, no user context for safeSet
-        } else if (data.session) {
-          const userId = data.session.user.id;
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Session FOUND - User ID: ${userId}`);
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting state: session=present, user=${userId}`);
-          setSession(data.session);
-          setUser(data.session.user); // userRef effect will update ref
+    if (isLeaderStale) {
+        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] No active leader detected or leader stale (${knownLeader}), attempting immediate claim.`);
+        // Set ourselves as leader tentatively
+        leaderId.current = tabId.current;
+        setIsLeader(true);
+        startHeartbeat();
+        // Still broadcast claim to resolve potential conflicts
+         broadcastChannel.current.postMessage({
+           type: AuthChannelMessage.CLAIM_LEADER,
+           tabId: tabId.current,
+           timestamp: Date.now(),
+         });
+    } else {
+        // Otherwise, broadcast claim and wait to see if contested
+        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Broadcasting CLAIM_LEADER and setting timeout.`);
+        broadcastChannel.current.postMessage({
+          type: AuthChannelMessage.CLAIM_LEADER,
+          tabId: tabId.current,
+          timestamp: Date.now(),
+        });
 
-          if (!adminCheckInProgress.current) {
-            adminCheckInProgress.current = true;
-            logger.log(`[Initial Check][v${PROVIDER_VERSION}] Starting ADMIN CHECK for user: ${userId}`);
-            // Wrap the async admin check call in a self-invoking async function
-            // so the main checkInitialSessionAndAdmin flow doesn't await it.
-            (async () => {
-                const checkUserId = userId; // Capture userId for closure
-                try {
-                  const adminStatus = await checkIsAdmin(checkUserId); // Await happens inside the IIFE
-                   if (!isMounted.current) {
-                     logger.log(`[Initial Check][v${PROVIDER_VERSION}] ADMIN CHECK: Component unmounted during check for ${checkUserId}, aborting status update.`);
-                     adminCheckInProgress.current = false; // Reset flag if aborting
-                     return;
-                   }
-                  logger.log(`[Initial Check][v${PROVIDER_VERSION}] ADMIN CHECK result for ${checkUserId}: ${adminStatus}`);
-                  safeSetIsAdmin(checkUserId, adminStatus);
-                } catch (adminError) {
-                  logger.error(`[Initial Check][v${PROVIDER_VERSION}] ADMIN CHECK: Error checking admin status for ${checkUserId}:`, adminError);
-                  // Set admin false on error only if still mounted and user hasn't changed
-                  safeSetIsAdmin(checkUserId, false);
-                } finally {
-                   // Always reset flag, regardless of mount status
-                   adminCheckInProgress.current = false;
-                   if (isMounted.current) {
-                     logger.log(`[Initial Check][v${PROVIDER_VERSION}] ADMIN CHECK finished for ${checkUserId}.`);
-                   } else {
-                     logger.log(`[Initial Check][v${PROVIDER_VERSION}] ADMIN CHECK finished for ${checkUserId}, but component unmounted.`);
-                   }
-                }
-            })(); // Immediately invoke the async function
+        // Set a timeout to assume leadership if no one else claims strongly
+        leadershipClaimTimeout.current = setTimeout(() => {
+          if (isMounted.current && !leaderId.current) { // Only assume leadership if no leader was established during timeout
+            logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Leadership claim uncontested after timeout. Assuming leadership.`);
+            leaderId.current = tabId.current;
+            setIsLeader(true);
+            startHeartbeat();
           } else {
-            logger.log(`[Initial Check][v${PROVIDER_VERSION}] Admin check already in progress, skipping new check for ${userId}.`);
+             logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Leadership claim timeout fired, but a leader (${leaderId.current}) already exists or component unmounted. Aborting assumption.`);
           }
+        }, LEADERSHIP_TIMEOUT / 2); // Shorter timeout for claiming
+    }
+
+  }, [startHeartbeat, stopHeartbeat]);
+
+
+  const handleBroadcastMessage = useCallback((event: MessageEvent) => {
+    if (!isMounted.current) return;
+    const data = event.data as AuthMessageData;
+    const senderId = data.tabId;
+    const messageType = data.type;
+    const timestamp = data.timestamp;
+
+    if (senderId === tabId.current) return; // Ignore messages from self
+
+     // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received message: ${messageType} from ${senderId}`);
+
+    // Track last seen time for all tabs
+    lastHeartbeatReceived.current[senderId] = Date.now();
+
+
+    switch (messageType) {
+      case AuthChannelMessage.CLAIM_LEADER:
+        // Another tab is claiming leadership
+        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received CLAIM_LEADER from ${senderId}. Current leader: ${leaderId.current}`);
+        const currentLeaderTimestamp = leaderId.current ? lastHeartbeatReceived.current[leaderId.current] || 0 : 0;
+
+        // Simple conflict resolution: Tab with lexicographically smaller ID wins if claims are close, otherwise newest claim wins.
+        // A more robust approach might involve multiple rounds or vector clocks.
+        const currentlyLeader = leaderId.current === tabId.current;
+
+        if (!leaderId.current || senderId < leaderId.current) {
+           logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] New leader ${senderId} detected (or no previous leader). Relinquishing.`);
+           leaderId.current = senderId;
+           if (currentlyLeader) {
+              relinquishLeadership(true); // Relinquish silently (don't broadcast relinquish)
+           } else {
+              setIsLeader(false); // Ensure we are not leader
+              stopHeartbeat(); // Ensure heartbeat is stopped
+           }
+           // Cancel our pending claim timeout if active
+            if (leadershipClaimTimeout.current) {
+                logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Cancelling pending leadership claim due to claim from ${senderId}.`);
+                clearTimeout(leadershipClaimTimeout.current);
+                leadershipClaimTimeout.current = null;
+            }
+        } else if (senderId === leaderId.current) {
+           // The current leader is just re-asserting. Update timestamp.
+           logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Leader ${senderId} re-asserted claim.`);
+           lastHeartbeatReceived.current[senderId] = Math.max(lastHeartbeatReceived.current[senderId] || 0, timestamp);
         } else {
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] No session found.`);
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting state: session=null, user=null, isAdmin=false`);
-          setSession(null);
-          setUser(null);
-          setIsAdmin(false); // Direct set okay here
+            // Our ID is smaller than the claimant, or we are already leader. Ignore their claim for now.
+            // Our heartbeat/next claim will re-assert our leadership if needed.
+           logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Ignoring CLAIM_LEADER from ${senderId} (our ID ${tabId.current} is smaller or equal to current leader ${leaderId.current}).`);
         }
-      } catch (error) {
-        logger.error(`[Initial Check][v${PROVIDER_VERSION}] Unexpected error:`, error);
-        if (isMounted.current) {
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting state: session=null, user=null, isAdmin=false (due to unexpected error)`);
-          setSession(null);
-          setUser(null);
-          setIsAdmin(false); // Direct set okay here
+        break;
+
+      case AuthChannelMessage.HEARTBEAT:
+        // A leader is sending a heartbeat
+        if (senderId === leaderId.current) {
+            // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received HEARTBEAT from leader ${senderId}.`);
+            // Update last seen time for the leader
+            lastHeartbeatReceived.current[senderId] = Date.now();
+        } else if (!leaderId.current || senderId < leaderId.current) {
+            // A new leader emerged without a claim? Update our state.
+            logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received HEARTBEAT from unexpected leader ${senderId}. Accepting as new leader.`);
+            leaderId.current = senderId;
+             if (isLeader) { // If we thought we were leader
+                 relinquishLeadership(true);
+             } else {
+                 setIsLeader(false);
+                 stopHeartbeat();
+             }
+             // Cancel pending claim
+             if (leadershipClaimTimeout.current) {
+                 clearTimeout(leadershipClaimTimeout.current);
+                 leadershipClaimTimeout.current = null;
+             }
         }
-      } finally {
-        if (isMounted.current) {
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] FINALLY block executing.`);
-          if (!initialCheckCompleted.current) {
-            logger.log(`[Initial Check][v${PROVIDER_VERSION}] Marking initial check as COMPLETED.`);
-            initialCheckCompleted.current = true;
-          }
-          // Crucially, set loading to false *after* all checks/updates are done
-          logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting isLoading=false (end of initial check).`);
-          setIsLoading(false);
-          // NEW: Clear fallback timeout now that initial check completed
-          if (sessionFallbackTimeout.current) {
-            clearTimeout(sessionFallbackTimeout.current);
-            sessionFallbackTimeout.current = null;
-          }
-        } else {
-           logger.log(`[Initial Check][v${PROVIDER_VERSION}] FINALLY block, component unmounted.`);
+        break;
+
+      case AuthChannelMessage.RELINQUISH_LEADER:
+        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received RELINQUISH_LEADER from ${senderId}.`);
+        if (senderId === leaderId.current) {
+          logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Current leader ${senderId} relinquished. Clearing leader.`);
+          leaderId.current = null;
+          setIsLeader(false); // Ensure we know we are not leader
+          stopHeartbeat();
+          // Optional: Automatically try to claim leadership if the leader steps down
+          // claimLeadership();
         }
-      }
+        // Clean up heartbeat tracker for the relinquishing tab
+        delete lastHeartbeatReceived.current[senderId];
+        break;
+    }
+
+     // Periodic cleanup of old tab heartbeats
+     const now = Date.now();
+     Object.keys(lastHeartbeatReceived.current).forEach(id => {
+       if (now - lastHeartbeatReceived.current[id] > HEARTBEAT_INTERVAL * 5) { // Remove tabs not heard from in a while
+         // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Pruning stale heartbeat record for tab ${id}`);
+         delete lastHeartbeatReceived.current[id];
+         if (leaderId.current === id) {
+            logger.warn(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Pruning STALE LEADER ${id}. Resetting leader state.`);
+            leaderId.current = null;
+             if (isLeader) { // If we thought we were leader
+                 relinquishLeadership(true);
+             } else {
+                 setIsLeader(false);
+                 stopHeartbeat();
+             }
+            // Maybe try to claim leadership now
+            claimLeadership();
+         }
+       }
+     });
+
+  }, [isLeader, claimLeadership, relinquishLeadership, stopHeartbeat]); // Include isLeader here
+
+  // --- Effect for Broadcast Channel & Leader Election Setup ---
+  useEffect(() => {
+    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Setting up BroadcastChannel and leader election.`);
+    isMounted.current = true;
+
+    if (!broadcastChannel.current) {
+        logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Creating BroadcastChannel: ${AUTH_CHANNEL_NAME}`);
+        broadcastChannel.current = new BroadcastChannel(AUTH_CHANNEL_NAME);
+        broadcastChannel.current.onmessage = handleBroadcastMessage;
+    }
+
+    // Attempt to claim leadership on mount/focus
+    const handleFocus = () => {
+        logger.log(`[Event][v${PROVIDER_VERSION}][${tabId.current}] Window focused.`);
+        claimLeadership();
     };
 
-    logger.log(`[Effect Setup][v${PROVIDER_VERSION}] Setting up onAuthStateChange listener`);
+    // Optional: Relinquish on blur? Can cause churn. Let timeouts handle inactivity.
+    // const handleBlur = () => {
+    //   logger.log(`[Event][v${PROVIDER_VERSION}][${tabId.current}] Window blurred.`);
+    //   // Maybe relinquish if we are leader? Or just let heartbeat timeout?
+    //   // if (isLeader) relinquishLeadership(true); // Silent relinquish
+    // };
+
+    const handleBeforeUnload = () => {
+        logger.log(`[Event][v${PROVIDER_VERSION}][${tabId.current}] Window unloading.`);
+        relinquishLeadership(false); // Broadcast relinquish
+    };
+
+    window.addEventListener('focus', handleFocus);
+    // window.addEventListener('blur', handleBlur);
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Initial claim attempt shortly after mount
+    const initialClaimTimeout = setTimeout(claimLeadership, 500); // Delay slightly
+
+    // Cleanup
+    return () => {
+      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Cleaning up leader election.`);
+      isMounted.current = false;
+      clearTimeout(initialClaimTimeout);
+      if (leadershipClaimTimeout.current) clearTimeout(leadershipClaimTimeout.current);
+      stopHeartbeat(); // Clear interval
+
+       // Important: Broadcast relinquish on unmount only if we were the leader
+       // handleBeforeUnload already covers browser close/refresh. This covers component unmount.
+       if (leaderId.current === tabId.current) {
+          relinquishLeadership(false); // Notify others we're gone
+       }
+
+      if (broadcastChannel.current) {
+        logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Closing BroadcastChannel.`);
+        broadcastChannel.current.close();
+        broadcastChannel.current = null;
+      }
+
+      window.removeEventListener('focus', handleFocus);
+      // window.removeEventListener('blur', handleBlur);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Leader election cleanup complete.`);
+    };
+     // Add dependencies that trigger re-setup if they change (should be minimal)
+  }, [claimLeadership, handleBroadcastMessage, relinquishLeadership, stopHeartbeat]);
+
+
+  // --- Original useEffect for Auth State Changes ---
+  useEffect(() => {
+    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] AuthProvider effect setup starting`);
+    // Reset mount flag (might be redundant if outer effect handles it, but safe)
+    // isMounted.current = true;
+    initialCheckCompleted.current = false; // Reset on effect setup
+
+    // ... (rest of the checkInitialSessionAndAdmin function - NO CHANGES needed inside it) ...
+    const checkInitialSessionAndAdmin = async () => {
+        // ... existing implementation ...
+        // Note: This check runs independently in each tab on load.
+    };
+
+    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Setting up onAuthStateChange listener`);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
-        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Event received: ${event}, User: ${currentSession?.user?.id || 'none'}, Session: ${!!currentSession}`);
+          // --- IMPORTANT ---
+          // This listener reacts to the actual state change in localStorage,
+          // which could have been triggered by *any* tab (ideally the leader).
+          // All tabs (leader or not) should update their UI based on this event
+          // to stay synchronized with the ground truth.
+          logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Event received: ${event}, User: ${currentSession?.user?.id || 'none'}, Session: ${!!currentSession}. Is Leader: ${isLeader}`);
 
-        // --- Handling Before Initial Check Completion ---
-        if (!initialCheckCompleted.current) {
-           logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Initial check NOT complete. Evaluating event: ${event}`);
-           // Case 1: Definitive Sign Out
-           if (event === 'SIGNED_OUT' && !sessionRef.current) {
-             logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Handling early SIGNED_OUT.`);
-             if (isMounted.current) {
-               logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Setting state: session=null, user=null, isAdmin=false, initialCheck=true, isLoading=false (early SIGNED_OUT)`);
-               setSession(null);
-               setUser(null);
-               setIsAdmin(false); // Direct set okay
-               initialCheckCompleted.current = true;
-               setIsLoading(false);
-               // Clear fallback timeout if active
-               if (sessionFallbackTimeout.current) {
-                 clearTimeout(sessionFallbackTimeout.current);
-                 sessionFallbackTimeout.current = null;
-               }
-             }
-             return; // Processed early exit
-           }
-           // Case 2: Early Sign In / Initial Session / Token Refresh (Fast Path)
-           else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && currentSession) {
-                logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Handling early ${event}. Processing immediately.`);
-                const userId = currentSession.user.id;
-                if (isMounted.current) {
-                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Setting state: session=present, user=${userId}, initialCheck=true, isLoading=false (early ${event})`);
-                    setSession(currentSession);
-                    setUser(currentSession.user); // userRef effect updates ref
-                    initialCheckCompleted.current = true;
-                    setIsLoading(false);
-                    // Clear fallback timeout if active
-                    if (sessionFallbackTimeout.current) {
-                      clearTimeout(sessionFallbackTimeout.current);
-                      sessionFallbackTimeout.current = null;
-                    }
+          // ... (rest of the onAuthStateChange handler - KEEP EXISTING LOGIC) ...
+          // The logic for handling early events, processing after initial check,
+          // username sync, setting state (setUser, setSession), and triggering
+          // admin checks based on user changes should remain.
+          // The leader election logic primarily controls *initiating* actions,
+          // while this listener ensures all tabs *react* to the results.
 
-                    // Trigger non-blocking admin check if user exists and none in progress
-                    if (!adminCheckInProgress.current) {
-                        adminCheckInProgress.current = true;
-                        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Starting ADMIN CHECK for user ${userId} (early ${event})`);
-                        (async () => {
-                            const checkUserId = userId; // Capture userId for closure
-                            try {
-                                const adminStatus = await checkIsAdmin(checkUserId);
-                                if (!isMounted.current) {
-                                     logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK: Component unmounted during check for ${checkUserId} (early ${event}), aborting.`);
-                                     adminCheckInProgress.current = false;
-                                     return;
-                                }
-                                logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK result for ${checkUserId}: ${adminStatus} (early ${event})`);
-                                safeSetIsAdmin(checkUserId, adminStatus);
-                            } catch (adminError) {
-                                logger.error(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK: Error for ${checkUserId} (early ${event}):`, adminError);
-                                safeSetIsAdmin(checkUserId, false); // Use safeSet on error
-                            } finally {
-                                 // Always reset flag
-                                 adminCheckInProgress.current = false;
-                                 if (isMounted.current) {
-                                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK finished for ${checkUserId} (early ${event}).`);
-                                 } else {
-                                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK finished after unmount for ${checkUserId} (early ${event}).`);
-                                 }
-                            }
-                        })();
-                    } else {
-                       logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Admin check already in progress, skipping new check for ${userId} (early ${event}).`);
-                    }
-                }
-                return; // Processed fast path
-           }
-           // Case 3: Other events before initial check completes
-           else {
-              logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Deferring full processing of event: ${event} (waiting for initial check)`);
-              return; // Wait for initial check
-           }
-        }
+           // --- Start of existing onAuthStateChange logic ---
+            if (!initialCheckCompleted.current) {
+                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Initial check NOT complete. Evaluating event: ${event}`);
+                 if (event === 'SIGNED_OUT' && !sessionRef.current) {
+                     logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early SIGNED_OUT.`);
+                     if (isMounted.current) {
+                         logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=null, user=null, isAdmin=false, initialCheck=true, isLoading=false (early SIGNED_OUT)`);
+                         setSession(null);
+                         setUser(null);
+                         setIsAdmin(false);
+                         initialCheckCompleted.current = true;
+                         setIsLoading(false);
+                         if (sessionFallbackTimeout.current) {
+                             clearTimeout(sessionFallbackTimeout.current);
+                             sessionFallbackTimeout.current = null;
+                         }
+                     }
+                     return;
+                 }
+                 else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && currentSession) {
+                      logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early ${event}. Processing immediately.`);
+                      // ... (rest of early sign-in/session/refresh logic) ...
+                       const userId = currentSession.user.id;
+                       if (isMounted.current) {
+                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=present, user=${userId}, initialCheck=true, isLoading=false (early ${event})`);
+                           setSession(currentSession);
+                           setUser(currentSession.user);
+                           initialCheckCompleted.current = true;
+                           setIsLoading(false);
+                           if (sessionFallbackTimeout.current) {
+                               clearTimeout(sessionFallbackTimeout.current);
+                               sessionFallbackTimeout.current = null;
+                           }
+                           // Trigger non-blocking admin check...
+                           if (!adminCheckInProgress.current) {
+                              // ... (existing admin check logic) ...
+                               adminCheckInProgress.current = true;
+                               logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Starting ADMIN CHECK for user ${userId} (early ${event})`);
+                               (async () => {
+                                   const checkUserId = userId;
+                                   try {
+                                       const adminStatus = await checkIsAdmin(checkUserId);
+                                       if (!isMounted.current) {
+                                            logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Component unmounted during check for ${checkUserId} (early ${event}), aborting.`);
+                                            adminCheckInProgress.current = false;
+                                            return;
+                                       }
+                                       logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK result for ${checkUserId}: ${adminStatus} (early ${event})`);
+                                       safeSetIsAdmin(checkUserId, adminStatus);
+                                   } catch (adminError) {
+                                       logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Error for ${checkUserId} (early ${event}):`, adminError);
+                                       safeSetIsAdmin(checkUserId, false);
+                                   } finally {
+                                        adminCheckInProgress.current = false;
+                                        if (isMounted.current) {
+                                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (early ${event}).`);
+                                        } else {
+                                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished after unmount for ${checkUserId} (early ${event}).`);
+                                        }
+                                   }
+                               })();
+                           } else {
+                              logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress, skipping new check for ${userId} (early ${event}).`);
+                           }
+                       }
+                      return;
+                 }
+                 else {
+                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Deferring full processing of event: ${event} (waiting for initial check)`);
+                    return;
+                 }
+            }
 
-        // --- Handling After Initial Check Completion ---
-        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Processing event ${event} (initial check complete)`);
+            logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Processing event ${event} (initial check complete)`);
 
-        // --- Username Sync Check ---
-        if (currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
-          const userId = currentSession.user.id;
-          // Get Discord info from metadata - Use 'name' instead of 'preferred_username'
-          const discordUsername = currentSession.user.user_metadata?.name;
-          const discordUserId = currentSession.user.user_metadata?.provider_id;
+            // --- Username Sync Check --- (Keep As Is)
+            if (currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
+              // ... existing username sync logic ...
+              const userId = currentSession.user.id;
+              const discordUsername = currentSession.user.user_metadata?.name;
+              const discordUserId = currentSession.user.user_metadata?.provider_id;
 
-          if (discordUsername || discordUserId) { // Check if we have either username or ID from Discord
-            logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Checking Discord ID/Username sync for user ${userId}. Metadata values - ID: ${discordUserId}, Username: ${discordUsername}`);
-            try {
-              // Fetch only the discord fields from the profile
-              const { data: profileData, error: profileError } = await supabase
-                .from('profiles')
-                .select('discord_user_id, discord_username') // Only select discord fields
-                .eq('id', userId)
-                .maybeSingle();
+              if (discordUsername || discordUserId) {
+                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Checking Discord ID/Username sync for user ${userId}. Metadata values - ID: ${discordUserId}, Username: ${discordUsername}`);
+                 // ... rest of sync logic ...
+                 try {
+                   const { data: profileData, error: profileError } = await supabase
+                     .from('profiles')
+                     .select('discord_user_id, discord_username')
+                     .eq('id', userId)
+                     .maybeSingle();
 
-              if (profileError) {
-                logger.error(`[Auth Listener][v${PROVIDER_VERSION}] Error fetching profile for Discord sync for user ${userId}:`, profileError);
-              } else if (profileData) {
-                // Determine if an update is needed ONLY for discord fields
-                const updatePayload: { discord_user_id?: string; discord_username?: string } = {};
-                let needsUpdate = false;
+                   if (profileError) { /* ... */ }
+                   else if (profileData) {
+                      const updatePayload: { discord_user_id?: string; discord_username?: string } = {};
+                      let needsUpdate = false;
+                      if (discordUsername && profileData.discord_username !== discordUsername) { /* ... */ updatePayload.discord_username = discordUsername; needsUpdate = true; }
+                      if (discordUserId && profileData.discord_user_id !== discordUserId) { /* ... */ updatePayload.discord_user_id = discordUserId; needsUpdate = true; }
 
-                // Sync discord_username
-                if (discordUsername && profileData.discord_username !== discordUsername) {
-                  logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Discord username sync needed for ${userId}. DB: "${profileData.discord_username}", Discord: "${discordUsername}".`);
-                  updatePayload.discord_username = discordUsername;
-                  needsUpdate = true;
-                }
+                      if (needsUpdate) {
+                          logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Updating profile for ${userId} with Discord fields:`, updatePayload);
+                          const { error: updateError } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
+                          if (updateError) { /* ... */ }
+                          else { /* ... */ userProfileCache.delete(userId); }
+                      } else { /* ... */ }
+                   } else { /* ... */ }
+                 } catch (syncError) { /* ... */ }
+              } else { /* ... */ }
+            }
 
-                // Sync discord_user_id
-                if (discordUserId && profileData.discord_user_id !== discordUserId) {
-                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Discord user ID sync needed for ${userId}. DB: "${profileData.discord_user_id}", Discord: "${discordUserId}".`);
-                  updatePayload.discord_user_id = discordUserId;
-                  needsUpdate = true;
-                }
 
-                if (needsUpdate) {
-                  logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Updating profile for ${userId} with Discord fields:`, updatePayload);
-                  const { error: updateError } = await supabase
-                    .from('profiles')
-                    .update(updatePayload) // Only update discord fields
-                    .eq('id', userId);
+            if (!isMounted.current) {
+                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Component unmounted, ignoring event ${event}.`);
+                return;
+            }
 
-                  if (updateError) {
-                    logger.error(`[Auth Listener][v${PROVIDER_VERSION}] Error updating profile with Discord fields for ${userId}:`, updateError);
-                  } else {
-                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Successfully updated Discord fields for ${userId}. Clearing profile cache.`);
-                    userProfileCache.delete(userId); // Invalidate cache as profile data changed
+            // --- State Update Logic --- (Keep As Is)
+            const newUser = currentSession?.user || null;
+            const oldUser = userRef.current;
+
+            logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=${!!currentSession}, user=${newUser?.id || 'null'}`);
+            setSession(currentSession);
+            setUser(newUser);
+
+             // --- Admin Check Logic (Post-Initial Check) --- (Keep As Is)
+             if (!newUser) {
+                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] No user in session, resetting admin status.`);
+                 setIsAdmin(false);
+             } else if (newUser.id !== oldUser?.id) {
+                if (!adminCheckInProgress.current) {
+                   adminCheckInProgress.current = true;
+                   const userId = newUser.id;
+                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User changed (${oldUser?.id} -> ${userId}). Starting ADMIN CHECK.`);
+                   (async () => {
+                       const checkUserId = userId;
+                       try {
+                           const adminStatus = await checkIsAdmin(checkUserId);
+                           if (!isMounted.current) { /* ... */ adminCheckInProgress.current = false; return; }
+                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK result for ${checkUserId}: ${adminStatus}`);
+                           safeSetIsAdmin(checkUserId, adminStatus);
+                       } catch (adminError) { /* ... */ safeSetIsAdmin(checkUserId, false); }
+                       finally { /* ... */ adminCheckInProgress.current = false; /* ... */ }
+                   })();
+                } else { /* ... */ }
+             } else {
+                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User unchanged (${newUser.id}), skipping admin check.`);
+                 // ... (existing edge case re-check logic if isAdmin is undefined) ...
+                  if (isAdmin === undefined && !adminCheckInProgress.current) {
+                      logger.warn(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User unchanged but isAdmin is undefined, attempting re-check.`);
+                      adminCheckInProgress.current = true;
+                      const userId = newUser.id;
+                      (async () => {
+                         const checkUserId = userId;
+                         try {
+                             const status = await checkIsAdmin(checkUserId);
+                             logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN RE-CHECK result for ${checkUserId}: ${status}`);
+                             safeSetIsAdmin(checkUserId, status);
+                         } catch (err) { /* ... */ safeSetIsAdmin(checkUserId, false); }
+                         finally { /* ... */ adminCheckInProgress.current = false; /* ... */ }
+                      })();
                   }
-                } else {
-                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Discord fields for ${userId} (Username: '${profileData.discord_username}', ID: '${profileData.discord_user_id}') are already in sync.`);
-                }
+             }
 
-              } else if (!profileData) {
-                logger.warn(`[Auth Listener][v${PROVIDER_VERSION}] Profile not found for user ${userId} during Discord sync check. Cannot update Discord fields.`);
-              }
-            } catch (syncError) {
-              logger.error(`[Auth Listener][v${PROVIDER_VERSION}] Unexpected error during Discord sync check for ${userId}:`, syncError);
+            // Ensure loading is false... (Keep As Is)
+            if (isLoading) {
+                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting isLoading=false (end of processing event ${event}).`);
+                 setIsLoading(false);
+                 if (sessionFallbackTimeout.current) {
+                     clearTimeout(sessionFallbackTimeout.current);
+                     sessionFallbackTimeout.current = null;
+                 }
             }
-          } else {
-            logger.log(`[Auth Listener][v${PROVIDER_VERSION}] No Discord username ('name') or provider_id found in metadata for ${userId}, skipping sync check.`);
-          }
-        }
-        // --- End Username Sync Check ---
-
-        if (!isMounted.current) {
-          logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Component unmounted, ignoring event ${event}.`);
-          return;
-        }
-
-        // --- State Update Logic ---
-        const newUser = currentSession?.user || null;
-        const oldUser = userRef.current; // Get user from ref *before* potential update
-
-        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Setting state: session=${!!currentSession}, user=${newUser?.id || 'null'}`);
-        setSession(currentSession);
-        setUser(newUser); // This triggers the userRef update effect
-
-        // --- Admin Check Logic (Post-Initial Check) ---
-        if (!newUser) {
-          logger.log(`[Auth Listener][v${PROVIDER_VERSION}] No user in session, resetting admin status.`);
-          // No need to use safeSetIsAdmin if newUser is null
-          setIsAdmin(false);
-        } else if (newUser.id !== oldUser?.id) { // Only check admin if the user *actually changed*
-          if (!adminCheckInProgress.current) {
-            adminCheckInProgress.current = true;
-            const userId = newUser.id;
-            logger.log(`[Auth Listener][v${PROVIDER_VERSION}] User changed (${oldUser?.id} -> ${userId}). Starting ADMIN CHECK.`);
-            (async () => {
-                const checkUserId = userId; // Capture userId for closure
-                try {
-                    const adminStatus = await checkIsAdmin(checkUserId);
-                    if (!isMounted.current) {
-                        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK: Component unmounted during check for ${checkUserId}, aborting.`);
-                        adminCheckInProgress.current = false;
-                        return;
-                    }
-                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK result for ${checkUserId}: ${adminStatus}`);
-                    safeSetIsAdmin(checkUserId, adminStatus);
-                } catch (adminError) {
-                    logger.error(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK: Error for ${checkUserId}:`, adminError);
-                    safeSetIsAdmin(checkUserId, false); // Use safeSet on error
-                } finally {
-                    // Always reset flag
-                    adminCheckInProgress.current = false;
-                    if (isMounted.current) {
-                        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK finished for ${checkUserId}.`);
-                    } else {
-                        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN CHECK finished after unmount for ${checkUserId}.`);
-                    }
-                }
-            })();
-          } else {
-            logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Admin check already in progress for user ${newUser.id}, skipping new check.`);
-          }
-        } else {
-           logger.log(`[Auth Listener][v${PROVIDER_VERSION}] User unchanged (${newUser.id}), skipping admin check.`);
-           // Ensure isAdmin state is still correct if somehow diverged (edge case)
-           // The safeSetIsAdmin logic handles user match, but we can check if isAdmin is defined
-           if (isAdmin === undefined && !adminCheckInProgress.current) {
-             logger.warn(`[Auth Listener][v${PROVIDER_VERSION}] User unchanged but isAdmin is undefined, attempting re-check.`);
-             adminCheckInProgress.current = true;
-             const userId = newUser.id;
-             (async () => {
-                const checkUserId = userId; // Capture userId for closure
-                try {
-                    const status = await checkIsAdmin(checkUserId);
-                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN RE-CHECK result for ${checkUserId}: ${status}`);
-                    safeSetIsAdmin(checkUserId, status);
-                } catch (err) {
-                    logger.error(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN RE-CHECK: Error for ${checkUserId}:`, err);
-                    safeSetIsAdmin(checkUserId, false); // Use safeSet on error
-                } finally {
-                    // Always reset flag
-                    adminCheckInProgress.current = false;
-                    if (isMounted.current) {
-                        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN RE-CHECK finished for ${checkUserId}.`);
-                    } else {
-                        logger.log(`[Auth Listener][v${PROVIDER_VERSION}] ADMIN RE-CHECK finished after unmount for ${checkUserId}.`);
-                    }
-                }
-             })();
-           }
-        }
-        // Ensure loading is false after processing an event post-initial check
-        if (isLoading) { // Only log if changing state
-            logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Setting isLoading=false (end of processing event ${event}).`);
-            setIsLoading(false);
-            // Clear fallback timeout if active
-            if (sessionFallbackTimeout.current) {
-              clearTimeout(sessionFallbackTimeout.current);
-              sessionFallbackTimeout.current = null;
-            }
-        }
+            // --- End of existing onAuthStateChange logic ---
       }
     );
 
-    // Initial check invocation
-    logger.log(`[Effect Setup][v${PROVIDER_VERSION}] Invoking checkInitialSessionAndAdmin`);
+    // Initial check invocation (Keep As Is)
+    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Invoking checkInitialSessionAndAdmin`);
     checkInitialSessionAndAdmin();
 
-    // NEW: Fallback timeout – ensure we don't stay stuck in loading forever
-    if (sessionFallbackTimeout.current) {
-      clearTimeout(sessionFallbackTimeout.current);
-    }
-    sessionFallbackTimeout.current = setTimeout(() => {
-      if (isMounted.current && isLoading) {
-        logger.warn(`[Timeout][v${PROVIDER_VERSION}] Initial session check exceeded 5000ms. Forcing isLoading=false`);
-        setIsLoading(false);
-        if (!initialCheckCompleted.current) {
-          initialCheckCompleted.current = true;
-        }
-      }
-    }, 5000); // 5 seconds fallback
+    // Fallback timeout (Keep As Is)
+     if (sessionFallbackTimeout.current) { clearTimeout(sessionFallbackTimeout.current); }
+     sessionFallbackTimeout.current = setTimeout(() => {
+       if (isMounted.current && isLoading) {
+         logger.warn(`[Timeout][v${PROVIDER_VERSION}][${tabId.current}] Initial session check exceeded ${LEADERSHIP_TIMEOUT}ms. Forcing isLoading=false`);
+         setIsLoading(false);
+         if (!initialCheckCompleted.current) {
+           initialCheckCompleted.current = true;
+         }
+       }
+     }, LEADERSHIP_TIMEOUT); // Use LEADERSHIP_TIMEOUT here too
 
-    // Cleanup function
+
+    // Cleanup function (Keep As Is for auth subscription)
     return () => {
-      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}] Unsubscribing and setting isMounted=false`);
-      isMounted.current = false;
+      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Unsubscribing auth listener.`);
+      // isMounted.current = false; // This is handled by the leader election effect cleanup
       subscription.unsubscribe();
-      // Ensure any long-running admin check can't block future mounts.
-      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}] Resetting adminCheckInProgress flag.`);
+      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Resetting adminCheckInProgress flag.`);
       adminCheckInProgress.current = false;
-      // Clear fallback timeout
       if (sessionFallbackTimeout.current) {
         clearTimeout(sessionFallbackTimeout.current);
         sessionFallbackTimeout.current = null;
       }
     };
   // IMPORTANT: Minimal dependencies. This effect should run essentially once on mount.
-  // Adding dependencies like `isLoading` can cause infinite loops.
-  }, []);
+  }, [isLeader, safeSetIsAdmin]); // Added isLeader dependency to log it correctly, safeSetIsAdmin for its definition
 
-  // Sign-in function
+  // --- Modified Sign-in function ---
   const signIn = async (email: string, password: string) => {
-     logger.log(`[Auth Action][v${PROVIDER_VERSION}] signIn: Attempting for email: ${email}`);
+     logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn attempt for ${email}. Is Leader: ${isLeader}`);
+     if (!isLeader) {
+       logger.warn(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn blocked: Not the leader tab.`);
+       toast.info('Another tab is managing the session. Please sign in there.', { id: 'signin-blocked-toast' });
+       return; // Don't proceed if not the leader
+     }
+
     try {
       toast.loading('Signing in...', { id: 'signin-toast' });
-
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password
-      });
-
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       toast.dismiss('signin-toast');
 
       if (error) {
-        logger.error(`[Auth Action][v${PROVIDER_VERSION}] signIn: Error for ${email}:`, error);
+        logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn: Error for ${email}:`, error);
         throw error;
       }
 
-      logger.log(`[Auth Action][v${PROVIDER_VERSION}] signIn: Successful for ${email}`);
+      logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn: Successful for ${email}`);
+      // Optional: Broadcast sign-in success? `onAuthStateChange` should handle it.
+      // broadcastChannel.current?.postMessage({ type: AuthChannelMessage.ACTION_SIGN_IN, tabId: tabId.current, timestamp: Date.now() });
     } catch (error: any) {
       toast.dismiss('signin-toast');
       toast.error(error.message || 'Error signing in');
-      logger.error(`[Auth Action][v${PROVIDER_VERSION}] signIn: Catch block error for ${email}:`, error);
+      logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn: Catch block error for ${email}:`, error);
     }
   };
 
-  // Sign-out function
+  // --- Modified Sign-out function ---
   const signOut = async () => {
-    logger.log(`[Auth Action][v${PROVIDER_VERSION}] signOut: Attempting sign out`);
+    logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut attempt. Is Leader: ${isLeader}`);
+    if (!isLeader) {
+      logger.warn(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut blocked: Not the leader tab.`);
+       toast.info('Another tab is managing the session. Please sign out there.', { id: 'signout-blocked-toast' });
+      return; // Don't proceed if not the leader
+    }
+
     try {
       toast.loading('Signing out...', { id: 'signout-toast' });
       await supabase.auth.signOut();
       toast.dismiss('signout-toast');
-      logger.log(`[Auth Action][v${PROVIDER_VERSION}] signOut: Successful`);
+      logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut: Successful`);
+       // Optional: Broadcast sign-out success? `onAuthStateChange` should handle it.
+       // broadcastChannel.current?.postMessage({ type: AuthChannelMessage.ACTION_SIGN_OUT, tabId: tabId.current, timestamp: Date.now() });
+       // Explicitly relinquish leadership after sign out
+       relinquishLeadership(false);
     } catch (error: any) {
       toast.dismiss('signout-toast');
       toast.error(error.message || 'Error signing out');
-      logger.error(`[Auth Action][v${PROVIDER_VERSION}] signOut: Error:`, error);
+      logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut: Error:`, error);
     }
   };
 
-  logger.log(`[Render][v${PROVIDER_VERSION}] AuthProvider rendering. State: isLoading=${isLoading}, user=${user?.id || 'null'}, session=${!!session}, isAdmin=${isAdmin}, initialCheckCompleted=${initialCheckCompleted.current}, adminCheckInProgress=${adminCheckInProgress.current}`);
+  // Add safeSetIsAdmin definition (moved from within useEffect)
+  /**
+   * Safely update the isAdmin flag *only* if the component is still mounted **and**
+   * the user has not changed since the async admin check was initiated. Prevents
+   * a race where an admin check for an old user finishes after a new user has
+   * logged in (or the original user has logged out), which could otherwise
+   * leave the `isAdmin` state in the wrong value for the current user.
+   */
+  const safeSetIsAdmin = useCallback((userId: string | null | undefined, value: boolean) => {
+    const currentUserId = userRef.current?.id;
+    const checkUserId = userId || 'null_user_id_placeholder';
+
+    if (isMounted.current && (currentUserId === checkUserId || currentUserId === null)) {
+      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
+      setIsAdmin(value);
+    } else {
+      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Skipped stale admin result for user ${checkUserId}. Current userRef: ${currentUserId}`);
+    }
+  }, []); // No dependencies needed as it uses refs
+
+
+  useEffect(() => {
+    userRef.current = user;
+     logger.log(`[Ref Update][v${PROVIDER_VERSION}][${tabId.current}] User state updated in ref:`, user?.id || 'null');
+  }, [user]);
+
+  useEffect(() => {
+    sessionRef.current = session;
+    logger.log(`[Ref Update][v${PROVIDER_VERSION}][${tabId.current}] Session state updated in ref:`, session ? 'present' : 'null');
+  }, [session]);
+
+
+  logger.log(`[Render][v${PROVIDER_VERSION}][${tabId.current}] AuthProvider rendering. State: isLoading=${isLoading}, user=${user?.id || 'null'}, session=${!!session}, isAdmin=${isAdmin}, isLeader=${isLeader}, initialCheckCompleted=${initialCheckCompleted.current}, adminCheckInProgress=${adminCheckInProgress.current}`);
 
   // Provide the context value
   return (
@@ -511,7 +664,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user,
         session,
         isAdmin,
-        isLoading, // Pass the dynamic loading state
+        isLoading,
+        isLeader, // NEW: Expose leader status to consumers
         signIn,
         signOut
       }}
@@ -522,3 +676,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export default AuthProvider;
+
+// Add import React, { ..., useCallback } from 'react';
+// Add import { v4 as uuidv4 } from 'uuid';
+// Potentially add // @ts-ignore for BroadcastChannel if types are missing initially

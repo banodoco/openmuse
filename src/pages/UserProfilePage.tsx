@@ -982,10 +982,10 @@ export default function UserProfilePage() {
                    </Dialog>
                 )}
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent ref={artGridRef} className="px-0 pt-6">
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
                   artVideos.length > 0 ? ( <> 
-                    <div ref={artGridRef}> {/* Removed -mt-10 wrapper */}
+                    <div> 
                       <VideoGallerySection 
                         header="" // No need for header title inside card
                         videos={artItemsForPage}
@@ -1034,10 +1034,10 @@ export default function UserProfilePage() {
                   </Dialog>
                 )}
               </CardHeader>
-              <CardContent className="pt-6">
+              <CardContent ref={generationsGridRef} className="px-0 pt-6">
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                   generationVideos.length > 0 ? ( <> 
-                    <div ref={generationsGridRef}> {/* Removed -mt-10 wrapper */}
+                    <div> 
                        <VideoGallerySection 
                          header="" // No header inside card
                          videos={generationItemsForPage}

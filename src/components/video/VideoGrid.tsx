@@ -1,10 +1,11 @@
-import { useState, useEffect, useRef, useMemo, useId } from "react";
+import { useState, useEffect, useRef, useMemo, useId, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
 import { VideoEntry } from "@/lib/types";
 import VideoCard from "./VideoCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
+import { useResizeObserver } from '@/hooks/useResizeObserver';
 import { cn } from "@/lib/utils";
 
 // Define standard video resolutions and their aspect ratios
@@ -96,17 +97,17 @@ export default function VideoGrid({
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
   const isMobile = useIsMobile();
 
-  // Update container width on resize
-  useEffect(() => {
-    const measure = () => {
-      if (containerRef.current) {
-        setContainerWidth(containerRef.current.offsetWidth);
-      }
-    };
-    measure();
-    window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
-  }, []);
+  // --- NEW: Use ResizeObserver --- 
+  const handleResize = useCallback((entry: ResizeObserverEntry) => {
+    // Update containerWidth state using the observed width
+    // Use contentBoxSize for more accurate width calculation
+    const width = entry.contentBoxSize?.[0]?.inlineSize ?? entry.contentRect.width;
+    setContainerWidth(width);
+  }, []); // No dependencies, setContainerWidth is stable
+
+  // Attach the observer to the containerRef
+  useResizeObserver(containerRef, handleResize);
+  // --- END NEW --- 
 
   // Calculate rows based on container width and items per row (only for visibleVideos)
   const rows = useMemo(() => {
