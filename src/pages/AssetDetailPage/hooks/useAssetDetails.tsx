@@ -181,7 +181,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 aspectRatio: (media.metadata as any)?.aspectRatio ?? null
               },
               admin_status: media.admin_status as AdminStatus || null,
-            };
+            } as VideoEntry;
           } catch (error) {
             logger.error(`[useAssetDetails] Error processing video ${media.id}:`, error);
             return null;
