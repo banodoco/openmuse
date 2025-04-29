@@ -45,14 +45,14 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
         size="icon"
         className={cn(
           "h-7 w-7 rounded-sm",
-          currentStatus === 'Pinned'
-            ? "bg-yellow-500/90 text-white hover:bg-yellow-600"
-            : "bg-black/50 text-yellow-400 hover:bg-black/70 hover:text-yellow-300"
+          currentStatus === 'Hidden'
+            ? "bg-gray-500/90 text-white hover:bg-gray-600"
+            : "bg-black/50 text-gray-400 hover:bg-black/70 hover:text-gray-300"
         )}
-        onClick={handleButtonClick('Pinned')}
-        title="Pin this video"
+        onClick={handleButtonClick('Hidden')}
+        title="Hide this video"
       >
-        <Pin className="h-4 w-4" />
+        <EyeOff className="h-4 w-4" />
       </Button>
 
       <Button
@@ -75,14 +75,14 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
         size="icon"
         className={cn(
           "h-7 w-7 rounded-sm",
-          currentStatus === 'Hidden'
-            ? "bg-gray-500/90 text-white hover:bg-gray-600"
-            : "bg-black/50 text-gray-400 hover:bg-black/70 hover:text-gray-300"
+          currentStatus === 'Pinned'
+            ? "bg-yellow-500/90 text-white hover:bg-yellow-600"
+            : "bg-black/50 text-yellow-400 hover:bg-black/70 hover:text-yellow-300"
         )}
-        onClick={handleButtonClick('Hidden')}
-        title="Hide this video"
+        onClick={handleButtonClick('Pinned')}
+        title="Pin this video"
       >
-        <EyeOff className="h-4 w-4" />
+        <Pin className="h-4 w-4" />
       </Button>
     </div>
   );

@@ -39,7 +39,6 @@ function AssetDetailPage() {
     creatorDisplayName,
     getCreatorName,
     fetchAssetDetails,
-    setAsset,
     updateLocalVideoStatus,
     updateLocalPrimaryMedia,
     removeVideoLocally,

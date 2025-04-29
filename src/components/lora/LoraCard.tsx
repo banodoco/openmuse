@@ -315,12 +315,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handlePin}
+              onClick={handleHide}
               disabled={isPinning || isListing || isHiding || isUpdatingStatus}
-              className={getStatusButtonStyle('Pinned')}
+              className={getStatusButtonStyle('Hidden')}
             >
-              {isUpdatingStatus && currentStatus === 'Pinned' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PinIcon className="mr-2 h-4 w-4" />}
-              Pin
+              {isUpdatingStatus && currentStatus === 'Hidden' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <EyeOff className="mr-2 h-4 w-4" />} 
+              Hide
             </Button>
             
             <Button 
@@ -330,19 +330,19 @@ const LoraCard: React.FC<LoraCardProps> = ({
               disabled={isPinning || isListing || isHiding || isUpdatingStatus}
               className={getStatusButtonStyle('Listed')}
             >
-              {isUpdatingStatus && currentStatus === 'Listed' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <List className="mr-2 h-4 w-4" />}
+              {isUpdatingStatus && currentStatus === 'Listed' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <List className="mr-2 h-4 w-4" />} 
               List
             </Button>
             
             <Button 
               variant="outline" 
               size="sm" 
-              onClick={handleHide}
+              onClick={handlePin}
               disabled={isPinning || isListing || isHiding || isUpdatingStatus}
-              className={getStatusButtonStyle('Hidden')}
+              className={getStatusButtonStyle('Pinned')}
             >
-              {isUpdatingStatus && currentStatus === 'Hidden' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <EyeOff className="mr-2 h-4 w-4" />} 
-              Hide
+              {isUpdatingStatus && currentStatus === 'Pinned' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PinIcon className="mr-2 h-4 w-4" />} 
+              Pin
             </Button>
           </div>
         </CardFooter>

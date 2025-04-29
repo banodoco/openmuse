@@ -61,20 +61,23 @@ const calculatePageSize = (totalItems: number): number => {
 };
 
 const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
+  // Use the correct VideoDisplayStatus order: Hidden > Listed > Pinned
   const statusOrder: { [key in VideoDisplayStatus]?: number } = {
-    Featured: 1,
-    Curated: 2,
-    Listed: 3,
-    View: 4,     // Add the missing View status
-    Hidden: 5,   
-    Rejected: 6, 
+    Hidden: 1,   // Hidden first
+    Listed: 2,   // Listed second
+    Pinned: 3,   // Pinned last
   };
   return [...videos].sort((a, b) => {
+    // Sort based on user_status, default to 'Listed'
     const statusA = a.user_status || 'Listed';
     const statusB = b.user_status || 'Listed';
-    const orderA = statusOrder[statusA] || 2;
-    const orderB = statusOrder[statusB] || 2;
+    // Default to Listed order (2) if status not found
+    const orderA = statusOrder[statusA as VideoDisplayStatus] ?? 2;
+    const orderB = statusOrder[statusB as VideoDisplayStatus] ?? 2;
+
     if (orderA !== orderB) return orderA - orderB;
+    
+    // Fallback to sorting by creation date (newest first)
     const dateA = a.created_at ? new Date(a.created_at).getTime() : 0;
     const dateB = b.created_at ? new Date(b.created_at).getTime() : 0;
     return dateB - dateA;
@@ -82,12 +85,18 @@ const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
 };
 
 const sortUserAssets = (assets: LoraAsset[]): LoraAsset[] => {
-  const statusOrder: { [key in UserAssetPreferenceStatus]: number } = { 'Pinned': 1, 'Listed': 2, 'Hidden': 4 };
+  // Order: Hidden > Listed > Pinned
+  const statusOrder: { [key in UserAssetPreferenceStatus]: number } = { 
+    'Hidden': 1, 
+    'Listed': 2, 
+    'Pinned': 3 
+  };
   return [...assets].sort((a, b) => {
     const statusA = a.user_status;
     const statusB = b.user_status;
-    const orderA = statusA ? (statusOrder[statusA] ?? 3) : 3;
-    const orderB = statusB ? (statusOrder[statusB] ?? 3) : 3;
+    // Default to Listed order (2)
+    const orderA = statusA ? (statusOrder[statusA] ?? 2) : 2;
+    const orderB = statusB ? (statusOrder[statusB] ?? 2) : 2;
     if (orderA !== orderB) return orderA - orderB;
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
   });
