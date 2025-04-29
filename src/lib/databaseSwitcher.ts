@@ -9,7 +9,7 @@ const SWITCHER_VERSION = '1.1.0'; // Increment on changes that impact behaviour 
  * This ensures that existing code continues to work with the new database structure
  */
 class DatabaseSwitcher {
-  private readonly logger = new Logger(`DatabaseSwitcher-Legacy[v${SWITCHER_VERSION}]`);
+  private readonly logger = new Logger(`DatabaseSwitcher-Legacy[v${SWITCHER_VERSION}]`, true, 'SessionPersist');
   
   /**
    * Return the video database facade.  Adds timing + versioned logs so we can

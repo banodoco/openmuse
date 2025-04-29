@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { Logger } from '@/lib/logger';
 
-const logger = new Logger('useLoraManagement');
+const logger = new Logger('useLoraManagement', true, 'SessionPersist');
 
 interface LoraFilters {
   modelFilter: string;

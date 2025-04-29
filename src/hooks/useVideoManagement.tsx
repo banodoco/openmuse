@@ -5,7 +5,7 @@ import { toast } from 'sonner';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
 
-const logger = new Logger('useVideoManagement');
+const logger = new Logger('useVideoManagement', true, 'SessionPersist');
 logger.log('useVideoManagement hook initializing');
 
 // Define options type
