@@ -131,7 +131,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
       ) : (
         <VideoGrid
           videos={galleryVideos}
-          itemsPerRow={isMobile ? 2 : itemsPerRow}
+          itemsPerRow={isMobile ? 1 : itemsPerRow}
           isAdmin={isAdmin}
           isAuthorized={isAuthorized}
           onOpenLightbox={onOpenLightbox}

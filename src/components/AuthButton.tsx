@@ -134,7 +134,7 @@ const AuthButton: React.FC = () => {
   const displayName = getDisplayName();
   
   return (
-    <div className="flex flex-col items-stretch gap-2">
+    <div className="relative group flex flex-col items-stretch gap-2">
       <Button 
         variant="outline" 
         className="flex items-center gap-2 border-2 border-olive/40 text-olive shadow-sm hover:bg-cream pl-2 pr-3 h-16"
@@ -153,11 +153,25 @@ const AuthButton: React.FC = () => {
       
       <Button 
         variant="ghost" 
-        className="w-full flex items-center gap-2 text-muted-foreground hover:text-foreground hover:bg-cream/50 text-xs"
-        onClick={handleSignOut}
+        size="icon"
+        className={cn(
+          "absolute top-1 right-1 z-10 flex items-center justify-center",
+          "h-8 w-auto px-2 rounded-full bg-background/70 backdrop-blur-sm",
+          "text-muted-foreground transition-all duration-200 ease-in-out",
+          "md:h-5 md:w-5 md:px-0",
+          "md:group-hover:scale-110",
+          "md:hover:w-auto md:hover:px-2 md:hover:bg-muted/90 md:hover:text-foreground"
+        )}
+        onClick={(e) => {
+          e.stopPropagation();
+          handleSignOut();
+        }}
+        aria-label="Sign out"
       >
-        <LogOut className="h-4 w-4 mr-2" />
-        Sign Out
+        <LogOut className="h-3 w-3 flex-shrink-0" />
+        <span className="ml-1 text-xs font-medium inline md:hidden md:group-[.hover\\:w-auto]:inline">
+          Sign out
+        </span>
       </Button>
     </div>
   );

@@ -379,13 +379,27 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Title, badge for mobile on profile */}
-          {isMobile && (video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
+          {/* Title, badge, and creator info for mobile on profile */}
+          {isMobile && (video.metadata?.title || (!isProfilePage && creatorDisplayName) || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute top-2 left-2 z-20 flex flex-col">
               <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
                 {video.metadata?.title && (
                   <span className="block text-white text-xs font-medium leading-snug">
                     {video.metadata.title}
+                  </span>
+                )}
+                {/* Only show creator info when NOT on profile page */}
+                {!isProfilePage && creatorDisplayName && (
+                  <span className="flex items-center space-x-1 mt-1">
+                    <Avatar className="h-4 w-4 border-0 bg-white/20">
+                      <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
+                      <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
+                        {creatorDisplayName[0]?.toUpperCase()}
+                      </AvatarFallback>
+                    </Avatar>
+                    <span className="text-white text-[10px] leading-none line-clamp-1">
+                      {creatorDisplayName}
+                    </span>
                   </span>
                 )}
                 {isProfilePage && shouldShowBadge && (
