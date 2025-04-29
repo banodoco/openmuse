@@ -61,12 +61,13 @@ const calculatePageSize = (totalItems: number): number => {
 };
 
 const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
-  const statusOrder: { [key in VideoDisplayStatus]: number } = {
-    Listed: 1,
+  const statusOrder: { [key in VideoDisplayStatus]?: number } = {
+    Featured: 1,
     Curated: 2,
-    Featured: 3,
-    Hidden: 4,
-    Rejected: 5,
+    Listed: 3,
+    View: 4,     // Add the missing View status
+    Hidden: 5,   
+    Rejected: 6, 
   };
   return [...videos].sort((a, b) => {
     const statusA = a.user_status || 'Listed';

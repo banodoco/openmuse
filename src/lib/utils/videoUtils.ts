@@ -1,3 +1,4 @@
+
 import { VideoEntry, VideoDisplayStatus, AdminStatus } from '@/lib/types';
 
 /**
@@ -151,12 +152,12 @@ export const getVideoFormat = (url: string): string => {
 /**
  * Defines the order for video display statuses.
  */
-// Define order using valid AdminStatus values + 'View' if needed
-const statusOrder: { [key in AdminStatus | 'View']?: number } = {
+// Define order using valid VideoDisplayStatus values
+const statusOrder: { [key in VideoDisplayStatus]?: number } = {
   Featured: 1,
   Curated: 2,
   Listed: 3,
-  View: 4,     // View status (if still used separately from Listed)
+  View: 4,     // View status
   Hidden: 5,   // Hidden last among interactable statuses
   Rejected: 6, // Rejected very last
 };

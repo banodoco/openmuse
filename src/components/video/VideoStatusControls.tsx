@@ -4,13 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Pin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
-import { AdminStatus } from '@/lib/types';
+import { AdminStatus, VideoDisplayStatus } from '@/lib/types';
 
 const logger = new Logger('VideoStatusControls');
 
 interface VideoStatusControlsProps {
-  status: AdminStatus | null | undefined;
-  onStatusChange: (status: AdminStatus) => void;
+  status: VideoDisplayStatus | null | undefined;
+  onStatusChange: (status: VideoDisplayStatus) => void;
   className?: string;
 }
 
@@ -19,14 +19,14 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
   onStatusChange,
   className
 }) => {
-  const [currentStatus, setCurrentStatus] = useState<AdminStatus | null>(status || null);
+  const [currentStatus, setCurrentStatus] = useState<VideoDisplayStatus | null>(status || null);
   const [updateInProgress, setUpdateInProgress] = useState(false);
 
   useEffect(() => {
     setCurrentStatus(status || null);
   }, [status]);
 
-  const handleButtonClick = (newStatus: AdminStatus) => (e: React.MouseEvent) => {
+  const handleButtonClick = (newStatus: VideoDisplayStatus) => (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
     onStatusChange(newStatus);

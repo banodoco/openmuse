@@ -1,3 +1,4 @@
+
 import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 
 export interface VideoMetadata {
@@ -5,6 +6,8 @@ export interface VideoMetadata {
   description: string;
   /** Optional display name of the creator (used in various UI components) */
   creatorName?: string;
+  /** ID or identifier of the creator */
+  creator?: string;
   classification: 'art' | 'gen';
   isPrimary?: boolean;
   loraName?: string;
@@ -26,7 +29,7 @@ export interface VideoMetadata {
 // Update AdminStatus to include 'Rejected'
 export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Rejected';
 
-// Set VideoDisplayStatus to be the same as AdminStatus
+// Set VideoDisplayStatus to be the same as AdminStatus plus 'View'
 export type VideoDisplayStatus = AdminStatus | 'View';
 
 export interface VideoEntry {
