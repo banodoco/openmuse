@@ -7,7 +7,7 @@ const logger = new Logger('AuthMethods');
 export const signInWithDiscord = async () => {
   try {
     // Get the current URL to use as redirect
-    let redirectUrl = `${window.location.origin}/auth/callback`;
+    const redirectUrl = `${window.location.origin}/auth/callback`;
     
     // Clear caches before signing in but maintain sessions
     logger.log('Cleaning up caches before Discord login');

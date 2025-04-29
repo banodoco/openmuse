@@ -344,7 +344,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
   const updateLocalVideoStatus = useCallback((videoId: string, newStatus: VideoDisplayStatus, type: 'assetMedia' | 'user') => {
     setVideos(prevVideos => {
-      let primaryId = asset?.primary_media_id;
+      const primaryId = asset?.primary_media_id;
       const updatedVideos = prevVideos.map(video => {
         if (video.id === videoId) {
           return {

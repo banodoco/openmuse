@@ -8,7 +8,7 @@ export type AuthContextType = {
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
   isAdmin?: boolean; // Add isAdmin property to track admin status
-  isLeader?: boolean; // NEW: Track if the current tab is the leader
+  isLeader?: boolean; // Track if this tab is the leader for auth actions
 };
 
 // Create the auth context with default values
@@ -17,7 +17,7 @@ export const AuthContext = createContext<AuthContextType>({
   session: null,
   isLoading: true,
   isAdmin: false, // Default to false for safety
-  isLeader: false, // Default leader status to false
+  isLeader: false, // Default leader status
   signIn: async () => {},
   signOut: async () => {},
 });

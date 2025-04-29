@@ -6,477 +6,480 @@ import { Logger } from '@/lib/logger';
 import { AuthContext } from '@/contexts/AuthContext';
 import { checkIsAdmin } from '@/lib/auth';
 import { userProfileCache } from '@/lib/auth/cache';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid'; // Ensure installed: npm install uuid @types/uuid
 
-// ... logger, PROVIDER_VERSION etc.
+// Use single optional tag parameter for Logger (expects 1-3 args). Combine tags into one.
+const logger = new Logger('AuthProvider', true, 'SessionPersist-Leader');
+const PROVIDER_VERSION = '1.5.0'; // Increment version for LocalStorage-only leader election
+logger.log(`--- AuthProvider Module Initial Load [v${PROVIDER_VERSION}] ---`);
 
-const AUTH_CHANNEL_NAME = 'auth_leader_channel';
-const HEARTBEAT_INTERVAL = 4000; // Check leadership every 4s
-const LEADERSHIP_TIMEOUT = 5000; // Assume leadership if no contest within 5s
-const PROVIDER_VERSION = '1.3.0'; // Keep version constant here
-
-// Message Types for BroadcastChannel
-enum AuthChannelMessage {
-  CLAIM_LEADER = 'CLAIM_LEADER',
-  HEARTBEAT = 'HEARTBEAT',
-  RELINQUISH_LEADER = 'RELINQUISH_LEADER',
-  // We might not need explicit ACTION messages if onAuthStateChange is sufficient
-  // ACTION_SIGN_IN = 'ACTION_SIGN_IN',
-  // ACTION_SIGN_OUT = 'ACTION_SIGN_OUT',
-}
-
-interface AuthMessageData {
-  type: AuthChannelMessage;
+// Constants for LocalStorage Leader Election
+const HEARTBEAT_INTERVAL = 4000; // Interval for leader to update timestamp
+const LEADERSHIP_TIMEOUT = 5000; // Max time before a leader is considered stale
+const CLAIM_TIMEOUT_DURATION = 100; // Short delay before confirming claim after writing
+const LOCAL_LEADER_KEY = 'auth_leader_info'; // Key to store current leader tab info as JSON
+interface LeaderInfo {
   tabId: string;
   timestamp: number;
 }
 
-
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  // --- Instantiate Logger inside component using useRef ---
-  const loggerRef = useRef<Logger | null>(null);
-  if (!loggerRef.current) {
-    loggerRef.current = new Logger('AuthProvider', true, 'SessionPersist');
-    // Log when the *instance* is first created
-    loggerRef.current.log(`--- AuthProvider Instance Initial Load [v${PROVIDER_VERSION}] ---`);
-  }
-  // Use the logger instance from the ref
-  const logger = loggerRef.current!;
-
-  // Now this line should work
-  logger.log(`AuthProvider component mounting [v${PROVIDER_VERSION}]`);
+  const tabId = useRef<string>(uuidv4()); // Generate ID immediately
+  logger.log(`AuthProvider component mounting [v${PROVIDER_VERSION}] - Tab ID: ${tabId.current}`);
 
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState<boolean>(false);
-  const [isLeader, setIsLeader] = useState(false); // NEW: Track leadership
+  const [isLeader, setIsLeader] = useState(false); // Track leadership (now driven by localStorage)
 
   const userRef = useRef<User | null>(null);
   const sessionRef = useRef<Session | null>(null);
-  const isMounted = useRef(true);
+  const isMounted = useRef(true); // Still useful for async operations
   const initialCheckCompleted = useRef(false);
   const adminCheckInProgress = useRef(false);
   const sessionFallbackTimeout = useRef<NodeJS.Timeout | null>(null);
 
-  // --- NEW Refs for Leader Election ---
-  const tabId = useRef<string>(uuidv4()); // Unique ID for this tab instance
-  const leaderId = useRef<string | null>(null); // Track current leader's ID
-  const broadcastChannel = useRef<BroadcastChannel | null>(null);
-  const leadershipClaimTimeout = useRef<NodeJS.Timeout | null>(null);
-  const heartbeatInterval = useRef<NodeJS.Timeout | null>(null);
-  const lastHeartbeatReceived = useRef<Record<string, number>>({}); // Track heartbeats from other tabs
+  /* ------------------------------------------------------------------
+     LocalStorage-based Leader Election (Sole Mechanism)
+     ------------------------------------------------------------------ */
 
-  // --- Define safeSetIsAdmin EARLIER --- 
-  const safeSetIsAdmin = useCallback((userId: string | null | undefined, value: boolean) => {
-    const currentUserId = userRef.current?.id;
-    const checkUserId = userId || 'null_user_id_placeholder';
-
-    if (isMounted.current && (currentUserId === checkUserId || currentUserId === null)) {
-      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
-      setIsAdmin(value);
-    } else {
-      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Skipped stale admin result for user ${checkUserId}. Current userRef: ${currentUserId}`);
+  // Helper to read leader info from localStorage (with safe JSON parse)
+  const readLeaderInfo = useCallback((): LeaderInfo | null => {
+    if (typeof window === 'undefined' || !window.localStorage) return null; // Guard for SSR or environments without localStorage
+    try {
+      const raw = localStorage.getItem(LOCAL_LEADER_KEY);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw);
+      // Basic validation
+      if (typeof parsed === 'object' && parsed !== null && typeof parsed.tabId === 'string' && typeof parsed.timestamp === 'number') {
+        return parsed as LeaderInfo;
+      }
+      return null;
+    } catch (_err) {
+      logger.warn(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Error parsing leader info from localStorage.`);
+      localStorage.removeItem(LOCAL_LEADER_KEY); // Clear invalid data
+      return null;
     }
-  }, [logger]); // Add logger dependency
+  }, []);
 
-  // --- Leader Election Logic ---
-
-  const stopHeartbeat = useCallback(() => {
-    if (heartbeatInterval.current) {
-      logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Stopping heartbeat.`);
-      clearInterval(heartbeatInterval.current);
-      heartbeatInterval.current = null;
+  // Helper to write this tab as leader with current timestamp
+  const writeLeaderInfo = useCallback(() => {
+    if (typeof window === 'undefined' || !window.localStorage) return; // Guard
+    const info: LeaderInfo = { tabId: tabId.current, timestamp: Date.now() };
+    try {
+      localStorage.setItem(LOCAL_LEADER_KEY, JSON.stringify(info));
+    } catch (err) {
+      logger.error(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Error writing leader info to localStorage:`, err);
     }
-  }, [logger]);
+  }, [tabId]); // Added tabId ref to dependency (though it's stable)
 
-  const startHeartbeat = useCallback(() => {
-    stopHeartbeat(); // Ensure no duplicate intervals
-    logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Starting heartbeat.`);
-    heartbeatInterval.current = setInterval(() => {
-      if (isMounted.current && isLeader) { // Double check state just before sending
-         // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Sending HEARTBEAT.`);
-         broadcastChannel.current?.postMessage({
-           type: AuthChannelMessage.HEARTBEAT,
-           tabId: tabId.current,
-           timestamp: Date.now(),
-         });
-       } else {
-         // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Heartbeat skipped (not leader or unmounted).`);
-         stopHeartbeat(); // Stop if no longer leader
-       }
-    }, HEARTBEAT_INTERVAL);
-  }, [isLeader, stopHeartbeat, logger]);
+  // Attempt to claim leadership
+  const attemptClaimLeadershipLS = useCallback(() => {
+    if (!isMounted.current || typeof window === 'undefined' || !window.localStorage) return; // Guard
 
-  const relinquishLeadership = useCallback((silent = false) => {
-    logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Relinquishing leadership. Current leader: ${leaderId.current}. Silent: ${silent}`);
-    stopHeartbeat();
-    if (isLeader) { // Only update state if we actually were the leader
-      logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Setting isLeader = false.`);
-      setIsLeader(false);
-    }
-    leaderId.current = null; // Clear leader tracking
+    const existing = readLeaderInfo();
+    const now = Date.now();
+    // Leader is stale if no leader exists OR timestamp is too old
+    const leaderIsStale = !existing || now - existing.timestamp > LEADERSHIP_TIMEOUT;
 
-    if (!silent && broadcastChannel.current && isMounted.current) {
-      // Notify others we are stepping down (e.g., on unload)
-      logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Broadcasting RELINQUISH_LEADER.`);
-      broadcastChannel.current.postMessage({
-        type: AuthChannelMessage.RELINQUISH_LEADER,
-        tabId: tabId.current,
-        timestamp: Date.now(),
-      });
-    }
-     // Clear any pending claim timeout
-     if (leadershipClaimTimeout.current) {
-        clearTimeout(leadershipClaimTimeout.current);
-        leadershipClaimTimeout.current = null;
-     }
-  }, [isLeader, stopHeartbeat, logger]);
+    if (leaderIsStale) {
+      logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Leader is stale or absent. Attempting claim.`);
+      // Write our potential claim
+      writeLeaderInfo();
 
+      // Confirm after a short delay, allowing other tabs to potentially overwrite
+      setTimeout(() => {
+        if (!isMounted.current) return; // Check mount status again after timeout
 
-  const claimLeadership = useCallback(() => {
-    if (!isMounted.current || !broadcastChannel.current) return;
-    logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Attempting to claim leadership. Current leader: ${leaderId.current}`);
-
-    // Clear previous timeouts if any
-    if (leadershipClaimTimeout.current) clearTimeout(leadershipClaimTimeout.current);
-    stopHeartbeat(); // Stop heartbeating if we were leader before re-claiming
-
-    // Optimistic immediate check - if no leader known or stored leader seems inactive, claim faster
-    const knownLeader = leaderId.current;
-    const lastSeen = knownLeader ? lastHeartbeatReceived.current[knownLeader] : 0;
-    const isLeaderStale = !knownLeader || (Date.now() - lastSeen > LEADERSHIP_TIMEOUT * 1.5); // Leader hasn't been heard from
-
-    if (isLeaderStale) {
-        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] No active leader detected or leader stale (${knownLeader}), attempting immediate claim.`);
-        // Set ourselves as leader tentatively
-        leaderId.current = tabId.current;
-        setIsLeader(true);
-        startHeartbeat();
-        // Still broadcast claim to resolve potential conflicts
-         broadcastChannel.current.postMessage({
-           type: AuthChannelMessage.CLAIM_LEADER,
-           tabId: tabId.current,
-           timestamp: Date.now(),
-         });
-    } else {
-        // Otherwise, broadcast claim and wait to see if contested
-        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Broadcasting CLAIM_LEADER and setting timeout.`);
-        broadcastChannel.current.postMessage({
-          type: AuthChannelMessage.CLAIM_LEADER,
-          tabId: tabId.current,
-          timestamp: Date.now(),
-        });
-
-        // Set a timeout to assume leadership if no one else claims strongly
-        leadershipClaimTimeout.current = setTimeout(() => {
-          if (isMounted.current && !leaderId.current) { // Only assume leadership if no leader was established during timeout
-            logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Leadership claim uncontested after timeout. Assuming leadership.`);
-            leaderId.current = tabId.current;
+        const current = readLeaderInfo();
+        if (current && current.tabId === tabId.current) {
+          // Our claim seems to have held
+          if (!isLeader) { // Update state only if it changed
+            logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Confirmed leadership via localStorage claim.`);
             setIsLeader(true);
-            startHeartbeat();
-          } else {
-             logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Leadership claim timeout fired, but a leader (${leaderId.current}) already exists or component unmounted. Aborting assumption.`);
           }
-        }, LEADERSHIP_TIMEOUT / 2); // Shorter timeout for claiming
-    }
-
-  }, [startHeartbeat, stopHeartbeat, logger]);
-
-
-  const handleBroadcastMessage = useCallback((event: MessageEvent) => {
-    if (!isMounted.current) return;
-    const data = event.data as AuthMessageData;
-    const senderId = data.tabId;
-    const messageType = data.type;
-    const timestamp = data.timestamp;
-
-    if (senderId === tabId.current) return; // Ignore messages from self
-
-     // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received message: ${messageType} from ${senderId}`);
-
-    // Track last seen time for all tabs
-    lastHeartbeatReceived.current[senderId] = Date.now();
-
-
-    switch (messageType) {
-      case AuthChannelMessage.CLAIM_LEADER:
-        // Another tab is claiming leadership
-        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received CLAIM_LEADER from ${senderId}. Current leader: ${leaderId.current}`);
-        const currentLeaderTimestamp = leaderId.current ? lastHeartbeatReceived.current[leaderId.current] || 0 : 0;
-
-        // Simple conflict resolution: Tab with lexicographically smaller ID wins if claims are close, otherwise newest claim wins.
-        // A more robust approach might involve multiple rounds or vector clocks.
-        const currentlyLeader = leaderId.current === tabId.current;
-
-        if (!leaderId.current || senderId < leaderId.current) {
-           logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] New leader ${senderId} detected (or no previous leader). Relinquishing.`);
-           leaderId.current = senderId;
-           if (currentlyLeader) {
-              relinquishLeadership(true); // Relinquish silently (don't broadcast relinquish)
-           } else {
-              setIsLeader(false); // Ensure we are not leader
-              stopHeartbeat(); // Ensure heartbeat is stopped
-           }
-           // Cancel our pending claim timeout if active
-            if (leadershipClaimTimeout.current) {
-                logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Cancelling pending leadership claim due to claim from ${senderId}.`);
-                clearTimeout(leadershipClaimTimeout.current);
-                leadershipClaimTimeout.current = null;
-            }
-        } else if (senderId === leaderId.current) {
-           // The current leader is just re-asserting. Update timestamp.
-           logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Leader ${senderId} re-asserted claim.`);
-           lastHeartbeatReceived.current[senderId] = Math.max(lastHeartbeatReceived.current[senderId] || 0, timestamp);
         } else {
-            // Our ID is smaller than the claimant, or we are already leader. Ignore their claim for now.
-            // Our heartbeat/next claim will re-assert our leadership if needed.
-           logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Ignoring CLAIM_LEADER from ${senderId} (our ID ${tabId.current} is smaller or equal to current leader ${leaderId.current}).`);
+          // Claim was overwritten or failed
+          if (isLeader) { // Update state only if it changed
+             logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Claim failed or was overwritten by tab ${current?.tabId}. Relinquishing.`);
+             setIsLeader(false);
+          }
         }
-        break;
-
-      case AuthChannelMessage.HEARTBEAT:
-        // A leader is sending a heartbeat
-        if (senderId === leaderId.current) {
-            // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received HEARTBEAT from leader ${senderId}.`);
-            // Update last seen time for the leader
-            lastHeartbeatReceived.current[senderId] = Date.now();
-        } else if (!leaderId.current || senderId < leaderId.current) {
-            // A new leader emerged without a claim? Update our state.
-            logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received HEARTBEAT from unexpected leader ${senderId}. Accepting as new leader.`);
-            leaderId.current = senderId;
-             if (isLeader) { // If we thought we were leader
-                 relinquishLeadership(true);
-             } else {
-                 setIsLeader(false);
-                 stopHeartbeat();
-             }
-             // Cancel pending claim
-             if (leadershipClaimTimeout.current) {
-                 clearTimeout(leadershipClaimTimeout.current);
-                 leadershipClaimTimeout.current = null;
-             }
-        }
-        break;
-
-      case AuthChannelMessage.RELINQUISH_LEADER:
-        logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Received RELINQUISH_LEADER from ${senderId}.`);
-        if (senderId === leaderId.current) {
-          logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Current leader ${senderId} relinquished. Clearing leader.`);
-          leaderId.current = null;
-          setIsLeader(false); // Ensure we know we are not leader
-          stopHeartbeat();
-          // Optional: Automatically try to claim leadership if the leader steps down
-          // claimLeadership();
-        }
-        // Clean up heartbeat tracker for the relinquishing tab
-        delete lastHeartbeatReceived.current[senderId];
-        break;
-    }
-
-     // Periodic cleanup of old tab heartbeats
-     const now = Date.now();
-     Object.keys(lastHeartbeatReceived.current).forEach(id => {
-       if (now - lastHeartbeatReceived.current[id] > HEARTBEAT_INTERVAL * 5) { // Remove tabs not heard from in a while
-         // logger.log(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Pruning stale heartbeat record for tab ${id}`);
-         delete lastHeartbeatReceived.current[id];
-         if (leaderId.current === id) {
-            logger.warn(`[Leader][v${PROVIDER_VERSION}][${tabId.current}] Pruning STALE LEADER ${id}. Resetting leader state.`);
-            leaderId.current = null;
-             if (isLeader) { // If we thought we were leader
-                 relinquishLeadership(true);
-             } else {
-                 setIsLeader(false);
-                 stopHeartbeat();
-             }
-            // Maybe try to claim leadership now
-            claimLeadership();
-         }
+      }, CLAIM_TIMEOUT_DURATION); // Use short confirmation timeout
+    } else {
+       // A valid leader exists, ensure we are not marked as leader
+       if (isLeader && existing?.tabId !== tabId.current) {
+         logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Valid leader ${existing?.tabId} exists. Ensuring this tab is not leader.`);
+         setIsLeader(false);
        }
-     });
+    }
+     // Add isLeader to dependencies as we read it
+  }, [readLeaderInfo, writeLeaderInfo, isLeader, tabId]);
 
-  }, [isLeader, claimLeadership, relinquishLeadership, stopHeartbeat, logger]);
-
-  // --- Effect for Broadcast Channel & Leader Election Setup ---
+  // Heartbeat effect & storage listener
   useEffect(() => {
-    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Setting up BroadcastChannel and leader election.`);
+    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Setting up LocalStorage leader election.`);
     isMounted.current = true;
 
-    if (!broadcastChannel.current) {
-        logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Creating BroadcastChannel: ${AUTH_CHANNEL_NAME}`);
-        broadcastChannel.current = new BroadcastChannel(AUTH_CHANNEL_NAME);
-        broadcastChannel.current.onmessage = handleBroadcastMessage;
+    // Guard for environments without window or localStorage
+    if (typeof window === 'undefined' || !window.localStorage) {
+        logger.warn(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] localStorage not available. Leader election disabled.`);
+        setIsLoading(false); // Ensure loading doesn't hang if election can't run
+        return;
     }
 
-    // Attempt to claim leadership on mount/focus
-    const handleFocus = () => {
-        logger.log(`[Event][v${PROVIDER_VERSION}][${tabId.current}] Window focused.`);
-        claimLeadership();
-    };
 
-    // Optional: Relinquish on blur? Can cause churn. Let timeouts handle inactivity.
-    // const handleBlur = () => {
-    //   logger.log(`[Event][v${PROVIDER_VERSION}][${tabId.current}] Window blurred.`);
-    //   // Maybe relinquish if we are leader? Or just let heartbeat timeout?
-    //   // if (isLeader) relinquishLeadership(true); // Silent relinquish
-    // };
+    // Immediately attempt claim on mount (slightly jittered to reduce collisions)
+    const jitter = Math.random() * 300;
+    const initialTimer = setTimeout(attemptClaimLeadershipLS, 300 + jitter);
 
-    const handleBeforeUnload = () => {
-        logger.log(`[Event][v${PROVIDER_VERSION}][${tabId.current}] Window unloading.`);
-        relinquishLeadership(false); // Broadcast relinquish
-    };
+    // Storage event listener – reacts to leader changes in other tabs
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key !== LOCAL_LEADER_KEY || !isMounted.current) return;
 
-    window.addEventListener('focus', handleFocus);
-    // window.addEventListener('blur', handleBlur);
-    window.addEventListener('beforeunload', handleBeforeUnload);
+      logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Storage event received for key ${e.key}.`);
 
-    // Initial claim attempt shortly after mount
-    const initialClaimTimeout = setTimeout(claimLeadership, 500); // Delay slightly
-
-    // Cleanup
-    return () => {
-      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Cleaning up leader election.`);
-      isMounted.current = false;
-      clearTimeout(initialClaimTimeout);
-      if (leadershipClaimTimeout.current) clearTimeout(leadershipClaimTimeout.current);
-      stopHeartbeat(); // Clear interval
-
-       // Important: Broadcast relinquish on unmount only if we were the leader
-       // handleBeforeUnload already covers browser close/refresh. This covers component unmount.
-       if (leaderId.current === tabId.current) {
-          relinquishLeadership(false); // Notify others we're gone
-       }
-
-      if (broadcastChannel.current) {
-        logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Closing BroadcastChannel.`);
-        broadcastChannel.current.close();
-        broadcastChannel.current = null;
+      let info: LeaderInfo | null = null;
+      try {
+         info = e.newValue ? JSON.parse(e.newValue) : null;
+         // Validate parsed info
+         if (info && (typeof info.tabId !== 'string' || typeof info.timestamp !== 'number')) {
+            logger.warn(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Invalid data format in storage event. Ignoring.`);
+            info = null; // Treat as invalid
+         }
+      } catch (_err) {
+         logger.warn(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Error parsing storage event value. Key: ${e.key}`);
+         info = null; // Treat as invalid / removed
       }
 
-      window.removeEventListener('focus', handleFocus);
-      // window.removeEventListener('blur', handleBlur);
-      window.removeEventListener('beforeunload', handleBeforeUnload);
-      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Leader election cleanup complete.`);
+
+      if (info && info.tabId === tabId.current) {
+        // Our own write echoed back, ensure leader state is true
+        if (!isLeader) {
+           logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Storage event confirms self as leader.`);
+           setIsLeader(true);
+        }
+      } else if (info && info.tabId !== tabId.current) {
+        // Another tab is leader, ensure leader state is false
+        if (isLeader) {
+          logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Storage event indicates new leader: ${info.tabId}. Relinquishing.`);
+          setIsLeader(false);
+        }
+      } else if (!info) {
+        // Leader key removed or invalid – attempt to claim
+        logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Storage event indicates leader key removed/invalid. Attempting claim.`);
+        if (isLeader) setIsLeader(false); // Ensure we aren't leader first
+        attemptClaimLeadershipLS();
+      }
     };
-     // Add dependencies that trigger re-setup if they change (should be minimal)
-  }, [claimLeadership, handleBroadcastMessage, relinquishLeadership, stopHeartbeat, logger]);
+    window.addEventListener('storage', handleStorage);
+
+    // Heartbeat interval – Leader writes, Non-leaders check staleness
+    const hbInterval = setInterval(() => {
+       if (!isMounted.current) {
+         clearInterval(hbInterval);
+         return;
+       }
+
+      if (isLeader) {
+        // logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Sending heartbeat (writing timestamp).`);
+        writeLeaderInfo(); // Update our timestamp
+      } else {
+        // Not the leader, check if the current leader is stale
+        const currentLeaderInfo = readLeaderInfo();
+        if (!currentLeaderInfo || Date.now() - currentLeaderInfo.timestamp > LEADERSHIP_TIMEOUT) {
+          // logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Detected stale/no leader during interval check. Attempting claim.`);
+          attemptClaimLeadershipLS();
+        }
+      }
+    }, HEARTBEAT_INTERVAL);
+
+    // On unload, if we are leader, try to clear the key
+    const handleBeforeUnload = () => {
+       logger.log(`[Event][v${PROVIDER_VERSION}][${tabId.current}] Window unloading. isLeader: ${isLeader}`);
+       // Use readLeaderInfo to double-check we are *still* the leader right before unload
+      const currentInfo = readLeaderInfo();
+      if (currentInfo && currentInfo.tabId === tabId.current) {
+          logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Unloading as leader. Removing leader key.`);
+        try {
+          // Use synchronous remove on unload
+          localStorage.removeItem(LOCAL_LEADER_KEY);
+        } catch (_) {
+           logger.warn(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Failed to remove leader key on unload.`);
+        }
+      }
+       isMounted.current = false; // Mark as unmounted
+    };
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    // Cleanup function
+    return () => {
+      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Cleaning up LocalStorage leader election.`);
+      isMounted.current = false; // Ensure flag is set
+      clearTimeout(initialTimer);
+      clearInterval(hbInterval);
+      window.removeEventListener('storage', handleStorage);
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+
+      // On cleanup (component unmount), if we were leader, relinquish by removing key
+      // Check isLeader state *and* localStorage to be sure before removing
+      const currentInfo = readLeaderInfo();
+      if (isLeader && currentInfo && currentInfo.tabId === tabId.current) {
+          logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Unmounting as leader. Removing leader key.`);
+        try {
+          localStorage.removeItem(LOCAL_LEADER_KEY);
+        } catch (_) {
+           logger.warn(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Failed to remove leader key on unmount cleanup.`);
+        }
+      }
+    };
+     // Dependencies: Key functions controlling the LS leader logic and isLeader state itself
+  }, [attemptClaimLeadershipLS, isLeader, readLeaderInfo, writeLeaderInfo, tabId]);
 
 
-  // --- Original useEffect for Auth State Changes ---
+ // --- safeSetIsAdmin definition (moved outside effects) ---
+  const safeSetIsAdmin = useCallback((userId: string | null | undefined, value: boolean) => {
+    const currentUserId = userRef.current?.id;
+    const checkUserId = userId; // Use the passed userId directly
+
+    // Only update if mounted AND the user context matches
+    if (isMounted.current && currentUserId === checkUserId) {
+      if (isAdmin !== value) {
+         logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
+         setIsAdmin(value);
+      }
+    } else {
+      logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Skipped admin update. Mounted: ${isMounted.current}, User Match: ${currentUserId === checkUserId} (Current: ${currentUserId}, Check: ${checkUserId}). Target value: ${value}`);
+    }
+  }, [isAdmin, tabId]); // Added tabId for logging consistency
+
+
+  // --- Original useEffect for Auth State Changes (Supabase Listener) ---
   useEffect(() => {
-    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] AuthProvider effect setup starting`);
-    // Reset mount flag (might be redundant if outer effect handles it, but safe)
-    // isMounted.current = true;
+    logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] AuthProvider effect setup starting (Supabase listener)`);
+    isMounted.current = true; // Ensure mounted is true at start of this effect too
     initialCheckCompleted.current = false; // Reset on effect setup
 
-    // ... (rest of the checkInitialSessionAndAdmin function - NO CHANGES needed inside it) ...
+
     const checkInitialSessionAndAdmin = async () => {
-        // ... existing implementation ...
-        // Note: This check runs independently in each tab on load.
+        logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] START`);
+        if (initialCheckCompleted.current) {
+            logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Already completed, skipping.`);
+            if (isLoading) setIsLoading(false); // Ensure loading is false if skipped
+            return;
+        }
+
+        if (!isMounted.current) {
+            logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Aborted: Component unmounted before check started.`);
+            // Explicitly set loading false if unmounted before check could finish
+            // This prevents getting stuck in loading state on rapid mount/unmount
+            setIsLoading(false);
+            return;
+        }
+
+        let sessionData: Session | null = null;
+        let userData: User | null = null;
+        const isAdminStatus = false; // Default to false
+
+        try {
+            // Ensure loading is true before async calls, only log if changing
+            if (!isLoading) {
+               logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Setting isLoading=true (before getSession)`);
+               setIsLoading(true);
+            }
+
+            const getSessionStart = performance.now();
+            logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Calling supabase.auth.getSession() - START`);
+            const { data, error } = await supabase.auth.getSession();
+            const getSessionDuration = (performance.now() - getSessionStart).toFixed(2);
+            logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] supabase.auth.getSession() - END - Duration: ${getSessionDuration} ms`);
+
+            if (!isMounted.current) {
+              logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Component unmounted during getSession, aborting state updates.`);
+              setIsLoading(false); // Ensure loading stops
+              return;
+            }
+             logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] getSession() returned. Error: ${!!error}, Session: ${!!data.session}`);
+
+            if (error) {
+              logger.warn(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] getSession() error:`, error);
+              // Maintain defaults (null session/user, false admin)
+            } else if (data.session) {
+              const userId = data.session.user.id;
+              logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Session FOUND - User ID: ${userId}`);
+              sessionData = data.session;
+              userData = data.session.user;
+
+              // Perform admin check non-blockingly only if needed
+              if (!adminCheckInProgress.current) {
+                  adminCheckInProgress.current = true;
+                  logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Starting ADMIN CHECK for user: ${userId}`);
+                  (async () => {
+                      const checkUserId = userId;
+                      try {
+                          const adminResult = await checkIsAdmin(checkUserId);
+                          if (!isMounted.current) {
+                              logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Component unmounted during check for ${checkUserId}, aborting status update.`);
+                              // No state update needed if unmounted
+                          } else {
+                             logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK result for ${checkUserId}: ${adminResult}`);
+                             safeSetIsAdmin(checkUserId, adminResult); // Use safe setter
+                          }
+                      } catch (adminError) {
+                          logger.error(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Error checking admin status for ${checkUserId}:`, adminError);
+                          if (isMounted.current) safeSetIsAdmin(checkUserId, false); // Use safe setter on error
+                      } finally {
+                          // Reset flag regardless of mount status
+                          adminCheckInProgress.current = false;
+                          if (isMounted.current) {
+                             logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId}.`);
+                          } else {
+                             logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (component unmounted).`);
+                          }
+                      }
+                  })();
+              } else {
+                  logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress, skipping new check for ${userId}.`);
+              }
+              // isAdminStatus remains false here; it's set asynchronously by safeSetIsAdmin
+            } else {
+              logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] No session found.`);
+               // Maintain defaults (null session/user, false admin)
+            }
+        } catch (error) {
+            logger.error(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Unexpected error during initial check:`, error);
+            // Maintain defaults in case of unexpected errors, ensure state is updated if mounted
+            if (!isMounted.current) {
+                logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Unexpected error caught, but component unmounted.`);
+                setIsLoading(false); // Ensure loading stops
+                return; // Don't proceed if unmounted
+            }
+        } finally {
+            if (isMounted.current) {
+                logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] FINALLY block executing.`);
+                // Set state based on findings *after* potential admin check started
+                logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Setting final initial state: session=${!!sessionData}, user=${userData?.id || 'null'}, isAdmin=${isAdminStatus}`);
+                setSession(sessionData);
+                setUser(userData);
+                setIsAdmin(isAdminStatus); // Set initial admin state (usually false, updated async)
+
+                if (!initialCheckCompleted.current) {
+                    logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Marking initial check as COMPLETED.`);
+                    initialCheckCompleted.current = true;
+                }
+                logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Setting isLoading=false (end of initial check).`);
+                setIsLoading(false);
+
+                // Clear fallback timeout now that initial check completed (successfully or with error)
+                if (sessionFallbackTimeout.current) {
+                    clearTimeout(sessionFallbackTimeout.current);
+                    sessionFallbackTimeout.current = null;
+                     logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] Cleared session fallback timeout.`);
+                }
+            } else {
+               logger.log(`[Initial Check][v${PROVIDER_VERSION}][${tabId.current}] FINALLY block skipped, component unmounted.`);
+            }
+        }
     };
+
 
     logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Setting up onAuthStateChange listener`);
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event: AuthChangeEvent, currentSession) => {
-          // --- IMPORTANT ---
-          // This listener reacts to the actual state change in localStorage,
-          // which could have been triggered by *any* tab (ideally the leader).
-          // All tabs (leader or not) should update their UI based on this event
-          // to stay synchronized with the ground truth.
-          logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Event received: ${event}, User: ${currentSession?.user?.id || 'none'}, Session: ${!!currentSession}. Is Leader: ${isLeader}`);
+          // Check mount status at the very beginning of the listener callback
+          if (!isMounted.current) {
+            // logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Event ${event} received, but component unmounted. Ignoring.`);
+            return;
+          }
 
-          // ... (rest of the onAuthStateChange handler - KEEP EXISTING LOGIC) ...
-          // The logic for handling early events, processing after initial check,
-          // username sync, setting state (setUser, setSession), and triggering
-          // admin checks based on user changes should remain.
-          // The leader election logic primarily controls *initiating* actions,
-          // while this listener ensures all tabs *react* to the results.
+          logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Event received: ${event}, User: ${currentSession?.user?.id || 'none'}, Session: ${!!currentSession}. Leader: ${isLeader}, InitDone: ${initialCheckCompleted.current}`);
 
-           // --- Start of existing onAuthStateChange logic ---
+          // --- Handling Before Initial Check Completion ---
             if (!initialCheckCompleted.current) {
                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Initial check NOT complete. Evaluating event: ${event}`);
-                 if (event === 'SIGNED_OUT' && !sessionRef.current) {
-                     logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early SIGNED_OUT.`);
-                     if (isMounted.current) {
-                         logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=null, user=null, isAdmin=false, initialCheck=true, isLoading=false (early SIGNED_OUT)`);
-                         setSession(null);
-                         setUser(null);
-                         setIsAdmin(false);
-                         initialCheckCompleted.current = true;
-                         setIsLoading(false);
-                         if (sessionFallbackTimeout.current) {
-                             clearTimeout(sessionFallbackTimeout.current);
-                             sessionFallbackTimeout.current = null;
+                 // Allow processing SIGNED_OUT or fast-path SIGNED_IN/INITIAL_SESSION to potentially complete the initial check early
+                 switch (event) {
+                    case 'SIGNED_OUT': { // Wrap in block for lexical declaration
+                         logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early SIGNED_OUT.`);
+                         // Check isMounted again *inside* the case before setting state
+                         if (isMounted.current) {
+                             logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=null, user=null, isAdmin=false, initialCheck=true, isLoading=false (early SIGNED_OUT)`);
+                             setSession(null);
+                             setUser(null);
+                             setIsAdmin(false);
+                             initialCheckCompleted.current = true; // Mark as completed
+                             setIsLoading(false);
+                             if (sessionFallbackTimeout.current) clearTimeout(sessionFallbackTimeout.current); sessionFallbackTimeout.current = null;
                          }
-                     }
-                     return;
-                 }
-                 else if ((event === 'SIGNED_IN' || event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') && currentSession) {
-                      logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early ${event}. Processing immediately.`);
-                      // ... (rest of early sign-in/session/refresh logic) ...
-                       const userId = currentSession.user.id;
-                       if (isMounted.current) {
-                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=present, user=${userId}, initialCheck=true, isLoading=false (early ${event})`);
-                           setSession(currentSession);
-                           setUser(currentSession.user);
-                           initialCheckCompleted.current = true;
-                           setIsLoading(false);
-                           if (sessionFallbackTimeout.current) {
-                               clearTimeout(sessionFallbackTimeout.current);
-                               sessionFallbackTimeout.current = null;
-                           }
-                           // Trigger non-blocking admin check...
-                           if (!adminCheckInProgress.current) {
-                              // ... (existing admin check logic) ...
-                               adminCheckInProgress.current = true;
-                               logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Starting ADMIN CHECK for user ${userId} (early ${event})`);
-                               (async () => {
-                                   const checkUserId = userId;
-                                   try {
-                                       const adminStatus = await checkIsAdmin(checkUserId);
-                                       if (!isMounted.current) {
-                                            logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Component unmounted during check for ${checkUserId} (early ${event}), aborting.`);
+                         return; // Processed early exit
+                    }
+                    case 'SIGNED_IN':
+                    case 'INITIAL_SESSION':
+                    case 'TOKEN_REFRESHED': { // Wrap in block
+                       if (currentSession) {
+                          logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early ${event}. Processing immediately.`);
+                           const userId = currentSession.user.id;
+                           if (isMounted.current) {
+                               logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=present, user=${userId}, initialCheck=true, isLoading=false (early ${event})`);
+                               setSession(currentSession);
+                               setUser(currentSession.user);
+                               initialCheckCompleted.current = true; // Mark as completed
+                               setIsLoading(false);
+                               if (sessionFallbackTimeout.current) clearTimeout(sessionFallbackTimeout.current); sessionFallbackTimeout.current = null;
+
+                               // Trigger non-blocking admin check only if necessary
+                               if (!adminCheckInProgress.current) {
+                                   adminCheckInProgress.current = true;
+                                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Starting ADMIN CHECK for user ${userId} (early ${event})`);
+                                   (async () => {
+                                       const checkUserId = userId;
+                                       try {
+                                           const adminStatus = await checkIsAdmin(checkUserId);
+                                           // Check mount status again before setting state
+                                           if (isMounted.current) safeSetIsAdmin(checkUserId, adminStatus);
+                                       } catch (adminError) {
+                                           logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Error for ${checkUserId} (early ${event}):`, adminError);
+                                           if (isMounted.current) safeSetIsAdmin(checkUserId, false);
+                                       } finally {
                                             adminCheckInProgress.current = false;
-                                            return;
+                                            // Log completion status based on mount state
+                                            if(isMounted.current) {
+                                                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (early ${event}).`);
+                                            } else {
+                                                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (early ${event}, component unmounted).`);
+                                            }
                                        }
-                                       logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK result for ${checkUserId}: ${adminStatus} (early ${event})`);
-                                       safeSetIsAdmin(checkUserId, adminStatus);
-                                   } catch (adminError) {
-                                       logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Error for ${checkUserId} (early ${event}):`, adminError);
-                                       safeSetIsAdmin(checkUserId, false);
-                                   } finally {
-                                        adminCheckInProgress.current = false;
-                                        if (isMounted.current) {
-                                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (early ${event}).`);
-                                        } else {
-                                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished after unmount for ${checkUserId} (early ${event}).`);
-                                        }
-                                   }
-                               })();
-                           } else {
-                              logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress, skipping new check for ${userId} (early ${event}).`);
+                                   })();
+                               } else {
+                                  logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress, skipping new check for ${userId} (early ${event}).`);
+                               }
                            }
+                           return; // Processed fast path
+                       } else {
+                            // If event is SIGNED_IN etc but session is null, wait for initial check
+                            logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Event ${event} received without session before initial check. Deferring.`);
+                            return;
                        }
+                    }
+                    default:
+                       // For other events (PASSWORD_RECOVERY, USER_UPDATED before initial check), wait.
+                      logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Deferring processing of event: ${event} (waiting for initial check)`);
                       return;
-                 }
-                 else {
-                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Deferring full processing of event: ${event} (waiting for initial check)`);
-                    return;
                  }
             }
 
+          // --- Handling After Initial Check Completion ---
             logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Processing event ${event} (initial check complete)`);
 
-            // --- Username Sync Check --- (Keep As Is)
-            if (currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
-              // ... existing username sync logic ...
+          // --- LEADER ONLY: Discord Sync Check ---
+          if (isLeader && isMounted.current && currentSession?.user && (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED')) {
               const userId = currentSession.user.id;
               const discordUsername = currentSession.user.user_metadata?.name;
               const discordUserId = currentSession.user.user_metadata?.provider_id;
 
               if (discordUsername || discordUserId) {
-                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Checking Discord ID/Username sync for user ${userId}. Metadata values - ID: ${discordUserId}, Username: ${discordUsername}`);
-                 // ... rest of sync logic ...
+                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Checking Discord ID/Username sync for user ${userId}.`);
                  try {
                    const { data: profileData, error: profileError } = await supabase
                      .from('profiles')
@@ -484,189 +487,232 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                      .eq('id', userId)
                      .maybeSingle();
 
-                   if (profileError) { /* ... */ }
-                   else if (profileData) {
-                      const updatePayload: { discord_user_id?: string; discord_username?: string } = {};
-                      let needsUpdate = false;
-                      if (discordUsername && profileData.discord_username !== discordUsername) { /* ... */ updatePayload.discord_username = discordUsername; needsUpdate = true; }
-                      if (discordUserId && profileData.discord_user_id !== discordUserId) { /* ... */ updatePayload.discord_user_id = discordUserId; needsUpdate = true; }
+                    if (profileError) {
+                       logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Error fetching profile for Discord sync for ${userId}:`, profileError);
+                    } else if (profileData) {
+                         const updatePayload: { discord_user_id?: string; discord_username?: string } = {};
+                         let needsUpdate = false;
+                         if (discordUsername && profileData.discord_username !== discordUsername) { updatePayload.discord_username = discordUsername; needsUpdate = true; }
+                         if (discordUserId && profileData.discord_user_id !== discordUserId) { updatePayload.discord_user_id = discordUserId; needsUpdate = true; }
 
-                      if (needsUpdate) {
-                          logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Updating profile for ${userId} with Discord fields:`, updatePayload);
-                          const { error: updateError } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
-                          if (updateError) { /* ... */ }
-                          else { /* ... */ userProfileCache.delete(userId); }
-                      } else { /* ... */ }
-                   } else { /* ... */ }
-                 } catch (syncError) { /* ... */ }
-              } else { /* ... */ }
-            }
+                         if (needsUpdate) {
+                            logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Updating profile for ${userId} with Discord fields:`, updatePayload);
+                            const { error: updateError } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
+                            if (updateError) {
+                               logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Error updating profile with Discord fields for ${userId}:`, updateError);
+                            } else {
+                               logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Successfully updated Discord fields for ${userId}. Clearing profile cache.`);
+                               userProfileCache.delete(userId); // Invalidate cache
+                            }
+                         }
+                    } else {
+                       logger.warn(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Profile not found for user ${userId} during Discord sync check.`);
+                    }
+                 } catch (syncError) {
+                    logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Unexpected error during Discord sync check for ${userId}:`, syncError);
+                 }
+              }
+          }
+          // --- End Discord Sync Check ---
 
 
+          // Re-check mount status before proceeding with state updates
             if (!isMounted.current) {
-                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Component unmounted, ignoring event ${event}.`);
+              logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Component unmounted after Discord check, ignoring further processing of event ${event}.`);
                 return;
             }
 
-            // --- State Update Logic --- (Keep As Is)
+          // --- State Update Logic (Runs in all tabs) ---
             const newUser = currentSession?.user || null;
-            const oldUser = userRef.current;
+          const oldUser = userRef.current; // Get user from ref *before* potential update
 
-            logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=${!!currentSession}, user=${newUser?.id || 'null'}`);
-            setSession(currentSession);
-            setUser(newUser);
+          // Update User and Session state only if they have actually changed
+          if (sessionRef.current?.access_token !== currentSession?.access_token) {
+              logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Updating session state.`);
+              setSession(currentSession); // sessionRef effect updates ref
+          }
+          if (userRef.current?.id !== newUser?.id) {
+               logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Updating user state: ${oldUser?.id} -> ${newUser?.id}`);
+               setUser(newUser); // userRef effect updates ref
+          }
 
-             // --- Admin Check Logic (Post-Initial Check) --- (Keep As Is)
+          // --- Admin Check Logic (Post-Initial Check - Runs in all tabs if user changes) ---
              if (!newUser) {
-                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] No user in session, resetting admin status.`);
-                 setIsAdmin(false);
-             } else if (newUser.id !== oldUser?.id) {
+                // User signed out, ensure admin is false if it wasn't already
+                if (isAdmin) {
+                     logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] No user in session, resetting admin status.`);
+                     setIsAdmin(false);
+                }
+             } else if (newUser.id !== oldUser?.id) { // User *actually changed*
+                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User changed (${oldUser?.id} -> ${newUser.id}). Resetting admin & starting check.`);
+                // Reset admin state immediately for the new user, then check
+                setIsAdmin(false); // Assume not admin until checked
                 if (!adminCheckInProgress.current) {
                    adminCheckInProgress.current = true;
                    const userId = newUser.id;
-                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User changed (${oldUser?.id} -> ${userId}). Starting ADMIN CHECK.`);
+                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Starting ADMIN CHECK for new user ${userId}.`);
                    (async () => {
                        const checkUserId = userId;
                        try {
                            const adminStatus = await checkIsAdmin(checkUserId);
-                           if (!isMounted.current) { /* ... */ adminCheckInProgress.current = false; return; }
-                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK result for ${checkUserId}: ${adminStatus}`);
-                           safeSetIsAdmin(checkUserId, adminStatus);
-                       } catch (adminError) { /* ... */ safeSetIsAdmin(checkUserId, false); }
-                       finally { /* ... */ adminCheckInProgress.current = false; /* ... */ }
+                           // Check mount status again before setting state
+                           if (isMounted.current) safeSetIsAdmin(checkUserId, adminStatus);
+                       } catch (adminError) {
+                           logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Error for ${checkUserId}:`, adminError);
+                           if (isMounted.current) safeSetIsAdmin(checkUserId, false);
+                       } finally {
+                           adminCheckInProgress.current = false;
+                            if (isMounted.current) {
+                                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId}.`);
+                            } else {
+                                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (component unmounted).`);
+                            }
+                       }
                    })();
-                } else { /* ... */ }
-             } else {
-                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User unchanged (${newUser.id}), skipping admin check.`);
-                 // ... (existing edge case re-check logic if isAdmin is undefined) ...
-                  if (isAdmin === undefined && !adminCheckInProgress.current) {
-                      logger.warn(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User unchanged but isAdmin is undefined, attempting re-check.`);
-                      adminCheckInProgress.current = true;
-                      const userId = newUser.id;
-                      (async () => {
-                         const checkUserId = userId;
-                         try {
-                             const status = await checkIsAdmin(checkUserId);
-                             logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN RE-CHECK result for ${checkUserId}: ${status}`);
-                             safeSetIsAdmin(checkUserId, status);
-                         } catch (err) { /* ... */ safeSetIsAdmin(checkUserId, false); }
-                         finally { /* ... */ adminCheckInProgress.current = false; /* ... */ }
-                      })();
-                  }
-             }
+                } else {
+                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress for user ${newUser.id}, skipping new check trigger.`);
+                }
+             } // else: User unchanged, no need to re-trigger admin check
 
-            // Ensure loading is false... (Keep As Is)
+          // Ensure loading is false after processing an event post-initial check
             if (isLoading) {
                  logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting isLoading=false (end of processing event ${event}).`);
                  setIsLoading(false);
+                 // Clear fallback timeout again just in case it was still running
                  if (sessionFallbackTimeout.current) {
                      clearTimeout(sessionFallbackTimeout.current);
                      sessionFallbackTimeout.current = null;
+                     logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Cleared session fallback timeout (event processing).`);
                  }
             }
-            // --- End of existing onAuthStateChange logic ---
       }
     );
 
-    // Initial check invocation (Keep As Is)
+    // Initial check invocation
     logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Invoking checkInitialSessionAndAdmin`);
     checkInitialSessionAndAdmin();
 
-    // Fallback timeout (Keep As Is)
+    // Fallback timeout for initial load - ensures isLoading doesn't stick forever
      if (sessionFallbackTimeout.current) { clearTimeout(sessionFallbackTimeout.current); }
+     logger.log(`[Effect Setup][v${PROVIDER_VERSION}][${tabId.current}] Setting session fallback timeout (${LEADERSHIP_TIMEOUT}ms).`);
      sessionFallbackTimeout.current = setTimeout(() => {
+       // Check mount status inside timeout callback
        if (isMounted.current && isLoading) {
-         logger.warn(`[Timeout][v${PROVIDER_VERSION}][${tabId.current}] Initial session check exceeded ${LEADERSHIP_TIMEOUT}ms. Forcing isLoading=false`);
+         logger.warn(`[Timeout][v${PROVIDER_VERSION}][${tabId.current}] Initial session check exceeded timeout. Forcing isLoading=false and marking check complete.`);
          setIsLoading(false);
          if (!initialCheckCompleted.current) {
-           initialCheckCompleted.current = true;
+           initialCheckCompleted.current = true; // Mark as completed on timeout
          }
+       } else if (isMounted.current && !isLoading) {
+          // Timeout fired but loading is already false (normal case)
+          // logger.log(`[Timeout][v${PROVIDER_VERSION}][${tabId.current}] Session fallback timeout fired, but isLoading is already false.`);
+       } else {
+          // Timeout fired but component unmounted
+           logger.log(`[Timeout][v${PROVIDER_VERSION}][${tabId.current}] Session fallback timeout fired, but component is unmounted.`);
        }
-     }, LEADERSHIP_TIMEOUT); // Use LEADERSHIP_TIMEOUT here too
+       sessionFallbackTimeout.current = null; // Clear ref after execution
+     }, LEADERSHIP_TIMEOUT); // Use leadership timeout as a reasonable duration
 
 
-    // Cleanup function (Keep As Is for auth subscription)
+    // Cleanup function for auth subscription
     return () => {
-      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Unsubscribing auth listener.`);
-      // isMounted.current = false; // This is handled by the leader election effect cleanup
+      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Unsubscribing Supabase auth listener.`);
+      isMounted.current = false; // Set unmounted flag for this effect's scope
       subscription.unsubscribe();
-      logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Resetting adminCheckInProgress flag.`);
-      adminCheckInProgress.current = false;
+      // Clear timeout if component unmounts before it fires
       if (sessionFallbackTimeout.current) {
         clearTimeout(sessionFallbackTimeout.current);
         sessionFallbackTimeout.current = null;
+        logger.log(`[Effect Cleanup][v${PROVIDER_VERSION}][${tabId.current}] Cleared session fallback timeout on unmount.`);
       }
+      // Reset admin check flag if unmounting during check? - Handled in async flow now
     };
-  // IMPORTANT: Minimal dependencies. This effect should run essentially once on mount.
-  }, [isLeader, safeSetIsAdmin, logger]); // Added isLeader dependency to log it correctly, safeSetIsAdmin for its definition
+  // Dependencies: safeSetIsAdmin is stable, tabId is a stable ref.
+  // isLoading, isAdmin, and isLeader should NOT be dependencies here, as changes
+  // to them are handled *within* the listener or initial check logic, and adding
+  // them would cause infinite loops.
+  }, [safeSetIsAdmin, tabId]);
 
-  // --- Modified Sign-in function ---
-  const signIn = async (email: string, password: string) => {
+
+  // --- Effect to update userRef ---
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // --- Effect to update sessionRef ---
+  useEffect(() => {
+    sessionRef.current = session;
+  }, [session]);
+
+
+  // --- Sign-in function (Leader Gated) ---
+  const signIn = useCallback(async (email: string, password: string) => {
      logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn attempt for ${email}. Is Leader: ${isLeader}`);
      if (!isLeader) {
        logger.warn(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn blocked: Not the leader tab.`);
-       toast.info('Another tab is managing the session. Please sign in there.', { id: 'signin-blocked-toast' });
+       toast.info('Another tab is managing the session. Please use the active tab.', { id: `signin-blocked-${tabId.current}` });
        return; // Don't proceed if not the leader
      }
 
+    const toastId = `signin-toast-${Date.now()}`; // Use const
     try {
-      toast.loading('Signing in...', { id: 'signin-toast' });
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      toast.dismiss('signin-toast');
+      toast.loading('Signing in...', { id: toastId });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      // onAuthStateChange handles state updates
+
+      toast.dismiss(toastId); // Dismiss loading regardless of outcome
 
       if (error) {
-        logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn: Error for ${email}:`, error);
-        throw error;
+        logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signIn: Error for ${email}:`, error);
+        toast.error(error.message || 'Error signing in', { id: `signin-error-${Date.now()}`});
+      } else {
+          logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signIn: Successful for ${email}. Waiting for onAuthStateChange.`);
+          // Optional success toast: toast.success('Signed in successfully!', { id: `signin-success-${Date.now()}` });
       }
 
-      logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn: Successful for ${email}`);
-      // Optional: Broadcast sign-in success? `onAuthStateChange` should handle it.
-      // broadcastChannel.current?.postMessage({ type: AuthChannelMessage.ACTION_SIGN_IN, tabId: tabId.current, timestamp: Date.now() });
-    } catch (error: any) {
-      toast.dismiss('signin-toast');
-      toast.error(error.message || 'Error signing in');
-      logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signIn: Catch block error for ${email}:`, error);
+    } catch (error: unknown) { // Use unknown for catch block error
+      toast.dismiss(toastId); // Ensure loading toast is dismissed on catch
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error signing in';
+      toast.error(errorMessage, { id: `signin-catch-${Date.now()}` });
+      logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signIn: Catch block error for ${email}:`, error);
     }
-  };
+  }, [isLeader, tabId]); // Include tabId dependency
 
-  // --- Modified Sign-out function ---
-  const signOut = async () => {
+  // --- Sign-out function (Leader Gated) ---
+  const signOut = useCallback(async () => {
     logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut attempt. Is Leader: ${isLeader}`);
     if (!isLeader) {
       logger.warn(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut blocked: Not the leader tab.`);
-       toast.info('Another tab is managing the session. Please sign out there.', { id: 'signout-blocked-toast' });
+       toast.info('Another tab is managing the session. Please use the active tab.', { id: `signout-blocked-${tabId.current}` });
       return; // Don't proceed if not the leader
     }
 
+    const toastId = `signout-toast-${Date.now()}`; // Use const
     try {
-      toast.loading('Signing out...', { id: 'signout-toast' });
-      await supabase.auth.signOut();
-      toast.dismiss('signout-toast');
-      logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut: Successful`);
-       // Optional: Broadcast sign-out success? `onAuthStateChange` should handle it.
-       // broadcastChannel.current?.postMessage({ type: AuthChannelMessage.ACTION_SIGN_OUT, tabId: tabId.current, timestamp: Date.now() });
-       // Explicitly relinquish leadership after sign out
-       relinquishLeadership(false);
-    } catch (error: any) {
-      toast.dismiss('signout-toast');
-      toast.error(error.message || 'Error signing out');
-      logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}] signOut: Error:`, error);
+      toast.loading('Signing out...', { id: toastId });
+      const { error } = await supabase.auth.signOut();
+      // onAuthStateChange handles state updates
+
+      toast.dismiss(toastId); // Dismiss loading toast
+
+      if (error) {
+          logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signOut: Error:`, error);
+          toast.error(error.message || 'Error signing out', { id: `signout-error-${Date.now()}` });
+      } else {
+          logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signOut: Successful. Waiting for onAuthStateChange.`);
+          // No need to manually relinquish leader here, storage event + heartbeat check handles it.
+      }
+    } catch (error: unknown) { // Use unknown for catch block error
+      toast.dismiss(toastId); // Ensure loading toast dismissed on catch
+      const errorMessage = error instanceof Error ? error.message : 'Unexpected error signing out';
+      toast.error(errorMessage, { id: `signout-catch-${Date.now()}` });
+      logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signOut: Catch block error:`, error);
     }
-  };
-
-  // --- Ref Update Effects --- (Ensure they use logger)
-  useEffect(() => {
-    userRef.current = user;
-     logger.log(`[Ref Update][v${PROVIDER_VERSION}][${tabId.current}] User state updated in ref:`, user?.id || 'null');
-  }, [user, logger]); // Add logger dependency
-
-  useEffect(() => {
-    sessionRef.current = session;
-    logger.log(`[Ref Update][v${PROVIDER_VERSION}][${tabId.current}] Session state updated in ref:`, session ? 'present' : 'null');
-  }, [session, logger]); // Add logger dependency
+  }, [isLeader, tabId]); // Include tabId dependency
 
 
-  logger.log(`[Render][v${PROVIDER_VERSION}][${tabId.current}] AuthProvider rendering. State: isLoading=${isLoading}, user=${user?.id || 'null'}, session=${!!session}, isAdmin=${isAdmin}, isLeader=${isLeader}, initialCheckCompleted=${initialCheckCompleted.current}, adminCheckInProgress=${adminCheckInProgress.current}`);
+  // Log render cycle (uncomment for debugging)
+  // logger.log(`[Render][v${PROVIDER_VERSION}][${tabId.current}] Rendering. State: isLoading=${isLoading}, user=${user?.id || 'null'}, session=${!!session}, isAdmin=${isAdmin}, isLeader=${isLeader}, initialCheckCompleted=${initialCheckCompleted.current}`);
 
   // Provide the context value
   return (
@@ -676,7 +722,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         isAdmin,
         isLoading,
-        isLeader, // NEW: Expose leader status to consumers
+        isLeader, // Expose leader status
         signIn,
         signOut
       }}
@@ -687,7 +733,3 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 };
 
 export default AuthProvider;
-
-// Add import React, { ..., useCallback } from 'react';
-// Add import { v4 as uuidv4 } from 'uuid';
-// Potentially add // @ts-ignore for BroadcastChannel if types are missing initially

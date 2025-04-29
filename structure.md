@@ -225,7 +225,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── GenerationsPage.tsx # Component listing generation videos created by users
 │   │   └── LorasPage.tsx   # Component showing all LoRA assets
 │   ├── providers/          # React Context Provider components
-│   │   └── AuthProvider.tsx # Provider component that wraps parts of the app to supply authentication context (user data, login/logout functions)
+│   │   └── AuthProvider.tsx # Provider component supplying auth context (user, session, login/logout). Manages multi-tab state sync and leader election using localStorage (v1.5.0+). Gated API calls (signIn/signOut) to leader tab.
 │   └── vite-env.d.ts       # TypeScript definition file for environment variables exposed by Vite
 ├── supabase/               # Configuration and assets related to the Supabase backend-as-a-service platform
 │   ├── config.toml         # Main configuration file for the Supabase project (used by Supabase CLI)

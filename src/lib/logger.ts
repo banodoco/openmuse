@@ -19,7 +19,7 @@ export class Logger {
       const envAllows = typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : true;
       const localPref = typeof window !== 'undefined' ? localStorage.getItem('debugLogs') === 'true' : false;
       if (this.debug && (envAllows || localPref)) {
-        // eslint-disable-next-line no-console
+         
         console.log(...this.formatMessage(args));
       }
     } catch (_) {

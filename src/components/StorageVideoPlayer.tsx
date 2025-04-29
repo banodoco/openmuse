@@ -264,7 +264,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             setIsLoadingVideoUrl(true);
             setError(null);
             try {
-                let url = isBlobUrl ? videoLocation : await videoUrlService.getVideoUrl(videoLocation, previewMode);
+                const url = isBlobUrl ? videoLocation : await videoUrlService.getVideoUrl(videoLocation, previewMode);
                 if (!url) throw new Error('Could not resolve video URL');
                 if (!unmountedRef.current) setVideoUrl(url);
             } catch (err) {
