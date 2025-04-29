@@ -1,3 +1,4 @@
+
 import { VideoEntry, VideoDisplayStatus, AdminStatus } from '@/lib/types';
 
 /**
@@ -151,10 +152,14 @@ export const getVideoFormat = (url: string): string => {
 /**
  * Defines the order for video display statuses.
  */
-export const VIDEO_DISPLAY_STATUS_ORDER: { [key in VideoDisplayStatus]: number } = {
-  Pinned: 1,
-  View: 2,
-  Hidden: 3,
+// Define order using valid VideoDisplayStatus values
+const statusOrder: { [key in VideoDisplayStatus]?: number } = {
+  Featured: 1,
+  Curated: 2,
+  Listed: 3,
+  View: 4,     // View status
+  Hidden: 5,   // Hidden last among interactable statuses
+  Rejected: 6, // Rejected very last
 };
 
 /**
@@ -172,11 +177,23 @@ export const sortAssetPageVideos = (
   videos: VideoEntry[],
   primaryMediaId: string | null | undefined
 ): VideoEntry[] => {
+  // Define order using valid AdminStatus values
+  const statusOrder: { [key in AdminStatus]?: number } = {
+    Featured: 1,
+    Curated: 2,
+    Listed: 3,
+    Hidden: 4,
+    Rejected: 5,
+  };
+
   return [...videos].sort((a, b) => {
-    // 1) Display status order
-    const statusA = a.assetMediaDisplayStatus || 'View';
-    const statusB = b.assetMediaDisplayStatus || 'View';
-    const statusDiff = (VIDEO_DISPLAY_STATUS_ORDER[statusA] || 2) - (VIDEO_DISPLAY_STATUS_ORDER[statusB] || 2);
+    // 1) Status order
+    const statusA = a.admin_status || 'Listed'; // Default to Listed if null
+    const statusB = b.admin_status || 'Listed'; // Default to Listed if null
+    const orderA = statusOrder[statusA] ?? 99; // Get order, fallback to large number
+    const orderB = statusOrder[statusB] ?? 99; // Get order, fallback to large number
+
+    const statusDiff = orderA - orderB;
     if (statusDiff !== 0) return statusDiff;
 
     // 2) Primary media first (within the same status)

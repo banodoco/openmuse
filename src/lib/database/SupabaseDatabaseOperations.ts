@@ -247,7 +247,6 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
         metadata: {
           title: entry.metadata?.title || 'Untitled',
           description: entry.metadata?.description,
-          creator: entry.metadata?.creator,
           creatorName: entry.metadata?.creatorName,
           classification: entry.metadata?.classification || 'art',
           model: entry.metadata?.model,

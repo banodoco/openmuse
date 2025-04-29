@@ -1,501 +1,379 @@
-import { VideoEntry, VideoFile } from '../types';
+import { supabase } from '@/integrations/supabase/client';
+import { VideoMetadata, VideoEntry } from '@/lib/types';
 import { v4 as uuidv4 } from 'uuid';
-import { supabase } from '../supabase';
-import { Logger } from '../logger';
-import { thumbnailService } from './thumbnailService';
-import { getVideoAspectRatio } from '../utils/videoDimensionUtils';
+import { Logger } from '@/lib/logger';
 
-const logger = new Logger('VideoUploadService');
+const logger = new Logger('videoUploadService');
 
-const createMetadata = (data: any, assetId: string): VideoMetadata => ({
-  title: data.title,
-  description: data.description,
-  assetId,
-  creatorName: data.creatorName,
-  classification: data.classification || 'art', // Ensure classification is always set
-  isPrimary: data.isPrimary,
-  loraName: data.loraName,
-  loraDescription: data.loraDescription,
-  loraType: data.loraType,
-  loraLink: data.loraLink,
-  model: data.model,
-  modelVariant: data.modelVariant,
-  baseModel: data.baseModel,
-  placeholder_image: data.placeholder_image,
-  trainingSteps: data.trainingSteps,
-  resolution: data.resolution,
-  trainingDataset: data.trainingDataset,
-  aspectRatio: data.aspectRatio,
-  associatedLoraIds: data.associatedLoraIds
-});
+// Function to generate a unique video ID
+const generateVideoId = (): string => {
+  return uuidv4();
+};
 
-class VideoUploadService {
-  private currentUserId: string | null = null;
-  
-  setCurrentUserId(userId: string | null) {
-    this.currentUserId = userId;
-    logger.log(`Current user ID set to: ${userId || 'none'}`);
+// Function to upload a single video to Supabase storage
+export const uploadVideoToStorage = async (
+  video: File,
+  userId: string,
+  assetId?: string
+): Promise<{ videoPath: string; thumbnailPath: string }> => {
+  const videoId = generateVideoId();
+  const videoPath = `videos/${userId}/${assetId ? `${assetId}/` : ''}${videoId}-${video.name}`;
+  const thumbnailPath = `thumbnails/${userId}/${assetId ? `${assetId}/` : ''}${videoId}-thumbnail.jpg`;
+
+  try {
+    // Upload video
+    const { error: videoError } = await supabase.storage
+      .from('videos')
+      .upload(videoPath, video, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (videoError) {
+      logger.error('Error uploading video:', videoError);
+      throw new Error(`Video upload failed: ${videoError.message}`);
+    }
+
+    // Generate thumbnail (mocked for now)
+    // In a real implementation, you would generate a thumbnail from the video
+    // and upload it to Supabase storage.
+    const { data: thumbnailUrl } = supabase.storage
+      .from('thumbnails')
+      .getPublicUrl('placeholder.jpg');
+
+    return { videoPath, thumbnailPath };
+  } catch (error: any) {
+    logger.error('Error in uploadVideoToStorage:', error);
+    throw new Error(`Failed to upload video: ${error.message}`);
   }
-  
-  public async uploadVideo(videoFile: VideoFile, reviewerName: string, userId?: string): Promise<VideoEntry | null> {
-    if (!videoFile || !videoFile.blob) {
-      logger.error('Attempted to upload a null or invalid video file');
-      throw new Error('Invalid video file');
-    }
+};
 
-    try {
-      const videoId = videoFile.id || uuidv4();
-      const videoPath = `${videoId}.webm`;
-      
-      logger.log(`Uploading video to ${videoPath}`);
-      
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(videoPath, videoFile.blob, {
-          contentType: 'video/webm',
-          upsert: true,
-        });
+// Function to create a media entry in Supabase database
+export const createMediaFromVideo = async (
+  videoPath: string,
+  thumbnailPath: string,
+  videoMetadata: VideoMetadata,
+  userId: string,
+  assetId?: string,
+  aspectRatio?: number,
+  creator?: string,
+  placeholder_image?: string
+): Promise<VideoEntry> => {
+  const videoId = generateVideoId();
+  const publicVideoUrl = supabase.storage.from('videos').getPublicUrl(videoPath).data.publicUrl;
+  const publicThumbnailUrl = supabase.storage.from('thumbnails').getPublicUrl(placeholder_image || 'placeholder.jpg').data.publicUrl;
 
-      if (uploadError) {
-        logger.error('Error uploading video to storage:', uploadError);
-        throw uploadError;
-      }
+  // Fix the metadata object to ensure classification is always set
+  const metadata: VideoMetadata = {
+    title: videoMetadata.title,
+    description: videoMetadata.description,
+    assetId: assetId,
+    creatorName: videoMetadata.creatorName,
+    creator: videoMetadata.creator,
+    classification: videoMetadata.classification || 'gen', // Provide default for required field
+    isPrimary: videoMetadata.isPrimary,
+    loraName: videoMetadata.loraName,
+    loraDescription: videoMetadata.loraDescription,
+    loraType: videoMetadata.loraType,
+    loraLink: videoMetadata.loraLink,
+    model: videoMetadata.model,
+    modelVariant: videoMetadata.modelVariant,
+    baseModel: videoMetadata.baseModel,
+    placeholder_image: placeholder_image,
+    trainingSteps: videoMetadata.trainingSteps,
+    resolution: videoMetadata.resolution,
+    trainingDataset: videoMetadata.trainingDataset,
+    aspectRatio: aspectRatio,
+    associatedLoraIds: videoMetadata.associatedLoraIds
+  };
 
-      logger.log(`Video uploaded successfully, creating entry for ${videoId}`);
-
-      const { data: publicUrlData } = supabase.storage
-        .from('videos')
-        .getPublicUrl(videoPath);
-      
-      const videoUrl = publicUrlData.publicUrl;
-
-      // Generate thumbnail
-      logger.log('Generating thumbnail for video');
-      const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
-      
-      // Get aspect ratio
-      const aspectRatio = await getVideoAspectRatio(videoUrl);
-      logger.log(`Calculated aspect ratio: ${aspectRatio}`);
-      
-      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : '';
-      const videoDescription = videoFile.metadata?.description ? videoFile.metadata.description : '';
-
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('media')
-        .insert({
-          title: videoTitle,
-          description: videoDescription,
-          url: videoUrl,
-          type: 'video',
-          classification: videoFile.metadata?.classification || 'art',
-          user_id: userId || this.currentUserId,
-          admin_status: 'Listed',
-          placeholder_image: thumbnailUrl,
-          metadata: { aspectRatio: aspectRatio }
-        })
-        .select()
-        .single();
-
-      if (mediaError) {
-        logger.error('Error creating media entry:', mediaError);
-        throw mediaError;
-      }
-      
-      const isExistingAsset = !!videoFile.metadata?.assetId;
-      let assetId = videoFile.metadata?.assetId;
-      
-      if (isExistingAsset) {
-        await this.addMediaToExistingAsset(
-          mediaData.id, 
-          assetId!, 
-          videoFile.metadata?.isPrimary || false
-        );
-      } 
-      else if (videoFile.metadata?.loraName) {
-        assetId = await this.createNewAssetWithMedia(
-          mediaData.id,
-          videoFile.metadata.loraName,
-          videoFile.metadata.loraDescription || '',
-          videoFile.metadata.creatorName || reviewerName,
-          userId || this.currentUserId
-        );
-      }
-
-      logger.log(`Media entry created successfully: ${mediaData.id}`);
-      
-      const entry: VideoEntry = {
-        id: mediaData.id,
-        url: mediaData.url,
-        reviewer_name: reviewerName,
-        skipped: false,
-        created_at: mediaData.created_at,
-        admin_status: 'Listed',
-        user_status: null,
-        user_id: mediaData.user_id,
-        metadata: {
-          ...(videoFile.metadata || {}),
-          title: mediaData.title,
-          description: mediaData.description,
-          assetId
-        }
-      };
-    
-      return entry;
-    } catch (error) {
-      logger.error('Error in uploadVideo:', error);
-      throw error;
-    }
-  }
-  
-  public async uploadVideoToExistingAsset(
-    videoFile: VideoFile, 
-    assetId: string, 
-    reviewerName: string, 
-    userId?: string,
-    isPrimary: boolean = false
-  ): Promise<VideoEntry | null> {
-    if (!videoFile || !videoFile.blob || !assetId) {
-      logger.error('Attempted to upload a null or invalid video file to asset');
-      throw new Error('Invalid video file or asset ID');
-    }
-
-    try {
-      const videoId = videoFile.id || uuidv4();
-      const videoPath = `${videoId}.webm`;
-      
-      logger.log(`Uploading video to ${videoPath} for asset ${assetId}`);
-      
-      const { error: uploadError } = await supabase.storage
-        .from('videos')
-        .upload(videoPath, videoFile.blob, {
-          contentType: 'video/webm',
-          upsert: true,
-        });
-
-      if (uploadError) {
-        logger.error('Error uploading video to storage:', uploadError);
-        throw uploadError;
-      }
-
-      logger.log(`Video uploaded successfully for asset ${assetId}, creating entry for ${videoId}`);
-
-      const { data: publicUrlData } = supabase.storage
-        .from('videos')
-        .getPublicUrl(videoPath);
-      
-      const videoUrl = publicUrlData.publicUrl;
-
-      // Generate thumbnail for the uploaded video
-      logger.log(`Generating thumbnail for video associated with asset ${assetId}`);
-      const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
-
-      // Get aspect ratio
-      const aspectRatio = await getVideoAspectRatio(videoUrl);
-      logger.log(`Calculated aspect ratio for asset video: ${aspectRatio}`);
-      
-      const videoTitle = videoFile.metadata?.title ? videoFile.metadata.title : '';
-      const videoDescription = videoFile.metadata?.description ? videoFile.metadata.description : '';
-
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('media')
-        .insert({
-          title: videoTitle,
-          description: videoDescription,
-          url: videoUrl,
-          type: 'video',
-          classification: videoFile.metadata?.classification || 'art',
-          user_id: userId || this.currentUserId,
-          admin_status: 'Listed',
-          placeholder_image: thumbnailUrl,
-          metadata: { aspectRatio: aspectRatio }
-        })
-        .select()
-        .single();
-
-      if (mediaError) {
-        logger.error('Error creating media entry:', mediaError);
-        throw mediaError;
-      }
-      
-      await this.addMediaToExistingAsset(mediaData.id, assetId, isPrimary);
-      
-      logger.log(`Media ${mediaData.id} added to asset ${assetId}`);
-      
-      const entry: VideoEntry = {
-        id: mediaData.id,
-        url: mediaData.url,
-        reviewer_name: reviewerName,
-        skipped: false,
-        created_at: mediaData.created_at,
-        admin_status: 'Listed',
-        user_status: null,
-        user_id: mediaData.user_id,
-        metadata: {
-          ...(videoFile.metadata || {}),
-          title: mediaData.title,
-          description: mediaData.description,
-          assetId
-        }
-      };
-      
-      return entry;
-    } catch (error) {
-      logger.error(`Error in uploadVideoToExistingAsset for asset ${assetId}:`, error);
-      throw error;
-    }
-  }
-  
-  private async addMediaToExistingAsset(
-    mediaId: string, 
-    assetId: string, 
-    isPrimary: boolean
-  ): Promise<void> {
-    logger.log(`Adding media ${mediaId} to existing asset ${assetId}`);
-    
-    try {
-      const { data: assetData, error: assetError } = await supabase
-        .from('assets')
-        .select('primary_media_id')
-        .eq('id', assetId)
-        .single();
-        
-      if (assetError) {
-        logger.error(`Error getting asset data for ${assetId}:`, assetError);
-        throw assetError;
-      }
-      
-      const { error: linkError } = await supabase
-        .from('asset_media')
-        .insert({
-          asset_id: assetId,
-          media_id: mediaId
-        });
-        
-      if (linkError) {
-        logger.error('Error linking media to asset:', linkError);
-        throw linkError;
-      }
-      
-      const shouldSetAsPrimary = isPrimary || !assetData?.primary_media_id;
-      
-      if (shouldSetAsPrimary) {
-        logger.log(`Setting media ${mediaId} as primary for asset ${assetId} (explicit: ${isPrimary}, no existing primary: ${!assetData?.primary_media_id})`);
-        const { error: updateError } = await supabase
-          .from('assets')
-          .update({ primary_media_id: mediaId })
-          .eq('id', assetId);
-          
-        if (updateError) {
-          logger.error('Error updating primary media:', updateError);
-        }
-      } else {
-        logger.log(`Not changing primary media for asset ${assetId}. Current primary: ${assetData?.primary_media_id}`);
-      }
-    } catch (error) {
-      logger.error(`Error adding media ${mediaId} to asset ${assetId}:`, error);
-      throw error;
-    }
-  }
-  
-  private async createNewAssetWithMedia(
-    mediaId: string,
-    loraName: string,
-    loraDescription: string = '',
-    creatorName: string,
-    userId: string | null,
-    loraType?: string,
-    loraLink?: string
-  ): Promise<string> {
-    logger.log(`Creating new asset for LoRA: ${loraName}`);
-    
-    try {
-      const { data: assetData, error: assetError } = await supabase
-        .from('assets')
-        .insert({
-          type: 'LoRA',
-          name: loraName,
-          description: loraDescription,
-          creator: creatorName,
+  try {
+    const { data, error } = await supabase
+      .from('media')
+      .insert([
+        {
+          id: videoId,
+          url: publicVideoUrl,
+          title: videoMetadata.title,
+          description: videoMetadata.description,
+          creator: creator || userId,
           user_id: userId,
-          primary_media_id: mediaId,
-          admin_status: 'Listed',
-          lora_type: loraType,
-          lora_link: loraLink
-        })
-        .select()
-        .single();
-      
-      if (assetError) {
-        logger.error('Error creating asset:', assetError);
-        throw assetError;
-      }
-      
-      const assetId = assetData.id;
-      
-      const { error: linkError } = await supabase
-        .from('asset_media')
-        .insert({
-          asset_id: assetId,
-          media_id: mediaId
+          type: 'video',
+          metadata: metadata,
+          placeholder_image: publicThumbnailUrl,
+          classification: videoMetadata.classification || 'gen',
+        }
+      ])
+      .select()
+
+    if (error) {
+      logger.error('Error creating media entry:', error);
+      throw new Error(`Failed to create media entry: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error("No data returned when creating media entry.");
+    }
+
+    return data[0] as VideoEntry;
+  } catch (error: any) {
+    logger.error('Error in createMediaFromVideo:', error);
+    throw new Error(`Failed to create media entry: ${error.message}`);
+  }
+};
+
+// Function to create a media entry from an existing video in Supabase database
+export const createMediaFromExistingVideo = async (
+  videoMetadata: VideoMetadata,
+  userId: string,
+  assetId?: string,
+  aspectRatio?: number,
+  creator?: string,
+  placeholder_image?: string,
+  videoUrl?: string
+): Promise<VideoEntry | null> => {
+  if (!videoUrl) {
+    logger.error('Video URL is required for creating media from existing video.');
+    return null;
+  }
+
+  const videoId = generateVideoId();
+  const publicThumbnailUrl = supabase.storage.from('thumbnails').getPublicUrl(placeholder_image || 'placeholder.jpg').data.publicUrl;
+
+  const metadata: VideoMetadata = {
+    title: videoMetadata.title,
+    description: videoMetadata.description,
+    assetId: assetId,
+    creatorName: videoMetadata.creatorName,
+    creator: videoMetadata.creator,
+    classification: videoMetadata.classification || 'gen', // Provide default for required field
+    isPrimary: videoMetadata.isPrimary,
+    loraName: videoMetadata.loraName,
+    loraDescription: videoMetadata.loraDescription,
+    loraType: videoMetadata.loraType,
+    loraLink: videoMetadata.loraLink,
+    model: videoMetadata.model,
+    modelVariant: videoMetadata.modelVariant,
+    baseModel: videoMetadata.baseModel,
+    placeholder_image: placeholder_image,
+    trainingSteps: videoMetadata.trainingSteps,
+    resolution: videoMetadata.resolution,
+    trainingDataset: videoMetadata.trainingDataset,
+    aspectRatio: aspectRatio,
+    associatedLoraIds: videoMetadata.associatedLoraIds
+  };
+
+  try {
+    const { data, error } = await supabase
+      .from('media')
+      .insert([
+        {
+          id: videoId,
+          url: videoUrl,
+          title: videoMetadata.title,
+          description: videoMetadata.description,
+          creator: creator || userId,
+          user_id: userId,
+          type: 'video',
+          metadata: metadata,
+          placeholder_image: publicThumbnailUrl,
+          classification: videoMetadata.classification || 'gen',
+        }
+      ])
+      .select()
+
+    if (error) {
+      logger.error('Error creating media entry from existing video:', error);
+      throw new Error(`Failed to create media entry from existing video: ${error.message}`);
+    }
+
+    if (!data || data.length === 0) {
+      throw new Error("No data returned when creating media entry from existing video.");
+    }
+
+    return data[0] as VideoEntry;
+  } catch (error: any) {
+    logger.error('Error in createMediaFromExistingVideo:', error);
+    throw new Error(`Failed to create media entry from existing video: ${error.message}`);
+  }
+};
+
+// Function to upload multiple videos to Supabase storage
+export const uploadMultipleVideosToStorage = async (
+  videos: { file: File; metadata: VideoMetadata }[],
+  userId: string,
+  assetId?: string
+): Promise<VideoEntry[]> => {
+  try {
+    const uploadPromises = videos.map(async (video) => {
+      const videoId = generateVideoId();
+      const videoPath = `videos/${userId}/${assetId ? `${assetId}/` : ''}${videoId}-${video.file.name}`;
+      const thumbnailPath = `thumbnails/${userId}/${assetId ? `${assetId}/` : ''}${videoId}-thumbnail.jpg`;
+      const { data: thumbnailUrl } = supabase.storage
+        .from('thumbnails')
+        .getPublicUrl('placeholder.jpg');
+      const publicThumbnailUrl = thumbnailUrl.publicUrl;
+
+      // Upload video
+      const { error: videoError } = await supabase.storage
+        .from('videos')
+        .upload(videoPath, video.file, {
+          cacheControl: '3600',
+          upsert: false
         });
-        
-      if (linkError) {
-        logger.error('Error linking asset and media:', linkError);
-        throw linkError;
+
+      if (videoError) {
+        logger.error('Error uploading video:', videoError);
+        throw new Error(`Video upload failed: ${videoError.message}`);
       }
-      
-      logger.log(`Created new asset ${assetId} with primary media ${mediaId}`);
-      return assetId;
-    } catch (error) {
-      logger.error('Error creating new asset with media:', error);
-      throw error;
-    }
-  }
-  
-  public async addEntry(entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status'>): Promise<VideoEntry> {
-    try {
-      logger.log(`Adding new entry: ${JSON.stringify(entryData)}`);
-      
-      if (!entryData.reviewer_name) {
-        throw new Error('Reviewer name is required for video entries');
-      }
-      
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('media')
-        .insert({
-          title: entryData.metadata?.title || '',
-          description: entryData.metadata?.description || '',
-          url: entryData.url,
-          type: 'video',
-          classification: entryData.metadata?.classification || 'art',
-          user_id: entryData.user_id || this.currentUserId,
-          admin_status: 'Listed',
-          placeholder_image: entryData.metadata?.placeholder_image,
-          metadata: { aspectRatio: entryData.metadata?.aspectRatio }
-        })
-        .select()
-        .single();
-      
-      if (mediaError) {
-        logger.error('Error creating media entry:', mediaError);
-        throw mediaError;
-      }
-      
-      const isExistingAsset = !!entryData.metadata?.assetId;
-      let assetId = entryData.metadata?.assetId;
-      
-      if (isExistingAsset) {
-        await this.addMediaToExistingAsset(
-          mediaData.id, 
-          assetId!, 
-          entryData.metadata?.isPrimary || false
-        );
-      } 
-      else if (entryData.metadata?.loraName) {
-        assetId = await this.createNewAssetWithMedia(
-          mediaData.id,
-          entryData.metadata.loraName,
-          entryData.metadata.loraDescription || '',
-          entryData.metadata.creatorName || entryData.reviewer_name,
-          entryData.user_id || this.currentUserId
-        );
-      }
-      
-      const newEntry: VideoEntry = {
-        id: mediaData.id,
-        url: mediaData.url,
-        reviewer_name: entryData.reviewer_name,
-        skipped: entryData.skipped || false,
-        created_at: mediaData.created_at,
-        admin_status: 'Listed',
-        user_status: null,
-        user_id: mediaData.user_id,
-        metadata: {
-          ...(entryData.metadata || {}),
-          title: mediaData.title,
-          description: mediaData.description,
-          assetId
-        }
+
+      const metadata: VideoMetadata = {
+        title: video.metadata.title,
+        description: video.metadata.description,
+        assetId: assetId,
+        creatorName: video.metadata.creatorName,
+        creator: video.metadata.creator,
+        classification: video.metadata.classification || 'gen', // Provide default for required field
+        isPrimary: video.metadata.isPrimary,
+        loraName: video.metadata.loraName,
+        loraDescription: video.metadata.loraDescription,
+        loraType: video.metadata.loraType,
+        loraLink: video.metadata.loraLink,
+        model: video.metadata.model,
+        modelVariant: video.metadata.modelVariant,
+        baseModel: video.metadata.baseModel,
+        placeholder_image: publicThumbnailUrl,
+        trainingSteps: video.metadata.trainingSteps,
+        resolution: video.metadata.resolution,
+        trainingDataset: video.metadata.trainingDataset,
+        aspectRatio: video.metadata.aspectRatio,
+        associatedLoraIds: video.metadata.associatedLoraIds
       };
-      
-      return newEntry;
-    } catch (error) {
-      logger.error('Error in addEntry:', error);
-      throw error;
-    }
-  }
-  
-  public async addEntryToExistingAsset(
-    entryData: Omit<VideoEntry, 'id' | 'created_at' | 'admin_status'>,
-    assetId: string,
-    isPrimary: boolean = false
-  ): Promise<VideoEntry | null> {
-    if (!entryData.url || !assetId) {
-      logger.error('Attempted to add an entry without URL or asset ID');
-      throw new Error('Invalid entry data or asset ID');
-    }
 
-    try {
-      logger.log(`Adding media entry for URL to asset ${assetId}`);
-
-      let thumbnailUrl = entryData.metadata?.placeholder_image;
-      if (!thumbnailUrl) {
-        logger.log(`No placeholder image provided for URL entry, generating thumbnail.`);
-        thumbnailUrl = await thumbnailService.generateThumbnail(entryData.url);
-      }
-      
-      // Get aspect ratio
-      const aspectRatio = await getVideoAspectRatio(entryData.url);
-      logger.log(`Calculated aspect ratio for existing entry: ${aspectRatio}`);
-      
-      const { data: mediaData, error: mediaError } = await supabase
+      // Create media entry
+      const { data, error } = await supabase
         .from('media')
-        .insert({
-          title: entryData.metadata?.title || '',
-          description: entryData.metadata?.description || '',
-          url: entryData.url,
-          type: 'video',
-          classification: entryData.metadata?.classification || 'art',
-          user_id: entryData.user_id || this.currentUserId,
-          admin_status: 'Listed',
-          placeholder_image: thumbnailUrl,
-          metadata: { aspectRatio: aspectRatio }
-        })
-        .select()
-        .single();
+        .insert([
+          {
+            id: videoId,
+            url: supabase.storage.from('videos').getPublicUrl(videoPath).data.publicUrl,
+            title: video.metadata.title,
+            description: video.metadata.description,
+            creator: userId,
+            user_id: userId,
+            type: 'video',
+            metadata: metadata,
+            placeholder_image: publicThumbnailUrl,
+            classification: video.metadata.classification || 'gen',
+          }
+        ])
+        .select();
 
-      if (mediaError) {
-        logger.error('Error creating media entry:', mediaError);
-        throw mediaError;
+      if (error) {
+        logger.error('Error creating media entry:', error);
+        throw new Error(`Failed to create media entry: ${error.message}`);
       }
-      
-      await this.addMediaToExistingAsset(mediaData.id, assetId, isPrimary);
-      
-      logger.log(`Media ${mediaData.id} added to asset ${assetId}`);
-      
-      const newEntry: VideoEntry = {
-        id: mediaData.id,
-        url: mediaData.url,
-        reviewer_name: entryData.reviewer_name,
-        skipped: entryData.skipped || false,
-        created_at: mediaData.created_at,
-        admin_status: 'Listed',
-        user_status: null,
-        user_id: mediaData.user_id,
-        metadata: {
-          ...(entryData.metadata || {}),
-          title: mediaData.title,
-          description: mediaData.description,
-          assetId
-        }
-      };
-      
-      return newEntry;
-    } catch (error) {
-      logger.error(`Error in addEntryToExistingAsset for asset ${assetId}:`, error);
-      throw error;
-    }
-  }
-}
 
-export const videoUploadService = new VideoUploadService();
+      if (!data || data.length === 0) {
+        throw new Error("No data returned when creating media entry.");
+      }
+
+      return data[0] as VideoEntry;
+    });
+
+    return await Promise.all(uploadPromises);
+  } catch (error: any) {
+    logger.error('Error in uploadMultipleVideosToStorage:', error);
+    throw new Error(`Failed to upload videos: ${error.message}`);
+  }
+};
+
+// Function to upload multiple videos to Supabase and create media entries
+export const uploadMultipleVideosToSupabase = async (
+  videos: { file: File; metadata: VideoMetadata }[],
+  userId: string,
+  assetId?: string
+): Promise<VideoEntry[]> => {
+  try {
+    const uploadPromises = videos.map(async (video) => {
+      const videoId = generateVideoId();
+      const videoPath = `videos/${userId}/${assetId ? `${assetId}/` : ''}${videoId}-${video.file.name}`;
+      const thumbnailPath = `thumbnails/${userId}/${assetId ? `${assetId}/` : ''}${videoId}-thumbnail.jpg`;
+      const { data: thumbnailUrl } = supabase.storage
+        .from('thumbnails')
+        .getPublicUrl('placeholder.jpg');
+      const publicThumbnailUrl = thumbnailUrl.publicUrl;
+
+      // Upload video
+      const { error: videoError } = await supabase.storage
+        .from('videos')
+        .upload(videoPath, video.file, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (videoError) {
+        logger.error('Error uploading video:', videoError);
+        throw new Error(`Video upload failed: ${videoError.message}`);
+      }
+
+      const metadata: VideoMetadata = {
+        title: video.metadata.title,
+        description: video.metadata.description,
+        assetId: assetId,
+        creatorName: video.metadata.creatorName,
+        creator: video.metadata.creator,
+        classification: video.metadata.classification || 'gen', // Provide default for required field
+        isPrimary: video.metadata.isPrimary,
+        loraName: video.metadata.loraName,
+        loraDescription: video.metadata.loraDescription,
+        loraType: video.metadata.loraType,
+        loraLink: video.metadata.loraLink,
+        model: video.metadata.model,
+        modelVariant: video.metadata.modelVariant,
+        baseModel: video.metadata.baseModel,
+        placeholder_image: publicThumbnailUrl,
+        trainingSteps: video.metadata.trainingSteps,
+        resolution: video.metadata.resolution,
+        trainingDataset: video.metadata.trainingDataset,
+        aspectRatio: video.metadata.aspectRatio,
+        associatedLoraIds: video.metadata.associatedLoraIds
+      };
+
+      // Create media entry
+      const { data, error } = await supabase
+        .from('media')
+        .insert([
+          {
+            id: videoId,
+            url: supabase.storage.from('videos').getPublicUrl(videoPath).data.publicUrl,
+            title: video.metadata.title,
+            description: video.metadata.description,
+            creator: userId,
+            user_id: userId,
+            type: 'video',
+            metadata: metadata,
+            placeholder_image: publicThumbnailUrl,
+            classification: video.metadata.classification || 'gen',
+          }
+        ])
+        .select();
+
+      if (error) {
+        logger.error('Error creating media entry:', error);
+        throw new Error(`Failed to create media entry: ${error.message}`);
+      }
+
+      if (!data || data.length === 0) {
+        throw new Error("No data returned when creating media entry.");
+      }
+
+      return data[0] as VideoEntry;
+    });
+
+    return await Promise.all(uploadPromises);
+  } catch (error: any) {
+    logger.error('Error in uploadMultipleVideosToSupabase:', error);
+    throw new Error(`Failed to upload videos: ${error.message}`);
+  }
+};
