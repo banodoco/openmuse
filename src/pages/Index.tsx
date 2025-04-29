@@ -322,12 +322,14 @@ const Index: React.FC = () => {
     setIsUploadModalOpen(false); // Close the specific modal
     refetchVideos(); // Refetch videos
     toast.success("Art uploaded successfully!");
+    toast.info("Video uploaded, check your profile to see it.");
   }, [refetchVideos]);
 
   const handleGenerationUploadSuccess = useCallback(() => {
     setIsUploadModalOpen(false); // Close the specific modal
     refetchVideos(); // Refetch videos
     toast.success("Generation uploaded successfully!");
+    toast.info("Video uploaded, check your profile to see it.");
   }, [refetchVideos]);
 
   // logger.log(`Index rendering return. videosLoading=${videosLoading}, lorasLoading=${lorasLoading}, authLoading=${authLoading}, displayLoras count=${displayLoras.length}`);
