@@ -1,10 +1,9 @@
-
 import React, { useEffect, useState } from 'react';
 import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Pin } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
-import { AdminStatus, VideoDisplayStatus } from '@/lib/types';
+import { VideoDisplayStatus } from '@/lib/types';
 
 const logger = new Logger('VideoStatusControls');
 
@@ -41,6 +40,21 @@ const VideoStatusControls: React.FC<VideoStatusControlsProps> = ({
       }}
       style={{ pointerEvents: 'all' }}
     >
+      <Button
+        variant="ghost"
+        size="icon"
+        className={cn(
+          "h-7 w-7 rounded-sm",
+          currentStatus === 'Pinned'
+            ? "bg-yellow-500/90 text-white hover:bg-yellow-600"
+            : "bg-black/50 text-yellow-400 hover:bg-black/70 hover:text-yellow-300"
+        )}
+        onClick={handleButtonClick('Pinned')}
+        title="Pin this video"
+      >
+        <Pin className="h-4 w-4" />
+      </Button>
+
       <Button
         variant="ghost"
         size="icon"

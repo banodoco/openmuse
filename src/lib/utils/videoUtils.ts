@@ -1,4 +1,3 @@
-
 import { VideoEntry, VideoDisplayStatus, AdminStatus } from '@/lib/types';
 
 /**
@@ -153,13 +152,11 @@ export const getVideoFormat = (url: string): string => {
  * Defines the order for video display statuses.
  */
 // Define order using valid VideoDisplayStatus values
+// Aligned with the simplified VideoDisplayStatus type
 const statusOrder: { [key in VideoDisplayStatus]?: number } = {
-  Featured: 1,
-  Curated: 2,
-  Listed: 3,
-  View: 4,     // View status
-  Hidden: 5,   // Hidden last among interactable statuses
-  Rejected: 6, // Rejected very last
+  Pinned: 1,   // Pinned first
+  Listed: 2,   // Listed second
+  Hidden: 3,   // Hidden last
 };
 
 /**
@@ -177,21 +174,21 @@ export const sortAssetPageVideos = (
   videos: VideoEntry[],
   primaryMediaId: string | null | undefined
 ): VideoEntry[] => {
-  // Define order using valid AdminStatus values
-  const statusOrder: { [key in AdminStatus]?: number } = {
-    Featured: 1,
-    Curated: 2,
-    Listed: 3,
-    Hidden: 4,
-    Rejected: 5,
+  // Define order using the user-settable VideoDisplayStatus values
+  const VIDEO_DISPLAY_STATUS_ORDER: { [key in VideoDisplayStatus]?: number } = {
+    Pinned: 1,
+    Listed: 2,
+    Hidden: 3,
   };
 
   return [...videos].sort((a, b) => {
-    // 1) Status order
-    const statusA = a.admin_status || 'Listed'; // Default to Listed if null
-    const statusB = b.admin_status || 'Listed'; // Default to Listed if null
-    const orderA = statusOrder[statusA] ?? 99; // Get order, fallback to large number
-    const orderB = statusOrder[statusB] ?? 99; // Get order, fallback to large number
+    // 1) Display status order (using assetMediaDisplayStatus)
+    // Default to 'Listed' if assetMediaDisplayStatus is null/undefined or invalid
+    const statusA = a.assetMediaDisplayStatus || 'Listed';
+    const statusB = b.assetMediaDisplayStatus || 'Listed';
+    // Use default Listed order (2) if status not in map
+    const orderA = VIDEO_DISPLAY_STATUS_ORDER[statusA as VideoDisplayStatus] ?? 2;
+    const orderB = VIDEO_DISPLAY_STATUS_ORDER[statusB as VideoDisplayStatus] ?? 2;
 
     const statusDiff = orderA - orderB;
     if (statusDiff !== 0) return statusDiff;
@@ -201,10 +198,10 @@ export const sortAssetPageVideos = (
     const bIsPrimary = b.id === primaryMediaId;
     if (aIsPrimary !== bIsPrimary) return aIsPrimary ? -1 : 1;
 
-    // 3) Admin Featured videos next (within the same status and primary status)
-    const aIsFeatured = a.admin_status === 'Featured';
-    const bIsFeatured = b.admin_status === 'Featured';
-    if (aIsFeatured !== bIsFeatured) return aIsFeatured ? -1 : 1;
+    // 3) Removed Admin Featured check - was likely part of the reverted changes
+    // const aIsFeatured = a.admin_status === 'Featured';
+    // const bIsFeatured = b.admin_status === 'Featured';
+    // if (aIsFeatured !== bIsFeatured) return aIsFeatured ? -1 : 1;
 
     // 4) Finally, most recent first
     return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
