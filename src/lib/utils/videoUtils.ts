@@ -154,14 +154,14 @@ export const getVideoFormat = (url: string): string => {
 // Define order using valid VideoDisplayStatus values
 // Aligned with the simplified VideoDisplayStatus type
 const statusOrder: { [key in VideoDisplayStatus]?: number } = {
-  Hidden: 1,   // Hidden first
+  Pinned: 1,   // Pinned first
   Listed: 2,   // Listed second
-  Pinned: 3,   // Pinned last
+  Hidden: 3,   // Hidden last
 };
 
 /**
  * Sorts videos for an asset detail page based on a specific order:
- * 1. Display Status (Hidden > Listed > Pinned)
+ * 1. Display Status (Pinned > Listed > Hidden)
  * 2. Primary Video first within the same status
  * 3. Admin Featured videos next within the same status
  * 4. Finally, by creation date (newest first)
@@ -176,9 +176,9 @@ export const sortAssetPageVideos = (
 ): VideoEntry[] => {
   // Define order using the user-settable VideoDisplayStatus values
   const VIDEO_DISPLAY_STATUS_ORDER: { [key in VideoDisplayStatus]?: number } = {
-    Hidden: 1,
+    Pinned: 1,
     Listed: 2,
-    Pinned: 3,
+    Hidden: 3,
   };
 
   return [...videos].sort((a, b) => {

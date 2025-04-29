@@ -125,7 +125,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setEditableDescription(initialDescription || '');
     setEditableAssetId(initialAssetId || '');
     setEditableClassification(initialClassification);
-    setIsEditing(false);
   }, [videoId, initialTitle, initialDescription, initialAssetId, initialClassification]);
 
   useEffect(() => {
@@ -168,7 +167,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setEditableTitle(initialTitle || '');
     setEditableDescription(initialDescription || '');
     setEditableAssetId(initialAssetId || '');
-  }, [initialTitle, initialDescription, initialAssetId]);
+    setEditableClassification(initialClassification);
+  }, [initialTitle, initialDescription, initialAssetId, initialClassification]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {

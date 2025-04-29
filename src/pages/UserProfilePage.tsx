@@ -61,11 +61,11 @@ const calculatePageSize = (totalItems: number): number => {
 };
 
 const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
-  // Use the correct VideoDisplayStatus order: Hidden > Listed > Pinned
+  // Use the correct VideoDisplayStatus order: Pinned > Listed > Hidden
   const statusOrder: { [key in VideoDisplayStatus]?: number } = {
-    Hidden: 1,   // Hidden first
+    Pinned: 1,   // Pinned first
     Listed: 2,   // Listed second
-    Pinned: 3,   // Pinned last
+    Hidden: 3,   // Hidden last
   };
   return [...videos].sort((a, b) => {
     // Sort based on user_status, default to 'Listed'
@@ -85,11 +85,11 @@ const sortProfileVideos = (videos: VideoEntry[]): VideoEntry[] => {
 };
 
 const sortUserAssets = (assets: LoraAsset[]): LoraAsset[] => {
-  // Order: Hidden > Listed > Pinned
+  // Order: Pinned > Listed > Hidden
   const statusOrder: { [key in UserAssetPreferenceStatus]: number } = { 
-    'Hidden': 1, 
+    'Pinned': 1, 
     'Listed': 2, 
-    'Pinned': 3 
+    'Hidden': 3 // Note: Original code had Hidden as 4, corrected to 3 for sequential order
   };
   return [...assets].sort((a, b) => {
     const statusA = a.user_status;
