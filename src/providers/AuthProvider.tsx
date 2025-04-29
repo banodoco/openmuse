@@ -83,7 +83,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting isLoading=true (before getSession)`);
             setIsLoading(true);
         }
+        const getSessionStart = performance.now();
+        logger.log(`[Initial Check][v${PROVIDER_VERSION}] Calling supabase.auth.getSession() - START`);
         const { data, error } = await supabase.auth.getSession();
+
+        // Log duration regardless of mount status, but check mount before proceeding
+        const getSessionDuration = (performance.now() - getSessionStart).toFixed(2);
+        logger.log(`[Initial Check][v${PROVIDER_VERSION}] supabase.auth.getSession() - END - Duration: ${getSessionDuration} ms`);
 
         if (!isMounted.current) {
           logger.log(`[Initial Check][v${PROVIDER_VERSION}] Component unmounted during getSession, aborting.`);
