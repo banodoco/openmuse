@@ -402,19 +402,25 @@ const VideoCard: React.FC<VideoCardProps> = ({
                   </div>
                 )}
                 {/* Only show creator info when NOT on profile page */}
-                {!isProfilePage && creatorDisplayName && (
-                  <span className="flex items-center space-x-1 mt-1">
-                    <Avatar className="h-4 w-4 border-0 bg-white/20">
-                      <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
-                      <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
-                        {creatorDisplayName[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-white text-[10px] leading-none line-clamp-1">
-                      {creatorDisplayName}
+                {!isProfilePage && creatorDisplayName && (() => {
+                  const titleOrBadgeExists = video.metadata?.title || (isProfilePage && shouldShowBadge);
+                  return (
+                    <span className={cn(
+                      "flex items-center space-x-1",
+                      titleOrBadgeExists && "mt-1" // Conditional Margin
+                    )}>
+                      <Avatar className="h-4 w-4 border-0 bg-white/20">
+                        <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
+                        <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
+                          {creatorDisplayName[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white text-[10px] leading-none line-clamp-1">
+                        {creatorDisplayName}
+                      </span>
                     </span>
-                  </span>
-                )}
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -442,19 +448,25 @@ const VideoCard: React.FC<VideoCardProps> = ({
                   </div>
                 )}
                 {/* Creator Info (Only when NOT on profile page) */}
-                {!isProfilePage && creatorDisplayName && (
-                  <span className="flex items-center space-x-1 mt-1">
-                    <Avatar className="h-4 w-4 border-0 bg-white/20">
-                      <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
-                      <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
-                        {creatorDisplayName[0]?.toUpperCase()}
-                      </AvatarFallback>
-                    </Avatar>
-                    <span className="text-white text-[10px] leading-none line-clamp-1">
-                      {creatorDisplayName}
+                {!isProfilePage && creatorDisplayName && (() => {
+                  const titleOrBadgeExists = video.metadata?.title || (isProfilePage && shouldShowBadge);
+                  return (
+                    <span className={cn(
+                      "flex items-center space-x-1",
+                      titleOrBadgeExists && "mt-1" // Conditional Margin
+                    )}>
+                      <Avatar className="h-4 w-4 border-0 bg-white/20">
+                        <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
+                        <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
+                          {creatorDisplayName[0]?.toUpperCase()}
+                        </AvatarFallback>
+                      </Avatar>
+                      <span className="text-white text-[10px] leading-none line-clamp-1">
+                        {creatorDisplayName}
+                      </span>
                     </span>
-                  </span>
-                )}
+                  );
+                })()}
               </div>
             </div>
           )}
@@ -583,19 +595,25 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     </div>
                   )}
                   {/* Creator Info (Only when NOT on profile page) */}
-                  {!isProfilePage && creatorDisplayName && (
-                    <span className="flex items-center space-x-1 mt-1 pointer-events-auto"> {/* Added pointer-events-auto here */}
-                      <Avatar className="h-4 w-4 border-0 bg-white/20">
-                        <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
-                        <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
-                          {creatorDisplayName[0]?.toUpperCase()}
-                        </AvatarFallback>
-                      </Avatar>
-                      <span className="text-white text-[10px] leading-none line-clamp-1">
-                        {creatorDisplayName}
+                  {!isProfilePage && creatorDisplayName && (() => {
+                    const titleOrBadgeExists = video.metadata?.title || (isProfilePage && shouldShowBadge);
+                    return (
+                      <span className={cn(
+                        "flex items-center space-x-1 pointer-events-auto", // Added pointer-events-auto here previously
+                        titleOrBadgeExists && "mt-1" // Conditional Margin
+                      )}>
+                        <Avatar className="h-4 w-4 border-0 bg-white/20">
+                          <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
+                          <AvatarFallback className="text-[8px] font-medium bg-white/20 text-white/90">
+                            {creatorDisplayName[0]?.toUpperCase()}
+                          </AvatarFallback>
+                        </Avatar>
+                        <span className="text-white text-[10px] leading-none line-clamp-1">
+                          {creatorDisplayName}
+                        </span>
                       </span>
-                    </span>
-                  )}
+                    );
+                  })()}
                 </div>
               </div>
             </div>

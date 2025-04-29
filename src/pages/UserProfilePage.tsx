@@ -1091,6 +1091,7 @@ export default function UserProfilePage() {
           hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < fullVideoListForLightbox.length - 1}
           onPrevVideo={handlePrevLightboxVideo}
           onNextVideo={handleNextLightboxVideo}
+          classification={lightboxVideo.metadata?.classification}
         />
       )}
 
