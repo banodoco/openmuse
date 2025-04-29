@@ -245,14 +245,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     // Only update if mounted AND the user context matches
     if (isMounted.current && currentUserId === checkUserId) {
-      if (isAdmin !== value) {
-         logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
-         setIsAdmin(value);
-      }
+      // Use functional update form of setIsAdmin to avoid depending on `isAdmin` state directly
+      setIsAdmin(currentState => {
+        if (currentState !== value) {
+           logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Updating isAdmin=${value} for user ${checkUserId}`);
+           return value; // Return the new value
+        }
+        // logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: isAdmin already ${value}. No update.`);
+        return currentState; // Return current state if no change needed
+      });
     } else {
       logger.log(`[Admin Check][v${PROVIDER_VERSION}][${tabId.current}] safeSetIsAdmin: Skipped admin update. Mounted: ${isMounted.current}, User Match: ${currentUserId === checkUserId} (Current: ${currentUserId}, Check: ${checkUserId}). Target value: ${value}`);
     }
-  }, [isAdmin, tabId]); // Added tabId for logging consistency
+  }, [tabId]);
 
 
   // --- Original useEffect for Auth State Changes (Supabase Listener) ---

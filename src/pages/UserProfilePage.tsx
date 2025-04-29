@@ -175,6 +175,24 @@ export default function UserProfilePage() {
   // Only this flag (not the whole query string) should trigger data refetch
   const loggedOutViewParam = searchParams.get('loggedOutView');
 
+  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
+
+  // --- Conditional Return for Auth Loading ---
+  // This MUST come *after* all hook calls.
+  if (isAuthLoading) {
+    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
+    return (
+      <>
+        <Navigation />
+        <div className="flex justify-center items-center h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+        <Footer />
+      </>
+    );
+  }
+  // --- End Conditional Return ---
+
   // --- Data Fetching Functions defined using useCallback ---
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
     logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
@@ -756,24 +774,6 @@ export default function UserProfilePage() {
   useFadeInOnScroll(loraCardRef);
   useFadeInOnScroll(artCardRef);
   useFadeInOnScroll(generationsCardRef);
-
-  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
-
-  // === Early return if AuthProvider is still loading ===
-  if (isAuthLoading) {
-    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
-    return (
-      <div className="w-full min-h-screen flex flex-col text-foreground">
-        <Navigation />
-        <main className="flex-1 container mx-auto p-4 md:p-6 flex justify-center items-center">
-          {/* Render a top-level loader */}
-          <Loader2 className="h-16 w-16 animate-spin text-primary" />
-        </main>
-        <Footer />
-      </div>
-    );
-  }
-  logger.log('[UserProfilePage Render] Proceeding past auth loading check.');
 
   // --- Helper Functions Defined Inside Component ---
   const getInitials = (name: string) => {
