@@ -28,6 +28,10 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
   logger.log(`useVideoManagement: Auth state received - isLoading: ${authIsLoading}, userId: ${userId}`);
 
   const loadAllVideos = useCallback(async () => {
+    if (authIsLoading) {
+      logger.log('[loadAllVideos] Skipping: auth is still loading');
+      return;
+    }
     logger.log(`[loadAllVideos] Attempting to load videos with filter: ${approvalFilter}...`);
     if (!isMounted.current) {
       logger.log("[loadAllVideos] Skipping: Component not mounted");
@@ -111,7 +115,7 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
          fetchInProgress.current = false; 
       }
     }
-  }, [userId, approvalFilter]); // Add approvalFilter as a dependency
+  }, [userId, approvalFilter, authIsLoading]); // Include authIsLoading
 
   useEffect(() => {
     logger.log(`[Effect Mount/Filter Change] Running effect. Filter: ${approvalFilter}`);
@@ -120,7 +124,11 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
 
     logger.log(`[Effect Mount/Filter Change] Current state: fetchAttempted=${fetchAttempted.current}`);
     
-    loadAllVideos(); // Load videos whenever the hook mounts or the filter changes
+    if (!authIsLoading) {
+      loadAllVideos(); // Only load if auth finished
+    } else {
+      logger.log('[Effect Mount/Filter Change] Auth still loading, deferring initial video fetch');
+    }
 
     return () => {
       logger.log('[Effect Cleanup] Setting isMounted = false');
@@ -132,7 +140,7 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
       }
       logger.log("useVideoManagement cleanup complete");
     };
-  }, [loadAllVideos, approvalFilter]); // Add approvalFilter to dependency array
+  }, [loadAllVideos, approvalFilter, authIsLoading]);
 
   const refetchVideos = useCallback(async () => {
     logger.log(`[refetchVideos] Attempting refetch with filter: ${approvalFilter}...`);
