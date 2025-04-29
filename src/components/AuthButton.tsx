@@ -155,14 +155,16 @@ const AuthButton: React.FC = () => {
         variant="ghost" 
         size="icon"
         className={cn(
-          "absolute top-1.5 right-1.5 z-10",
+          "absolute -top-2 -right-2 z-10",
           "flex items-center justify-center rounded-full",
           "h-7 w-auto px-2",
           "bg-background/70 backdrop-blur-sm text-muted-foreground",
+          "border border-olive/30",
           "transition-all duration-200 ease-in-out",
           "md:h-6 md:w-6 md:px-0",
           "md:group-hover:scale-110",
-          "md:hover:bg-muted/90 md:hover:text-foreground md:hover:w-auto md:hover:px-2"
+          "md:hover:bg-muted/90 md:hover:text-foreground md:hover:w-auto md:hover:px-2",
+          "md:hover:border-olive/50"
         )}
         onClick={(e) => {
           e.stopPropagation();
