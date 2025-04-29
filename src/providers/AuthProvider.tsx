@@ -108,15 +108,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Claim was overwritten or failed
           if (isLeader) { // Update state only if it changed
              logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Claim failed or was overwritten by tab ${current?.tabId}. Relinquishing.`);
-             setIsLeader(false);
+                 setIsLeader(false);
           }
         }
       }, CLAIM_TIMEOUT_DURATION); // Use short confirmation timeout
-    } else {
+             } else {
        // A valid leader exists, ensure we are not marked as leader
        if (isLeader && existing?.tabId !== tabId.current) {
          logger.log(`[Leader-LS][v${PROVIDER_VERSION}][${tabId.current}] Valid leader ${existing?.tabId} exists. Ensuring this tab is not leader.`);
-         setIsLeader(false);
+                 setIsLeader(false);
        }
     }
      // Add isLeader to dependencies as we read it
@@ -411,15 +411,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                  // Allow processing SIGNED_OUT or fast-path SIGNED_IN/INITIAL_SESSION to potentially complete the initial check early
                  switch (event) {
                     case 'SIGNED_OUT': { // Wrap in block for lexical declaration
-                         logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early SIGNED_OUT.`);
+                     logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early SIGNED_OUT.`);
                          // Check isMounted again *inside* the case before setting state
-                         if (isMounted.current) {
-                             logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=null, user=null, isAdmin=false, initialCheck=true, isLoading=false (early SIGNED_OUT)`);
-                             setSession(null);
-                             setUser(null);
-                             setIsAdmin(false);
+                     if (isMounted.current) {
+                         logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=null, user=null, isAdmin=false, initialCheck=true, isLoading=false (early SIGNED_OUT)`);
+                         setSession(null);
+                         setUser(null);
+                         setIsAdmin(false);
                              initialCheckCompleted.current = true; // Mark as completed
-                             setIsLoading(false);
+                         setIsLoading(false);
                              if (sessionFallbackTimeout.current) clearTimeout(sessionFallbackTimeout.current); sessionFallbackTimeout.current = null;
                          }
                          return; // Processed early exit
@@ -428,43 +428,43 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     case 'INITIAL_SESSION':
                     case 'TOKEN_REFRESHED': { // Wrap in block
                        if (currentSession) {
-                          logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early ${event}. Processing immediately.`);
-                           const userId = currentSession.user.id;
-                           if (isMounted.current) {
-                               logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=present, user=${userId}, initialCheck=true, isLoading=false (early ${event})`);
-                               setSession(currentSession);
-                               setUser(currentSession.user);
+                      logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Handling early ${event}. Processing immediately.`);
+                       const userId = currentSession.user.id;
+                       if (isMounted.current) {
+                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Setting state: session=present, user=${userId}, initialCheck=true, isLoading=false (early ${event})`);
+                           setSession(currentSession);
+                           setUser(currentSession.user);
                                initialCheckCompleted.current = true; // Mark as completed
-                               setIsLoading(false);
+                           setIsLoading(false);
                                if (sessionFallbackTimeout.current) clearTimeout(sessionFallbackTimeout.current); sessionFallbackTimeout.current = null;
 
                                // Trigger non-blocking admin check only if necessary
-                               if (!adminCheckInProgress.current) {
-                                   adminCheckInProgress.current = true;
-                                   logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Starting ADMIN CHECK for user ${userId} (early ${event})`);
-                                   (async () => {
-                                       const checkUserId = userId;
-                                       try {
-                                           const adminStatus = await checkIsAdmin(checkUserId);
+                           if (!adminCheckInProgress.current) {
+                               adminCheckInProgress.current = true;
+                               logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Starting ADMIN CHECK for user ${userId} (early ${event})`);
+                               (async () => {
+                                   const checkUserId = userId;
+                                   try {
+                                       const adminStatus = await checkIsAdmin(checkUserId);
                                            // Check mount status again before setting state
                                            if (isMounted.current) safeSetIsAdmin(checkUserId, adminStatus);
-                                       } catch (adminError) {
-                                           logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Error for ${checkUserId} (early ${event}):`, adminError);
+                                   } catch (adminError) {
+                                       logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK: Error for ${checkUserId} (early ${event}):`, adminError);
                                            if (isMounted.current) safeSetIsAdmin(checkUserId, false);
-                                       } finally {
-                                            adminCheckInProgress.current = false;
+                                   } finally {
+                                        adminCheckInProgress.current = false;
                                             // Log completion status based on mount state
                                             if(isMounted.current) {
-                                                logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (early ${event}).`);
-                                            } else {
+                                           logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (early ${event}).`);
+                                        } else {
                                                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] ADMIN CHECK finished for ${checkUserId} (early ${event}, component unmounted).`);
-                                            }
-                                       }
-                                   })();
-                               } else {
-                                  logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress, skipping new check for ${userId} (early ${event}).`);
-                               }
+                                        }
+                                   }
+                               })();
+                           } else {
+                              logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress, skipping new check for ${userId} (early ${event}).`);
                            }
+                       }
                            return; // Processed fast path
                        } else {
                             // If event is SIGNED_IN etc but session is null, wait for initial check
@@ -475,7 +475,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     default:
                        // For other events (PASSWORD_RECOVERY, USER_UPDATED before initial check), wait.
                       logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Deferring processing of event: ${event} (waiting for initial check)`);
-                      return;
+                    return;
                  }
             }
 
@@ -500,14 +500,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     if (profileError) {
                        logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Error fetching profile for Discord sync for ${userId}:`, profileError);
                     } else if (profileData) {
-                         const updatePayload: { discord_user_id?: string; discord_username?: string } = {};
-                         let needsUpdate = false;
+                      const updatePayload: { discord_user_id?: string; discord_username?: string } = {};
+                      let needsUpdate = false;
                          if (discordUsername && profileData.discord_username !== discordUsername) { updatePayload.discord_username = discordUsername; needsUpdate = true; }
                          if (discordUserId && profileData.discord_user_id !== discordUserId) { updatePayload.discord_user_id = discordUserId; needsUpdate = true; }
 
-                         if (needsUpdate) {
+                      if (needsUpdate) {
                             logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Updating profile for ${userId} with Discord fields:`, updatePayload);
-                            const { error: updateError } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
+                          const { error: updateError } = await supabase.from('profiles').update(updatePayload).eq('id', userId);
                             if (updateError) {
                                logger.error(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}][LEADER] Error updating profile with Discord fields for ${userId}:`, updateError);
                             } else {
@@ -550,8 +550,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
              if (!newUser) {
                 // User signed out, ensure admin is false if it wasn't already
                 if (isAdmin) {
-                     logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] No user in session, resetting admin status.`);
-                     setIsAdmin(false);
+                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] No user in session, resetting admin status.`);
+                 setIsAdmin(false);
                 }
              } else if (newUser.id !== oldUser?.id) { // User *actually changed*
                 logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] User changed (${oldUser?.id} -> ${newUser.id}). Resetting admin & starting check.`);
@@ -579,7 +579,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                             }
                        }
                    })();
-                } else {
+             } else {
                    logger.log(`[Auth Listener][v${PROVIDER_VERSION}][${tabId.current}] Admin check already in progress for user ${newUser.id}, skipping new check trigger.`);
                 }
              } // else: User unchanged, no need to re-trigger admin check
@@ -708,7 +708,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (error) {
           logger.error(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signOut: Error:`, error);
           toast.error(error.message || 'Error signing out', { id: `signout-error-${Date.now()}` });
-      } else {
+    } else {
           logger.log(`[Auth Action][v${PROVIDER_VERSION}][${tabId.current}][LEADER] signOut: Successful. Waiting for onAuthStateChange.`);
           // No need to manually relinquish leader here, storage event + heartbeat check handles it.
       }

@@ -50,7 +50,7 @@ export class DatabaseProvider {
 
         // Create a timeout promise (increased slightly as a safeguard)
         const timeoutPromise = new Promise<never>((_, rejectTimeout) => {
-          setTimeout(() => rejectTimeout(new Error('Session check timed out')), 15000); // Increased to 15s
+          setTimeout(() => rejectTimeout(new Error('Session check timed out')), 30000); // Increased to 30s
         });
 
         // Race between session check and timeout
