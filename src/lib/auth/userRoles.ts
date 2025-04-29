@@ -4,6 +4,9 @@ import { userRolesCache, ROLES_CACHE_TTL } from './cache';
 
 const logger = new Logger('UserRoles');
 
+// Configurable timeout for admin role check (ms)
+const ADMIN_CHECK_TIMEOUT_MS = 10000; // Increased from 5000 to 10000
+
 export const getUserRoles = async (userId: string): Promise<string[]> => {
   // Check cache first
   const now = Date.now();
@@ -42,9 +45,9 @@ export const checkIsAdmin = async (userId: string): Promise<boolean> => {
   try {
     logger.log(`Starting Supabase query for admin check: ${userId}`);
     
-    // Create a promise that rejects after 5 seconds
+    // Create a promise that rejects after timeout to avoid indefinite hanging
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Admin check timed out after 5 seconds')), 5000);
+      setTimeout(() => reject(new Error(`Admin check timed out after ${ADMIN_CHECK_TIMEOUT_MS / 1000} seconds`)), ADMIN_CHECK_TIMEOUT_MS);
     });
 
     // Race between the actual query and the timeout
