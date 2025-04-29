@@ -5,6 +5,7 @@ import { VideoEntry } from "@/lib/types";
 import VideoCard from "./VideoCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
+import { cn } from "@/lib/utils";
 
 // Define standard video resolutions and their aspect ratios
 const resolutions = [
@@ -285,7 +286,13 @@ export default function VideoGrid({
 
   return (
     <LayoutGroup id={gridId}>
-      <div ref={containerRef} className="w-full flex flex-wrap gap-2">
+      <div
+        ref={containerRef}
+        className={cn(
+          'w-full gap-2',
+          isMobile ? 'flex flex-col' : 'flex flex-wrap'
+        )}
+      >
         <AnimatePresence mode="wait">
           {rows.flat().map((video: DisplayVideoEntry) => (
             <motion.div
@@ -294,7 +301,7 @@ export default function VideoGrid({
               initial="hidden"
               animate="visible"
               exit="exit"
-              style={{ width: video.displayW, height: video.displayH }}
+              style={{ width: isMobile ? '100%' : video.displayW }}
               className="relative rounded-lg"
             >
               <VideoCard

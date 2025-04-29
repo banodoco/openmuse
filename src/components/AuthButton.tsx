@@ -155,12 +155,14 @@ const AuthButton: React.FC = () => {
         variant="ghost" 
         size="icon"
         className={cn(
-          "absolute top-1 right-1 z-10 flex items-center justify-center",
-          "h-8 w-auto px-2 rounded-full bg-background/70 backdrop-blur-sm",
-          "text-muted-foreground transition-all duration-200 ease-in-out",
-          "md:h-5 md:w-5 md:px-0",
+          "absolute top-1.5 right-1.5 z-10",
+          "flex items-center justify-center rounded-full",
+          "h-7 w-auto px-2",
+          "bg-background/70 backdrop-blur-sm text-muted-foreground",
+          "transition-all duration-200 ease-in-out",
+          "md:h-6 md:w-6 md:px-0",
           "md:group-hover:scale-110",
-          "md:hover:w-auto md:hover:px-2 md:hover:bg-muted/90 md:hover:text-foreground"
+          "md:hover:bg-muted/90 md:hover:text-foreground md:hover:w-auto md:hover:px-2"
         )}
         onClick={(e) => {
           e.stopPropagation();
@@ -169,7 +171,10 @@ const AuthButton: React.FC = () => {
         aria-label="Sign out"
       >
         <LogOut className="h-3 w-3 flex-shrink-0" />
-        <span className="ml-1 text-xs font-medium inline md:hidden md:group-[.hover\\:w-auto]:inline">
+        <span className={cn(
+          "ml-1 text-xs font-medium",
+          "inline md:hidden md:group-[.hover\\:w-auto]:inline"
+        )}>
           Sign out
         </span>
       </Button>
