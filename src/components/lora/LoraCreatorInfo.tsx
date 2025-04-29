@@ -10,6 +10,9 @@ import { cn } from '@/lib/utils';
 
 const logger = new Logger('LoraCreatorInfo');
 
+// Simple in-memory cache for user profiles
+const profileCache = new Map<string, UserProfile | null>();
+
 interface LoraCreatorInfoProps {
   asset: LoraAsset | null;
   className?: string; // Optional className prop
@@ -32,8 +35,19 @@ const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
   useEffect(() => {
     const fetchCreatorProfile = async () => {
       if (asset?.user_id) {
+        // Check cache first
+        if (profileCache.has(asset.user_id)) {
+          const cachedProfile = profileCache.get(asset.user_id);
+          setCreatorProfile(cachedProfile);
+          setIsLoadingProfile(false); // Already loaded from cache
+          // logger.log(`Cache hit for profile ID: ${asset.user_id}`);
+          return; // Exit early
+        }
+
+        // Not in cache, proceed to fetch
+        // logger.log(`Cache miss for profile ID: ${asset.user_id}. Fetching...`);
         setIsLoadingProfile(true);
-        setCreatorProfile(null); // Reset previous profile
+        setCreatorProfile(null); // Reset previous profile while fetching
         try {
           const { data, error } = await supabase
             .from('profiles')
@@ -44,8 +58,14 @@ const LoraCreatorInfo: React.FC<LoraCreatorInfoProps> = ({
           if (error) {
             // Don't throw an error, just log it. It might be a non-user creator.
             logger.warn('Error fetching creator profile:', error.message);
+            profileCache.set(asset.user_id, null); // Cache the fact that fetching failed or no profile exists
           } else if (data) {
-            setCreatorProfile(data as UserProfile);
+            const profileData = data as UserProfile;
+            setCreatorProfile(profileData);
+            profileCache.set(asset.user_id, profileData); // Store fetched profile in cache
+          } else {
+            // No data returned, but no error? Cache null.
+            profileCache.set(asset.user_id, null);
           }
         } catch (err) {
           logger.error('Unexpected error fetching creator profile:', err);

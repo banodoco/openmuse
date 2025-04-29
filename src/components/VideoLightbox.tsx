@@ -679,8 +679,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                         return (
                           <p className="text-sm mt-3 text-muted-foreground">
                             Made with{' '}
-                            <Link 
-                              to={`/assets/${initialAssetId}`}
+                            <Link
+                              to={`/assets/${encodeURIComponent(initialAssetId)}`}
                               className="text-foreground underline"
                               onClick={(e) => {
                                 e.stopPropagation();

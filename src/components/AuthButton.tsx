@@ -67,7 +67,7 @@ const AuthButton: React.FC = () => {
   const handleProfileClick = () => {
     // If user is logged in and has a profile with a username, navigate there
     if (user && userProfile?.username) {
-      navigate(`/profile/${userProfile.username}`); // Use username directly
+      navigate(`/profile/${encodeURIComponent(userProfile.username)}`); // Use username directly
     } else if (user) {
       // Log an error or navigate to a safe fallback like home or settings
       // This case should ideally not happen if a logged-in user always has a profile
