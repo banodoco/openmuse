@@ -163,6 +163,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           // Crucially, set loading to false *after* all checks/updates are done
           logger.log(`[Initial Check][v${PROVIDER_VERSION}] Setting isLoading=false (end of initial check).`);
           setIsLoading(false);
+          // NEW: Clear fallback timeout now that initial check completed
+          if (sessionFallbackTimeout.current) {
+            clearTimeout(sessionFallbackTimeout.current);
+            sessionFallbackTimeout.current = null;
+          }
         } else {
            logger.log(`[Initial Check][v${PROVIDER_VERSION}] FINALLY block, component unmounted.`);
         }
@@ -187,6 +192,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                setIsAdmin(false); // Direct set okay
                initialCheckCompleted.current = true;
                setIsLoading(false);
+               // Clear fallback timeout if active
+               if (sessionFallbackTimeout.current) {
+                 clearTimeout(sessionFallbackTimeout.current);
+                 sessionFallbackTimeout.current = null;
+               }
              }
              return; // Processed early exit
            }
@@ -200,6 +210,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                     setUser(currentSession.user); // userRef effect updates ref
                     initialCheckCompleted.current = true;
                     setIsLoading(false);
+                    // Clear fallback timeout if active
+                    if (sessionFallbackTimeout.current) {
+                      clearTimeout(sessionFallbackTimeout.current);
+                      sessionFallbackTimeout.current = null;
+                    }
 
                     // Trigger non-blocking admin check if user exists and none in progress
                     if (!adminCheckInProgress.current) {
@@ -395,6 +410,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (isLoading) { // Only log if changing state
             logger.log(`[Auth Listener][v${PROVIDER_VERSION}] Setting isLoading=false (end of processing event ${event}).`);
             setIsLoading(false);
+            // Clear fallback timeout if active
+            if (sessionFallbackTimeout.current) {
+              clearTimeout(sessionFallbackTimeout.current);
+              sessionFallbackTimeout.current = null;
+            }
         }
       }
     );
