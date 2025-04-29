@@ -52,6 +52,7 @@ export const useLoraManagement = (filters: LoraFilters) => {
       logger.log(`[loadAllLoras] Starting attempt ${attempt}/${MAX_RETRIES}...`);
 
       try {
+        const attemptStart = performance.now();
         // --- Actual Fetch Logic ---
         let query = supabase
           .from('assets')
@@ -155,6 +156,8 @@ export const useLoraManagement = (filters: LoraFilters) => {
           return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
         });
 
+        const attemptDuration = (performance.now() - attemptStart).toFixed(2);
+        logger.log(`[loadAllLoras] Attempt ${attempt} completed in ${attemptDuration} ms`);
         // --- Success ---
         logger.log(`[loadAllLoras] Attempt ${attempt} successful. Final count: ${processedLoras.length}`);
         if (isMounted.current) {

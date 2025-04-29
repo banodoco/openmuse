@@ -60,8 +60,10 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
       logger.log("[loadAllVideos] Getting database from switcher");
       const db = await databaseSwitcher.getDatabase();
       logger.log(`[loadAllVideos] Got database, fetching entries with filter: ${approvalFilter}`);
-      // Pass the approvalFilter to the database method
+      const fetchStart = performance.now();
       const allEntries = await db.getAllEntries(approvalFilter);
+      const fetchDuration = (performance.now() - fetchStart).toFixed(2);
+      logger.log(`[loadAllVideos] db.getAllEntries resolved in ${fetchDuration} ms for filter: ${approvalFilter}`);
 
       if (!isMounted.current) {
         logger.log("[loadAllVideos] Component unmounted during fetch, discarding results.");

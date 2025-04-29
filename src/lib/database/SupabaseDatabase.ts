@@ -24,7 +24,10 @@ export class SupabaseDatabase extends BaseDatabase {
       query = query.eq('admin_status', 'Curated');
     }
 
+    const queryStart = performance.now();
     const { data, error } = await query.eq('type', 'video').order('created_at', { ascending: false });
+    const queryDuration = (performance.now() - queryStart).toFixed(2);
+    this.logger.log(`[getAllEntries] Supabase query resolved in ${queryDuration} ms`);
 
     if (error) {
       this.logger.error('[getAllEntries] Error fetching video entries:', error);
