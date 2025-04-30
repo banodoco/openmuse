@@ -68,7 +68,9 @@ const Navigation: React.FC = () => {
           {/* Additional navigation links can be inserted here if needed */}
         </div>
         
-        <AuthButton />
+        <div className="mr-4">
+          <AuthButton />
+        </div>
       </nav>
     </div>
   );
