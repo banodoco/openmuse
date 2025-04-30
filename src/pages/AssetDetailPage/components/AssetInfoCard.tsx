@@ -168,7 +168,7 @@ const AssetInfoCard = ({
                 className={getStatusButtonStyle('Hidden')}
               >
                 <EyeOff className="h-3 w-3 mr-1" /> 
-                <span className="hidden md:inline">Hide</span>
+                <span className="hidden lg:inline">Hide</span>
               </Button>
               
               {/* List Button */}
@@ -180,7 +180,7 @@ const AssetInfoCard = ({
                 className={getStatusButtonStyle('Listed')}
               >
                 <List className="h-3 w-3 mr-1" />
-                <span className="hidden md:inline">List</span>
+                <span className="hidden lg:inline">List</span>
               </Button>
               
               {/* Pin Button */}
@@ -192,7 +192,7 @@ const AssetInfoCard = ({
                 className={getStatusButtonStyle('Pinned')}
               >
                 <PinIcon className="h-3 w-3 mr-1" /> 
-                <span className="hidden md:inline">Pin</span>
+                <span className="hidden lg:inline">Pin</span>
               </Button>
             </div>
           )}
