@@ -610,7 +610,7 @@ const Index: React.FC = () => {
           <div ref={heroRef} className="pt-2 pb-0 mb-4">
             <PageHeader 
               title="Curated resources & art, with a focus on LoRAs for open video models"
-              description="A curated collection of artistically-oriented LoRAs for open source video models like Wan, LTXV and Hunyuan." 
+              description="A collection of LoRAs for open video models like Wan, LTXV and Hunyuan, alongside art created with them." 
             />
           </div>
           
