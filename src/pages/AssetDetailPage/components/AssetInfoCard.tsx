@@ -156,31 +156,10 @@ const AssetInfoCard = ({
             </a>
           )}
 
-          {/* User Status Buttons (Owner/Admin Only) */}
+          {/* User Status Buttons (Owner/Admin Only) - Reversed Order */}
           {isAuthorized && (
             <div className="grid grid-cols-3 gap-2 w-full">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleStatusClick('Pinned')}
-                disabled={isUpdatingStatus}
-                className={getStatusButtonStyle('Pinned')}
-              >
-                <PinIcon className="h-3 w-3 mr-1" /> 
-                Pin
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleStatusClick('Listed')}
-                disabled={isUpdatingStatus}
-                className={getStatusButtonStyle('Listed')}
-              >
-                <List className="h-3 w-3 mr-1" />
-                List
-              </Button>
-              
+              {/* Hide Button */}
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -189,7 +168,31 @@ const AssetInfoCard = ({
                 className={getStatusButtonStyle('Hidden')}
               >
                 <EyeOff className="h-3 w-3 mr-1" /> 
-                Hide
+                <span className="hidden md:inline">Hide</span>
+              </Button>
+              
+              {/* List Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleStatusClick('Listed')}
+                disabled={isUpdatingStatus}
+                className={getStatusButtonStyle('Listed')}
+              >
+                <List className="h-3 w-3 mr-1" />
+                <span className="hidden md:inline">List</span>
+              </Button>
+              
+              {/* Pin Button */}
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleStatusClick('Pinned')}
+                disabled={isUpdatingStatus}
+                className={getStatusButtonStyle('Pinned')}
+              >
+                <PinIcon className="h-3 w-3 mr-1" /> 
+                <span className="hidden md:inline">Pin</span>
               </Button>
             </div>
           )}
