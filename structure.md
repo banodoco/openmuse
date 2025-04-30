@@ -92,7 +92,6 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   └── visually-hidden.tsx # Component for visually hiding elements accessibly
 │   │   ├── upload/         # Components specifically for the upload process
 │   │   │   ├── GlobalLoRADetailsForm.tsx # Form for LoRA details, possibly in a global context
-│   │   │   ├── LoRADetailsForm.tsx # Form specific to LoRA asset details during upload
 │   │   │   ├── LoraMultiSelectCombobox.tsx # Combobox for selecting multiple LoRAs
 │   │   │   ├── UploadContent.tsx # Main content area for the upload page/modal
 │   │   │   ├── VideoDropzone.tsx # Drag-and-drop area for uploading videos

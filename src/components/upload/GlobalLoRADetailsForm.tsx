@@ -1,4 +1,3 @@
-
 import React, { useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -8,6 +7,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
+import { Info } from 'lucide-react';
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
 
 interface LoRADetailsForm {
   loraName: string;
@@ -214,9 +220,21 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             </div>
             
             <div>
-              <Label htmlFor="lora-link" className="text-sm font-medium mb-1.5 block">
-                LoRA Link (Huggingface, Civit, etc.)
-              </Label>
+              <div className="flex items-center space-x-1.5 mb-1.5">
+                <Label htmlFor="lora-link" className="text-sm font-medium block">
+                  LoRA Link (Huggingface, Civit, etc.)
+                </Label>
+                <TooltipProvider delayDuration={100}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-xs">
+                      <p>We are too poor to host models. Ideally, host on Huggingface because it's easier to download from.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
               <Input
                 type="url"
                 id="lora-link"
