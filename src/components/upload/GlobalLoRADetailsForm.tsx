@@ -223,6 +223,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
               <div className="flex items-center space-x-1.5 mb-1.5">
                 <Label htmlFor="lora-link" className="text-sm font-medium block">
                   LoRA Link (Huggingface, Civit, etc.)
+                  <span className="text-destructive"> *</span>
                 </Label>
                 <TooltipProvider delayDuration={100}>
                   <Tooltip>

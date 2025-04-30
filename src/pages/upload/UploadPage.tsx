@@ -248,6 +248,19 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       return;
     }
     
+    // Add check for loraLink
+    if (!loraDetails.loraLink || loraDetails.loraLink.trim() === '') {
+      toast.error('Please provide the LoRA Link (URL)');
+      return;
+    }
+    // Basic URL format check (browser input type="url" handles more robust checks)
+    try {
+      new URL(loraDetails.loraLink);
+    } catch (_) {
+      toast.error('Please enter a valid URL for the LoRA Link');
+      return;
+    }
+
     const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
     if (!hasPrimary) {
       toast.error('Please set one video as the primary media for this LoRA');
