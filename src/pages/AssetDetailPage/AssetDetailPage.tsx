@@ -500,6 +500,7 @@ function AssetDetailPage() {
                   isUpdatingAdminStatus={isUpdatingAdminStatus}
                   onAdminStatusChange={updateAssetAdminStatus}
                   onDelete={handleDeleteAsset}
+                  onDetailsUpdated={() => fetchAssetDetails({ silent: true })}
                 />
               </div>
               <div className="md:col-span-2">

@@ -57,6 +57,8 @@ interface AssetInfoCardProps {
   isUpdatingAdminStatus: boolean;
   onAdminStatusChange: (newStatus: AdminStatus) => Promise<void>;
   onDelete: () => Promise<void>;
+  /** Callback fired after the LoRA details have been updated so parent can refetch/refresh */
+  onDetailsUpdated: () => void;
 }
 
 const AssetInfoCard = ({
@@ -69,7 +71,8 @@ const AssetInfoCard = ({
   isAuthorized,
   isUpdatingAdminStatus,
   onAdminStatusChange,
-  onDelete
+  onDelete,
+  onDetailsUpdated
 }: AssetInfoCardProps) => {
   const { user } = useAuth();
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
@@ -134,7 +137,7 @@ const AssetInfoCard = ({
             ref={editableDetailsRef}
             asset={asset}
             isAuthorized={isAuthorizedToEdit}
-            onDetailsUpdated={() => { /* TODO: Trigger refetch from parent */ }}
+            onDetailsUpdated={onDetailsUpdated}
             hideEditButton
           />
         </CardContent>
