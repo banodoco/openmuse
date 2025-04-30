@@ -16,6 +16,7 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Link } from 'react-router-dom';
 import { Skeleton } from "@/components/ui/skeleton";
 import LoraCreatorInfo from './LoraCreatorInfo';
+import ReactMarkdown from 'react-markdown';
 
 const MODEL_VARIANTS = {
   wan: ['1.3b', '14b T2V', '14b I2V'],
@@ -352,7 +353,17 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
       {asset?.description && (
          <div className="space-y-1 mt-3">
           <Label className="text-xs text-muted-foreground">Description</Label>
-          <p className="text-sm whitespace-pre-wrap">{asset.description}</p>
+          <div className="text-sm prose prose-sm max-w-none prose-a:text-primary prose-a:no-underline hover:prose-a:underline">
+            <ReactMarkdown
+              components={{
+                a: ({ node, ...props }) => (
+                  <a {...props} target="_blank" rel="noopener noreferrer" />
+                ),
+              }}
+            >
+              {asset.description}
+            </ReactMarkdown>
+          </div>
         </div>
       )}
       
