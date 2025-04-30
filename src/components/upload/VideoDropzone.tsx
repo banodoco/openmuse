@@ -47,7 +47,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
       'video/ogg': ['.ogv'],
       'video/*': [] // Fallback for other video types, but explicitly list common ones
     },
-    maxSize: 100 * 1024 * 1024, // 100MB max size
+    maxSize: 512 * 1024 * 1024, // 512MB max size
     multiple: multiple, // Allow multiple files to be selected
     disabled: disabled, // Disable dropzone if needed
   });
@@ -156,7 +156,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
               <>
                 <p className="text-lg font-medium mb-2">Drag 'n' drop videos here</p>
                 <p className="text-sm text-muted-foreground">or click to select files</p>
-                <p className="text-xs text-muted-foreground mt-2">Max size: 100MB per file</p>
+                <p className="text-xs text-muted-foreground mt-2">Max size: 512MB per file</p>
                 {disabled && <p className="text-xs text-red-500 mt-2">Sign in to upload videos</p>}
               </>
           }
