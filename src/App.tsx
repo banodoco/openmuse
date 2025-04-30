@@ -82,36 +82,38 @@ const App: React.FC = () => {
         <TooltipProvider>
           <AuthProvider>
             <LoraProvider>
-              <Router>
-                <Suspense fallback={<LoadingState />}>
-                  <Routes>
-                    <Route path="/" element={<HomePage />} />
-                    <Route path="/auth" element={<AuthPage />} />
-                    <Route path="/auth/callback" element={<AuthCallback />} />
-                    <Route path="/manifesto" element={<ManifestoPage />} />
-                    <Route path="/assets/:id" element={<AssetDetailPage />} />
-                    <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
-                    <Route path="/loras" element={<LorasPage />} />
-                    <Route path="/art" element={<ArtPage />} />
-                    <Route path="/generations" element={<GenerationsPage />} />
-                    <Route path="/profile/:displayName" element={
-                      <ErrorBoundary fallback={<p>Error loading profile page.</p>}>
-                        <UserProfilePage />
-                      </ErrorBoundary>
-                    } />
-                    <Route path="/upload" element={<UploadPage />} />
+              <div id="app-container" className="min-h-screen bg-gradient-to-br from-[#FEFDF4] via-[#FEFDF4] to-[#C3C6AD]">
+                <Router>
+                  <Suspense fallback={<LoadingState />}>
+                    <Routes>
+                      <Route path="/" element={<HomePage />} />
+                      <Route path="/auth" element={<AuthPage />} />
+                      <Route path="/auth/callback" element={<AuthCallback />} />
+                      <Route path="/manifesto" element={<ManifestoPage />} />
+                      <Route path="/assets/:id" element={<AssetDetailPage />} />
+                      <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
+                      <Route path="/loras" element={<LorasPage />} />
+                      <Route path="/art" element={<ArtPage />} />
+                      <Route path="/generations" element={<GenerationsPage />} />
+                      <Route path="/profile/:displayName" element={
+                        <ErrorBoundary fallback={<p>Error loading profile page.</p>}>
+                          <UserProfilePage />
+                        </ErrorBoundary>
+                      } />
+                      <Route path="/upload" element={<UploadPage />} />
 
-                    <Route 
-                      path="/admin"
-                      element={
-                        <RequireAuth requireAdmin={true}>
-                          <AdminPage />
-                        </RequireAuth>
-                      }
-                    />
-                  </Routes>
-                </Suspense>
-              </Router>
+                      <Route 
+                        path="/admin"
+                        element={
+                          <RequireAuth requireAdmin={true}>
+                            <AdminPage />
+                          </RequireAuth>
+                        }
+                      />
+                    </Routes>
+                  </Suspense>
+                </Router>
+              </div>
             </LoraProvider>
           </AuthProvider>
           <Toaster />
