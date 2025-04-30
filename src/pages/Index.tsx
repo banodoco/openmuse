@@ -698,7 +698,7 @@ const Index: React.FC = () => {
 
             <div className="mt-6 mb-8 flex justify-start">
               <Link
-                to="/loras"
+                to={currentApprovalFilter === 'all' ? "/loras?approval=all" : "/loras"}
                 className="text-sm text-primary hover:underline group"
               >
                 See all {currentApprovalFilter === 'curated' ? `curated ` : ''}LoRAs{' '}
@@ -715,7 +715,7 @@ const Index: React.FC = () => {
               header="Art"
               videos={displayArtVideos.items}
               isLoading={videosLoading}
-              seeAllPath="/art"
+              seeAllPath={currentApprovalFilter === 'all' ? "/art?approval=all" : "/art"}
               alwaysShowInfo={true}
               emptyMessage="There's no art matching the current filter."
               showAddButton={true}
@@ -737,7 +737,7 @@ const Index: React.FC = () => {
               header="Generations"
               videos={displayGenVideos.items}
               isLoading={videosLoading}
-              seeAllPath="/generations"
+              seeAllPath={currentApprovalFilter === 'all' ? "/generations?approval=all" : "/generations"}
               alwaysShowInfo={true}
               emptyMessage="There are no generations matching the current filter."
               showAddButton={true}

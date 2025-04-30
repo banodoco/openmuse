@@ -991,7 +991,7 @@ export default function UserProfilePage() {
                    </Dialog>
                 )}
               </CardHeader>
-              <CardContent ref={artGridRef} className="px-0 pt-6">
+              <CardContent ref={artGridRef} className="p-4 md:p-6 pt-6">
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
                   artVideos.length > 0 ? ( <> 
                     <div> 
@@ -1043,7 +1043,7 @@ export default function UserProfilePage() {
                   </Dialog>
                 )}
               </CardHeader>
-              <CardContent ref={generationsGridRef} className="px-0 pt-6">
+              <CardContent ref={generationsGridRef} className="p-4 md:p-6 pt-6">
                  {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                   generationVideos.length > 0 ? ( <> 
                     <div> 
