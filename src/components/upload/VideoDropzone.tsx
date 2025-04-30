@@ -162,6 +162,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
           }
         </div>
       </div>
+      {/*
       <div className="text-center mt-2">
         {!disabled && (
           <button 
@@ -174,6 +175,7 @@ const VideoDropzone: React.FC<VideoDropzoneProps> = ({
           </button>
         )}
       </div>
+      */}
     </div>
   );
 };
