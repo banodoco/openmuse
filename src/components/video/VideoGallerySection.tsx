@@ -7,7 +7,7 @@ import VideoLightbox from '@/components/VideoLightbox';
 import { Logger } from '@/lib/logger';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import UploadPage from '@/pages/upload/UploadPage';
 import { cn } from '@/lib/utils';
@@ -112,9 +112,6 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
                 </Button>
               </DialogTrigger>
               <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
-                <DialogHeader>
-                  <DialogTitle>Add New {header}</DialogTitle>
-                </DialogHeader>
                 <UploadPage 
                   initialMode="media" 
                   defaultClassification={addButtonClassification} 

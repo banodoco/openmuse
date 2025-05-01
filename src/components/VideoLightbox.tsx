@@ -369,13 +369,30 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           }}
         >
           <DialogContent
-            className="relative flex flex-col sm:flex-row items-start justify-center gap-4 p-4 md:p-6 w-full max-w-[90vw] h-full max-h-[90vh] bg-background/90 backdrop-blur-sm border-none shadow-2xl rounded-lg overflow-hidden"
-            onPointerDownOutside={(e) => e.preventDefault()} // Prevent closing by clicking outside video area if possible
+            className="max-w-5xl p-0 bg-background max-h-[90vh] flex flex-col"
+            onClickCapture={(e) => {
+              const anchor = (e.target as HTMLElement).closest('a');
+              if (anchor) {
+                // Clear param then close lightbox so navigation proceeds cleanly
+                setSearchParams(prev => {
+                  const p = new URLSearchParams(prev);
+                  p.delete('video');
+                  return p;
+                }, { replace: true });
+                onClose();
+              }
+            }}
           >
-            <VisuallyHidden>
-              <DialogTitle>Video Details: {editableTitle || 'Untitled Video'}</DialogTitle>
-            </VisuallyHidden>
-            
+            <DialogHeader className="p-4 border-b">
+              <DialogTitle>
+                {isEditing ? editableTitle : initialTitle || 'Video'}
+              </DialogTitle>
+              <VisuallyHidden>
+                <DialogDescription>
+                  {isEditing ? editableDescription : initialDescription || 'Video details and controls.'}
+                </DialogDescription>
+              </VisuallyHidden>
+            </DialogHeader>
             <div className="relative flex flex-col h-full">
               <div className={cn(
                 "relative w-full aspect-video bg-black transition-[max-height] duration-300 ease-in-out",

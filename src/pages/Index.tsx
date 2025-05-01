@@ -16,7 +16,7 @@ import { LoraAsset, VideoEntry, AdminStatus } from '@/lib/types';
 import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
-import { Dialog, DialogTrigger, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogTrigger, DialogContent } from '@/components/ui/dialog';
 import UploadPage from '@/pages/upload/UploadPage';
 import { cn } from '@/lib/utils';
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
@@ -686,9 +686,6 @@ const Index: React.FC = () => {
                     </Button>
                   </DialogTrigger>
                   <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
-                    <DialogHeader>
-                      <DialogTitle>Add New LoRA</DialogTitle>
-                    </DialogHeader>
                     <UploadPage 
                       initialMode="lora" 
                       hideLayout={true} 
