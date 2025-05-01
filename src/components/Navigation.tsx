@@ -5,7 +5,6 @@ import { LayoutDashboard } from 'lucide-react';
 import AuthButton from './AuthButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logoPath = '/Open-Muse-logo.png';
 
@@ -16,15 +15,44 @@ const Navigation: React.FC = () => {
   const isMobile = useIsMobile();
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const navRef = useRef<HTMLDivElement>(null);
-  
+
+  // Check sessionStorage synchronously during initialization
+  const [hasFadedBefore, setHasFadedBefore] = useState(() => {
+    // Ensure this runs only on the client
+    if (typeof window !== 'undefined' && window.sessionStorage) {
+      return sessionStorage.getItem('navHasFadedIn') === 'true';
+    }
+    return false; // Default if sessionStorage is not available
+  });
+
+  // State to control the opacity class, starts true if already faded before
+  const [applyOpacity, setApplyOpacity] = useState(hasFadedBefore);
+
   useEffect(() => {
     if (!isLoading) {
       setIsAuthenticated(!!user);
     }
   }, [user, isLoading]);
-  
-  useFadeInOnScroll(navRef);
-  
+
+  // Effect for the very first fade-in animation
+  useEffect(() => {
+    // Only run the fade-in logic if it hasn't faded before in this session
+    if (!hasFadedBefore) {
+      // Use a short timeout to ensure the transition applies correctly on the initial load
+      const timer = setTimeout(() => {
+        setApplyOpacity(true); // Trigger the fade-in
+        // Set sessionStorage after the animation starts
+        if (typeof window !== 'undefined' && window.sessionStorage) {
+          sessionStorage.setItem('navHasFadedIn', 'true');
+          // Update state in case component persists without remounting
+          setHasFadedBefore(true);
+        }
+      }, 50); // 50ms delay
+      return () => clearTimeout(timer); // Cleanup timeout on unmount
+    }
+    // If it has faded before, applyOpacity is already true, so do nothing.
+  }, [hasFadedBefore]); // Depend on the initial check
+
   const isActive = (path: string) => location.pathname === path;
   const isAuthPage = location.pathname === '/auth';
   
@@ -34,7 +62,13 @@ const Navigation: React.FC = () => {
   };
   
   return (
-    <div ref={navRef} className="w-full border-b border-olive/20">
+    <div
+      ref={navRef}
+      className={cn(
+        "w-full border-b border-olive/20 transition-opacity duration-700 ease-in-out",
+        applyOpacity ? "opacity-100" : "opacity-0"
+      )}
+    >
       <nav className="w-full max-w-screen-2xl mx-auto px-3 py-4 flex justify-between items-center">
         <div className="flex items-center">
           <Link to="/" className="mr-3 flex items-center hover:opacity-80 transition-opacity">
