@@ -3,7 +3,7 @@ import { useState, useEffect, useImperativeHandle } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import TextareaAutosize from 'react-textarea-autosize';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Pencil, Save, X, User as UserIcon } from "lucide-react";
@@ -173,13 +173,14 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
             <Label htmlFor="lora-description" className="text-sm font-medium mb-1.5 block">
               LoRA Description
             </Label>
-            <Textarea
+            <TextareaAutosize
               id="lora-description"
               placeholder="Enter LoRA description"
               value={details.description}
               onChange={(e) => updateField('description', e.target.value)}
               disabled={isSaving}
-              className="min-h-[100px]"
+              className="flex-1 p-2 border rounded-md resize-none"
+              minRows={3}
             />
           </div>
 

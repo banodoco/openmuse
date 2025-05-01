@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
+import TextareaAutosize from 'react-textarea-autosize';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/hooks/useAuth';
@@ -84,13 +84,14 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 LoRA Description
               </Label>
               <div className="flex flex-col sm:flex-row gap-4">
-                <Textarea
+                <TextareaAutosize
                   id="lora-description"
                   placeholder="Describe the LoRA, how to trigger it (e.g., trigger words, prompt structure), and any tips for best results."
                   value={loraDetails.loraDescription}
                   onChange={(e) => updateLoRADetails('loraDescription', e.target.value)}
                   disabled={disabled}
-                  className="min-h-[120px] flex-1"
+                  className="min-h-[120px] flex-1 p-2 border rounded-md resize-none"
+                  minRows={4}
                 />
                 <div className="p-3 border rounded-md bg-muted/50 text-sm text-muted-foreground space-y-2 w-full sm:w-auto sm:min-w-[180px]">
                   <p className="font-medium">Remember to include:</p>

@@ -14,24 +14,35 @@ export class Logger {
     return [prefix, ...args];
   }
 
-  log(...args: any[]): void {
+  // Helper to check global conditions
+  private shouldLog(): boolean {
     try {
-      const envAllows = typeof process !== 'undefined' ? process.env.NODE_ENV !== 'production' : true;
-      const localPref = typeof window !== 'undefined' ? localStorage.getItem('debugLogs') === 'true' : false;
-      if (this.debug && (envAllows || localPref)) {
-         
-        console.log(...this.formatMessage(args));
-      }
+      // Log if NODE_ENV is not 'production' or if localStorage flag is set
+      const envAllows = typeof process !== 'undefined' && process.env?.NODE_ENV !== 'production';
+      const localPref = typeof window !== 'undefined' && localStorage.getItem('debugLogs') === 'true';
+      return !!(envAllows || localPref); // Ensure boolean return
     } catch (_) {
-      /* Fallback: if any security error, just no-op */
+      // Fallback: if any security error or unavailable APIs, assume logging disabled
+      return false;
+    }
+  }
+
+  log(...args: any[]): void {
+    // Log if this instance allows it AND global conditions allow it
+    if (this.debug && this.shouldLog()) {
+      console.log(...this.formatMessage(args));
     }
   }
 
   warn(...args: any[]): void {
-    if (this.debug) console.warn(...this.formatMessage(args));
+    // Warn if this instance allows it AND global conditions allow it
+    if (this.debug && this.shouldLog()) {
+      console.warn(...this.formatMessage(args));
+    }
   }
 
   error(...args: any[]): void {
+    // Errors should always be logged
     console.error(...this.formatMessage(args));
   }
 }
