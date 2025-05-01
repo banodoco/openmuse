@@ -83,7 +83,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
               <Label htmlFor="lora-description" className="text-sm font-medium mb-1.5 block">
                 LoRA Description
               </Label>
-              <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex flex-col sm:flex-row sm:items-start gap-4">
                 <TextareaAutosize
                   id="lora-description"
                   placeholder="Describe the LoRA, how to trigger it (e.g., trigger words, prompt structure), and any tips for best results."
