@@ -44,49 +44,58 @@ export const useAssetDetails = (assetId: string | undefined) => {
     }
 
     try {
-      logger.log('[useAssetDetails] Fetching core asset details for ID:', assetId);
-      
-      const { data: assetData, error: assetError } = await supabase
-        .from('assets')
-        .select(`*, primaryVideo:primary_media_id(*)`)
-        .eq('id', assetId)
-        .maybeSingle();
+      logger.log('[useAssetDetails] Fetching core asset details and asset_media joined data in parallel for ID:', assetId);
 
+      const [assetResult, assetMediaJoinResult] = await Promise.all([
+        supabase
+          .from('assets')
+          .select(`*, primaryVideo:primary_media_id(*)`)
+          .eq('id', assetId)
+          .maybeSingle(),
+        supabase
+          .from('asset_media')
+          .select(`
+            status,
+            is_primary,
+            asset_id,
+            media:media_id!inner(*)
+          `)
+          .eq('asset_id', assetId)
+      ]);
+
+      // Destructure results and handle errors
+      const { data: assetData, error: assetError } = assetResult;
+      const { data: assetMediaJoinData, error: assetMediaJoinError } = assetMediaJoinResult;
+
+      // Combined error handling
       if (assetError) {
         logger.error('[useAssetDetails] Error fetching asset:', assetError);
-        throw assetError;
+        throw assetError; // Throw to be caught by the outer catch block
+      }
+      if (assetMediaJoinError) {
+        logger.error('[useAssetDetails] Error fetching asset_media joined data:', assetMediaJoinError);
+        throw assetMediaJoinError; // Throw to be caught by the outer catch block
       }
 
       if (!assetData) {
         logger.warn('[useAssetDetails] No asset found with ID:', assetId);
         setAsset(null);
         setVideos([]);
-        return;
+        // No need to return early here, let finally block handle loading state
+        // If assetMediaJoinData is also empty/null, the processing below will handle it
+      } else {
+        logger.log(`[useAssetDetails] Fetched asset user_status: ${assetData.user_status}`);
       }
 
-      logger.log(`[useAssetDetails] Fetched asset user_status: ${assetData.user_status}`);
-
-      logger.log(`[useAssetDetails] Fetching asset_media joined with media for asset ID: ${assetId}`);
-      const { data: assetMediaJoinData, error: assetMediaJoinError } = await supabase
-        .from('asset_media')
-        .select(`
-          status,
-          is_primary,
-          asset_id,
-          media:media_id!inner(*)
-        `)
-        .eq('asset_id', assetId);
-
-      if (assetMediaJoinError) {
-        logger.error('[useAssetDetails] Error fetching asset_media joined data:', assetMediaJoinError);
-        throw assetMediaJoinError;
-      }
 
       const fetchedAssetMedia = assetMediaJoinData || [];
       logger.log(`[useAssetDetails] Fetched ${fetchedAssetMedia.length} asset_media join records.`);
 
-      const pVideo = assetData.primaryVideo;
-      logger.log(`[VideoLightboxDebug] Processing asset: ${assetData.id}, Fetched Primary Video Data (pVideo):`, {
+      // --- The rest of the function remains largely the same, using assetData and fetchedAssetMedia ---
+
+      // Ensure assetData is checked before accessing its properties
+      const pVideo = assetData?.primaryVideo; 
+      logger.log(`[VideoLightboxDebug] Processing asset: ${assetData?.id}, Fetched Primary Video Data (pVideo):`, {
           exists: !!pVideo,
           id: pVideo?.id,
           url: pVideo?.url,
@@ -94,117 +103,128 @@ export const useAssetDetails = (assetId: string | undefined) => {
           title: pVideo?.title
       });
 
-      const validModel = isValidModel(assetData.lora_base_model) ? assetData.lora_base_model : undefined;
+      const validModel = isValidModel(assetData?.lora_base_model) ? assetData?.lora_base_model : undefined;
 
-      const processedAsset: LoraAsset = {
-          id: assetData.id,
-          name: assetData.name,
-          description: assetData.description,
-          creator: assetData.creator,
-          type: assetData.type,
-          created_at: assetData.created_at,
-          user_id: assetData.user_id,
-          primary_media_id: assetData.primary_media_id,
-          admin_status: assetData.admin_status,
-          user_status: assetData.user_status,
-          lora_type: assetData.lora_type,
-          lora_base_model: assetData.lora_base_model,
-          model_variant: assetData.model_variant,
-          lora_link: assetData.lora_link,
-          primaryVideo: pVideo ? {
-              id: pVideo.id,
-              url: pVideo.url,
-              reviewer_name: (pVideo as any)?.creator || '',
-              skipped: false,
-              created_at: pVideo.created_at,
-              assetMediaDisplayStatus: (pVideo as any)?.status as VideoDisplayStatus || 'View',
-              user_id: pVideo.user_id,
-              user_status: (pVideo as any)?.user_status as VideoDisplayStatus || null,
-              admin_status: (pVideo as any)?.admin_status as AdminStatus || null,
-              metadata: {
-                  title: pVideo.title || '',
-                  placeholder_image: pVideo.placeholder_image || null,
-                  description: pVideo.description,
-                  classification: (pVideo as any)?.classification,
-                  loraName: assetData.name,
-                  assetId: assetData.id,
-                  loraType: assetData.lora_type,
-                  model: validModel,
-                  modelVariant: assetData.model_variant,
+      // Check if assetData exists before creating processedAsset
+      if (assetData) {
+        const processedAsset: LoraAsset = {
+            id: assetData.id,
+            name: assetData.name,
+            description: assetData.description,
+            creator: assetData.creator,
+            type: assetData.type,
+            created_at: assetData.created_at,
+            user_id: assetData.user_id,
+            primary_media_id: assetData.primary_media_id,
+            admin_status: assetData.admin_status,
+            user_status: assetData.user_status,
+            lora_type: assetData.lora_type,
+            lora_base_model: assetData.lora_base_model,
+            model_variant: assetData.model_variant,
+            lora_link: assetData.lora_link,
+            primaryVideo: pVideo ? {
+                id: pVideo.id,
+                url: pVideo.url,
+                reviewer_name: (pVideo as any)?.creator || '',
+                skipped: false,
+                created_at: pVideo.created_at,
+                assetMediaDisplayStatus: (pVideo as any)?.status as VideoDisplayStatus || 'View',
+                user_id: pVideo.user_id,
+                user_status: (pVideo as any)?.user_status as VideoDisplayStatus || null,
+                admin_status: (pVideo as any)?.admin_status as AdminStatus || null,
+                metadata: {
+                    title: pVideo.title || '',
+                    placeholder_image: pVideo.placeholder_image || null,
+                    description: pVideo.description,
+                    classification: (pVideo as any)?.classification,
+                    loraName: assetData.name,
+                    assetId: assetData.id,
+                    loraType: assetData.lora_type,
+                    model: validModel,
+                    modelVariant: assetData.model_variant,
+                }
+            } : undefined
+        };
+        
+        setAsset(processedAsset);
+
+        // Video processing logic depends on both assetData and fetchedAssetMedia
+        const convertedVideos: VideoEntry[] = await Promise.all(
+          fetchedAssetMedia
+            .filter(item => item.media) 
+            .map(async (item: any) => {
+            const media = item.media;
+            try {
+              const videoUrl = media.url ? await videoUrlService.getVideoUrl(media.url) : null;
+              if (!videoUrl) {
+                logger.warn(`[useAssetDetails] Could not get video URL for media ID: ${media.id}`);
+                return null;
               }
-          } : undefined
-      };
-      
-      setAsset(processedAsset);
-
-      const convertedVideos: VideoEntry[] = await Promise.all(
-        fetchedAssetMedia
-          .filter(item => item.media)
-          .map(async (item: any) => {
-          const media = item.media;
-          try {
-            const videoUrl = media.url ? await videoUrlService.getVideoUrl(media.url) : null;
-            if (!videoUrl) {
-              logger.warn(`[useAssetDetails] Could not get video URL for media ID: ${media.id}`);
+              
+              const isPrimary = item.is_primary === true; 
+   
+              const assignedStatus = (item.status as VideoDisplayStatus) || 'View'; 
+              logger.log(`[loraorderingbug] Processing Video ${media.id}: Assigned status '${assignedStatus}' (from asset_media.status: ${item.status}, is_primary: ${item.is_primary})`);
+  
+              return {
+                id: media.id,
+                url: videoUrl,
+                associatedAssetId: item.asset_id,
+                is_primary: isPrimary,
+                reviewer_name: media.creator || 'Unknown',
+                skipped: false,
+                created_at: media.created_at,
+                assetMediaDisplayStatus: assignedStatus,
+                user_id: media.user_id,
+                user_status: (media.user_status as VideoDisplayStatus) || null,
+                metadata: {
+                  title: media.title || '',
+                  description: media.description || '',
+                  placeholder_image: media.placeholder_image || null,
+                  classification: media.classification,
+                  // Use processedAsset values which are guaranteed to exist if we are here
+                  model: processedAsset.lora_base_model || media.type, 
+                  loraName: processedAsset.name,
+                  loraDescription: processedAsset.description,
+                  assetId: item.asset_id,
+                  loraType: processedAsset.lora_type,
+                  loraLink: processedAsset.lora_link,
+                  modelVariant: processedAsset.model_variant,
+                  aspectRatio: (media.metadata as any)?.aspectRatio ?? null
+                },
+                admin_status: media.admin_status as AdminStatus || null,
+              };
+            } catch (error) {
+              logger.error(`[useAssetDetails] Error processing video ${media.id}:`, error);
               return null;
             }
-            
-            const isPrimary = item.is_primary === true; 
- 
-            const assignedStatus = (item.status as VideoDisplayStatus) || 'View'; 
-            logger.log(`[loraorderingbug] Processing Video ${media.id}: Assigned status '${assignedStatus}' (from asset_media.status: ${item.status}, is_primary: ${item.is_primary})`);
+          })
+        );
+  
+        const validVideos = convertedVideos.filter(v => v !== null) as VideoEntry[];
+        logger.log(`[useAssetDetails] Processed ${validVideos.length} valid videos from join data.`);
+  
+        const isViewerAuthorized = isAdmin || (!!user && user.id === assetData?.user_id);
+        logger.log(`[useAssetDetails] Viewer authorization check: isAdmin=${isAdmin}, user.id=${user?.id}, asset.user_id=${assetData?.user_id}, isAuthorized=${isViewerAuthorized}`);
+  
+        const filteredVideos = isViewerAuthorized
+          ? validVideos
+          : validVideos.filter(v => v.assetMediaDisplayStatus !== 'Hidden');
+        logger.log(`[useAssetDetails] Filtered videos count (Hidden removed for non-auth): ${filteredVideos.length}`);
+  
+        const sortedVideos = sortAssetPageVideos(filteredVideos, assetData?.primary_media_id);
+        logger.log(`[useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
+  
+        logger.log('[loraorderingbug] Final sorted video IDs and statuses (before setting state):', sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus}, Primary: ${v.is_primary})`));
+  
+        setVideos(sortedVideos);
 
-            return {
-              id: media.id,
-              url: videoUrl,
-              associatedAssetId: item.asset_id,
-              is_primary: isPrimary,
-              reviewer_name: media.creator || 'Unknown',
-              skipped: false,
-              created_at: media.created_at,
-              assetMediaDisplayStatus: assignedStatus,
-              user_id: media.user_id,
-              user_status: (media.user_status as VideoDisplayStatus) || null,
-              metadata: {
-                title: media.title || '',
-                description: media.description || '',
-                placeholder_image: media.placeholder_image || null,
-                classification: media.classification,
-                model: processedAsset.lora_base_model || media.type,
-                loraName: processedAsset.name,
-                loraDescription: processedAsset.description,
-                assetId: item.asset_id,
-                loraType: processedAsset.lora_type,
-                loraLink: processedAsset.lora_link,
-                modelVariant: processedAsset.model_variant,
-                aspectRatio: (media.metadata as any)?.aspectRatio ?? null
-              },
-              admin_status: media.admin_status as AdminStatus || null,
-            };
-          } catch (error) {
-            logger.error(`[useAssetDetails] Error processing video ${media.id}:`, error);
-            return null;
-          }
-        })
-      );
+      } else {
+        // Handle case where assetData is null but no error occurred (e.g., asset not found)
+        // State was already reset earlier when assetData was found to be null
+        logger.log('[useAssetDetails] Asset data was null, skipping video processing and state updates.');
+      }
 
-      const validVideos = convertedVideos.filter(v => v !== null) as VideoEntry[];
-      logger.log(`[useAssetDetails] Processed ${validVideos.length} valid videos from join data.`);
-
-      const isViewerAuthorized = isAdmin || (!!user && user.id === assetData?.user_id);
-      logger.log(`[useAssetDetails] Viewer authorization check: isAdmin=${isAdmin}, user.id=${user?.id}, asset.user_id=${assetData?.user_id}, isAuthorized=${isViewerAuthorized}`);
-
-      const filteredVideos = isViewerAuthorized
-        ? validVideos
-        : validVideos.filter(v => v.assetMediaDisplayStatus !== 'Hidden');
-      logger.log(`[useAssetDetails] Filtered videos count (Hidden removed for non-auth): ${filteredVideos.length}`);
-
-      const sortedVideos = sortAssetPageVideos(filteredVideos, assetData?.primary_media_id);
-      logger.log(`[useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
-
-      logger.log('[loraorderingbug] Final sorted video IDs and statuses (before setting state):', sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus}, Primary: ${v.is_primary})`));
-
-      setVideos(sortedVideos);
 
     } catch (error) {
       logger.error('[useAssetDetails] Error in fetchAssetDetails:', error);

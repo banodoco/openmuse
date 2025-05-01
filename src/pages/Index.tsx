@@ -685,7 +685,7 @@ const Index: React.FC = () => {
                       Add New LoRA
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="rounded-lg w-[90vw] max-w-[90vw] sm:max-w-[80vw] max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
+                  <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
                     <UploadPage 
                       initialMode="lora" 
                       hideLayout={true} 

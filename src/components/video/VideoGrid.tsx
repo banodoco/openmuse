@@ -109,19 +109,41 @@ export default function VideoGrid({
   useResizeObserver(containerRef, handleResize);
   // --- END NEW --- 
 
+  // Define breakpoints for responsiveness
+  const SM_DESKTOP_BREAKPOINT = 768;  // md
+  const MD_DESKTOP_BREAKPOINT = 1024; // lg
+  const LG_DESKTOP_BREAKPOINT = 1280; // xl
+  const XL_DESKTOP_BREAKPOINT = 1536; // 2xl
+
   // Calculate rows based on container width and items per row (only for visibleVideos)
   const rows = useMemo(() => {
     // Determine how many items we should show per row depending on the screen size
     const effectiveItemsPerRow = (() => {
-      if (isMobile) return 1; // already handled separately below, but keep for clarity
+      if (isMobile) return 1; // Mobile always gets 1 column
 
-      // Tablet: between mobile and tablet breakpoint → show roughly half the usual density
-      if (containerWidth < TABLET_BREAKPOINT) {
-        return Math.max(2, Math.ceil(itemsPerRow / 2));
+      const baseItems = itemsPerRow; // The max density (4 or 6) passed as prop
+
+      // Very Large screens (>= XL_DESKTOP): Use base density
+      if (containerWidth >= XL_DESKTOP_BREAKPOINT) {
+        return baseItems; // 4 or 6
       }
-
-      // Desktop/default
-      return itemsPerRow;
+      // Large screens (>= LG_DESKTOP): Use base or base-1
+      if (containerWidth >= LG_DESKTOP_BREAKPOINT) {
+        // For 6 base, show 5. For 4 base, show 4.
+        return baseItems > 4 ? Math.max(3, baseItems - 1) : baseItems; // 4 or 5
+      }
+      // Medium screens (>= MD_DESKTOP): Use base-1 or base-2
+      if (containerWidth >= MD_DESKTOP_BREAKPOINT) {
+         // For 6 base, show 4. For 4 base, show 3.
+        return baseItems > 4 ? Math.max(3, baseItems - 2) : Math.max(2, baseItems - 1); // 3 or 4
+      }
+      // Small Desktop/Tablet (>= SM_DESKTOP): Use ~half density
+      if (containerWidth >= SM_DESKTOP_BREAKPOINT) {
+        // For 6 base, show 3. For 4 base, show 2.
+        return Math.max(2, Math.ceil(baseItems / 2)); // 2 or 3
+      }
+      // Smaller than SM_DESKTOP (but not mobile) - Fallback if needed
+      return 2;
     })();
 
     if (!containerWidth || !visibleVideos.length) return [];

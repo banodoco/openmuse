@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Info } from 'lucide-react';
+import { Info, CheckSquare } from 'lucide-react';
 import { 
   Tooltip, 
   TooltipContent, 
@@ -83,14 +83,28 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
               <Label htmlFor="lora-description" className="text-sm font-medium mb-1.5 block">
                 LoRA Description
               </Label>
-              <Textarea
-                id="lora-description"
-                placeholder="Enter LoRA description"
-                value={loraDetails.loraDescription}
-                onChange={(e) => updateLoRADetails('loraDescription', e.target.value)}
-                disabled={disabled}
-                className="min-h-[100px]"
-              />
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Textarea
+                  id="lora-description"
+                  placeholder="Describe the LoRA, how to trigger it (e.g., trigger words, prompt structure), and any tips for best results."
+                  value={loraDetails.loraDescription}
+                  onChange={(e) => updateLoRADetails('loraDescription', e.target.value)}
+                  disabled={disabled}
+                  className="min-h-[120px] flex-1"
+                />
+                <div className="p-3 border rounded-md bg-muted/50 text-sm text-muted-foreground space-y-2 w-full sm:w-auto sm:min-w-[180px]">
+                  <p className="font-medium">Remember to include:</p>
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0" /> <span>General Description</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0" /> <span>Prompt Structure</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0" /> <span>Best Practices</span>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
           
