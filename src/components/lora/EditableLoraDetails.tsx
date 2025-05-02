@@ -112,11 +112,13 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
       if (details.creator === 'self') {
         updates.creator = userProfile.display_name || userProfile.username;
         updates.user_id = user.id;
+        updates.curator_id = null; // Clear curator_id when changing to self
       } else {
         updates.creator = `@${details.creatorName}`;
-        // When changing from self to someone else, clear the user_id
+        // When changing from self to someone else, clear the user_id and set curator_id
         if (isOwnedByCurrentUser()) {
           updates.user_id = null;
+          updates.curator_id = user.id; // Set curator_id to current user
         }
       }
 

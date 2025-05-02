@@ -144,7 +144,8 @@ export const useLoraManagement = (filters: LoraFilters) => {
               }
             } : undefined,
             creatorDisplayName: creatorDisplayName,
-            admin_status: asset.admin_status
+            admin_status: asset.admin_status,
+            curator_id: asset.curator_id
           } as LoraAsset;
         }) || [];
 
