@@ -334,8 +334,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         .insert({
           name: loraDetails.loraName,
           description: loraDetails.loraDescription,
-          creator: loraDetails.creator === 'self' ? reviewerName : loraDetails.creatorName,
-          user_id: user?.id || null,
+          creator: loraDetails.creator === 'someone_else' ? loraDetails.creatorName : reviewerName,
+          user_id: loraDetails.creator === 'self' ? (user?.id || null) : null,
+          curator_id: loraDetails.creator === 'someone_else' ? (user?.id || null) : null,
           type: 'lora',
           lora_type: loraDetails.loraType,
           lora_base_model: loraDetails.model,

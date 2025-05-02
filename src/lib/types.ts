@@ -90,6 +90,7 @@ export interface LoraAsset {
   type: string;
   created_at: string;
   user_id?: string;
+  curator_id?: string | null;
   primary_media_id?: string;
   admin_status?: AdminStatus | null;
   user_status?: UserAssetPreferenceStatus | null;
