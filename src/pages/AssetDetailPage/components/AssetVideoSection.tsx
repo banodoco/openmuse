@@ -212,7 +212,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
           onDeleteVideo={handleDeleteVideo}
           onSetPrimaryMedia={handleSetPrimaryMedia}
           onUpdateLocalVideoStatus={(id, newStatus) => onStatusChange(id, newStatus as VideoDisplayStatus, 'assetMedia')}
-          itemsPerRow={classification === 'art' ? 4 : 6}
+          itemsPerRow={3}
           alwaysShowInfo={false}
           compact={true}
           emptyMessage={classification === 'all' 

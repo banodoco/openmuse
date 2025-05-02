@@ -612,7 +612,7 @@ export default function UserProfileSettings() {
             <div className="space-y-2">
               <Label htmlFor="username">
                 Username
-                <HoverCard>
+                <HoverCard openDelay={0} closeDelay={0}>
                   <HoverCardTrigger asChild>
                     <HelpCircle className="inline-block h-5 w-5 ml-2 text-muted-foreground cursor-help p-1 align-middle" />
                   </HoverCardTrigger>
@@ -643,7 +643,7 @@ export default function UserProfileSettings() {
                 <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center">
                   {isCheckingUsername && <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />}
                   {!isCheckingUsername && usernameCheckError && (
-                    <HoverCard>
+                    <HoverCard openDelay={0} closeDelay={0}>
                       <HoverCardTrigger asChild>
                         <X className="h-4 w-4 text-destructive cursor-help" />
                       </HoverCardTrigger>
@@ -656,7 +656,7 @@ export default function UserProfileSettings() {
                     <Check className="h-4 w-4 text-green-500" />
                   )}
                   {!isCheckingUsername && !usernameCheckError && isUsernameAvailable === false && (
-                    <HoverCard>
+                    <HoverCard openDelay={0} closeDelay={0}>
                       <HoverCardTrigger asChild>
                         <X className="h-4 w-4 text-destructive cursor-help" />
                       </HoverCardTrigger>
@@ -701,7 +701,7 @@ export default function UserProfileSettings() {
             <div className="space-y-2">
               <Label htmlFor="discord-username">
                 Discord Username
-                <HoverCard>
+                <HoverCard openDelay={0} closeDelay={0}>
                   <HoverCardTrigger asChild>
                     <HelpCircle className="inline-block h-5 w-5 ml-2 text-muted-foreground cursor-help p-1 align-middle" />
                   </HoverCardTrigger>
