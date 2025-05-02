@@ -57,7 +57,6 @@ export type Database = {
           admin_status: string | null
           created_at: string
           creator: string | null
-          curator_id: string | null
           description: string | null
           id: string
           lora_base_model: string | null
@@ -75,7 +74,6 @@ export type Database = {
           admin_status?: string | null
           created_at?: string
           creator?: string | null
-          curator_id?: string | null
           description?: string | null
           id?: string
           lora_base_model?: string | null
@@ -93,7 +91,6 @@ export type Database = {
           admin_status?: string | null
           created_at?: string
           creator?: string | null
-          curator_id?: string | null
           description?: string | null
           id?: string
           lora_base_model?: string | null
@@ -178,6 +175,7 @@ export type Database = {
           links: string[] | null
           real_name: string | null
           username: string
+          video_upload_consent: boolean | null
         }
         Insert: {
           avatar_url?: string | null
@@ -192,6 +190,7 @@ export type Database = {
           links?: string[] | null
           real_name?: string | null
           username: string
+          video_upload_consent?: boolean | null
         }
         Update: {
           avatar_url?: string | null
@@ -206,6 +205,7 @@ export type Database = {
           links?: string[] | null
           real_name?: string | null
           username?: string
+          video_upload_consent?: boolean | null
         }
         Relationships: []
       }

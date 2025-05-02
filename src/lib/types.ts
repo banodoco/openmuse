@@ -1,4 +1,3 @@
-
 import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
 
 export interface VideoMetadata {
@@ -30,7 +29,7 @@ export interface VideoMetadata {
 export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Rejected';
 
 // Define the user-settable display statuses
-export type VideoDisplayStatus = 'Pinned' | 'Listed' | 'Hidden' | 'View';
+export type VideoDisplayStatus = 'Pinned' | 'Listed' | 'Hidden';
 
 export interface VideoEntry {
   id: string;
@@ -91,7 +90,7 @@ export interface LoraAsset {
   type: string;
   created_at: string;
   user_id?: string;
-  curator_id?: string | null;  // Added curator_id field
+  curator_id?: string | null;
   primary_media_id?: string;
   admin_status?: AdminStatus | null;
   user_status?: UserAssetPreferenceStatus | null;

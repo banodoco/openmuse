@@ -66,7 +66,6 @@ export class AssetService {
           type: asset.type,
           created_at: asset.created_at,
           user_id: asset.user_id,
-          curator_id: asset.curator_id,
           primary_media_id: asset.primary_media_id,
           admin_status: asset.admin_status || 'Listed',
           admin_reviewed: asset.admin_reviewed || false,
@@ -382,4 +381,4 @@ export class AssetService {
   // Potentially add clearAllAssets() similar to videoEntryService if needed
 }
 
-export const assetService = new AssetService();
+export const assetService = new AssetService(); 
