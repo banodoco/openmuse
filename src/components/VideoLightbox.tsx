@@ -319,7 +319,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
         setFramePreviewUrl(dataUrl);
         setHasCapturedNewFrame(true);
         console.log(`[FrameCapture] Frame captured successfully. Data URL length: ${dataUrl.length}`);
-        toast({ title: "Thumbnail frame selected", description: `Selected frame at ${selectedTimestamp.toFixed(1)}s` });
 
     } catch (error: any) {
         console.error("[FrameCapture] Error capturing frame:", error);
@@ -704,7 +703,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 </DialogDescription>
               </VisuallyHidden>
             </DialogHeader>
-            <div className="relative flex flex-col h-full">
+            <div className="relative flex flex-col">
               <div className={cn(
                 "relative w-full aspect-video bg-black transition-[max-height] duration-300 ease-in-out",
                 isEditing && isMobile ? "hidden" :
@@ -848,10 +847,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
               <div
                 className={cn(
-                  // On mobile: make the scrollable area take full screen height and scroll
+                  "p-4 pt-0 flex-grow min-h-0",
+                  // On mobile: allow scrolling within the remaining screen height
                   isMobile
-                    ? "p-4 pt-0 flex-grow h-screen overflow-y-auto min-h-0 -webkit-overflow-scrolling-touch"
-                    : "p-4 pt-0 flex-grow overflow-y-auto min-h-0"
+                    ? "overflow-y-auto -webkit-overflow-scrolling-touch"
+                    : "overflow-y-auto" // Desktop also needs scroll
                 )}
                 style={isMobile ? { WebkitOverflowScrolling: 'touch' } : {}}
               >
@@ -945,7 +945,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                src={framePreviewUrl || initialThumbnailUrl || ''}
                                alt="Thumbnail preview"
                                className={cn(
-                                  "w-full h-full object-cover transition-opacity duration-200",
+                                  "w-full h-full object-contain transition-opacity duration-200",
                                   isCapturingFrame ? 'opacity-50' : 'opacity-100'
                                )}
                                onError={(e) => { e.currentTarget.style.opacity = '0'; }}
