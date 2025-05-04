@@ -59,15 +59,15 @@ const AuthCallback = () => {
 
       if (discordUsername || discordUserId) {
         logger.log('Attempting merge with identifiers:', { discordUsername, discordUserId });
-        // Pass both identifiers to the merge function
-        mergeProfileIfExists(supabase, user.id, { discordUsername, discordUserId });
+        (async () => {
+          await mergeProfileIfExists(supabase, user.id, { discordUsername, discordUserId });
+          // After merge completes, navigate
+          navigate(returnUrl, { replace: true });
+        })();
       } else {
         logger.log('No Discord identifiers found in user metadata for potential merge.');
+        navigate(returnUrl, { replace: true });
       }
-      
-      queueMicrotask(() => {
-         navigate(returnUrl, { replace: true });
-      });
     } else {
       // logger.log('AuthCallback: AuthProvider finished loading, but no user session found.');
       if (isProcessing) {

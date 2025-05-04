@@ -242,32 +242,74 @@ export async function mergeProfileIfExists(supabaseClient: any, authUserId: stri
     return null;
   }
 
-  // 3. If a profile was found by either method, update and claim it
+  // 3. If a profile was found by either method, handle potential conflict and claim it
   if (profileData) {
-    logger.log(`Found unclaimed profile (ID: ${profileData.id}) matching Discord identifiers, attempting merge.`);
+    logger.log(`Found pre-existing profile (ID: ${profileData.id}) matching Discord identifiers.`);
+
+    // Check if a default profile was already created for the auth user
+    const { data: existingAuthProfile, error: checkError } = await supabaseClient
+      .from('profiles')
+      .select('id')
+      .eq('id', authUserId)
+      .maybeSingle();
+
+    if (checkError) {
+      logger.error(`Error checking for existing profile for auth user ${authUserId}:`, checkError);
+      return null; // Cannot safely proceed
+    }
+
+    // If a default profile exists AND it's different from the one we found
+    if (existingAuthProfile && existingAuthProfile.id !== profileData.id) {
+      logger.warn(`Default profile (ID: ${existingAuthProfile.id}) found for new auth user. Deleting it to merge with pre-existing profile (ID: ${profileData.id}).`);
+      const { error: deleteError } = await supabaseClient
+        .from('profiles')
+        .delete()
+        .eq('id', existingAuthProfile.id);
+
+      if (deleteError) {
+        logger.error(`Error deleting default profile (ID: ${existingAuthProfile.id}):`, deleteError);
+        // Decide how to handle: maybe try merging anyway, or fail?
+        // Failing safer to avoid potential inconsistent state or duplicate errors later
+        return null; 
+      }
+      logger.log(`Successfully deleted default profile (ID: ${existingAuthProfile.id}).`);
+    }
+
+    // Now, update the pre-existing profile to claim it
+    logger.log(`Attempting to update pre-existing profile ID ${profileData.id} to use auth ID ${authUserId}.`);
     const updatePayload = {
-      id: authUserId,
+      id: authUserId, // <--- This is the key update: change the ID
       status: 'active',
-      discord_user_id: profileData.discord_user_id || discordUserId,
-      discord_username: profileData.discord_username || discordUsername
+      // Ensure Discord IDs/usernames are consistent
+      discord_user_id: discordUserId || profileData.discord_user_id, // Prefer ID from auth session
+      discord_username: discordUsername || profileData.discord_username // Prefer username from auth session
     };
     logger.log('Update payload for merge:', updatePayload);
 
     const { error: updateError } = await supabaseClient
       .from('profiles')
       .update(updatePayload)
-      .eq('id', profileData.id);
+      .eq('id', profileData.id); // Target the original ID for the update
       
     if (updateError) {
-      logger.error(`Error merging profile ID: ${profileData.id}`, updateError);
+      logger.error(`Error updating profile ID ${profileData.id} to ${authUserId}:`, updateError);
+      // Check for specific errors, e.g., if the authUserId already exists despite our check (race condition?)
+      if (updateError.code === '23505') { // unique_violation - likely means the default profile deletion failed or didn't happen in time
+         logger.error(`Merge failed due to unique constraint violation - possible race condition or failed deletion of default profile.`);
+      } else {
+         logger.error(`Generic error during profile merge update.`);
+      }
       return null; // Failed to merge
     }
-    logger.log(`Successfully merged profile ID: ${profileData.id} with user ID: ${authUserId}`);
-    // Clear cache for the potentially updated profile (using its own ID if different from authUserId)
-    userProfileCache.delete(profileData.id);
-    // Also clear cache for the auth user ID, as their profile data might now exist/be different
-    userProfileCache.delete(authUserId);
-    return profileData; // Return the original profile data that was merged
+
+    logger.log(`Successfully updated profile ID: ${profileData.id} to ${authUserId}`);
+    // Clear cache for the potentially updated profile (using its *original* ID might be needed if deletion failed, but using new ID is better)
+    userProfileCache.delete(authUserId); 
+    // Also clear cache for the *original* ID if it was different, just in case
+    if (profileData.id !== authUserId) {
+       userProfileCache.delete(profileData.id);
+    }
+    return { ...profileData, ...updatePayload }; // Return the conceptually merged profile data
   }
 
   // No unclaimed profile found matching the criteria
