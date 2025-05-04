@@ -94,6 +94,20 @@ function UserProfileSettingsSkeleton() {
   );
 }
 
+// Modify the ReminderText component for fade effect
+function ReminderText({ isVisible }: { isVisible: boolean }) {
+  return (
+    <p 
+      className={cn(
+        "text-xs text-muted-foreground mt-1 italic transition-opacity duration-500 ease-in-out",
+        isVisible ? "opacity-100" : "opacity-0"
+      )}
+    >
+      You must 'Save Changes' below
+    </p>
+  );
+}
+
 export default function UserProfileSettings() {
   const { user } = useAuth();
   const location = useLocation();
@@ -127,6 +141,13 @@ export default function UserProfileSettings() {
   const initialLinks = useRef<string[] | null>(null);
   const initialAvatarUrl = useRef<string | null>(null);
   const initialBackgroundImageUrl = useRef<string | null>(null);
+
+  // Add state for reminder logic
+  const [lastChangeTimestamp, setLastChangeTimestamp] = useState<number | null>(null);
+  const [showReminder, setShowReminder] = useState(false);
+  const reminderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  // Track if reminder should be rendered (allows fade-out before removal/hiding)
+  const [isReminderRendered, setIsReminderRendered] = useState(false);
 
   useEffect(() => {
     async function loadProfile() {
@@ -296,6 +317,50 @@ export default function UserProfileSettings() {
     }
   };
 
+  // Function to record a change
+  const recordChange = useCallback(() => {
+    setLastChangeTimestamp(Date.now());
+  }, []);
+
+  // Modify the effect to handle rendering state for fade-out
+  useEffect(() => {
+    if (lastChangeTimestamp === null) {
+      // Start fade-out immediately when changes are saved/discarded
+      setShowReminder(false);
+      if (reminderTimeoutRef.current) {
+        clearTimeout(reminderTimeoutRef.current);
+        reminderTimeoutRef.current = null;
+      }
+      // Optionally delay removing from DOM to allow fade-out, but opacity handles visual
+      // setIsReminderRendered(false); // Might remove too quickly, let opacity handle it
+      return;
+    }
+
+    // A change was just recorded
+    setIsReminderRendered(true); // Ensure it's rendered
+    setShowReminder(true);     // Make it visible (or start fade-in)
+
+    // Clear any existing timer
+    if (reminderTimeoutRef.current) {
+      clearTimeout(reminderTimeoutRef.current);
+    }
+
+    // Set a new timer to start the fade-out
+    reminderTimeoutRef.current = setTimeout(() => {
+      setShowReminder(false); // Start fade-out
+      reminderTimeoutRef.current = null;
+      // Optional: Set another shorter timer to remove from DOM after fade
+      // setTimeout(() => setIsReminderRendered(false), 500); // Match transition duration
+    }, 5000); // 5 seconds visible
+
+    // Cleanup function for component unmount
+    return () => {
+      if (reminderTimeoutRef.current) {
+        clearTimeout(reminderTimeoutRef.current);
+      }
+    };
+  }, [lastChangeTimestamp]);
+
   // === ADDED: Function to handle discarding changes ===
   const handleDiscardChanges = useCallback(() => {
     // Reset state variables to initial values stored in refs
@@ -316,6 +381,7 @@ export default function UserProfileSettings() {
     setNewLink(''); // Clear the new link input
     setEditingLinkIndex(null); // Exit link editing mode
     setEditingLinkValue('');
+    setLastChangeTimestamp(null); // Reset timestamp (triggers effect to hide reminder)
 
     // Optionally, provide user feedback
     toast({
@@ -397,6 +463,7 @@ export default function UserProfileSettings() {
         setBackgroundImageUrl(updatedProfile.background_image_url || '');
         setIsUsernameAvailable(null);
         setJustSaved(true);
+        setLastChangeTimestamp(null); // Reset timestamp (triggers effect to hide reminder)
         toast({
           title: "Success",
           description: "Profile updated successfully",
@@ -428,6 +495,7 @@ export default function UserProfileSettings() {
       setLinks([...links, linkToAdd]);
       setNewLink('');
       setError(null);
+      recordChange(); // Record change
     } else {
       setError('Please enter a valid URL');
     }
@@ -435,6 +503,7 @@ export default function UserProfileSettings() {
 
   const handleRemoveLink = (indexToRemove: number) => {
     setLinks(links.filter((_, index) => index !== indexToRemove));
+    recordChange(); // Record change
   };
 
   const isValidUrl = (url: string) => {
@@ -450,7 +519,7 @@ export default function UserProfileSettings() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       e.preventDefault();
-      handleAddLink();
+      handleAddLink(); // This already calls recordChange
     }
   };
 
@@ -479,6 +548,7 @@ export default function UserProfileSettings() {
       reader.onload = () => {
         if (typeof reader.result === 'string') {
           setAvatarUrl(reader.result);
+          recordChange(); // Record change
         }
       };
       reader.readAsDataURL(file);
@@ -496,6 +566,7 @@ export default function UserProfileSettings() {
       reader.onload = () => {
         if (typeof reader.result === 'string') {
           setBackgroundImageUrl(reader.result);
+          recordChange(); // Record change
         }
       };
       reader.readAsDataURL(file);
@@ -524,6 +595,7 @@ export default function UserProfileSettings() {
       setEditingLinkIndex(null);
       setEditingLinkValue('');
       setError(null);
+      recordChange(); // Record change
     } else {
       setError('Please enter a valid URL');
     }
@@ -578,6 +650,7 @@ export default function UserProfileSettings() {
                 className="hidden" 
                 accept="image/png, image/jpeg, image/webp, image/gif"
               />
+              {isReminderRendered && backgroundImageUrl !== initialBackgroundImageUrl.current && <ReminderText isVisible={showReminder} />}
             </div>
             
             {/* Avatar Upload */}
@@ -602,6 +675,7 @@ export default function UserProfileSettings() {
               <div>
                 <Label htmlFor="avatar" className="text-sm font-medium">Avatar</Label>
                 <p className="text-xs text-muted-foreground">Click avatar to upload (PNG, JPG, GIF, WEBP).</p>
+                {isReminderRendered && avatarUrl !== initialAvatarUrl.current && <ReminderText isVisible={showReminder} />}
               </div>
             </div>
           </div>
@@ -621,7 +695,6 @@ export default function UserProfileSettings() {
                   </HoverCardContent>
                 </HoverCard>
               </Label>
-              {/* Wrap Input with a relative div for positioning the @ symbol */}
               <div className="relative flex items-center">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none text-sm opacity-50">
                   @
@@ -629,11 +702,11 @@ export default function UserProfileSettings() {
                 <Input 
                   id="username"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {setUsername(e.target.value); recordChange();}}
                   className={cn(
-                    "pl-7", // Add padding to the left for the @ symbol
+                    "pl-7",
                     !isUsernameValid ? 'border-destructive focus-visible:ring-destructive' : '',
-                    isCheckingUsername || isUsernameAvailable === null || isUsernameAvailable === false ? 'pr-10' : '' // Make space for icon
+                    isCheckingUsername || isUsernameAvailable === null || isUsernameAvailable === false ? 'pr-10' : ''
                   )}
                   required
                   minLength={3}
@@ -672,6 +745,7 @@ export default function UserProfileSettings() {
                   Must be 3-50 chars: letters, numbers, _, - only.
                 </p>
               )}
+              {isReminderRendered && username.trim() !== initialUsername.current && isUsernameValid && <ReminderText isVisible={showReminder} />}
             </div>
             
             {/* Display Name Input */}
@@ -680,11 +754,12 @@ export default function UserProfileSettings() {
               <Input 
                 id="display-name"
                 value={displayName}
-                onChange={(e) => setDisplayName(e.target.value)}
+                onChange={(e) => {setDisplayName(e.target.value); recordChange();}}
                 required
                 className={!displayName.trim() ? 'border-destructive focus-visible:ring-destructive' : ''}
               />
               {!displayName.trim() && <p className="text-xs text-destructive">Display name is required.</p>}
+              {isReminderRendered && displayName.trim() !== initialDisplayName.current && displayName.trim() && <ReminderText isVisible={showReminder} />}
             </div>
           
             {/* Real Name Input - Moved inside grid */}
@@ -693,8 +768,9 @@ export default function UserProfileSettings() {
               <Input 
                 id="real-name"
                 value={realName}
-                onChange={(e) => setRealName(e.target.value)}
+                onChange={(e) => {setRealName(e.target.value); recordChange();}}
               />
+              {isReminderRendered && realName.trim() !== initialRealName.current && <ReminderText isVisible={showReminder} />}
             </div>
 
             {/* Discord Username (Read-only) - Moved inside grid */}
@@ -725,14 +801,17 @@ export default function UserProfileSettings() {
               <Textarea 
                 id="description"
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={(e) => {setDescription(e.target.value); recordChange();}}
                 placeholder="Tell us a little about yourself..."
                 className="min-h-[80px]"
                 maxLength={500}
               />
-               <p className="text-xs text-muted-foreground text-right">
-                {description.length} / 500
-              </p>
+              <div className="flex justify-between items-center">
+                <p className="text-xs text-muted-foreground">
+                  {description.length} / 500
+                </p>
+                {isReminderRendered && description.trim() !== initialDescription.current && <ReminderText isVisible={showReminder} />}
+              </div>
             </div>
           </div> {/* End of the main text input grid */}
 
@@ -791,7 +870,8 @@ export default function UserProfileSettings() {
                 </Button>
               </div>
             ))}
-             {editingLinkIndex === null && links.length < 5 && (
+            {isReminderRendered && JSON.stringify(links.map(l => l.trim()).filter(Boolean)) !== JSON.stringify((initialLinks.current || []).map(l => l.trim()).filter(Boolean)) && <ReminderText isVisible={showReminder} />}
+            {editingLinkIndex === null && links.length < 5 && (
               <div className="flex items-center space-x-2">
                 <Input
                   type="text"

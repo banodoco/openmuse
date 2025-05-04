@@ -374,9 +374,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
             <div className="relative flex flex-col h-full">
               <div className={cn(
                 "relative w-full aspect-video bg-black transition-[max-height] duration-300 ease-in-out",
-                isEditing 
-                  ? (isMobile ? "max-h-[15vh] flex-shrink mb-4" : "max-h-[25vh] flex-shrink mb-4") 
-                  : "max-h-[65vh] flex-shrink-0"
+                isEditing && isMobile ? "hidden" :
+                isEditing && !isMobile ? "max-h-[25vh] flex-shrink mb-4" :
+                "max-h-[65vh] flex-shrink-0"
               )}>
                 <VideoPlayer
                   src={videoUrl}
