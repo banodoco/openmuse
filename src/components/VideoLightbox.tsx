@@ -679,7 +679,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           }}
         >
           <DialogContent
-            className={cn("max-w-5xl p-0 bg-background flex flex-col", isMobile ? "max-h-screen" : "max-h-[90vh]")}
+            className={cn("max-w-5xl p-0 bg-background flex flex-col", isEditing ? "max-h-[95vh] overflow-y-auto" : (isMobile ? "max-h-screen" : "max-h-[90vh]"))}
             onClickCapture={(e) => {
               const anchor = (e.target as HTMLElement).closest('a');
               if (anchor) {
