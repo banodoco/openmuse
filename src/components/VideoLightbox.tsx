@@ -590,7 +590,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       console.log("[SaveThumbnail] Uploading to:", filePath);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('media_thumbnails')
+        .from('thumbnails')
         .upload(filePath, thumbnailFile, {
           cacheControl: '3600',
           upsert: true // Upsert might be useful if filename generation is consistent, otherwise false
@@ -599,20 +599,20 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       if (uploadError) {
         console.error("[SaveThumbnail] Thumbnail upload error:", uploadError);
         // Attempt to remove potentially partially uploaded file?
-        await supabase.storage.from('media_thumbnails').remove([filePath]);
+        await supabase.storage.from('thumbnails').remove([filePath]);
         throw new Error(`Failed to upload thumbnail: ${uploadError.message}.`);
       }
       console.log("[SaveThumbnail] Thumbnail uploaded successfully:", uploadData);
 
       // 4. Get Public URL
       const { data: urlData } = supabase.storage
-        .from('media_thumbnails')
+        .from('thumbnails')
         .getPublicUrl(filePath);
 
       if (!urlData?.publicUrl) {
         console.error("[SaveThumbnail] Error getting public URL after upload");
         // Attempt to remove the orphaned file
-        await supabase.storage.from('media_thumbnails').remove([filePath]);
+        await supabase.storage.from('thumbnails').remove([filePath]);
         throw new Error("Failed to get thumbnail public URL after upload.");
       }
       const newThumbnailUrl = urlData.publicUrl;
@@ -628,7 +628,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       if (mediaUpdateError) {
         console.error("[SaveThumbnail] Media update error:", mediaUpdateError);
         // Consider removing the uploaded thumbnail if DB update fails?
-        // await supabase.storage.from('media_thumbnails').remove([filePath]);
+        // await supabase.storage.from('thumbnails').remove([filePath]);
         throw new Error(`Failed to update video record with new thumbnail: ${mediaUpdateError.message}`);
       }
 
@@ -846,7 +846,15 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 </div>
               )}
 
-              <div className="p-4 pt-0 flex-grow overflow-y-auto min-h-0">
+              <div
+                className={cn(
+                  // On mobile: make the scrollable area take full screen height and scroll
+                  isMobile
+                    ? "p-4 pt-0 flex-grow h-screen overflow-y-auto min-h-0 -webkit-overflow-scrolling-touch"
+                    : "p-4 pt-0 flex-grow overflow-y-auto min-h-0"
+                )}
+                style={isMobile ? { WebkitOverflowScrolling: 'touch' } : {}}
+              >
                 {isEditing ? (() => {
                     const selectValue = editableAssetId || "";
                     const currentPreviewSrc = framePreviewUrl || initialThumbnailUrl || '';
