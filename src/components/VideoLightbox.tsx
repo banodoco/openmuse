@@ -922,27 +922,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                 </div>
                              )}
                            </div>
-                           {/* File Input */}
-                           <Input
-                             id="videoThumbnail"
-                             type="file"
-                             accept="image/*" // Accept common image types
-                             onChange={handleThumbnailChange}
-                             disabled={isSaving}
-                             className="text-sm file:mr-2 file:py-1 file:px-2 file:rounded-full file:border-0 file:text-xs file:bg-muted file:text-muted-foreground hover:file:bg-muted/80"
-                           />
-                           {/* Clear selection button */}
-                           {newThumbnailFile && (
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={handleClearThumbnailSelection}
-                                disabled={isSaving}
-                                className="text-xs text-muted-foreground h-auto py-1 px-2 mt-1"
-                              >
-                                Clear selection
-                              </Button>
-                           )}
                         </div>
 
                         {/* Save/Cancel Buttons (spanning both columns) */}
