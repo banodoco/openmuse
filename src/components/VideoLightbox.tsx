@@ -656,7 +656,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           }}
         >
           <DialogContent
-            className="max-w-5xl p-0 bg-background max-h-[90vh] flex flex-col"
+            className={cn("max-w-5xl p-0 bg-background flex flex-col", isMobile ? "max-h-screen" : "max-h-[90vh]")}
             onClickCapture={(e) => {
               const anchor = (e.target as HTMLElement).closest('a');
               if (anchor) {
@@ -922,6 +922,26 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                 </div>
                              )}
                            </div>
+                           {/* --- ADD SLIDER HERE --- */}
+                           {videoDuration > 0 && (
+                             <div className="space-y-1.5">
+                               <Slider
+                                 value={[selectedTimestamp]}
+                                 onValueChange={handleSliderChange}
+                                 onValueCommit={handleSliderCommit} // Keep commit if needed for future actions
+                                 max={videoDuration}
+                                 step={0.1} // Allow fine-grained selection
+                                 disabled={isSaving || isCapturingFrame}
+                                 aria-label="Select Frame Timestamp"
+                                 className="py-2" // Add some padding for easier interaction
+                               />
+                               <div className="flex justify-between text-xs text-muted-foreground">
+                                 <span>{selectedTimestamp.toFixed(1)}s</span>
+                                 <span>{videoDuration.toFixed(1)}s</span>
+                               </div>
+                             </div>
+                           )}
+                           {/* --- END SLIDER --- */}
                         </div>
 
                         {/* Save/Cancel Buttons (spanning both columns) */}
