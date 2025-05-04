@@ -1157,31 +1157,37 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
                 {/* Hidden video element for scrubbing/frame capture */}
                 {isEditing && videoUrl && (
-                  <video
-                    ref={scrubVideoRef}
-                    src={videoUrl}
-                    muted
-                    playsInline
-                    preload="auto" // Preload for seeking
-                    crossOrigin="anonymous"
-                    className="absolute w-px h-px -left-full -top-full opacity-0 pointer-events-none" // Visually hidden
-                    onLoadedMetadata={() => {
-                      // Ensure duration is set based on this video too, if needed
-                      if (scrubVideoRef.current && !videoDuration) {
-                        setVideoDuration(scrubVideoRef.current.duration || 0);
-                      }
-                      console.log(`[ScrubVideo] Metadata loaded. Duration: ${scrubVideoRef.current?.duration}`);
-                    }}
-                    onSeeked={() => {
-                      // Trigger frame capture from *this* video when seek completes
-                      console.log(`[ScrubVideo] Seeked event on hidden video at ${scrubVideoRef.current?.currentTime.toFixed(2)}s. Capturing frame.`);
-                      captureFrame(); // Capture from scrubVideoRef
-                    }}
-                    onError={(e) => {
-                      console.error("[ScrubVideo] Error loading hidden video:", e);
-                      toast({ title: "Frame Preview Error", description: "Could not load video data for frame selection.", variant: "destructive" });
-                    }}
-                  />
+                  <>
+                    <video
+                      ref={scrubVideoRef}
+                      src={videoUrl}
+                      muted
+                      playsInline
+                      preload="auto" // Preload for seeking
+                      crossOrigin="anonymous"
+                      className="absolute w-px h-px -left-full -top-full opacity-0 pointer-events-none" // Visually hidden
+                      onLoadedMetadata={() => {
+                        // Ensure duration is set based on this video too, if needed
+                        if (scrubVideoRef.current && !videoDuration) {
+                          setVideoDuration(scrubVideoRef.current.duration || 0);
+                        }
+                        console.log(`[ScrubVideo] Metadata loaded. Duration: ${scrubVideoRef.current?.duration}`);
+                      }}
+                      onSeeked={() => {
+                        // Trigger frame capture from *this* video when seek completes
+                        console.log(`[ScrubVideo] Seeked event on hidden video at ${scrubVideoRef.current?.currentTime.toFixed(2)}s. Capturing frame.`);
+                        captureFrame(); // Capture from scrubVideoRef
+                      }}
+                      onError={(e) => {
+                        console.error("[ScrubVideo] Error loading hidden video:", e);
+                        toast({ title: "Frame Preview Error", description: "Could not load video data for frame selection.", variant: "destructive" });
+                      }}
+                    />
+                    <canvas
+                      ref={canvasRef}
+                      className="absolute w-px h-px -left-full -top-full opacity-0 pointer-events-none"
+                    />
+                  </>
                 )}
               </div>
             </div>
