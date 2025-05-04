@@ -709,7 +709,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                 "relative w-full aspect-video bg-black transition-[max-height] duration-300 ease-in-out",
                 isEditing && isMobile ? "hidden" :
                 isEditing && !isMobile ? "max-h-[25vh] flex-shrink mb-4" :
-                "max-h-[65vh] flex-shrink-0"
+                // When NOT editing:
+                // - Desktop: Limit video height to allow space for details below
+                // - Mobile: Don't limit video height, let flexbox handle layout within max-h-screen
+                isMobile ? "flex-shrink-0" : "max-h-[65vh] flex-shrink-0"
               )}>
                 <VideoPlayer
                   ref={lightboxVideoRef}
