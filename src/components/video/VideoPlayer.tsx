@@ -173,7 +173,18 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
   logger.log(`[${componentId}] Rendering. src: ${src?.substring(0,30)}..., poster: ${!!poster}, lazyLoad: ${lazyLoad}, preventLoadingFlicker: ${preventLoadingFlicker}`);
 
-  const videoRef = ref as React.MutableRefObject<HTMLVideoElement | null>;
+  const localVideoRef = useRef<HTMLVideoElement>(null);
+  const setVideoRef = (node: HTMLVideoElement | null) => {
+    localVideoRef.current = node;
+    if (ref) {
+      if (typeof ref === 'function') {
+        ref(node);
+      } else {
+        (ref as React.MutableRefObject<HTMLVideoElement | null>).current = node;
+      }
+    }
+  };
+
   const internalContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = externalContainerRef || internalContainerRef;
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -198,7 +209,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   } = useVideoLoader({
     src,
     poster,
-    videoRef,
+    videoRef: localVideoRef,
     onError,
     onLoadedData,
     autoPlay,
@@ -210,16 +221,16 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   });
   
   useEffect(() => {
-    if (triggerPlay && videoRef?.current && videoRef.current.paused && !unmountedRef.current) {
+    if (triggerPlay && localVideoRef?.current && localVideoRef.current.paused && !unmountedRef.current) {
       logger.log(`[${componentId}] triggerPlay is true, attempting to play.`);
-      videoRef.current.play().catch(err => {
+      localVideoRef.current.play().catch(err => {
         logger.error(`[${componentId}] Error attempting to play via triggerPlay:`, err);
       });
     }
-  }, [triggerPlay, videoRef]);
+  }, [triggerPlay, localVideoRef]);
   
   useVideoPlayback({
-    videoRef,
+    videoRef: localVideoRef,
     externallyControlled: !isMobile && externallyControlled,
     isHovering: externallyControlled ? isHovering : isInternallyHovering,
     muted,
@@ -240,14 +251,14 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   }, []);
   
   useEffect(() => {
-    if (externallyControlled && isHovering && isMobile && !playAttempted && !isLoading && videoRef.current && !unmountedRef.current) {
+    if (externallyControlled && isHovering && isMobile && !playAttempted && !isLoading && localVideoRef.current && !unmountedRef.current) {
       logger.log('Forcing play for lightbox on mobile');
       setForcedPlay(true);
       
       const attemptPlay = async () => {
         try {
-          if (videoRef.current && !unmountedRef.current) {
-            await videoRef.current.play();
+          if (localVideoRef.current && !unmountedRef.current) {
+            await localVideoRef.current.play();
             logger.log('Successfully forced play on mobile lightbox');
           }
         } catch (err) {
@@ -257,7 +268,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       
       attemptPlay();
     }
-  }, [externallyControlled, isHovering, isMobile, playAttempted, isLoading, videoRef]);
+  }, [externallyControlled, isHovering, isMobile, playAttempted, isLoading, localVideoRef]);
   
   React.useEffect(() => {
     if (isMobile && poster) {
@@ -317,20 +328,18 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     (event: React.MouseEvent<HTMLVideoElement>) => {
       if (onClick) {
         onClick(event);
-      } else if (!controls && !isMobile && videoRef?.current) {
-        // Default behavior: toggle play/pause if controls are hidden
-        if (videoRef.current.paused) {
-          videoRef.current.play().catch(err => logger.error(`[${componentId}] Error playing on click:`, err));
+      } else if (!controls && !isMobile && localVideoRef?.current) {
+        if (localVideoRef.current.paused) {
+          localVideoRef.current.play().catch(err => logger.error(`[${componentId}] Error playing on click:`, err));
         } else {
-          videoRef.current.pause();
+          localVideoRef.current.pause();
         }
       }
-      // Track interaction for potential autoplay restrictions
       if (!hasInteracted) {
         setHasInteracted(true);
       }
     },
-    [onClick, controls, isMobile, videoRef, hasInteracted, componentId]
+    [onClick, controls, isMobile, localVideoRef, hasInteracted, componentId]
   );
 
   const effectivePreventLoadingFlicker = isMobile ? false : preventLoadingFlicker;
@@ -343,16 +352,16 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   const handleLoadedDataInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event> | Event) => {
     logger.log(`[${componentId}] onLoadedData triggered. showFirstFrameAsPoster: ${showFirstFrameAsPoster}, initialFrameLoaded: ${initialFrameLoaded}`);
-    if (videoRef.current && showFirstFrameAsPoster && !initialFrameLoaded) {
+    if (localVideoRef.current && showFirstFrameAsPoster && !initialFrameLoaded) {
       logger.log(`[${componentId}] Pausing on first frame.`);
-      videoRef.current.pause();
-      videoRef.current.currentTime = 0;
+      localVideoRef.current.pause();
+      localVideoRef.current.currentTime = 0;
       setInitialFrameLoaded(true);
     }
     if (onLoadedData) {
       onLoadedData(event);
     }
-  }, [showFirstFrameAsPoster, initialFrameLoaded, onLoadedData, videoRef, componentId]);
+  }, [showFirstFrameAsPoster, initialFrameLoaded, onLoadedData, localVideoRef, componentId]);
 
   // Setup Intersection Observer using the hook - use a more sensitive threshold on mobile so that playback is triggered even when a small part is visible.
   const effectiveIntersectionOptions = useMemo<IntersectionObserverInit>(() => {
@@ -377,13 +386,13 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   // Add event listener for initial frame loading
   const handleLoadedMetadataInternal = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    logger.log(`[${componentId}] Loaded metadata. Duration: ${videoRef?.current?.duration}`);
-    if (showFirstFrameAsPoster && videoRef?.current && videoRef.current.paused && videoRef.current.readyState >= 1 /* HAVE_METADATA */ ) {
+    logger.log(`[${componentId}] Loaded metadata. Duration: ${localVideoRef?.current?.duration}`);
+    if (showFirstFrameAsPoster && localVideoRef?.current && localVideoRef.current.paused && localVideoRef.current.readyState >= 1 /* HAVE_METADATA */ ) {
         // Sometimes loadeddata doesn't fire at time 0, especially with preload='metadata'
         // We try to force seeking to 0 to capture the first frame if needed
         if (!initialFrameLoaded) {
            logger.log(`[${componentId}] Metadata loaded, seeking to 0 for first frame poster.`);
-           videoRef.current.currentTime = 0; // Seek to beginning
+           localVideoRef.current.currentTime = 0; // Seek to beginning
         }
     }
     if (onLoadedMetadata) onLoadedMetadata(e);
@@ -438,7 +447,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     //     logger.error(`[${componentId}] Mobile autoplay failed:`, err);
     //   });
     // }
-  }, [isIntersecting, isMobile, videoRef]);
+  }, [isIntersecting, isMobile, localVideoRef]);
 
   // --- Retry Timeout Logic ---
   const clearRetryTimeout = useCallback(() => {
@@ -451,7 +460,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   // Function to perform the actual video reset action
   const performActualReset = useCallback(() => {
-    const video = videoRef.current;
+    const video = localVideoRef.current;
     if (!video || unmountedRef.current || error) {
       logger.warn(`[${componentId}] performActualReset called but conditions not met (video: ${!!video}, unmounted: ${unmountedRef.current}, error: ${!!error})`);
       return;
@@ -464,7 +473,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     video.play().then(() => {
       // Restore position slightly after play starts
       setTimeout(() => {
-        if (videoRef.current && !unmountedRef.current) {
+        if (localVideoRef.current && !unmountedRef.current) {
           if (video.currentTime === 0 && currentTime > 0) {
              video.currentTime = currentTime;
              logger.log(`[${componentId}] Reset successful, restored time to ${currentTime}`);
@@ -488,7 +497,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       // However, we increment the attempt count *before* scheduling the next one via 'waiting' or initial play.
       setRetryAttempt(prev => prev + 1); // Increment for the next potential trigger
     });
-  }, [videoRef, componentId, error, retryAttempt, clearRetryTimeout]); // Added retryAttempt and clearRetryTimeout
+  }, [localVideoRef, componentId, error, retryAttempt, clearRetryTimeout]); // Added retryAttempt and clearRetryTimeout
 
   // Function to schedule the next retry attempt
   const scheduleNextRetry = useCallback(() => {
@@ -510,7 +519,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
     retryTimeoutRef.current = setTimeout(() => {
       // Check conditions *again* inside the timeout, state might have changed
-      const video = videoRef.current;
+      const video = localVideoRef.current;
       if (video && !unmountedRef.current && !error && (video.paused || video.readyState < 3)) {
         logger.log(`[${componentId}] Retry timeout expired. Performing reset action.`);
         performActualReset(); 
@@ -522,7 +531,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       }
     }, delay);
 
-  }, [retryAttempt, videoRef, error, clearRetryTimeout, performActualReset, componentId]); // Added dependencies
+  }, [retryAttempt, localVideoRef, error, clearRetryTimeout, performActualReset, componentId]); // Added dependencies
 
   // --- Timeout Clearing (Old functions removed) ---
   // const clearInitialPlayTimeout = useCallback(() => { ... }); // REMOVED
@@ -542,7 +551,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   // --- Initial Play Timeout Logic (Modified) ---
   useEffect(() => {
-    const video = videoRef.current;
+    const video = localVideoRef.current;
     // Need video, not played yet, no error, not unmounted, and video is currently paused
     if (!video || hasPlayedOnce || error || unmountedRef.current || !video.paused) {
       clearRetryTimeout(); // Clear if condition is no longer met
@@ -563,7 +572,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     }
 
   // }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, clearInitialPlayTimeout, attemptReset, componentId, dynamicTimeoutMs, playAttempted]); // Old dependencies
-  }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, playAttempted, scheduleNextRetry, clearRetryTimeout, componentId, retryAttempt]); // Updated dependencies
+  }, [isIntersecting, isMobile, localVideoRef, hasPlayedOnce, error, playAttempted, scheduleNextRetry, clearRetryTimeout, componentId, retryAttempt]); // Updated dependencies
 
 
   // --- Video Event Handlers ---
@@ -583,7 +592,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     // clearWaitingTimeout(); // REMOVED
     // Clear retry timeout ONLY if the pause seems intentional (end of video OR not intersecting on mobile)
     // If paused unexpectedly while intersecting on mobile, let the waiting handler/timeout handle it.
-    const video = videoRef.current;
+    const video = localVideoRef.current;
     if (video && (video.ended || !isIntersecting || !isMobile)) {
        clearRetryTimeout();
        // logger.log(`[${componentId}] Intentional pause or end detected, clearing retry timeout.`);
@@ -597,9 +606,9 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     if (isMobile && isIntersecting && video && !video.ended && !unmountedRef.current) {
       logger.log(`[${componentId}] Paused while intersecting on mobile, attempting to resume shortly.`);
       setTimeout(() => {
-        if (videoRef.current && videoRef.current.paused && isIntersecting && !videoRef.current.ended && !unmountedRef.current) {
+        if (localVideoRef.current && localVideoRef.current.paused && isIntersecting && !localVideoRef.current.ended && !unmountedRef.current) {
           logger.log(`[${componentId}] Resuming play after pause.`);
-          videoRef.current.play().catch(err => {
+          localVideoRef.current.play().catch(err => {
             // Don't reset retry attempts here, let 'waiting' handle failures
             logger.error(`[${componentId}] Error resuming play after pause:`, err);
           });
@@ -607,7 +616,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       }, 200);
     }
   // }, [onPause, clearWaitingTimeout, isMobile, isIntersecting, videoRef, componentId]); // Old dependencies
-  }, [onPause, clearRetryTimeout, isMobile, isIntersecting, videoRef, componentId]); // Updated dependencies
+  }, [onPause, clearRetryTimeout, isMobile, isIntersecting, localVideoRef, componentId]); // Updated dependencies
 
   const handleWaitingInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     logger.warn(`[${componentId}] onWaiting event fired. Attempt: ${retryAttempt}`);
@@ -625,7 +634,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     // Forward to consumer if they provided a handler
     if (onEnded) onEnded(event);
 
-    if (!videoRef.current || unmountedRef.current) return;
+    if (!localVideoRef.current || unmountedRef.current) return;
 
     // If the video should loop (loop prop true) the browser will normally handle it, but there are
     // scenarios on mobile where the loop attribute might have changed dynamically while the video
@@ -635,33 +644,20 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
     if (shouldManuallyLoop) {
       try {
-        videoRef.current.currentTime = 0;
+        localVideoRef.current.currentTime = 0;
         // Play returns a promise – ignore the rejection here because user interaction
         // requirements have already been satisfied if the video just ended.
-        videoRef.current.play().catch(err => {
+        localVideoRef.current.play().catch(err => {
           logger.error(`[${componentId}] Error attempting to replay video after end:`, err);
         });
       } catch (err) {
         logger.error(`[${componentId}] Failed to reset and replay video after end:`, err);
       }
     }
-  }, [onEnded, loop, isMobile, isIntersecting, videoRef, componentId]);
+  }, [onEnded, loop, isMobile, isIntersecting, localVideoRef, componentId]);
 
-  // Combine the forwarded ref and the internal ref.
-  // The forwarded ref (from parent) takes precedence if provided.
-  useImperativeHandle(ref, () => videoRef.current as HTMLVideoElement);
-
-  // Use the internal ref primarily for component logic, but allow external ref to be primary source
-  const videoRefCombined = videoRef;
-
-  // Ensure the forwarded ref also gets the element if internal ref is used
+  // Cleanup function to nullify the ref if necessary
   useEffect(() => {
-    if (ref && typeof ref === 'function') {
-      ref(videoRefCombined.current);
-    } else if (ref && typeof ref === 'object') {
-      (ref as React.MutableRefObject<HTMLVideoElement | null>).current = videoRefCombined.current;
-    }
-    // Cleanup function to nullify the ref if necessary
     return () => {
       if (ref && typeof ref === 'function') {
         ref(null);
@@ -669,7 +665,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
         (ref as React.MutableRefObject<HTMLVideoElement | null>).current = null;
       }
     };
-  }, [ref, videoRefCombined]); // Re-run if ref or videoRef changes
+  }, [ref]);
 
   return (
     <div 
@@ -704,7 +700,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       />
       
       <video
-        ref={videoRefCombined}
+        ref={setVideoRef}
         className={cn(
           "w-full h-full object-cover rounded-md transition-opacity duration-300",
           className,

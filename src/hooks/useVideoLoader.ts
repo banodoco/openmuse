@@ -70,13 +70,22 @@ export const useVideoLoader = ({
   }, [src, onError, isBlobUrl]);
   
   useEffect(() => {
+    if (!videoRef) {
+      logger.error('videoRef object itself is null or undefined in useVideoLoader effect.');
+      setError('Internal error: Video reference handler missing.');
+      setIsLoading(false);
+      return;
+    }
+
     const video = videoRef.current;
     if (!src || !video) {
       if (!src) {
         logger.error('No source provided to VideoPlayer hook');
+        setError('No video source provided');
+        setIsLoading(false);
       }
       if (!video) {
-        logger.error('Video element reference not available in hook');
+        logger.error('Video element reference not available yet in useVideoLoader hook.');
       }
       return;
     }
@@ -111,11 +120,10 @@ export const useVideoLoader = ({
 
     prevSrcRef.current = src;
 
-    // Define handlers INSIDE the effect so they capture the correct scope and refs
-    // and can be included in the dependency array properly.
-    const handleLoadedData = (event: Event) => { // Ensure event type is correct
-      if (prevSrcRef.current !== video?.currentSrc && !(isBlobUrl && video?.currentSrc?.startsWith('blob:'))) {
-         logger.warn(`[${src.substring(0,15)}] handleLoadedData called for old src (${video?.currentSrc?.substring(0,15)}). Ignoring.`);
+    const handleLoadedData = (event: Event) => {
+      const currentVideoElement = videoRef?.current;
+      if (!currentVideoElement || (prevSrcRef.current !== currentVideoElement.currentSrc && !(isBlobUrl && currentVideoElement.currentSrc?.startsWith('blob:')))) {
+         logger.warn(`[${src.substring(0,15)}] handleLoadedData called for old src or missing video. Ignoring.`);
          return;
       }
       if (unmountedRef.current) return;
@@ -128,18 +136,17 @@ export const useVideoLoader = ({
         logger.log('Firing onLoadedData callback');
         onLoadedData(event);
       }
-      
-      // Play attempts REMOVED from here
     };
     
     const handleError = () => {
-      if (!video || prevSrcRef.current !== video.src && !(isBlobUrl && video.src?.startsWith('blob:'))) {
-        logger.warn(`[${src.substring(0,15)}] handleError called for old src (${video?.src?.substring(0,15)}) or no video. Ignoring.`);
+      const currentVideoElement = videoRef?.current;
+      if (!currentVideoElement || (prevSrcRef.current !== currentVideoElement.src && !(isBlobUrl && currentVideoElement.src?.startsWith('blob:')))) {
+        logger.warn(`[${src.substring(0,15)}] handleError called for old src or missing video. Ignoring.`);
         return;
       }
       if (unmountedRef.current) return;
 
-      const { message, details } = getVideoErrorMessage(video.error, src);
+      const { message, details } = getVideoErrorMessage(currentVideoElement.error, src);
       const format = getVideoFormat(src);
       
       if (isBlobUrl) {
@@ -160,21 +167,22 @@ export const useVideoLoader = ({
       if (onError) onError(message);
     };
     
-    // Add listeners only if the source hasn't changed
-    if (prevSrcRef.current === src && video) {
+    if (prevSrcRef.current === src) {
        video.addEventListener('loadeddata', handleLoadedData);
        video.addEventListener('error', handleError);
+       logger.log(`[${src.substring(0,15)}] Added event listeners.`);
+    } else {
+       logger.warn(`[${src.substring(0,15)}] Did not add listeners. Src match: ${prevSrcRef.current === src}`);
     }
 
-    // Ensure cleanup removes the specific handlers
     return () => {
-      if (video) {
-         // Use the handlers defined within this effect scope for removal
-         video.removeEventListener('loadeddata', handleLoadedData);
-         video.removeEventListener('error', handleError);
+      const cleanupVideoElement = videoRef?.current;
+      if (cleanupVideoElement) {
+         cleanupVideoElement.removeEventListener('loadeddata', handleLoadedData);
+         cleanupVideoElement.removeEventListener('error', handleError);
+         logger.log(`[${src.substring(0,15)}] Removed event listeners.`);
       }
     };
-  // Dependencies now include state setters and props used within the handlers defined inside
   }, [src, videoRef, onError, poster, isBlobUrl, setIsLoading, setLoadedDataFired, setError, setErrorDetails, onLoadedData]);
 
   const handleRetry = () => {
