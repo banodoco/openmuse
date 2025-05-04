@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { Play } from 'lucide-react';
@@ -101,7 +101,6 @@ interface VideoPlayerProps {
   onStalled?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   onSuspend?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
   onRateChange?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
-  videoRef?: React.RefObject<HTMLVideoElement>;
   poster?: string;
   playOnHover?: boolean;
   containerRef?: React.RefObject<HTMLDivElement>;
@@ -119,61 +118,62 @@ interface VideoPlayerProps {
   preloadMargin?: string;
 }
 
-const VideoPlayer: React.FC<VideoPlayerProps> = ({
-  src,
-  autoPlay = false,
-  triggerPlay = false,
-  playsInline = true,
-  muted = true,
-  loop = false,
-  className = '',
-  controls = true,
-  onClick,
-  onLoadedData,
-  onTimeUpdate,
-  onEnded,
-  onError,
-  onLoadStart,
-  onPause,
-  onPlay: onPlayProp,
-  onPlaying,
-  onProgress,
-  onSeeked,
-  onSeeking,
-  onWaiting: onWaitingProp,
-  onDurationChange,
-  onVolumeChange,
-  onLoadedMetadata,
-  onAbort,
-  onCanPlay,
-  onCanPlayThrough,
-  onEmptied,
-  onEncrypted,
-  onStalled,
-  onSuspend,
-  onRateChange,
-  videoRef: externalVideoRef,
-  poster,
-  playOnHover = false,
-  containerRef: externalContainerRef,
-  showPlayButtonOnHover = true,
-  externallyControlled = false,
-  isHovering = false,
-  lazyLoad = true,
-  isMobile = false,
-  preventLoadingFlicker = true,
-  preload: preloadProp,
-  showFirstFrameAsPoster = false,
-  onVisibilityChange,
-  intersectionOptions = { threshold: 0.25 },
-  onEnterPreloadArea,
-  preloadMargin = '0px 0px 600px 0px',
-}) => {
+const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
+  {
+    src,
+    autoPlay = false,
+    triggerPlay = false,
+    playsInline = true,
+    muted = true,
+    loop = false,
+    className = '',
+    controls = true,
+    onClick,
+    onLoadedData,
+    onTimeUpdate,
+    onEnded,
+    onError,
+    onLoadStart,
+    onPause,
+    onPlay: onPlayProp,
+    onPlaying,
+    onProgress,
+    onSeeked,
+    onSeeking,
+    onWaiting: onWaitingProp,
+    onDurationChange,
+    onVolumeChange,
+    onLoadedMetadata,
+    onAbort,
+    onCanPlay,
+    onCanPlayThrough,
+    onEmptied,
+    onEncrypted,
+    onStalled,
+    onSuspend,
+    onRateChange,
+    poster,
+    playOnHover = false,
+    containerRef: externalContainerRef,
+    showPlayButtonOnHover = true,
+    externallyControlled = false,
+    isHovering = false,
+    lazyLoad = true,
+    isMobile = false,
+    preventLoadingFlicker = true,
+    preload: preloadProp,
+    showFirstFrameAsPoster = false,
+    onVisibilityChange,
+    intersectionOptions = { threshold: 0.25 },
+    onEnterPreloadArea,
+    preloadMargin = '0px 0px 600px 0px',
+  },
+  ref
+) => {
   const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
   logger.log(`[${componentId}] Rendering. src: ${src?.substring(0,30)}..., poster: ${!!poster}, lazyLoad: ${lazyLoad}, preventLoadingFlicker: ${preventLoadingFlicker}`);
 
-  const internalVideoRef = useRef<HTMLVideoElement>(null);
-  const videoRef = externalVideoRef || internalVideoRef;
+  const videoRef = ref as React.MutableRefObject<HTMLVideoElement | null>;
   const internalContainerRef = useRef<HTMLDivElement>(null);
   const containerRef = externalContainerRef || internalContainerRef;
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -210,7 +210,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
   });
   
   useEffect(() => {
-    if (triggerPlay && videoRef.current && videoRef.current.paused && !unmountedRef.current) {
+    if (triggerPlay && videoRef?.current && videoRef.current.paused && !unmountedRef.current) {
       logger.log(`[${componentId}] triggerPlay is true, attempting to play.`);
       videoRef.current.play().catch(err => {
         logger.error(`[${componentId}] Error attempting to play via triggerPlay:`, err);
@@ -313,17 +313,25 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   };
 
-  const handleVideoClick = () => {
-    if (isMobile && videoRef.current && !unmountedRef.current) {
-      if (videoRef.current.paused) {
-        videoRef.current.play().catch(err => {
-          logger.error('Error playing video on click:', err);
-        });
-      } else {
-        videoRef.current.pause();
+  const handleVideoClick = useCallback(
+    (event: React.MouseEvent<HTMLVideoElement>) => {
+      if (onClick) {
+        onClick(event);
+      } else if (!controls && !isMobile && videoRef?.current) {
+        // Default behavior: toggle play/pause if controls are hidden
+        if (videoRef.current.paused) {
+          videoRef.current.play().catch(err => logger.error(`[${componentId}] Error playing on click:`, err));
+        } else {
+          videoRef.current.pause();
+        }
       }
-    }
-  };
+      // Track interaction for potential autoplay restrictions
+      if (!hasInteracted) {
+        setHasInteracted(true);
+      }
+    },
+    [onClick, controls, isMobile, videoRef, hasInteracted, componentId]
+  );
 
   const effectivePreventLoadingFlicker = isMobile ? false : preventLoadingFlicker;
   const shouldShowLoading = !isMobile && isLoading && (!effectivePreventLoadingFlicker || !poster);
@@ -369,14 +377,16 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
 
   // Add event listener for initial frame loading
   const handleLoadedMetadataInternal = (e: React.SyntheticEvent<HTMLVideoElement>) => {
-    if (!unmountedRef.current) {
-      logger.log(`[${componentId}] Loaded metadata.`);
-      if (showFirstFrameAsPoster) {
-        setInitialFrameLoaded(true);
-        logger.log(`[${componentId}] Marked initial frame as loaded.`);
-      }
-      if (onLoadedMetadata) onLoadedMetadata(e);
+    logger.log(`[${componentId}] Loaded metadata. Duration: ${videoRef?.current?.duration}`);
+    if (showFirstFrameAsPoster && videoRef?.current && videoRef.current.paused && videoRef.current.readyState >= 1 /* HAVE_METADATA */ ) {
+        // Sometimes loadeddata doesn't fire at time 0, especially with preload='metadata'
+        // We try to force seeking to 0 to capture the first frame if needed
+        if (!initialFrameLoaded) {
+           logger.log(`[${componentId}] Metadata loaded, seeking to 0 for first frame poster.`);
+           videoRef.current.currentTime = 0; // Seek to beginning
+        }
     }
+    if (onLoadedMetadata) onLoadedMetadata(e);
   };
 
   // Internal handler for the video element's onError event
@@ -637,6 +647,30 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
     }
   }, [onEnded, loop, isMobile, isIntersecting, videoRef, componentId]);
 
+  // Combine the forwarded ref and the internal ref.
+  // The forwarded ref (from parent) takes precedence if provided.
+  useImperativeHandle(ref, () => videoRef.current as HTMLVideoElement);
+
+  // Use the internal ref primarily for component logic, but allow external ref to be primary source
+  const videoRefCombined = videoRef;
+
+  // Ensure the forwarded ref also gets the element if internal ref is used
+  useEffect(() => {
+    if (ref && typeof ref === 'function') {
+      ref(videoRefCombined.current);
+    } else if (ref && typeof ref === 'object') {
+      (ref as React.MutableRefObject<HTMLVideoElement | null>).current = videoRefCombined.current;
+    }
+    // Cleanup function to nullify the ref if necessary
+    return () => {
+      if (ref && typeof ref === 'function') {
+        ref(null);
+      } else if (ref && typeof ref === 'object') {
+        (ref as React.MutableRefObject<HTMLVideoElement | null>).current = null;
+      }
+    };
+  }, [ref, videoRefCombined]); // Re-run if ref or videoRef changes
+
   return (
     <div 
       ref={containerRef} 
@@ -670,7 +704,7 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       />
       
       <video
-        ref={videoRef}
+        ref={videoRefCombined}
         className={cn(
           "w-full h-full object-cover rounded-md transition-opacity duration-300",
           className,
@@ -722,6 +756,8 @@ const VideoPlayer: React.FC<VideoPlayerProps> = ({
       )}
     </div>
   );
-};
+});
+
+VideoPlayer.displayName = 'VideoPlayer'; // Add display name for DevTools
 
 export default VideoPlayer;
