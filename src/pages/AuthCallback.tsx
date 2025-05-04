@@ -52,22 +52,10 @@ const AuthCallback = () => {
       // logger.log('AuthCallback: Clearing window.location.hash');
       window.location.hash = '';
       
-      // Attempt to merge an unclaimed profile if it exists using Discord identifiers
-      const userMetadata = user.user_metadata;
-      const discordUsername = userMetadata?.user_name || userMetadata?.discord_username; // Check common keys
-      const discordUserId = userMetadata?.provider_id || userMetadata?.discord_user_id; // Check common keys for Discord ID
-
-      if (discordUsername || discordUserId) {
-        logger.log('Attempting merge with identifiers:', { discordUsername, discordUserId });
-        (async () => {
-          await mergeProfileIfExists(supabase, user.id, { discordUsername, discordUserId });
-          // After merge completes, navigate
-          navigate(returnUrl, { replace: true });
-        })();
-      } else {
-        logger.log('No Discord identifiers found in user metadata for potential merge.');
-        navigate(returnUrl, { replace: true });
-      }
+      // Profile linking/creation is handled by the server-side handle_new_user function.
+      // Navigate immediately once user is confirmed.
+      logger.log(`AuthCallback: User detected, navigating to ${returnUrl}`);
+      navigate(returnUrl, { replace: true });
     } else {
       // logger.log('AuthCallback: AuthProvider finished loading, but no user session found.');
       if (isProcessing) {
