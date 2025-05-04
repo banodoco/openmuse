@@ -17,6 +17,7 @@ import { Link } from 'react-router-dom';
 import { Skeleton } from "@/components/ui/skeleton";
 import LoraCreatorInfo from './LoraCreatorInfo';
 import ReactMarkdown from 'react-markdown';
+import { cn } from '@/lib/utils';
 
 const MODEL_VARIANTS = {
   wan: ['1.3b', '14b T2V', '14b I2V'],
@@ -31,6 +32,8 @@ interface EditableLoraDetailsProps {
   isAuthorized: boolean;
   onDetailsUpdated: () => void;
   hideEditButton?: boolean;
+  curatorProfile?: UserProfile | null;
+  isLoadingCuratorProfile?: boolean;
 }
 
 // Exposed methods for parent components
@@ -42,14 +45,14 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
   asset,
   isAuthorized,
   onDetailsUpdated,
-  hideEditButton = false
+  hideEditButton = false,
+  curatorProfile,
+  isLoadingCuratorProfile
 }, ref) => {
   const { user } = useAuth();
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
-  const [creatorProfile, setCreatorProfile] = useState<UserProfile | null>(null);
-  const [isLoadingProfile, setIsLoadingProfile] = useState(false);
 
   // Helper function to determine if the current user owns the asset
   const isOwnedByCurrentUser = () => {
@@ -336,54 +339,104 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
     );
   }
 
+  // --- Display Mode (Reverted Structure) --- 
   return (
     <div>
+      {/* Edit button - Placed back inside the main div if needed, or keep outside if AssetInfoCard handles it */}
+      {/* Example: 
       {isAuthorized && !hideEditButton && (
-        <div className="flex justify-end">
+        <div className="flex justify-end mb-2"> 
           <Button variant="ghost" size="sm" onClick={handleEdit} className="h-7 px-2 py-1.5">
             <Pencil className="h-4 w-4" />
           </Button>
         </div>
-      )}
+      )} 
+      */} 
 
-      <div className="space-y-1">
-        <Label className="text-xs text-muted-foreground">Creator</Label>
-        <LoraCreatorInfo asset={asset} avatarSize="h-6 w-6" textSize="text-sm" />
-      </div>
-
-      {asset?.description && (
-         <div className="space-y-1 mt-3">
-          <Label className="text-xs text-muted-foreground">Description</Label>
-          <div className="text-sm prose prose-sm max-w-none prose-a:text-primary prose-a:no-underline hover:prose-a:underline">
-            <ReactMarkdown
-              components={{
-                a: ({ node, ...props }) => (
-                  <a {...props} target="_blank" rel="noopener noreferrer" />
-                ),
-              }}
-            >
-              {asset.description}
-            </ReactMarkdown>
+      {/* Main Content Area */} 
+      <div className="space-y-3 text-sm"> 
+        {/* Wrapper for Creator and Curator */}
+        <div className="flex items-start space-x-4"> 
+          {/* Creator Info */} 
+          <div>
+            <Label className="text-xs text-muted-foreground">Creator</Label>
+            <LoraCreatorInfo 
+              asset={asset} 
+              avatarSize="h-6 w-6" 
+              textSize="text-sm" 
+              className="pt-1"
+            />
           </div>
+
+          {/* Curator Info - Conditionally Rendered */} 
+          {isLoadingCuratorProfile ? (
+            <div>
+              <Label className="text-xs text-muted-foreground">Curated by</Label>
+              <div className="flex items-center space-x-2 pt-1">
+                <Skeleton className="h-6 w-6 rounded-full" /> 
+                <Skeleton className="h-4 w-20" />
+              </div>
+            </div>
+          ) : curatorProfile ? (
+            <div>
+              <Label className="text-xs text-muted-foreground">Curated by</Label>
+              <Link 
+                to={`/profile/${encodeURIComponent(curatorProfile.username)}`} 
+                className="flex items-center space-x-2 group w-fit pt-1" 
+                onClick={(e) => e.stopPropagation()}
+              >
+                <Avatar className="h-6 w-6 group-hover:ring-2 group-hover:ring-primary transition-all">
+                  <AvatarImage src={curatorProfile.avatar_url ?? undefined} alt={curatorProfile.display_name || curatorProfile.username} />
+                  <AvatarFallback>
+                    {(curatorProfile.display_name || curatorProfile.username)?.[0]?.toUpperCase() || <UserIcon className="h-3 w-3" />}
+                  </AvatarFallback>
+                </Avatar>
+                <span className="font-medium group-hover:text-primary transition-colors text-sm">
+                  {curatorProfile.display_name || curatorProfile.username}
+                </span>
+              </Link>
+            </div>
+          ) : null}
         </div>
-      )}
-      
-      <div className="grid grid-cols-2 gap-x-4 mt-3">
-        <div className="space-y-1">
-          <Label className="text-xs text-muted-foreground">Base Model</Label>
-          <p className="text-sm font-medium">{asset?.lora_base_model || 'N/A'}</p>
-        </div>
-        {asset?.model_variant && (
-          <div className="space-y-1">
-            <Label className="text-xs text-muted-foreground">Model Variant</Label>
-            <p className="text-sm font-medium">{asset.model_variant}</p>
+
+        {/* Description */} 
+        {asset?.description && (
+          <div className="space-y-1 pt-1">
+            <Label className="text-xs text-muted-foreground">Description</Label>
+            <div className="prose prose-sm max-w-none dark:prose-invert break-words">
+              <ReactMarkdown
+                components={{
+                  a: ({ node, ...props }) => (
+                    <a {...props} target="_blank" rel="noopener noreferrer" />
+                  ),
+                }}
+              >
+                {asset.description}
+              </ReactMarkdown>
+            </div>
           </div>
         )}
-      </div>
 
-      <div className="space-y-1 mt-2">
-        <Label className="text-xs text-muted-foreground">Type</Label>
-        <p className="text-sm font-medium">{asset?.lora_type || 'N/A'}</p>
+        {/* Model Details - Reverted Structure */} 
+        {(asset?.lora_base_model || asset?.lora_type) && <hr className="my-2" />} 
+        <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+          {asset?.lora_base_model && (
+             <div className="space-y-0.5">
+               <Label className="text-xs text-muted-foreground">Base Model</Label>
+               <p className="text-sm font-medium">
+                 {asset.lora_base_model}
+                 {asset.model_variant ? ` (${asset.model_variant})` : ''}
+               </p>
+             </div>
+          )}
+          {asset?.lora_type && (
+             <div className="space-y-0.5">
+               <Label className="text-xs text-muted-foreground">Type</Label>
+               <p className="text-sm font-medium">{asset.lora_type}</p>
+             </div>
+          )}
+        </div>
+
       </div>
     </div>
   );

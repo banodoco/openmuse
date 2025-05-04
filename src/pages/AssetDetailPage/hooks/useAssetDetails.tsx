@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, VideoEntry, VideoDisplayStatus, VideoMetadata, AdminStatus, UserAssetPreferenceStatus } from '@/lib/types';
+import { LoraAsset, VideoEntry, VideoDisplayStatus, VideoMetadata, AdminStatus, UserAssetPreferenceStatus, UserProfile } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
@@ -22,6 +22,8 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const [isLoading, setIsLoading] = useState(true);
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
   const [creatorDisplayName, setCreatorDisplayName] = useState<string | null>(null);
+  const [curatorProfile, setCuratorProfile] = useState<UserProfile | null>(null);
+  const [isLoadingCuratorProfile, setIsLoadingCuratorProfile] = useState(false);
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
   const { user, isAdmin, isLoading: isAuthLoading } = useAuth();
 
@@ -35,6 +37,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
       if (!options?.silent) setIsLoading(false);
       setDataFetchAttempted(true);
       initialFetchTriggered.current = true;
+      setCuratorProfile(null);
       return;
     }
 
@@ -81,6 +84,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         logger.warn('[useAssetDetails] No asset found with ID:', assetId);
         setAsset(null);
         setVideos([]);
+        setCuratorProfile(null);
         // No need to return early here, let finally block handle loading state
         // If assetMediaJoinData is also empty/null, the processing below will handle it
       } else {
@@ -147,6 +151,37 @@ export const useAssetDetails = (assetId: string | undefined) => {
         };
         
         setAsset(processedAsset);
+
+        // --- Fetch Curator Profile ---
+        if (assetData.curator_id) {
+          logger.log(`[useAssetDetails] Found curator_id: ${assetData.curator_id}. Fetching curator profile.`);
+          setIsLoadingCuratorProfile(true);
+          try {
+            const { data: curatorData, error: curatorError } = await supabase
+              .from('profiles')
+              .select('*')
+              .eq('id', assetData.curator_id)
+              .maybeSingle();
+
+            if (curatorError) {
+              logger.error('[useAssetDetails] Error fetching curator profile:', curatorError);
+              setCuratorProfile(null); // Set to null on error
+            } else {
+              logger.log('[useAssetDetails] Successfully fetched curator profile:', curatorData);
+              setCuratorProfile(curatorData as UserProfile | null);
+            }
+          } catch (err) {
+            logger.error('[useAssetDetails] Exception fetching curator profile:', err);
+            setCuratorProfile(null);
+          } finally {
+            setIsLoadingCuratorProfile(false);
+          }
+        } else {
+          logger.log('[useAssetDetails] No curator_id found for this asset.');
+          setCuratorProfile(null); // Ensure it's null if no curator_id
+          setIsLoadingCuratorProfile(false); // Ensure loading is false
+        }
+        // --- End Fetch Curator Profile ---
 
         // Video processing logic depends on both assetData and fetchedAssetMedia
         const convertedVideos: VideoEntry[] = await Promise.all(
@@ -231,6 +266,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
       toast.error('Failed to load asset details');
       setAsset(null);
       setVideos([]);
+      setCuratorProfile(null);
     } finally {
       logger.log('[useAssetDetails] fetchAssetDetails finally block executing.');
       if (!options?.silent) {
@@ -441,19 +477,26 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
   const combinedLoading = isLoading || (isAuthLoading && !dataFetchAttempted);
 
+  // --- Return values from the hook ---
   return {
     asset,
     videos,
-    isLoading: combinedLoading,
+    isLoading: isLoading || isAuthLoading || isLoadingCuratorProfile, // Combine all loading states
+    creatorDisplayName: getCreatorName(), // Use the helper function
+    curatorProfile, // Return curator profile
+    isLoadingCuratorProfile, // Return curator loading state
+    currentStatus: asset?.user_status ?? null,
     isUpdatingAdminStatus,
+    refetchAssetDetails: fetchAssetDetails, // Function to refetch data
+    updateAdminStatus: updateAssetAdminStatus, // Export the actual function
+    updateUserStatus: updateAssetUserStatus, // Export the actual function
+    updatePrimaryVideo: updateLocalPrimaryMedia, // Export the actual function
+    deleteAsset: removeVideoLocally, // Export the actual function
     dataFetchAttempted,
-    creatorDisplayName,
-    getCreatorName,
-    fetchAssetDetails,
-    updateLocalVideoStatus,
-    updateLocalPrimaryMedia,
-    removeVideoLocally,
-    updateAssetUserStatus,
-    updateAssetAdminStatus
+    isOwner: !!user && asset?.user_id === user.id, // Calculate ownership
+    isAdmin, // Return the isAdmin status from useAuth
+    // Return functions needed for local UI updates if necessary (Example)
+    // updateLocalVideoStatus: updateLocalVideoStatus, 
+    // removeVideoLocally: removeVideoLocally,
   };
 };

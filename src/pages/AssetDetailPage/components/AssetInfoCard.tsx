@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { LoraAsset, UserAssetPreferenceStatus, AdminStatus } from '@/lib/types';
+import { LoraAsset, UserAssetPreferenceStatus, AdminStatus, UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
 import EditableLoraDetails, { EditableLoraDetailsHandle } from '@/components/lora/EditableLoraDetails';
 import { toast } from 'sonner';
@@ -59,6 +59,8 @@ interface AssetInfoCardProps {
   onDelete: () => Promise<void>;
   /** Callback fired after the LoRA details have been updated so parent can refetch/refresh */
   onDetailsUpdated: () => void;
+  curatorProfile?: UserProfile | null;
+  isLoadingCuratorProfile?: boolean;
 }
 
 const AssetInfoCard = ({
@@ -72,7 +74,9 @@ const AssetInfoCard = ({
   isUpdatingAdminStatus,
   onAdminStatusChange,
   onDelete,
-  onDetailsUpdated
+  onDetailsUpdated,
+  curatorProfile,
+  isLoadingCuratorProfile
 }: AssetInfoCardProps) => {
   const { user } = useAuth();
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
@@ -139,6 +143,8 @@ const AssetInfoCard = ({
             isAuthorized={isAuthorizedToEdit}
             onDetailsUpdated={onDetailsUpdated}
             hideEditButton
+            curatorProfile={curatorProfile}
+            isLoadingCuratorProfile={isLoadingCuratorProfile}
           />
         </CardContent>
         

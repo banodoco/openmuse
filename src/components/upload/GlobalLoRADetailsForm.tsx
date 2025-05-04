@@ -257,6 +257,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 placeholder="Enter LoRA link"
                 value={loraDetails.loraLink}
                 onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
+                required
                 disabled={disabled}
               />
             </div>

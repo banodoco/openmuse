@@ -181,91 +181,65 @@ export default function UserProfilePage() {
   const [isGenerationUploadModalOpen, setIsGenerationUploadModalOpen] = useState(false);
   const [isArtUploadModalOpen, setIsArtUploadModalOpen] = useState(false);
 
-  // Only this flag (not the whole query string) should trigger data refetch
-  const loggedOutViewParam = searchParams.get('loggedOutView');
-
-  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
-
-  // --- Conditional Return for Auth Loading ---
-  // This MUST come *after* all hook calls.
-  if (isAuthLoading) {
-    logger.log('[UserProfilePage Render] Returning loader because isAuthLoading is true.');
-    return (
-      <>
-        <Navigation />
-        <div className="flex justify-center items-center h-screen">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
-        </div>
-        <Footer />
-      </>
-    );
-  }
-  // --- End Conditional Return ---
-
-  // --- Data Fetching Functions defined using useCallback ---
+  // Insert missing hook definitions
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
     logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
     setIsLoadingAssets(true);
     const pageSize = 16; // Use a fixed page size
     const rangeFrom = (page - 1) * pageSize;
     const rangeTo = rangeFrom + pageSize - 1;
-
     try {
-      // Fetch count and data in one query
       const { data: assetsData, error: assetsError, count } = await supabase
         .from('assets')
-        .select(`*, primaryVideo:primary_media_id(*)`, { count: 'exact' }) // Get total count
+        .select(`*, primaryVideo:primary_media_id(*)`, { count: 'exact' })
         .eq('user_id', profileUserId)
-        .order('created_at', { ascending: false }) // Keep sorting consistent if needed, or sort server-side by status first
-        .range(rangeFrom, rangeTo); // Fetch specific page range
-
+        .order('created_at', { ascending: false })
+        .range(rangeFrom, rangeTo);
       if (assetsError) throw assetsError;
-
       if (assetsData) {
         const processedAssets: LoraAsset[] = assetsData.map((asset: any) => {
-           const pVideo = asset.primaryVideo;
-           const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
-           return {
-             id: asset.id,
-             name: asset.name,
-             description: asset.description,
-             creator: asset.creator,
-             type: asset.type,
-             created_at: asset.created_at,
-             user_id: asset.user_id,
-             primary_media_id: asset.primary_media_id,
-             admin_status: asset.admin_status,
-             user_status: userStatus,
-             lora_type: asset.lora_type,
-             lora_base_model: asset.lora_base_model,
-             model_variant: asset.model_variant,
-             lora_link: asset.lora_link,
-             primaryVideo: pVideo ? { 
-               id: pVideo.id,
-               url: pVideo.url,
-               reviewer_name: pVideo.creator || '',
-               skipped: false,
-               created_at: pVideo.created_at,
-               admin_status: pVideo.admin_status,
-               user_id: pVideo.user_id,
-               user_status: pVideo.user_status || null,
-               metadata: {
-                 title: pVideo.title || asset.name,
-                 placeholder_image: pVideo.placeholder_image || null,
-                 description: pVideo.description,
-                 creator: pVideo.creator ? 'self' : undefined,
-                 creatorName: pVideo.creator_name,
-                 classification: pVideo.classification,
-                 loraName: asset.name,
-                 assetId: asset.id,
-                 loraType: asset.lora_type,
-                 model: asset.lora_base_model,
-                 modelVariant: asset.model_variant,
-               }
-             } : undefined
-           };
+          const pVideo = asset.primaryVideo;
+          const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
+          return {
+            id: asset.id,
+            name: asset.name,
+            description: asset.description,
+            creator: asset.creator,
+            type: asset.type,
+            created_at: asset.created_at,
+            user_id: asset.user_id,
+            primary_media_id: asset.primary_media_id,
+            admin_status: asset.admin_status,
+            user_status: userStatus,
+            lora_type: asset.lora_type,
+            lora_base_model: asset.lora_base_model,
+            model_variant: asset.model_variant,
+            lora_link: asset.lora_link,
+            primaryVideo: pVideo ? { 
+              id: pVideo.id,
+              url: pVideo.url,
+              reviewer_name: pVideo.creator || '',
+              skipped: false,
+              created_at: pVideo.created_at,
+              admin_status: pVideo.admin_status,
+              user_id: pVideo.user_id,
+              user_status: pVideo.user_status || null,
+              metadata: {
+                title: pVideo.title || asset.name,
+                placeholder_image: pVideo.placeholder_image || null,
+                description: pVideo.description,
+                creator: pVideo.creator ? 'self' : undefined,
+                creatorName: pVideo.creator_name,
+                classification: pVideo.classification,
+                loraName: asset.name,
+                assetId: asset.id,
+                loraType: asset.lora_type,
+                model: asset.lora_base_model,
+                modelVariant: asset.model_variant,
+              }
+            } : undefined
+          };
         });
-        
         const visibleAssets = canViewerSeeHiddenAssets
           ? processedAssets
           : processedAssets.filter(asset => asset.user_status !== 'Hidden');
@@ -273,8 +247,8 @@ export default function UserProfilePage() {
         setUserAssets(sortedPageAssets);
         setTotalAssets(count ?? 0);
       } else {
-         setUserAssets([]);
-         setTotalAssets(0);
+        setUserAssets([]);
+        setTotalAssets(0);
       }
     } catch (err: any) {
       logger.error('[fetchUserAssets] Error fetching user assets:', err);
@@ -282,21 +256,21 @@ export default function UserProfilePage() {
       setUserAssets([]);
       setTotalAssets(0);
     } finally {
-        setIsLoadingAssets(false);
+      setIsLoadingAssets(false);
     }
-  }, []); // Dependencies likely needed: supabase
+  }, []);
 
   const fetchUserVideos = useCallback(async (
     userId: string,
     currentViewerId: string | null | undefined,
     isViewerAdmin: boolean,
-    showLoading: boolean = true,
+    showLoading: boolean = true
   ) => {
     logger.log('[fetchUserVideos] Fetching videos...', { userId, currentViewerId, isViewerAdmin, showLoading });
     if (showLoading) {
       setIsLoadingVideos(true);
     }
-    let fetchedVideos: VideoEntry[] = []; 
+    let fetchedVideos: VideoEntry[] = [];
     let generationCount = 0;
     let artCount = 0;
     try {
@@ -305,93 +279,92 @@ export default function UserProfilePage() {
         .select('* ', { count: 'exact' })
         .eq('user_id', userId)
         .eq('type', 'video');
-
       if (videosError) throw videosError;
-
       if (videosData && videosData.length > 0) {
-          const videoIds = videosData.map(v => v.id);
-          const mediaIdToAssetId = new Map<string, string>();
-          if (videoIds.length > 0) {
-            const { data: assetLinks, error: linksError } = await supabase
-              .from('asset_media')
-              .select('media_id, asset_id')
-              .in('media_id', videoIds);
-            if (linksError) {
-              logger.error('Error fetching asset_media links:', linksError);
-            } else if (assetLinks) {
-              assetLinks.forEach(link => {
-                if (link.media_id && link.asset_id) {
-                  mediaIdToAssetId.set(link.media_id, link.asset_id);
-                }
-              });
-            }
+        const videoIds = videosData.map(v => v.id);
+        const mediaIdToAssetId = new Map<string, string>();
+        if (videoIds.length > 0) {
+          const { data: assetLinks, error: linksError } = await supabase
+            .from('asset_media')
+            .select('media_id, asset_id')
+            .in('media_id', videoIds);
+          if (linksError) {
+            logger.error('Error fetching asset_media links:', linksError);
+          } else if (assetLinks) {
+            assetLinks.forEach(link => {
+              if (link.media_id && link.asset_id) {
+                mediaIdToAssetId.set(link.media_id, link.asset_id);
+              }
+            });
           }
-          const processedVideos: VideoEntry[] = videosData.map(video => {
-            let classification = video.classification || 'gen';
-            if (classification !== 'art' && classification !== 'gen') {
-              classification = 'gen';
-            }
-            const associatedAssetId = mediaIdToAssetId.get(video.id) || null;
-            return {
-              id: video.id,
-              url: video.url,
-              associatedAssetId: associatedAssetId,
-              reviewer_name: video.creator || '',
-              skipped: false,
-              created_at: video.created_at,
-              admin_status: video.admin_status,
-              user_status: video.user_status as VideoDisplayStatus || null,
-              assetMediaDisplayStatus: null,
-              user_id: video.user_id,
-              metadata: {
-                title: video.title || '',
-                description: video.description || '',
-                creator: 'self',
-                classification: classification as 'art' | 'gen',
-                placeholder_image: video.placeholder_image,
-                assetId: associatedAssetId,
-              },
-              thumbnailUrl: video.placeholder_image,
+        }
+        const processedVideos: VideoEntry[] = videosData.map(video => {
+          let classification = video.classification || 'gen';
+          if (classification !== 'art' && classification !== 'gen') {
+            classification = 'gen';
+          }
+          const associatedAssetId = mediaIdToAssetId.get(video.id) || null;
+          return {
+            id: video.id,
+            url: video.url,
+            associatedAssetId: associatedAssetId,
+            reviewer_name: video.creator || '',
+            skipped: false,
+            created_at: video.created_at,
+            admin_status: video.admin_status,
+            user_status: video.user_status as VideoDisplayStatus || null,
+            assetMediaDisplayStatus: null,
+            user_id: video.user_id,
+            metadata: {
               title: video.title || '',
               description: video.description || '',
-              is_primary: false,
-              aspectRatio: (video.metadata as any)?.aspectRatio || 16/9,
-              classification: (video.classification as 'art' | 'gen') || 'gen',
-            };
-          }).filter(Boolean) as VideoEntry[];
-
-          const isViewerOwner = currentViewerId === userId;
-          const canViewerSeeHidden = isViewerOwner || isViewerAdmin;
-          const visibleVideos = processedVideos.filter(video =>
-            canViewerSeeHidden || video.user_status !== 'Hidden'
-          );
-          fetchedVideos = sortProfileVideos(visibleVideos);
-          generationCount = fetchedVideos.filter(v => v.metadata?.classification === 'gen').length;
-          artCount = fetchedVideos.filter(v => v.metadata?.classification === 'art').length;
+              creator: 'self',
+              classification: classification as 'art' | 'gen',
+              placeholder_image: video.placeholder_image,
+              assetId: associatedAssetId,
+            },
+            thumbnailUrl: video.placeholder_image,
+            title: video.title || '',
+            description: video.description || '',
+            is_primary: false,
+            aspectRatio: (video.metadata as any)?.aspectRatio || 16/9,
+            classification: (video.classification as 'art' | 'gen') || 'gen',
+          };
+        }).filter(Boolean) as VideoEntry[];
+        const isViewerOwner = currentViewerId === userId;
+        const canViewerSeeHidden = isViewerOwner || isViewerAdmin;
+        const visibleVideos = processedVideos.filter(video =>
+          canViewerSeeHidden || video.user_status !== 'Hidden'
+        );
+        fetchedVideos = sortProfileVideos(visibleVideos);
+        generationCount = fetchedVideos.filter(v => v.metadata?.classification === 'gen').length;
+        artCount = fetchedVideos.filter(v => v.metadata?.classification === 'art').length;
       } else {
-          generationCount = 0;
-          artCount = 0;
+        generationCount = 0;
+        artCount = 0;
       }
     } catch (err: any) {
       logger.error('[fetchUserVideos] Error fetching user videos:', err);
       toast.error("Failed to load videos.");
     } finally {
-        setUserVideos(fetchedVideos);
-        setTotalGenerationVideos(generationCount);
-        setTotalArtVideos(artCount);
-        if (showLoading) {
-          setIsLoadingVideos(false);
-        }
+      setUserVideos(fetchedVideos);
+      setTotalGenerationVideos(generationCount);
+      setTotalArtVideos(artCount);
+      if (showLoading) {
+        setIsLoadingVideos(false);
+      }
     }
-  }, []); // Dependencies likely needed: supabase
+  }, []);
 
-  // --- ADDED: Moved and wrapped handleOpenLightbox ---
   const handleOpenLightbox = useCallback((video: VideoEntry) => {
     setLightboxVideo(video);
     setInitialVideoParamHandled(true);
-    // Add history push state here if needed to update URL without reload
-    // window.history.pushState({}, '', `${window.location.pathname}?video=${video.id}`);
-  }, [setLightboxVideo, setInitialVideoParamHandled]); // Dependencies are stable setters
+  }, [setLightboxVideo, setInitialVideoParamHandled]);
+
+  // Only this flag (not the whole query string) should trigger data refetch
+  const loggedOutViewParam = searchParams.get('loggedOutView');
+
+  logger.log(`[UserProfilePage Render Start] isAuthLoading: ${isAuthLoading}, user ID: ${user?.id}`);
 
   // --- Main Data Fetching Effect ---
   useEffect(() => {
@@ -871,211 +844,217 @@ export default function UserProfilePage() {
       </Helmet>
 
       <Navigation />
-      <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
-        <PageHeader title="" description="" />
+      {isAuthLoading ? (
+        <div className="flex justify-center items-center h-screen">
+          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <main className="flex-1 container mx-auto p-4 md:p-6 space-y-8">
+          <PageHeader title="" description="" />
 
-        {isLoadingProfile ? (
-          <div className="flex justify-center items-center py-16"> <Loader2 className="h-16 w-16 animate-spin text-primary" /> </div>
-        ) : !profile || !profile.id || !profile.username ? (
-          <div className="text-center py-16 text-muted-foreground"> Profile not found or failed to load. </div>
-        ) : (
-          <>
-            <div className="max-w-2xl mx-auto">
-              {isOwner && !forceLoggedOutView ? ( <UserProfileSettings /> ) : ( 
-                <Card className="w-full overflow-hidden shadow-lg bg-white/10 backdrop-blur-sm border border-white/20 animate-scale-in"> 
-                  {profile.background_image_url && <div className="w-full h-48 bg-cover bg-center rounded-t-lg" style={{ backgroundImage: `url(${profile.background_image_url})` }} />} 
-                  <CardContent className={`pt-6 pb-4 ${profile.background_image_url ? '-mt-16 relative z-10 bg-gradient-to-t from-card to-transparent' : ''}`}> 
-                    <div className="flex flex-col items-center space-y-4"> 
-                      <Avatar className={`h-24 w-24 border-4 border-white shadow-xl ${profile.background_image_url ? '-mt-13' : ''}`}> 
-                        <AvatarImage src={profile.avatar_url || ''} alt={profile.display_name || ''} /> 
-                        <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white"> {getInitials(profile.display_name || profile.username)} </AvatarFallback> 
-                      </Avatar> 
-                      <div className="text-center"> 
-                        <div className="flex items-center justify-center space-x-2">
-                          <h2 className="text-2xl font-bold bg-gradient-to-r from-forest-dark to-olive-dark bg-clip-text text-transparent">{profile.display_name}</h2>
-                          {featuredCount > 0 && (
-                            <HoverCard openDelay={0} closeDelay={0}>
-                              <HoverCardTrigger asChild>
-                                <img src="/reward.png" alt="Featured" className="h-6 w-6 rounded-full" />
-                              </HoverCardTrigger>
-                              <HoverCardContent 
-                                className="p-2 text-sm w-fit min-w-0" 
-                                side="top" 
-                                align="start" 
-                                sideOffset={5}
-                              >
-                                {`Featured ${featuredCount} ${featuredCount === 1 ? 'time' : 'times'}`}
-                              </HoverCardContent>
-                            </HoverCard>
-                          )}
-                        </div>
-                        {profile.real_name && <p className="text-muted-foreground mt-1">{profile.real_name}</p>} 
-                        <p className="text-muted-foreground text-sm">
-                          {!isOwner && <span className="mr-0.5">@</span>}{profile.username}
-                        </p>
-                        {profile.description && <div className="mt-4 max-w-md mx-auto"> <p className="text-sm text-foreground/90 bg-muted/20 p-3 rounded-lg">{profile.description}</p> </div>} 
-                        {renderProfileLinks()} 
+          {isLoadingProfile ? (
+            <div className="flex justify-center items-center py-16"> <Loader2 className="h-16 w-16 animate-spin text-primary" /> </div>
+          ) : !profile || !profile.id || !profile.username ? (
+            <div className="text-center py-16 text-muted-foreground"> Profile not found or failed to load. </div>
+          ) : (
+            <>
+              <div className="max-w-2xl mx-auto">
+                {isOwner && !forceLoggedOutView ? ( <UserProfileSettings /> ) : ( 
+                  <Card className="w-full overflow-hidden shadow-lg bg-white/10 backdrop-blur-sm border border-white/20 animate-scale-in"> 
+                    {profile.background_image_url && <div className="w-full h-48 bg-cover bg-center rounded-t-lg" style={{ backgroundImage: `url(${profile.background_image_url})` }} />} 
+                    <CardContent className={`pt-6 pb-4 ${profile.background_image_url ? '-mt-16 relative z-10 bg-gradient-to-t from-card to-transparent' : ''}`}> 
+                      <div className="flex flex-col items-center space-y-4"> 
+                        <Avatar className={`h-24 w-24 border-4 border-white shadow-xl ${profile.background_image_url ? '-mt-13' : ''}`}> 
+                          <AvatarImage src={profile.avatar_url || ''} alt={profile.display_name || ''} /> 
+                          <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-white"> {getInitials(profile.display_name || profile.username)} </AvatarFallback> 
+                        </Avatar> 
+                        <div className="text-center"> 
+                          <div className="flex items-center justify-center space-x-2">
+                            <h2 className="text-2xl font-bold bg-gradient-to-r from-forest-dark to-olive-dark bg-clip-text text-transparent">{profile.display_name}</h2>
+                            {featuredCount > 0 && (
+                              <HoverCard openDelay={0} closeDelay={0}>
+                                <HoverCardTrigger asChild>
+                                  <img src="/reward.png" alt="Featured" className="h-6 w-6 rounded-full" />
+                                </HoverCardTrigger>
+                                <HoverCardContent 
+                                  className="p-2 text-sm w-fit min-w-0" 
+                                  side="top" 
+                                  align="start" 
+                                  sideOffset={5}
+                                >
+                                  {`Featured ${featuredCount} ${featuredCount === 1 ? 'time' : 'times'}`}
+                                </HoverCardContent>
+                              </HoverCard>
+                            )}
+                          </div>
+                          {profile.real_name && <p className="text-muted-foreground mt-1">{profile.real_name}</p>} 
+                          <p className="text-muted-foreground text-sm">
+                            {!isOwner && <span className="mr-0.5">@</span>}{profile.username}
+                          </p>
+                          {profile.description && <div className="mt-4 max-w-md mx-auto"> <p className="text-sm text-foreground/90 bg-muted/20 p-3 rounded-lg">{profile.description}</p> </div>} 
+                          {renderProfileLinks()} 
+                        </div> 
                       </div> 
-                    </div> 
-                  </CardContent> 
-                </Card> 
-              )} 
-            </div>
+                    </CardContent> 
+                  </Card> 
+                )} 
+              </div>
 
-            <Card ref={loraCardRef} className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-cream-light/70 backdrop-blur-sm border border-cream-dark/20">
-              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
-                <CardTitle className="text-[#2F4F2E]/75">LoRAs</CardTitle>
-                {isOwner && !forceLoggedOutView && (
-                  <Dialog open={isLoraUploadModalOpen} onOpenChange={setIsLoraUploadModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300" size="sm">
-                        Add LoRA
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
-                      <DialogHeader>
-                        <DialogTitle>Add LoRA</DialogTitle>
-                      </DialogHeader>
-                      <UploadPage 
-                        initialMode="lora" 
-                        defaultClassification="gen" 
-                        hideLayout={true} 
-                        onSuccess={handleLoraUploadSuccess}
+              <Card ref={loraCardRef} className="mt-8 overflow-hidden shadow-lg bg-gradient-to-br from-card to-cream-light/70 backdrop-blur-sm border border-cream-dark/20">
+                <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
+                  <CardTitle className="text-[#2F4F2E]/75">LoRAs</CardTitle>
+                  {isOwner && !forceLoggedOutView && (
+                    <Dialog open={isLoraUploadModalOpen} onOpenChange={setIsLoraUploadModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button className="bg-gradient-to-r from-forest to-olive hover:from-forest-dark hover:to-olive-dark transition-all duration-300" size="sm">
+                          Add LoRA
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
+                        <DialogHeader>
+                          <DialogTitle>Add LoRA</DialogTitle>
+                        </DialogHeader>
+                        <UploadPage 
+                          initialMode="lora" 
+                          defaultClassification="gen" 
+                          hideLayout={true} 
+                          onSuccess={handleLoraUploadSuccess}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </CardHeader>
+                <CardContent ref={lorasGridRef} className="p-4 md:p-6 pt-6">
+                  {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
+                   userAssets.length > 0 ? ( <> 
+                      <LoraManager
+                        loras={loraItemsForPage} 
+                        isLoading={isLoadingAssets} // Reflect LoRA loading state
+                        lorasAreLoading={isLoadingAssets} // Pass same state
+                        isAdmin={canEdit} // Use calculated edit permission
+                        onUserStatusChange={handleAssetStatusUpdate} // Pass status update handler
+                        isUpdatingStatusMap={isUpdatingAssetStatus} // Pass map of updating statuses
+                        showSeeAllLink={false} // Don't show "See All" on profile
+                        showHeader={false} // Hide the internal LoraManager header on the profile page
+                        hideCreatorInfo={true}
+                        // Omit filterText, onFilterTextChange, onRefreshData, onNavigateToUpload
+                        // Omit hideCreatorInfo (handled by LoraManager or default)
+                        // Omit visibility/autoplay props for now
                       />
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </CardHeader>
-              <CardContent ref={lorasGridRef} className="p-4 md:p-6 pt-6">
-                {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
-                 userAssets.length > 0 ? ( <> 
-                    <LoraManager
-                      loras={loraItemsForPage} 
-                      isLoading={isLoadingAssets} // Reflect LoRA loading state
-                      lorasAreLoading={isLoadingAssets} // Pass same state
-                      isAdmin={canEdit} // Use calculated edit permission
-                      onUserStatusChange={handleAssetStatusUpdate} // Pass status update handler
-                      isUpdatingStatusMap={isUpdatingAssetStatus} // Pass map of updating statuses
-                      showSeeAllLink={false} // Don't show "See All" on profile
-                      showHeader={false} // Hide the internal LoraManager header on the profile page
-                      hideCreatorInfo={true}
-                      // Omit filterText, onFilterTextChange, onRefreshData, onNavigateToUpload
-                      // Omit hideCreatorInfo (handled by LoraManager or default)
-                      // Omit visibility/autoplay props for now
-                    />
-                    {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)} </> 
-                ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't created any LoRAs yet. </div> )} 
-              </CardContent>
-            </Card>
-            <Card ref={artCardRef} className="mt-8 mb-8 overflow-visible shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20">
-              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
-                <CardTitle className="text-[#2F4F2E]/75">Art</CardTitle>
-                {isOwner && !forceLoggedOutView && (
-                   <Dialog open={isArtUploadModalOpen} onOpenChange={setIsArtUploadModalOpen}>
-                     <DialogTrigger asChild>
-                       <Button size="sm" className="bg-gradient-to-r from-olive-dark to-olive hover:opacity-90 transition-all duration-300">
-                         Add Art
-                       </Button>
-                     </DialogTrigger>
-                     <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
-                       <DialogHeader>
-                         <DialogTitle>Upload Art</DialogTitle>
-                       </DialogHeader>
-                       <UploadPage 
-                         initialMode="media" 
-                         defaultClassification="art" 
-                         hideLayout={true} 
-                         onSuccess={handleArtUploadSuccess}
-                       />
-                     </DialogContent>
-                   </Dialog>
-                )}
-              </CardHeader>
-              <CardContent ref={artGridRef} className="p-4 md:p-6 pt-6">
-                 {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
-                  artVideos.length > 0 ? ( <> 
-                    <div> 
-                      <VideoGallerySection 
-                        header="" // No need for header title inside card
-                        videos={artItemsForPage}
-                        itemsPerRow={4} // Match Index page
-                        isLoading={isLoadingVideos}
-                        isAdmin={canEdit}
-                        isAuthorized={canEdit}
-                        compact={true} // Use compact mode inside card
-                        onOpenLightbox={handleOpenLightbox}
-                        onApproveVideo={approveVideo}
-                        onRejectVideo={rejectVideo}
-                        onDeleteVideo={deleteVideo}
-                        onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
-                        alwaysShowInfo={true} // Always show on profile
-                        // Don't show add button or see all link here
-                        showAddButton={false}
-                        seeAllPath=""
-                        emptyMessage="This user hasn't added any art yet." // Custom empty message
-                      />
-                    </div>
-                    {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)} </> 
-                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't added any art videos yet. </div> )} 
-              </CardContent>
-            </Card>
-            <Card ref={generationsCardRef} className="mt-8 overflow-visible shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20">
-              <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
-                <CardTitle className="text-[#2F4F2E]/75">Generations</CardTitle>
-                {isOwner && !forceLoggedOutView && (
-                  <Dialog open={isGenerationUploadModalOpen} onOpenChange={setIsGenerationUploadModalOpen}>
-                    <DialogTrigger asChild>
-                      <Button size="sm" className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300">
-                        Add Generation
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
-                      <DialogHeader>
-                        <DialogTitle>Upload Generation</DialogTitle>
-                      </DialogHeader>
-                      <UploadPage 
-                        initialMode="media" 
-                        defaultClassification="gen" 
-                        hideLayout={true} 
-                        onSuccess={handleGenerationUploadSuccess}
-                      />
-                    </DialogContent>
-                  </Dialog>
-                )}
-              </CardHeader>
-              <CardContent ref={generationsGridRef} className="p-4 md:p-6 pt-6">
-                 {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
-                  generationVideos.length > 0 ? ( <> 
-                    <div> 
-                       <VideoGallerySection 
-                         header="" // No header inside card
-                         videos={generationItemsForPage}
-                         itemsPerRow={6} // Match Index page
-                         isLoading={isLoadingVideos}
-                         isAdmin={canEdit}
-                         isAuthorized={canEdit}
-                         compact={true} // Use compact mode inside card
-                         onOpenLightbox={handleOpenLightbox}
-                         onApproveVideo={approveVideo}
-                         onRejectVideo={rejectVideo}
-                         onDeleteVideo={deleteVideo}
-                         onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
-                         alwaysShowInfo={true} // Always show on profile
-                         showAddButton={false}
-                         seeAllPath=""
-                         emptyMessage="This user hasn't added any generations yet."
-                       />
-                     </div>
-                     {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 
-                 ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't generated any videos yet. </div> )} 
-              </CardContent>
-            </Card>
+                      {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)} </> 
+                  ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't created any LoRAs yet. </div> )} 
+                </CardContent>
+              </Card>
+              <Card ref={artCardRef} className="mt-8 mb-8 overflow-visible shadow-lg bg-gradient-to-br from-card to-olive-light/30 backdrop-blur-sm border border-olive-dark/20">
+                <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
+                  <CardTitle className="text-[#2F4F2E]/75">Art</CardTitle>
+                  {isOwner && !forceLoggedOutView && (
+                     <Dialog open={isArtUploadModalOpen} onOpenChange={setIsArtUploadModalOpen}>
+                       <DialogTrigger asChild>
+                         <Button size="sm" className="bg-gradient-to-r from-olive-dark to-olive hover:opacity-90 transition-all duration-300">
+                           Add Art
+                         </Button>
+                       </DialogTrigger>
+                       <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
+                         <DialogHeader>
+                           <DialogTitle>Upload Art</DialogTitle>
+                         </DialogHeader>
+                         <UploadPage 
+                           initialMode="media" 
+                           defaultClassification="art" 
+                           hideLayout={true} 
+                           onSuccess={handleArtUploadSuccess}
+                         />
+                       </DialogContent>
+                     </Dialog>
+                  )}
+                </CardHeader>
+                <CardContent ref={artGridRef} className="p-4 md:p-6 pt-6">
+                   {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 4} /> ) : 
+                    artVideos.length > 0 ? ( <> 
+                      <div> 
+                        <VideoGallerySection 
+                          header="" // No need for header title inside card
+                          videos={artItemsForPage}
+                          itemsPerRow={4} // Match Index page
+                          isLoading={isLoadingVideos}
+                          isAdmin={canEdit}
+                          isAuthorized={canEdit}
+                          compact={true} // Use compact mode inside card
+                          onOpenLightbox={handleOpenLightbox}
+                          onApproveVideo={approveVideo}
+                          onRejectVideo={rejectVideo}
+                          onDeleteVideo={deleteVideo}
+                          onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
+                          alwaysShowInfo={true} // Always show on profile
+                          // Don't show add button or see all link here
+                          showAddButton={false}
+                          seeAllPath=""
+                          emptyMessage="This user hasn't added any art yet." // Custom empty message
+                        />
+                      </div>
+                      {totalArtPages > 1 && renderPaginationControls(artPage, totalArtPages, handleArtPageChange)} </> 
+                   ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't added any art videos yet. </div> )} 
+                </CardContent>
+              </Card>
+              <Card ref={generationsCardRef} className="mt-8 overflow-visible shadow-lg bg-gradient-to-br from-card to-gold-light/30 backdrop-blur-sm border border-gold-dark/20">
+                <CardHeader className="flex flex-row items-center justify-between bg-gradient-to-r from-amber-50 to-transparent rounded-t-md">
+                  <CardTitle className="text-[#2F4F2E]/75">Generations</CardTitle>
+                  {isOwner && !forceLoggedOutView && (
+                    <Dialog open={isGenerationUploadModalOpen} onOpenChange={setIsGenerationUploadModalOpen}>
+                      <DialogTrigger asChild>
+                        <Button size="sm" className="bg-gradient-to-r from-gold-dark to-gold hover:opacity-90 transition-all duration-300">
+                          Add Generation
+                        </Button>
+                      </DialogTrigger>
+                      <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
+                        <DialogHeader>
+                          <DialogTitle>Upload Generation</DialogTitle>
+                        </DialogHeader>
+                        <UploadPage 
+                          initialMode="media" 
+                          defaultClassification="gen" 
+                          hideLayout={true} 
+                          onSuccess={handleGenerationUploadSuccess}
+                        />
+                      </DialogContent>
+                    </Dialog>
+                  )}
+                </CardHeader>
+                <CardContent ref={generationsGridRef} className="p-4 md:p-6 pt-6">
+                   {isLoadingVideos ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
+                    generationVideos.length > 0 ? ( <> 
+                      <div> 
+                         <VideoGallerySection 
+                           header="" // No header inside card
+                           videos={generationItemsForPage}
+                           itemsPerRow={6} // Match Index page
+                           isLoading={isLoadingVideos}
+                           isAdmin={canEdit}
+                           isAuthorized={canEdit}
+                           compact={true} // Use compact mode inside card
+                           onOpenLightbox={handleOpenLightbox}
+                           onApproveVideo={approveVideo}
+                           onRejectVideo={rejectVideo}
+                           onDeleteVideo={deleteVideo}
+                           onUpdateLocalVideoStatus={handleLocalVideoUserStatusUpdate}
+                           alwaysShowInfo={true} // Always show on profile
+                           showAddButton={false}
+                           seeAllPath=""
+                           emptyMessage="This user hasn't added any generations yet."
+                         />
+                       </div>
+                       {totalGenerationPages > 1 && renderPaginationControls(generationPage, totalGenerationPages, handleGenerationPageChange)} </> 
+                   ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't generated any videos yet. </div> )} 
+                </CardContent>
+              </Card>
 
 
 
-          </>
-        )}
-      </main>
+            </>
+          )}
+        </main>
+      )}
 
       {lightboxVideo && (
         <VideoLightbox isOpen={!!lightboxVideo} onClose={handleCloseLightbox} videoUrl={lightboxVideo.url} videoId={lightboxVideo.id}

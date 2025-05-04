@@ -35,18 +35,22 @@ function AssetDetailPage() {
     asset,
     videos,
     isLoading,
-    isUpdatingAdminStatus,
     creatorDisplayName,
-    getCreatorName,
-    fetchAssetDetails,
-    updateLocalVideoStatus,
-    updateLocalPrimaryMedia,
-    removeVideoLocally,
-    updateAssetUserStatus,
-    updateAssetAdminStatus
+    curatorProfile,
+    isLoadingCuratorProfile,
+    currentStatus,
+    isUpdatingAdminStatus,
+    refetchAssetDetails,
+    updateAdminStatus,
+    updateUserStatus,
+    updatePrimaryVideo,
+    deleteAsset,
+    dataFetchAttempted,
+    isOwner,
+    isAdmin: isAdminUser
   } = useAssetDetails(id);
   
-  const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
+  const isAuthorizedToEdit = isOwner || isAdminUser;
   
   const handleOpenLightbox = (video: VideoEntry) => {
     setCurrentVideo(video);
@@ -60,8 +64,8 @@ function AssetDetailPage() {
   };
   
   const handleApproveVideo = async (videoId: string) => {
+    if (!isAdminUser) { toast.error("Permission denied."); return; }
     try {
-      // logger.log(`Approving video: ${videoId}`);
       const { error } = await supabase
         .from('media')
         .update({ admin_status: 'Curated' })
@@ -69,16 +73,15 @@ function AssetDetailPage() {
         
       if (error) throw error;
       toast.success('Video approved');
-      await fetchAssetDetails();
+      await refetchAssetDetails();
     } catch (error) {
-      // logger.error('Error approving video:', error);
       toast.error('Failed to approve video');
     }
   };
   
   const handleRejectVideo = async (videoId: string) => {
+    if (!isAdminUser) { toast.error("Permission denied."); return; }
     try {
-      // logger.log(`Rejecting video: ${videoId}`);
       const { error } = await supabase
         .from('media')
         .update({ admin_status: 'Rejected' })
@@ -86,24 +89,15 @@ function AssetDetailPage() {
         
       if (error) throw error;
       toast.success('Video rejected');
-      await fetchAssetDetails();
+      await refetchAssetDetails();
     } catch (error) {
-      // logger.error('Error rejecting video:', error);
       toast.error('Failed to reject video');
     }
   };
 
   const handleDeleteVideo = async (videoId: string) => {
-    // logger.log(`[handleDeleteVideo] Initiated for video ID: ${videoId}`);
-    if (!isAdmin) {
-      // logger.warn(`[handleDeleteVideo] Permission denied: User is not admin. Video ID: ${videoId}`);
-      toast.error("You don't have permission to delete this video.");
-      return;
-    }
-    
-    // logger.log(`[handleDeleteVideo] User authorized as admin. Proceeding with deletion for video ID: ${videoId}`);
+    if (!isAdminUser) { toast.error("Permission denied."); return; }
     try {
-      // logger.log(`[handleDeleteVideo] Attempting to fetch media record for ID: ${videoId}`);
       const { data: mediaRecord, error: fetchError } = await supabase
         .from('media')
         .select('url, placeholder_image')
@@ -111,268 +105,209 @@ function AssetDetailPage() {
         .single();
 
       if (fetchError || !mediaRecord) {
-        // logger.error(`[handleDeleteVideo] Failed to fetch media record ${videoId}:`, fetchError);
         throw new Error(`Could not fetch media record ${videoId}.`);
       }
-      // logger.log(`[handleDeleteVideo] Successfully fetched media record for ID: ${videoId}`, mediaRecord);
       
       const videoPath = mediaRecord.url;
       const thumbnailPath = mediaRecord.placeholder_image;
-      // logger.log(`[handleDeleteVideo] Video URL: ${videoPath || 'N/A'}, Thumbnail path: ${thumbnailPath || 'N/A'} for ID: ${videoId}`);
 
       if (videoPath) {
-        // logger.log(`[handleDeleteVideo] Attempting to delete video file from 'videos' bucket: ${videoPath}`);
         try {
           const { data: deleteData, error: storageVideoError } = await supabase.storage
             .from('videos')
             .remove([videoPath]);
           if (storageVideoError) {
-            // logger.warn(`[handleDeleteVideo] Failed to delete video file '${videoPath}' from storage (non-blocking):`, storageVideoError);
             toast.warning(`Could not delete video file from storage.`);
-          } else {
-             // logger.log(`[handleDeleteVideo] Successfully deleted video file '${videoPath}' from storage.`, deleteData);
           }
         } catch (storageError) {
-           // logger.warn(`[handleDeleteVideo] Exception during video file storage deletion for '${videoPath}' (non-blocking):`, storageError);
            toast.warning(`Error occurred during video file deletion.`);
         }
-      } else {
-         // logger.log(`[handleDeleteVideo] No url found for media record ${videoId}. Skipping video storage deletion.`);
       }
       
       if (thumbnailPath) {
-        // logger.log(`[handleDeleteVideo] Attempting to delete thumbnail file from 'thumbnails' bucket: ${thumbnailPath}`);
          try {
             const { data: deleteData, error: storageThumbnailError } = await supabase.storage
               .from('thumbnails')
               .remove([thumbnailPath]);
             if (storageThumbnailError) {
-              // logger.warn(`[handleDeleteVideo] Failed to delete thumbnail file '${thumbnailPath}' from storage (non-blocking):`, storageThumbnailError);
               toast.warning(`Could not delete thumbnail file from storage.`);
-            } else {
-               // logger.log(`[handleDeleteVideo] Successfully deleted thumbnail file '${thumbnailPath}' from storage.`, deleteData);
             }
          } catch (storageError) {
-            // logger.warn(`[handleDeleteVideo] Exception during thumbnail file storage deletion for '${thumbnailPath}' (non-blocking):`, storageError);
             toast.warning(`Error occurred during thumbnail file deletion.`);
          }
-      } else {
-          // logger.log(`[handleDeleteVideo] No placeholder_image found for media record ${videoId}. Skipping thumbnail storage deletion.`);
       }
 
-      // logger.log(`[handleDeleteVideo] Attempting to delete media record from database for ID: ${videoId}`);
       const { error: dbError } = await supabase
         .from('media')
         .delete()
         .eq('id', videoId);
 
       if (dbError) {
-        // logger.error(`[handleDeleteVideo] Failed to delete media record ${videoId} from database:`, dbError);
         throw dbError;
       }
-      // logger.log(`[handleDeleteVideo] Successfully deleted media record from database for ID: ${videoId}`);
 
-      removeVideoLocally(videoId);
+      deleteAsset(videoId);
       toast.success('Video deleted successfully');
 
     } catch (error) {
-      // logger.error(`[handleDeleteVideo] Error during deletion process for video ID ${videoId}:`, error);
       toast.error(`Failed to delete video: ${error.message || 'Unknown error'}`);
     }
-    // logger.log(`[handleDeleteVideo] Finished for video ID: ${videoId}`);
   };
 
   const handleDeleteAsset = async () => {
-    // logger.log(`[handleDeleteAsset] Initiated.`);
-    if (!isAuthorized) {
-        // logger.warn(`[handleDeleteAsset] Permission denied: User is not owner or admin.`);
+    if (!isAuthorizedToEdit) {
         toast.error("You don't have permission to delete this asset.");
         return;
     }
     if (!asset) {
-      // logger.warn(`[handleDeleteAsset] Aborted: Asset data not available.`);
       toast.error("Asset data not available.");
       return;
     }
 
     const assetId = asset.id;
-    // logger.log(`[handleDeleteAsset] User authorized. Proceeding with deletion for asset ID: ${assetId}`);
 
     try {
-      // logger.log(`[handleDeleteAsset] Fetching associated media for asset ID: ${assetId}`);
-      const { data: associatedMedia, error: fetchMediaError } = await supabase
-        .from('media')
-        .select('id, url, placeholder_image')
+      const { error: deleteLinksError } = await supabase
+        .from('asset_media')
+        .delete()
         .eq('asset_id', assetId);
 
-      if (fetchMediaError) {
-        // logger.error(`[handleDeleteAsset] Failed to fetch associated media for asset ${assetId}:`, fetchMediaError);
-        throw new Error(`Could not fetch associated media for asset ${assetId}.`);
+      if (deleteLinksError) {
+        logger.error(`Failed to delete asset_media links for asset ${assetId}:`, deleteLinksError);
+        throw new Error(`Could not delete asset associations.`);
       }
+      logger.log(`Successfully deleted asset_media links for asset ${assetId}.`);
 
-      // logger.log(`[handleDeleteAsset] Found ${associatedMedia?.length || 0} associated media records for asset ${assetId}.`);
-
-      if (associatedMedia && associatedMedia.length > 0) {
-        const videoPaths: string[] = [];
-        const thumbnailPaths: string[] = [];
-        const mediaIds: string[] = associatedMedia.map(media => {
-            const videoPath = media.url;
-            const thumbPath = media.placeholder_image;
-            if (videoPath) videoPaths.push(videoPath);
-            if (thumbPath) thumbnailPaths.push(thumbPath);
-            return media.id;
-        });
-        // logger.log(`[handleDeleteAsset] Media IDs to delete: [${mediaIds.join(', ')}]`);
-        // logger.log(`[handleDeleteAsset] Video paths to delete: [${videoPaths.join(', ')}]`);
-        // logger.log(`[handleDeleteAsset] Thumbnail paths to delete: [${thumbnailPaths.join(', ')}]`);
-
-        if (videoPaths.length > 0) {
-          // logger.log(`[handleDeleteAsset] Attempting to delete ${videoPaths.length} video files from 'videos' bucket.`);
-          try {
-            const { data: deletedVideos, error: storageVideoError } = await supabase.storage
-              .from('videos')
-              .remove(videoPaths);
-            
-            if (storageVideoError) {
-              // logger.warn('[handleDeleteAsset] Error deleting video files from storage (non-blocking):', storageVideoError);
-              toast.warning('Some video files could not be deleted from storage.');
-            } else {
-              // logger.log(`[handleDeleteAsset] Successfully deleted ${deletedVideos?.length || 0} video files from storage.`);
-            }
-          } catch (storageError) {
-              // logger.warn('[handleDeleteAsset] Exception during bulk video file storage deletion (non-blocking):', storageError);
-              toast.warning('Error occurred during video file deletion.');
-          }
-        }
-        
-        if (thumbnailPaths.length > 0) {
-           // logger.log(`[handleDeleteAsset] Attempting to delete ${thumbnailPaths.length} thumbnail files from 'thumbnails' bucket.`);
-           try {
-             const { data: deletedThumbnails, error: storageThumbnailError } = await supabase.storage
-               .from('thumbnails')
-               .remove(thumbnailPaths);
-             
-             if (storageThumbnailError) {
-               // logger.warn('[handleDeleteAsset] Error deleting thumbnail files from storage (non-blocking):', storageThumbnailError);
-               toast.warning('Some thumbnail files could not be deleted from storage.');
-             } else {
-               // logger.log(`[handleDeleteAsset] Successfully deleted ${deletedThumbnails?.length || 0} thumbnail files from storage.`);
-             }
-           } catch (storageError) {
-               // logger.warn('[handleDeleteAsset] Exception during bulk thumbnail file storage deletion (non-blocking):', storageError);
-               toast.warning('Error occurred during thumbnail file deletion.');
-           }
-         }
-
-        if (mediaIds.length > 0) {
-           // logger.log(`[handleDeleteAsset] Attempting to delete ${mediaIds.length} associated media records from database.`);
-           const { error: deleteMediaError } = await supabase
-             .from('media')
-             .delete()
-             .in('id', mediaIds);
-
-           if (deleteMediaError) {
-             // logger.error('[handleDeleteAsset] Error deleting associated media records from database:', deleteMediaError);
-             throw deleteMediaError;
-           }
-           // logger.log('[handleDeleteAsset] Successfully deleted associated media records from database.');
-        }
-      }
-
-      // logger.log(`[handleDeleteAsset] Attempting to delete asset record ${assetId} from database.`);
       const { error: deleteAssetError } = await supabase
         .from('assets')
         .delete()
         .eq('id', assetId);
 
       if (deleteAssetError) {
-        // logger.error(`[handleDeleteAsset] Failed to delete asset record ${assetId}:`, deleteAssetError);
+        logger.error(`Failed to delete asset record ${assetId}:`, deleteAssetError);
         throw deleteAssetError;
       }
-      // logger.log(`[handleDeleteAsset] Successfully deleted asset record ${assetId} from database.`);
       
       toast.success('Asset deleted successfully');
-      navigate('/'); // Redirect after successful deletion
-    } catch (error) {
-      // logger.error(`[handleDeleteAsset] Error during asset deletion process for ID ${assetId}:`, error);
+      navigate('/');
+
+    } catch (error: any) {
+      logger.error(`Error during asset deletion process for ID ${assetId}:`, error);
       toast.error(`Failed to delete asset: ${error.message || 'Unknown error'}`);
     }
-    // logger.log(`[handleDeleteAsset] Finished for asset ID: ${assetId}`);
   };
   
   const handleSetPrimaryMedia = async (mediaId: string) => {
-    if (!asset || !asset.id) {
-        toast.error("Asset ID is missing. Cannot set primary media.");
-        return;
-    }
-    const { id } = asset;
-    // logger.log(`[handleSetPrimaryMedia] Setting media ${mediaId} as primary for asset ${id}`);
+    if (!updatePrimaryVideo) return; 
     try {
-      const { error } = await supabase.rpc('set_primary_media', {
-        p_asset_id: id,
-        p_media_id: mediaId,
-      });
-
-      if (error) throw error;
-
-      updateLocalPrimaryMedia(mediaId);
-      toast.success('Primary media updated successfully!');
-      // Optionally re-fetch asset details if needed to confirm other changes
-      // await fetchAssetDetails(); 
-
-    } catch (error: any) {
-      logger.error(`[handleSetPrimaryMedia] Error setting primary media:`, error);
-      toast.error(`Failed to update primary media: ${error.message}`);
+      await updatePrimaryVideo(mediaId);
+      toast.success('Primary video updated');
+    } catch (error) {
+      logger.error('Error setting primary video:', error);
+      toast.error('Failed to set primary video');
     }
   };
   
   const handleLightboxAssetStatusChange = async (newStatus: VideoDisplayStatus) => {
     if (!currentVideo || !asset?.id) {
-      // logger.warn('Attempted to change status without video or asset ID');
+      logger.warn('Attempted to change status without video or asset ID');
       return;
     }
-    
-    // logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange called for video ${currentVideo.id} on asset ${asset.id} with status ${newStatus}`);
-    
-    // Call the local state update function - it doesn't return anything or perform the DB update
-    updateLocalVideoStatus(
-      currentVideo.id, 
-      newStatus, 
-      'assetMedia'
-    );
 
-    // Assume optimistic update succeeded and show toast/update lightbox state
-    // TODO: This should ideally happen *after* a successful database update confirmation
-    toast.success(`Video status updated to ${newStatus}`);
+    const videoId = currentVideo.id;
+    const assetId = asset.id;
+    const previousStatus = currentVideo.assetMediaDisplayStatus;
+
+    logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange initiated for video ${videoId} on asset ${assetId} to status ${newStatus}`);
+
+    updateUserStatus(newStatus);
     setCurrentVideo(prev => prev ? { ...prev, assetMediaDisplayStatus: newStatus } : null);
-    
-    // NOTE: The actual database update logic for asset_media.status seems missing here.
-    // Need to add a call like: 
-    // await supabase.from('asset_media').update({ status: newStatus }).eq('asset_id', asset.id).eq('media_id', currentVideo.id)
-    // and handle its success/error, potentially reverting the optimistic update.
+
+    try {
+      logger.log(`[AssetDetailPage] Attempting database update for asset_media: asset ${assetId}, media ${videoId}, status ${newStatus}`);
+      const { error } = await supabase
+        .from('asset_media')
+        .update({ status: newStatus })
+        .eq('asset_id', assetId)
+        .eq('media_id', videoId);
+
+      if (error) {
+        logger.error(`[AssetDetailPage] Database update failed for asset_media (${assetId}, ${videoId}):`, error);
+        throw error;
+      }
+
+      logger.log(`[AssetDetailPage] Database update successful for asset_media (${assetId}, ${videoId}).`);
+      toast.success(`Video status updated to ${newStatus}`);
+
+    } catch (error: any) {
+      logger.error(`[AssetDetailPage] Error during handleLightboxAssetStatusChange for video ${videoId}:`, error);
+      toast.error(`Failed to update video status: ${error.message || 'Unknown error'}`);
+
+      logger.log(`[AssetDetailPage] Rolling back optimistic UI update for video ${videoId} to status ${previousStatus}`);
+      updateUserStatus(previousStatus);
+      setCurrentVideo(prev => prev ? { ...prev, assetMediaDisplayStatus: previousStatus } : null);
+    }
+  };
+  
+  const handleListVideoStatusChange = async (videoId: string, newStatus: VideoDisplayStatus) => {
+    if (!asset?.id) {
+      logger.warn('[handleListVideoStatusChange] Asset ID missing, cannot update status.');
+      toast.error("Cannot update status: Asset information is missing.");
+      return;
+    }
+    const assetId = asset.id;
+    const video = videos.find(v => v.id === videoId);
+    const previousStatus = video?.assetMediaDisplayStatus ?? null;
+
+    if (previousStatus === null) {
+        logger.warn(`[handleListVideoStatusChange] Could not find video with ID ${videoId} in local state.`);
+        toast.error("Could not find video details to update status.");
+        return;
+    }
+
+    logger.log(`[AssetDetailPage] handleListVideoStatusChange initiated for video ${videoId} on asset ${assetId} to status ${newStatus}`);
+
+    updateUserStatus(newStatus);
+
+    try {
+      logger.log(`[AssetDetailPage] Attempting database update for asset_media: asset ${assetId}, media ${videoId}, status ${newStatus}`);
+      const { error } = await supabase
+        .from('asset_media')
+        .update({ status: newStatus })
+        .eq('asset_id', assetId)
+        .eq('media_id', videoId);
+
+      if (error) {
+        logger.error(`[AssetDetailPage] Database update failed for asset_media (${assetId}, ${videoId}):`, error);
+        throw error;
+      }
+
+      logger.log(`[AssetDetailPage] Database update successful for asset_media (${assetId}, ${videoId}).`);
+      toast.success(`Video status updated to ${newStatus}`);
+
+    } catch (error: any) {
+      logger.error(`[AssetDetailPage] Error during handleListVideoStatusChange for video ${videoId}:`, error);
+      toast.error(`Failed to update video status: ${error.message || 'Unknown error'}`);
+
+      logger.log(`[AssetDetailPage] Rolling back optimistic UI update for video ${videoId} to status ${previousStatus}`);
+      updateUserStatus(previousStatus);
+    }
   };
   
   const handleSetVideoAdminStatus = async (videoId: string, newStatus: AdminStatus) => {
-    if (!isAdmin) {
-      toast.error("Permission denied.");
-      return;
-    }
-    // logger.log(`[AssetDetailPage] Setting video ${videoId} admin status to ${newStatus}`);
+    if (!isAdminUser) { toast.error("Permission denied."); return; }
     try {
       const { error } = await supabase
         .from('media')
-        .update({ admin_status: newStatus, admin_reviewed: true }) // Also mark as reviewed
+        .update({ admin_status: newStatus, admin_reviewed: true })
         .eq('id', videoId);
 
       if (error) throw error;
 
       toast.success(`Video admin status updated to ${newStatus}`);
 
-      // Refetch the asset details (which includes the video list) silently
-      // after successfully updating the status in the database.
-      await fetchAssetDetails({ silent: true });
+      await refetchAssetDetails({ silent: true });
 
-      // Update the currentVideo state to reflect the change immediately in the lightbox
       setCurrentVideo(prevVideo =>
         prevVideo && prevVideo.id === videoId
           ? { ...prevVideo, admin_status: newStatus }
@@ -385,7 +320,6 @@ function AssetDetailPage() {
     }
   };
   
-  // Build video list for navigation (all videos for this asset)
   const videoList = useMemo(() => {
     return videos ?? [];
   }, [videos]);
@@ -419,10 +353,7 @@ function AssetDetailPage() {
     }
   }, [videoParam, videos, currentVideo, initialVideoParamHandled, handleOpenLightbox]);
   
-  // logger.log(`[AssetDetailPage Render] isLoading: ${isLoading}, asset exists: ${!!asset}`);
-
   if (isLoading) {
-    // logger.log('[AssetDetailPage Render] Returning loading state.');
     return (
       <ErrorBoundary fallbackRender={({ error }) => {
         console.error("ErrorBoundary (Loading Asset): Caught error -", error);
@@ -434,7 +365,6 @@ function AssetDetailPage() {
               <title>Loading Asset Details</title>
             </Helmet>
             <main className="flex-grow">
-              {/* Placeholder for loading state */}
             </main>
             <Footer />
           </div>
@@ -444,7 +374,6 @@ function AssetDetailPage() {
   }
   
   if (!asset) {
-    // logger.log('[AssetDetailPage Render] Asset is null or undefined AFTER loading completed. Returning Not Found/Error state.');
     return (
       <ErrorBoundary fallbackRender={({ error }) => {
         console.error("ErrorBoundary (Determining Asset): Caught error -", error);
@@ -456,7 +385,6 @@ function AssetDetailPage() {
               <title>Error Determining Asset</title>
             </Helmet>
             <main className="flex-grow">
-              {/* Placeholder for error state */}
             </main>
             <Footer />
           </div>
@@ -465,9 +393,6 @@ function AssetDetailPage() {
     );
   }
 
-  // logger.log('[AssetDetailPage Render] Asset loaded, proceeding to render main content.', asset);
-  // logger.log('[AssetDetailPage Render] Videos state:', videos);
-  
   return (
     <ErrorBoundary fallbackRender={({ error }) => {
       console.error("ErrorBoundary (Main Render): Caught error -", error);
@@ -483,7 +408,7 @@ function AssetDetailPage() {
             <div>
               <AssetHeader 
                 asset={asset} 
-                creatorName={getCreatorName()}
+                creatorName={creatorDisplayName}
               />
             </div>
             
@@ -491,31 +416,33 @@ function AssetDetailPage() {
               <div className="md:col-span-1 space-y-4">
                 <AssetInfoCard 
                   asset={asset}
-                  isAuthorizedToEdit={isAuthorized}
+                  isAuthorizedToEdit={isAuthorizedToEdit}
                   userIsLoggedIn={!!user}
-                  currentStatus={asset?.user_status ?? null}
-                  onStatusChange={updateAssetUserStatus}
-                  isAdmin={isAdmin}
-                  isAuthorized={isAuthorized}
+                  currentStatus={currentStatus}
+                  onStatusChange={updateUserStatus}
+                  isAdmin={isAdminUser}
+                  isAuthorized={isAuthorizedToEdit}
                   isUpdatingAdminStatus={isUpdatingAdminStatus}
-                  onAdminStatusChange={updateAssetAdminStatus}
+                  onAdminStatusChange={updateAdminStatus}
                   onDelete={handleDeleteAsset}
-                  onDetailsUpdated={() => fetchAssetDetails({ silent: true })}
+                  onDetailsUpdated={refetchAssetDetails}
+                  curatorProfile={curatorProfile}
+                  isLoadingCuratorProfile={isLoadingCuratorProfile}
                 />
               </div>
               <div className="md:col-span-2">
                 <AssetVideoSection 
                   videos={videos}
                   asset={asset}
-                  isAdmin={isAdmin}
-                  isAuthorized={isAuthorized}
+                  isAdmin={isAdminUser}
+                  isAuthorized={isAuthorizedToEdit}
                   onOpenLightbox={handleOpenLightbox}
                   handleApproveVideo={handleApproveVideo}
                   handleRejectVideo={handleRejectVideo}
                   handleDeleteVideo={handleDeleteVideo}
                   handleSetPrimaryMedia={handleSetPrimaryMedia}
-                  onStatusChange={updateLocalVideoStatus}
-                  refetchVideos={fetchAssetDetails}
+                  onStatusChange={handleListVideoStatusChange}
+                  refetchVideos={refetchAssetDetails}
                 />
               </div>
             </div>
@@ -533,10 +460,10 @@ function AssetDetailPage() {
               creator={currentVideo.metadata?.creatorName || currentVideo.user_id}
               thumbnailUrl={currentVideo.metadata?.placeholder_image}
               creatorId={currentVideo.user_id}
-              onVideoUpdate={() => fetchAssetDetails({ silent: true })}
+              onVideoUpdate={() => refetchAssetDetails({ silent: true })}
               currentStatus={currentVideo.assetMediaDisplayStatus} 
               onStatusChange={handleLightboxAssetStatusChange} 
-              isAuthorized={isAuthorized}
+              isAuthorized={isAuthorizedToEdit}
               adminStatus={currentVideo.admin_status}
               onAdminStatusChange={(newStatus) => handleSetVideoAdminStatus(currentVideo.id, newStatus)}
               hasPrev={currentLightboxIndex > 0}
