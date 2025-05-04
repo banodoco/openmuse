@@ -201,7 +201,6 @@ export async function mergeProfileIfExists(supabaseClient: any, authUserId: stri
       .from('profiles')
       .select('*')
       .eq('discord_user_id', discordUserId)
-      .is('user_id', null)
       .single();
     
     // Ignore 'not found' error (PGRST116), store others
@@ -222,8 +221,7 @@ export async function mergeProfileIfExists(supabaseClient: any, authUserId: stri
     const { data, error } = await supabaseClient
       .from('profiles')
       .select('*')
-      .eq('username', discordUsername) // Assuming 'username' stores the Discord username
-      .is('user_id', null)
+      .eq('username', discordUsername)
       .single();
 
     // Ignore 'not found' error (PGRST116), store others
@@ -248,11 +246,10 @@ export async function mergeProfileIfExists(supabaseClient: any, authUserId: stri
   if (profileData) {
     logger.log(`Found unclaimed profile (ID: ${profileData.id}) matching Discord identifiers, attempting merge.`);
     const updatePayload = {
-      user_id: authUserId,
+      id: authUserId,
       status: 'active',
-      // Optionally update username/discord_id if they were missing on the pre-created profile
-      discord_user_id: profileData.discord_user_id ?? discordUserId,
-      username: profileData.username ?? discordUsername
+      discord_user_id: profileData.discord_user_id || discordUserId,
+      discord_username: profileData.discord_username || discordUsername
     };
     logger.log('Update payload for merge:', updatePayload);
 
