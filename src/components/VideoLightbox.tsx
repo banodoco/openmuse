@@ -114,8 +114,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
 
   // State for thumbnail editing
-  const [newThumbnailFile, setNewThumbnailFile] = useState<File | null>(null);
-  const [thumbnailPreviewUrl, setThumbnailPreviewUrl] = useState<string | null>(null);
+  const [isSelectingFrame, setIsSelectingFrame] = useState(false);
+  const [isSavingThumbnail, setIsSavingThumbnail] = useState(false);
 
   // Thumbnail/Frame Selection State
   const [videoDuration, setVideoDuration] = useState<number>(0);
@@ -139,19 +139,14 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   // --- Refs ---
   const lightboxVideoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const scrubVideoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     setEditableTitle(initialTitle || '');
     setEditableDescription(initialDescription || '');
     setEditableAssetId(initialAssetId || '');
     setEditableClassification(initialClassification);
-    // Reset thumbnail state when videoId changes
-    setNewThumbnailFile(null);
-    if (thumbnailPreviewUrl) URL.revokeObjectURL(thumbnailPreviewUrl);
-    setThumbnailPreviewUrl(null);
-    const fileInput = document.getElementById('videoThumbnail') as HTMLInputElement;
-    if (fileInput) fileInput.value = '';
-    // Reset frame selection state
+    setIsSelectingFrame(false);
     setVideoDuration(0);
     setSelectedTimestamp(0);
     setFramePreviewUrl(null);
@@ -200,27 +195,16 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setEditableDescription(initialDescription || '');
     setEditableAssetId(initialAssetId || '');
     setEditableClassification(initialClassification);
-    // Reset thumbnail state
-    setNewThumbnailFile(null);
-    if (thumbnailPreviewUrl) {
-        URL.revokeObjectURL(thumbnailPreviewUrl);
-    }
-    setThumbnailPreviewUrl(null);
-    const fileInput = document.getElementById('videoThumbnail') as HTMLInputElement;
-    if (fileInput) {
-        fileInput.value = '';
-    }
-    // Reset frame selection state
+    setIsSelectingFrame(false);
     setVideoDuration(0);
     setSelectedTimestamp(0);
     setFramePreviewUrl(null);
     setHasCapturedNewFrame(false);
     setIsCapturingFrame(false);
-    // Seek video back to start? Optional.
     if (lightboxVideoRef.current) {
       lightboxVideoRef.current.currentTime = 0;
     }
-  }, [initialTitle, initialDescription, initialAssetId, initialClassification, thumbnailPreviewUrl]);
+  }, [initialTitle, initialDescription, initialAssetId, initialClassification, lightboxVideoRef]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -255,17 +239,15 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       setEditableDescription(initialDescription || '');
       setEditableAssetId(initialAssetId || '');
       setEditableClassification(initialClassification);
-      // Reset frame state specifically when entering edit mode
       setSelectedTimestamp(0);
       setFramePreviewUrl(null);
       setHasCapturedNewFrame(false);
       setIsCapturingFrame(false);
-      // Ensure video is loaded enough to get duration
+      setIsSelectingFrame(false);
       if (lightboxVideoRef.current?.readyState >= 1) {
          setVideoDuration(lightboxVideoRef.current.duration || 0);
       }
     } else {
-       // Reset state on exiting edit mode (covered by handleCancelEdit if cancelled)
        if (lightboxVideoRef.current) lightboxVideoRef.current.currentTime = 0;
        setVideoDuration(0);
        setSelectedTimestamp(0);
@@ -273,41 +255,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
        setHasCapturedNewFrame(false);
     }
     setIsEditing(!isEditing);
-  };
-
-  // Handler for thumbnail file input change
-  const handleThumbnailChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setNewThumbnailFile(file);
-      // Clean up previous preview URL if exists before creating a new one
-      if (thumbnailPreviewUrl) {
-        URL.revokeObjectURL(thumbnailPreviewUrl);
-      }
-      const newPreviewUrl = URL.createObjectURL(file);
-      setThumbnailPreviewUrl(newPreviewUrl);
-    } else {
-      // No file selected or selection cancelled
-      setNewThumbnailFile(null);
-      if (thumbnailPreviewUrl) {
-        URL.revokeObjectURL(thumbnailPreviewUrl);
-      }
-      setThumbnailPreviewUrl(null);
-    }
-  };
-
-  // Handler to clear thumbnail selection
-  const handleClearThumbnailSelection = () => {
-      setNewThumbnailFile(null);
-      if (thumbnailPreviewUrl) {
-        URL.revokeObjectURL(thumbnailPreviewUrl);
-      }
-      setThumbnailPreviewUrl(null);
-      // Reset file input visually
-      const fileInput = document.getElementById('videoThumbnail') as HTMLInputElement;
-      if (fileInput) {
-          fileInput.value = '';
-      }
   };
 
   // Get video duration when metadata is loaded
@@ -322,16 +269,29 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   // Capture frame after seeking is complete
   const captureFrame = useCallback(async () => {
-    const video = lightboxVideoRef.current;
+    const video = scrubVideoRef.current; // Use the hidden video
     const canvas = canvasRef.current;
-    if (!video || !canvas || video.readyState < 2 /* HAVE_CURRENT_DATA */) {
-        toast({ title: "Cannot capture frame", description: "Video data not ready.", variant: "default" });
-        setIsCapturingFrame(false);
+
+    if (!video) {
+        console.error("[FrameCapture] Scrub video ref is null.");
+        toast({ title: "Cannot capture frame", description: "Frame selection video not available.", variant: "destructive" });
+        return; // Don't set isCapturingFrame false here, wait for potential load
+    }
+    if (!canvas) {
+        console.error("[FrameCapture] Canvas ref is null.");
+        toast({ title: "Cannot capture frame", description: "Canvas element not available.", variant: "destructive" });
         return;
+    }
+    // Use readyState >= 2 (HAVE_CURRENT_DATA) - indicates current frame is available
+    if (video.readyState < 2) {
+        console.warn(`[FrameCapture] Scrub video readyState is ${video.readyState}. Waiting for data.`);
+        toast({ title: "Capturing frame...", description: "Video data is loading.", variant: "default" });
+        // Don't return immediately, allow seeked event to potentially re-trigger
+        return; // Or maybe set a short timeout to retry?
     }
 
     setIsCapturingFrame(true);
-    console.log(`[FrameCapture] Capturing frame at ${video.currentTime.toFixed(2)}s`);
+    console.log(`[FrameCapture] Capturing frame from scrub video at ${video.currentTime.toFixed(2)}s`);
 
     try {
         // Ensure canvas dimensions match video intrinsic dimensions for best quality
@@ -371,15 +331,18 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     } finally {
         setIsCapturingFrame(false);
     }
-  }, [framePreviewUrl, selectedTimestamp, toast]);
+  }, []);
 
   // Handle slider value change (continuous seeking)
   const handleSliderChange = useCallback((value: number[]) => {
     const newTimestamp = value[0];
     setSelectedTimestamp(newTimestamp);
-    const video = lightboxVideoRef.current;
-    if (video && isFinite(newTimestamp)) {
-        video.currentTime = newTimestamp;
+    const scrubVideo = scrubVideoRef.current;
+    if (scrubVideo && isFinite(newTimestamp) && scrubVideo.readyState >= 1 /* HAVE_METADATA */) {
+      scrubVideo.currentTime = newTimestamp;
+      console.log(`[ScrubVideo] Seeked to ${newTimestamp.toFixed(2)}s`);
+    } else if (scrubVideo) {
+        console.warn(`[ScrubVideo] Tried to seek to ${newTimestamp.toFixed(2)}s but readyState is ${scrubVideo.readyState}`);
     }
   }, []);
 
@@ -419,14 +382,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           if (seekTimeout) clearTimeout(seekTimeout);
           console.log("[FrameCapture] Removed seeked event listener");
       };
-  }, [isEditing, selectedTimestamp, captureFrame, isCapturingFrame]);
+  }, [captureFrame]); // Remove dependencies on isEditing, selectedTimestamp, isCapturingFrame as capture is now triggered by scrubVideoRef's seeked event
 
   const handleSaveEdit = async () => {
     if (!canEdit || !videoId) return;
     setIsSaving(true);
 
     const newAssetId = editableAssetId === "" ? null : editableAssetId;
-    let newThumbnailFileToUpload: File | null = null;
     let newThumbnailUrl: string | undefined | null = undefined;
 
     try {
@@ -442,44 +404,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           }
           console.log(`[SaveEdit] Converted data URL to Blob. Size: ${blob.size}, Type: ${blob.type}`);
 
-          // Create a File object
-          const fileExt = blob.type.split('/')[1] || 'jpg';
-          const uniqueFileName = `frame_${Date.now()}_${videoId}.${fileExt}`;
-          newThumbnailFileToUpload = new File([blob], uniqueFileName, { type: blob.type });
-          console.log(`[SaveEdit] Created File object: ${newThumbnailFileToUpload.name}, Size: ${newThumbnailFileToUpload.size}`);
+          // THIS UPLOAD LOGIC WILL MOVE TO handleUpdateThumbnailFrame
+          // For now, we just mark that a new URL *might* be generated if saved there.
+          // We won't actually generate/upload it here.
+          console.log(`[SaveEdit] Frame captured, but upload deferred to dedicated function.`);
 
       } else {
           console.log("[SaveEdit] No new frame captured, thumbnail will not be changed.");
-      }
-
-      // Step 1: Upload the generated thumbnail file if it exists
-      if (newThumbnailFileToUpload) {
-        console.log("[SaveEdit] Attempting to upload generated thumbnail file:", newThumbnailFileToUpload.name);
-        const filePath = `public/${videoId}/${newThumbnailFileToUpload.name}`;
-
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('media_thumbnails')
-          .upload(filePath, newThumbnailFileToUpload, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          console.error("[SaveEdit] Thumbnail upload error:", uploadError);
-          throw new Error(`Failed to upload thumbnail: ${uploadError.message}.`);
-        }
-        console.log("[SaveEdit] Thumbnail uploaded:", uploadData);
-
-        const { data: urlData } = supabase.storage
-          .from('media_thumbnails')
-          .getPublicUrl(filePath);
-
-        if (!urlData?.publicUrl) {
-            console.error("[SaveEdit] Error getting public URL after upload");
-            throw new Error("Failed to get thumbnail public URL after upload.");
-        }
-        newThumbnailUrl = urlData.publicUrl;
-        console.log("[SaveEdit] New thumbnail URL:", newThumbnailUrl);
       }
 
       // Step 2: Prepare update payload for 'media' table
@@ -487,17 +418,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
         title: string;
         description: string;
         classification: 'art' | 'gen';
-        placeholder_image?: string | null;
       } = {
         title: editableTitle,
         description: editableDescription,
         classification: editableClassification,
       };
-
-      // Only add placeholder_image to payload if a new one was successfully uploaded
-      if (newThumbnailUrl !== undefined) {
-          mediaUpdatePayload.placeholder_image = newThumbnailUrl;
-      }
 
       // Step 3: Update media table
       console.log("[SaveEdit] Updating media table with payload:", mediaUpdatePayload);
@@ -561,10 +486,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       // Exit edit mode (component will unmount shortly after onClose)
       setIsEditing(false);
 
-      // Reset file state after successful save & close
-      setNewThumbnailFile(null);
-      if (thumbnailPreviewUrl) URL.revokeObjectURL(thumbnailPreviewUrl);
-      setThumbnailPreviewUrl(null);
+      // Reset frame selection state after successful save & close
+      setIsSelectingFrame(false);
+      setFramePreviewUrl(null);
+      setHasCapturedNewFrame(false);
 
       // Trigger potential refetch in parent component WITHOUT blocking UI
       if (onVideoUpdate) {
@@ -625,16 +550,115 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
    // Cleanup preview URL on unmount or when preview URL changes
    useEffect(() => {
-    // This function will be called when the component unmounts
-    // or when thumbnailPreviewUrl changes before the effect runs again.
-    const currentPreviewUrl = thumbnailPreviewUrl; // Capture the value
+    // Cleanup for the framePreviewUrl (Data URL or Object URL)
+    const currentFramePreviewUrl = framePreviewUrl; // Capture the value
     return () => {
-        if (currentPreviewUrl) {
-            URL.revokeObjectURL(currentPreviewUrl);
-            console.log("Revoked blob URL:", currentPreviewUrl);
+        if (currentFramePreviewUrl && currentFramePreviewUrl.startsWith('blob:')) {
+            URL.revokeObjectURL(currentFramePreviewUrl);
+            console.log("Revoked preview blob URL:", currentFramePreviewUrl);
         }
     };
-  }, [thumbnailPreviewUrl]); // Depend only on thumbnailPreviewUrl
+  }, [framePreviewUrl]);
+
+  // --- New handler for saving only the thumbnail frame ---
+  const handleUpdateThumbnailFrame = async () => {
+    if (!hasCapturedNewFrame || !framePreviewUrl || !videoId) {
+      toast({ title: "Cannot Update", description: "No new frame has been selected.", variant: "default" });
+      return;
+    }
+
+    setIsSavingThumbnail(true);
+    console.log("[SaveThumbnail] Starting thumbnail update.");
+
+    try {
+      // 1. Convert data URL to Blob
+      const response = await fetch(framePreviewUrl);
+      const blob = await response.blob();
+      if (!blob || blob.size === 0) {
+        throw new Error("Failed to convert captured frame data URL to Blob.");
+      }
+      console.log(`[SaveThumbnail] Converted data URL to Blob. Size: ${blob.size}, Type: ${blob.type}`);
+
+      // 2. Create a File object
+      const fileExt = blob.type.split('/')[1] || 'jpg';
+      const uniqueFileName = `frame_${Date.now()}_${videoId}.${fileExt}`;
+      const thumbnailFile = new File([blob], uniqueFileName, { type: blob.type });
+      console.log(`[SaveThumbnail] Created File object: ${thumbnailFile.name}, Size: ${thumbnailFile.size}`);
+
+      // 3. Upload the thumbnail file
+      const filePath = `public/${videoId}/${thumbnailFile.name}`;
+      console.log("[SaveThumbnail] Uploading to:", filePath);
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('media_thumbnails')
+        .upload(filePath, thumbnailFile, {
+          cacheControl: '3600',
+          upsert: true // Upsert might be useful if filename generation is consistent, otherwise false
+        });
+
+      if (uploadError) {
+        console.error("[SaveThumbnail] Thumbnail upload error:", uploadError);
+        // Attempt to remove potentially partially uploaded file?
+        await supabase.storage.from('media_thumbnails').remove([filePath]);
+        throw new Error(`Failed to upload thumbnail: ${uploadError.message}.`);
+      }
+      console.log("[SaveThumbnail] Thumbnail uploaded successfully:", uploadData);
+
+      // 4. Get Public URL
+      const { data: urlData } = supabase.storage
+        .from('media_thumbnails')
+        .getPublicUrl(filePath);
+
+      if (!urlData?.publicUrl) {
+        console.error("[SaveThumbnail] Error getting public URL after upload");
+        // Attempt to remove the orphaned file
+        await supabase.storage.from('media_thumbnails').remove([filePath]);
+        throw new Error("Failed to get thumbnail public URL after upload.");
+      }
+      const newThumbnailUrl = urlData.publicUrl;
+      console.log("[SaveThumbnail] New thumbnail URL:", newThumbnailUrl);
+
+      // 5. Update media table
+      console.log("[SaveThumbnail] Updating media table placeholder_image for video:", videoId);
+      const { error: mediaUpdateError } = await supabase
+        .from('media')
+        .update({ placeholder_image: newThumbnailUrl })
+        .eq('id', videoId);
+
+      if (mediaUpdateError) {
+        console.error("[SaveThumbnail] Media update error:", mediaUpdateError);
+        // Consider removing the uploaded thumbnail if DB update fails?
+        // await supabase.storage.from('media_thumbnails').remove([filePath]);
+        throw new Error(`Failed to update video record with new thumbnail: ${mediaUpdateError.message}`);
+      }
+
+      console.log("[SaveThumbnail] Media table updated successfully.");
+      toast({ title: "Thumbnail Updated Successfully!" });
+
+      // Exit frame selection mode
+      setIsSelectingFrame(false);
+      setHasCapturedNewFrame(false); // Reset capture state
+      // Keep framePreviewUrl as the newly saved one? Or clear it?
+      // Clearing might be safer to avoid showing stale preview if user cancels main edit later.
+      // setFramePreviewUrl(null); 
+
+      // Trigger parent refetch if necessary (optional, depends if parent shows thumbnails)
+      if (onVideoUpdate) {
+        Promise.resolve(onVideoUpdate()).catch(err => console.error("Error in onVideoUpdate callback after thumbnail save:", err));
+      }
+
+    } catch (error: any) {
+      console.error("[SaveThumbnail] Error updating thumbnail:", error);
+      toast({
+        title: "Thumbnail Update Failed",
+        description: error.message || "An unexpected error occurred.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSavingThumbnail(false);
+      console.log("[SaveThumbnail] Thumbnail update operation finished.");
+    }
+  };
 
   return (
     <AlertDialog>
@@ -906,8 +930,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                            <Label className="text-sm font-medium text-muted-foreground block">Thumbnail Frame</Label>
                            <div className="aspect-video w-full bg-muted rounded overflow-hidden mb-2 relative group">
                              <img
-                               key={currentPreviewSrc || 'empty'}
-                               src={currentPreviewSrc}
+                               key={framePreviewUrl || initialThumbnailUrl || 'empty'}
+                               src={framePreviewUrl || initialThumbnailUrl || ''}
                                alt="Thumbnail preview"
                                className={cn(
                                   "w-full h-full object-cover transition-opacity duration-200",
@@ -916,32 +940,66 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                onError={(e) => { e.currentTarget.style.opacity = '0'; }}
                                onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
                              />
-                             {!currentPreviewSrc && !isCapturingFrame && (
+                             {!framePreviewUrl && !initialThumbnailUrl && !isCapturingFrame && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
-                                  <span className="text-xs text-muted-foreground">No Thumbnail</span>
-                                </div>
+                                   <span className="text-xs text-muted-foreground">No Thumbnail</span>
+                                 </div>
                              )}
                            </div>
-                           {/* --- ADD SLIDER HERE --- */}
-                           {videoDuration > 0 && (
+                           {!isSelectingFrame ? (
+                             <Button
+                               variant="outline"
+                               size="sm"
+                               onClick={() => setIsSelectingFrame(true)}
+                               disabled={isSaving || !videoDuration}
+                             >
+                               <Camera className="mr-2 h-4 w-4" />
+                               Update Thumbnail
+                             </Button>
+                           ) : (
                              <div className="space-y-1.5">
-                               <Slider
-                                 value={[selectedTimestamp]}
-                                 onValueChange={handleSliderChange}
-                                 onValueCommit={handleSliderCommit} // Keep commit if needed for future actions
-                                 max={videoDuration}
-                                 step={0.1} // Allow fine-grained selection
-                                 disabled={isSaving || isCapturingFrame}
-                                 aria-label="Select Frame Timestamp"
-                                 className="py-2" // Add some padding for easier interaction
-                               />
-                               <div className="flex justify-between text-xs text-muted-foreground">
-                                 <span>{selectedTimestamp.toFixed(1)}s</span>
-                                 <span>{videoDuration.toFixed(1)}s</span>
+                               {videoDuration > 0 && (
+                                 <>
+                                   <Slider
+                                     value={[selectedTimestamp]}
+                                     onValueChange={handleSliderChange}
+                                     onValueCommit={handleSliderCommit}
+                                     max={videoDuration}
+                                     step={0.1}
+                                     disabled={isSaving || isCapturingFrame || isSavingThumbnail}
+                                     aria-label="Select Frame Timestamp"
+                                     className="py-2"
+                                   />
+                                   <div className="flex justify-between text-xs text-muted-foreground">
+                                     <span>{selectedTimestamp.toFixed(1)}s</span>
+                                     <span>{videoDuration.toFixed(1)}s</span>
+                                   </div>
+                                 </>
+                               )}
+                               <div className="flex justify-end gap-2 pt-1">
+                                 <Button
+                                   variant="ghost"
+                                   size="sm"
+                                   onClick={() => {
+                                     setIsSelectingFrame(false);
+                                     setFramePreviewUrl(null);
+                                     setHasCapturedNewFrame(false);
+                                   }}
+                                   disabled={isSavingThumbnail}
+                                 >
+                                   Cancel
+                                 </Button>
+                                 <Button
+                                   size="sm"
+                                   onClick={handleUpdateThumbnailFrame}
+                                   disabled={!hasCapturedNewFrame || isSavingThumbnail || isCapturingFrame}
+                                 >
+                                   {isSavingThumbnail ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                   Update to this Frame
+                                 </Button>
                                </div>
                              </div>
                            )}
-                           {/* --- END SLIDER --- */}
                         </div>
 
                         {/* Save/Cancel Buttons (spanning both columns) */}
@@ -955,7 +1013,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                           </Button>
                           <Button
                             onClick={handleSaveEdit}
-                            disabled={isSaving || (!editableTitle && !newThumbnailFile)} // Basic validation example
+                            disabled={isSaving || isSavingThumbnail}
                           >
                             {isSaving ? (
                               <>
@@ -1093,6 +1151,35 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                        })()}
                      </div>
                   )}
+
+                {/* Hidden video element for scrubbing/frame capture */}
+                {isEditing && videoUrl && (
+                  <video
+                    ref={scrubVideoRef}
+                    src={videoUrl}
+                    muted
+                    playsInline
+                    preload="auto" // Preload for seeking
+                    crossOrigin="anonymous"
+                    className="absolute w-px h-px -left-full -top-full opacity-0 pointer-events-none" // Visually hidden
+                    onLoadedMetadata={() => {
+                      // Ensure duration is set based on this video too, if needed
+                      if (scrubVideoRef.current && !videoDuration) {
+                        setVideoDuration(scrubVideoRef.current.duration || 0);
+                      }
+                      console.log(`[ScrubVideo] Metadata loaded. Duration: ${scrubVideoRef.current?.duration}`);
+                    }}
+                    onSeeked={() => {
+                      // Trigger frame capture from *this* video when seek completes
+                      console.log(`[ScrubVideo] Seeked event on hidden video at ${scrubVideoRef.current?.currentTime.toFixed(2)}s. Capturing frame.`);
+                      captureFrame(); // Capture from scrubVideoRef
+                    }}
+                    onError={(e) => {
+                      console.error("[ScrubVideo] Error loading hidden video:", e);
+                      toast({ title: "Frame Preview Error", description: "Could not load video data for frame selection.", variant: "destructive" });
+                    }}
+                  />
+                )}
               </div>
             </div>
           </DialogContent>
