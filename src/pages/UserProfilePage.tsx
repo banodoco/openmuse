@@ -1071,6 +1071,7 @@ export default function UserProfilePage() {
           onPrevVideo={handlePrevLightboxVideo}
           onNextVideo={handleNextLightboxVideo}
           classification={lightboxVideo.metadata?.classification}
+          onDeleteVideo={deleteVideo}
         />
       )}
 

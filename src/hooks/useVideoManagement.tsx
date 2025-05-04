@@ -225,6 +225,25 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
     }
   }, [refetchVideos]);
 
+  // --- Add the new function here ---
+  const setVideoAdminStatus = useCallback(async (id: string, newStatus: AdminStatus) => {
+    logger.log(`[setVideoAdminStatus] Attempting to set status to ${newStatus} for video ID: ${id}`);
+    try {
+      const db = await databaseSwitcher.getDatabase();
+      // Assuming db.setApprovalStatus can handle any AdminStatus
+      // If not, we might need a more generic update method in the database layer
+      const updatedVideo = await db.setApprovalStatus(id, newStatus);
+      logger.log(`[setVideoAdminStatus] Successfully set status to ${newStatus} for ID: ${id}. Refetching videos.`);
+      // Refetch videos to update the list. The refetch function handles its own toasts.
+      await refetchVideos(); 
+      return updatedVideo;
+    } catch (error) {
+      logger.error(`[setVideoAdminStatus] Error setting status ${newStatus} for video ID ${id}:`, error);
+      toast.error(`Failed to set video status to ${newStatus}.`);
+      throw error;
+    }
+  }, [refetchVideos]);
+
   logger.log(`useVideoManagement: Returning state - isLoading: ${videoIsLoading}, videos count: ${videos.length}, filter: ${approvalFilter}`);
 
   return {
@@ -234,6 +253,7 @@ export const useVideoManagement = (options?: UseVideoManagementOptions) => {
     refetchVideos,
     deleteVideo,
     approveVideo,
-    rejectVideo
+    rejectVideo,
+    setVideoAdminStatus // Return the new function
   };
 };

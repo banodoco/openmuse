@@ -67,6 +67,8 @@ interface VideoLightboxProps {
   hasNext?: boolean;
   onNextVideo?: () => void;
   classification?: 'art' | 'gen';
+  /** Callback function to handle video deletion. If provided, a delete button will be shown if authorized. */
+  onDeleteVideo?: (videoId: string) => Promise<void>;
 }
 
 const VideoLightbox: React.FC<VideoLightboxProps> = ({
@@ -90,7 +92,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   onPrevVideo,
   hasNext,
   onNextVideo,
-  classification: initialClassification = 'gen'
+  classification: initialClassification = 'gen',
+  onDeleteVideo
 }) => {
   const { user, isAdmin } = useAuth();
   const { loras: availableLoras, isLoading: isFetchingLoras, error: loraFetchError } = useLoras();
@@ -190,6 +193,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     };
   }, [isOpen, onClose, isEditing, handleCancelEdit]);
 
+  // New useEffect to update classification when entering edit mode
+  useEffect(() => {
+    if (isEditing) {
+      setEditableClassification(initialClassification);
+    }
+  }, [isEditing, initialClassification]);
+
   const handleToggleEdit = () => {
     if (!isEditing) { 
       setEditableTitle(initialTitle || '');
@@ -277,38 +287,6 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       });
     } finally {
       setIsSaving(false);
-    }
-  };
-
-  const handleDeleteVideo = async () => {
-    if (!canEdit || !videoId) return;
-    setIsDeleting(true);
-
-    try {
-      const { error } = await supabase
-        .from('media')
-        .delete()
-        .eq('id', videoId);
-
-      if (error) throw error;
-
-      toast({
-        title: "Video deleted successfully!",
-      });
-      onClose();
-      if (onVideoUpdate) {
-        onVideoUpdate();
-      }
-
-    } catch (error: any) {
-      console.error("Error deleting video:", error);
-      toast({
-        title: "Error deleting video",
-        description: error.message || "Could not delete the video.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsDeleting(false);
     }
   };
 
@@ -652,12 +630,66 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                  <Pencil size={16} />
                                  <span className="sr-only">Edit</span>
                               </Button>
-                              <AlertDialogTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10">
-                                     <Trash size={16} />
-                                     <span className="sr-only">Delete</span>
-                                  </Button>
-                               </AlertDialogTrigger>
+                              {isAuthorized && onDeleteVideo && (
+                                <AlertDialog>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <AlertDialogTrigger asChild>
+                                        <Button
+                                          variant="destructive"
+                                          size="icon"
+                                          className="relative"
+                                          disabled={isDeleting}
+                                        >
+                                          {isDeleting ? (
+                                            <Loader2 className="h-4 w-4 animate-spin absolute" />
+                                          ) : (
+                                            <Trash className="h-4 w-4" />
+                                          )}
+                                          <VisuallyHidden>Delete Video</VisuallyHidden>
+                                        </Button>
+                                      </AlertDialogTrigger>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom">Delete Video</TooltipContent>
+                                  </Tooltip>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={async (e) => {
+                                          e.preventDefault();
+                                          if (!onDeleteVideo) return;
+                                          setIsDeleting(true);
+                                          try {
+                                            await onDeleteVideo(videoId);
+                                            toast({ title: "Video deleted successfully." });
+                                            onClose();
+                                          } catch (error: any) {
+                                            console.error("Error deleting video:", error);
+                                            toast({
+                                              title: "Deletion Failed",
+                                              description: error?.message || "Could not delete the video.",
+                                              variant: "destructive",
+                                            });
+                                          } finally {
+                                            setIsDeleting(false);
+                                          }
+                                        }}
+                                        disabled={isDeleting}
+                                        className={cn(
+                                          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+                                          isDeleting && "opacity-50 cursor-not-allowed"
+                                        )}
+                                      >
+                                        {isDeleting ? "Deleting..." : "Delete"}
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              )}
                           </div>
                         )}
                       </div>

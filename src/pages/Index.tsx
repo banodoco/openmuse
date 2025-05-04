@@ -82,7 +82,14 @@ const Index: React.FC = () => {
   const generationsSectionRef = useRef<HTMLDivElement>(null);
   
   // Get video data & loading state
-  const { videos, isLoading: videosLoading, approveVideo, rejectVideo, refetchVideos } = useVideoManagement();
+  const { 
+    videos, 
+    isLoading: videosLoading, 
+    approveVideo, // Keep for potential other uses, but not in lightbox handler
+    rejectVideo,  // Keep for potential other uses, but not in lightbox handler
+    refetchVideos, 
+    setVideoAdminStatus // Import the new function
+  } = useVideoManagement();
   // logger.log(`Index: useVideoManagement() state - videosLoading: ${videosLoading}`);
   
   // Get model filter from URL query params
@@ -548,23 +555,18 @@ const Index: React.FC = () => {
     return async (newStatus: AdminStatus) => {
       logger.log(`[Lightbox] Admin status change requested: ${videoId} to ${newStatus}`);
       try {
-        if (newStatus === 'Curated') {
-          await approveVideo(videoId);
-          toast.success("Video approved successfully.");
-        } else if (newStatus === 'Rejected') {
-          await rejectVideo(videoId);
-          toast.success("Video rejected successfully.");
-        } else {
-          logger.warn(`[Lightbox] Unhandled admin status change: ${newStatus} for video ${videoId}`);
-          toast.info(`Status change to ${newStatus} requested.`);
-        }
-        handleCloseLightbox();
+        // Directly use the new function from the hook
+        await setVideoAdminStatus(videoId, newStatus);
+        // The hook's refetchVideos handles success/error toasts now
+        toast.success(`Video status set to ${newStatus}.`); // Optional: Add specific success toast here if desired
+        handleCloseLightbox(); // Close lightbox after update
       } catch (error) {
         logger.error(`[Lightbox] Error changing admin status for ${videoId} to ${newStatus}:`, error);
-        toast.error("Failed to update video status.");
+        // Error toast is handled within setVideoAdminStatus or refetchVideos
+        // toast.error("Failed to update video status."); // Can remove this redundant toast
       }
     };
-  }, [approveVideo, rejectVideo, handleCloseLightbox]);
+  }, [setVideoAdminStatus, handleCloseLightbox]);
 
   const handleLightboxVideoUpdate = useCallback(() => {
     logger.log(`[Lightbox] Video update occurred (internally within lightbox), refetching videos.`);
