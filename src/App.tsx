@@ -95,7 +95,7 @@ const App: React.FC = () => {
                       <Route path="/loras" element={<LorasPage />} />
                       <Route path="/art" element={<ArtPage />} />
                       <Route path="/generations" element={<GenerationsPage />} />
-                      <Route path="/profile/:displayName" element={
+                      <Route path="/profile/:username" element={
                         <ErrorBoundary fallback={<p>Error loading profile page.</p>}>
                           <UserProfilePage />
                         </ErrorBoundary>

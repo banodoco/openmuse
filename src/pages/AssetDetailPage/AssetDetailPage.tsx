@@ -220,7 +220,7 @@ function AssetDetailPage() {
 
     logger.log(`[AssetDetailPage] handleLightboxAssetStatusChange initiated for video ${videoId} on asset ${assetId} to status ${newStatus}`);
 
-    updateUserStatus(newStatus);
+    // Optimistically update the lightbox video state
     setCurrentVideo(prev => prev ? { ...prev, assetMediaDisplayStatus: newStatus } : null);
 
     try {
@@ -244,7 +244,7 @@ function AssetDetailPage() {
       toast.error(`Failed to update video status: ${error.message || 'Unknown error'}`);
 
       logger.log(`[AssetDetailPage] Rolling back optimistic UI update for video ${videoId} to status ${previousStatus}`);
-      updateUserStatus(previousStatus);
+      // Rollback the lightbox video state
       setCurrentVideo(prev => prev ? { ...prev, assetMediaDisplayStatus: previousStatus } : null);
     }
   };
@@ -256,10 +256,11 @@ function AssetDetailPage() {
       return;
     }
     const assetId = asset.id;
-    const video = videos.find(v => v.id === videoId);
+    const videoIndex = videos.findIndex(v => v.id === videoId); // Find index for update
+    const video = videos[videoIndex];
     const previousStatus = video?.assetMediaDisplayStatus ?? null;
 
-    if (previousStatus === null) {
+    if (videoIndex === -1 || previousStatus === null) { // Check if video exists in state
         logger.warn(`[handleListVideoStatusChange] Could not find video with ID ${videoId} in local state.`);
         toast.error("Could not find video details to update status.");
         return;
@@ -267,7 +268,16 @@ function AssetDetailPage() {
 
     logger.log(`[AssetDetailPage] handleListVideoStatusChange initiated for video ${videoId} on asset ${assetId} to status ${newStatus}`);
 
-    updateUserStatus(newStatus);
+    // Optimistically update the main videos list state
+    const optimisticVideos = [...videos];
+    optimisticVideos[videoIndex] = { ...optimisticVideos[videoIndex], assetMediaDisplayStatus: newStatus };
+    // Assuming you have a state setter for 'videos', e.g., setVideos(optimisticVideos)
+    // If 'videos' comes directly from useAssetDetails hook without a setter,
+    // refetchAssetDetails() called on success might be the intended way to update the list.
+    // For now, let's assume a local update isn't directly possible here without a setter,
+    // and rely on refetch on success. We will skip the direct state update here
+    // and also remove the rollback logic below for the main list, as refetch handles it.
+    // Consider adding a setVideos state if faster optimistic updates are needed.
 
     try {
       logger.log(`[AssetDetailPage] Attempting database update for asset_media: asset ${assetId}, media ${videoId}, status ${newStatus}`);
@@ -284,13 +294,15 @@ function AssetDetailPage() {
 
       logger.log(`[AssetDetailPage] Database update successful for asset_media (${assetId}, ${videoId}).`);
       toast.success(`Video status updated to ${newStatus}`);
+      // Refetch details to update the list after successful DB update
+      await refetchAssetDetails({ silent: true });
 
     } catch (error: any) {
       logger.error(`[AssetDetailPage] Error during handleListVideoStatusChange for video ${videoId}:`, error);
       toast.error(`Failed to update video status: ${error.message || 'Unknown error'}`);
 
-      logger.log(`[AssetDetailPage] Rolling back optimistic UI update for video ${videoId} to status ${previousStatus}`);
-      updateUserStatus(previousStatus);
+      logger.log(`[AssetDetailPage] Database update failed for video ${videoId}, no explicit rollback needed as we rely on refetch.`);
+      // No explicit rollback needed here if we rely on refetch on success/failure.
     }
   };
   
