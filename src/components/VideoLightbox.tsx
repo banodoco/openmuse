@@ -96,7 +96,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   onNextVideo,
   classification: initialClassification = 'gen',
   onDeleteVideo
-}) => {
+}): React.ReactElement => {
   const { user, isAdmin } = useAuth();
   const { loras: availableLoras, isLoading: isFetchingLoras, error: loraFetchError } = useLoras();
 
@@ -247,6 +247,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       if (lightboxVideoRef.current?.readyState >= 1) {
          setVideoDuration(lightboxVideoRef.current.duration || 0);
       }
+      lightboxVideoRef.current?.pause();
     } else {
        if (lightboxVideoRef.current) lightboxVideoRef.current.currentTime = 0;
        setVideoDuration(0);
@@ -679,7 +680,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           }}
         >
           <DialogContent
-            className={cn("max-w-5xl p-0 bg-background flex flex-col", isEditing ? "max-h-[95vh] overflow-y-auto" : (isMobile ? "max-h-screen" : "max-h-[90vh]"))}
+            className={cn("max-w-5xl p-0 bg-background flex flex-col", isMobile ? "max-h-screen" : "max-h-[90vh]")}
             onClickCapture={(e) => {
               const anchor = (e.target as HTMLElement).closest('a');
               if (anchor) {

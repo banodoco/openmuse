@@ -779,6 +779,7 @@ const Index: React.FC = () => {
           hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < lightboxVideoList.length - 1}
           onPrevVideo={handlePrevLightboxVideo}
           onNextVideo={handleNextLightboxVideo}
+          classification={lightboxVideo.metadata?.classification}
         />
       )}
     </div>
