@@ -113,6 +113,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
 
+  // State for reminder logic
+  const [isDirty, setIsDirty] = useState(false);
+  const [showReminder, setShowReminder] = useState(false);
+  const reminderTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [isReminderRendered, setIsReminderRendered] = useState(false); // For fade-out
+
   // State for thumbnail editing
   const [isSelectingFrame, setIsSelectingFrame] = useState(false);
   const [isSavingThumbnail, setIsSavingThumbnail] = useState(false);
@@ -201,6 +207,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setFramePreviewUrl(null);
     setHasCapturedNewFrame(false);
     setIsCapturingFrame(false);
+    setIsDirty(false); // Reset dirty state on cancel
+    setShowReminder(false); // Hide reminder immediately
+    setIsReminderRendered(false); // Remove from DOM
+    if (reminderTimeoutRef.current) clearTimeout(reminderTimeoutRef.current);
     if (lightboxVideoRef.current) {
       lightboxVideoRef.current.currentTime = 0;
     }
@@ -254,6 +264,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
        setSelectedTimestamp(0);
        setFramePreviewUrl(null);
        setHasCapturedNewFrame(false);
+       setIsDirty(false); // Reset dirty state on cancel
+       setShowReminder(false); // Hide reminder immediately
+       setIsReminderRendered(false); // Remove from DOM
+       if (reminderTimeoutRef.current) clearTimeout(reminderTimeoutRef.current);
     }
     setIsEditing(!isEditing);
   };
@@ -490,6 +504,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       setIsSelectingFrame(false);
       setFramePreviewUrl(null);
       setHasCapturedNewFrame(false);
+      setIsDirty(false); // Reset dirty state on successful save
+      setShowReminder(false); // Hide reminder
+      setIsReminderRendered(false); // Remove from DOM
+      if (reminderTimeoutRef.current) clearTimeout(reminderTimeoutRef.current);
 
       // Trigger potential refetch in parent component WITHOUT blocking UI
       if (onVideoUpdate) {
@@ -507,6 +525,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       });
     } finally {
       setIsSaving(false);
+      setIsDirty(false); // Also reset dirty state if save fails
+      setShowReminder(false); // Hide reminder
+      setIsReminderRendered(false); // Remove from DOM
+      if (reminderTimeoutRef.current) clearTimeout(reminderTimeoutRef.current);
       console.log("Save operation finished.");
     }
   };
