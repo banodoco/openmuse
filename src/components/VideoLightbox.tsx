@@ -682,6 +682,37 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     }
   };
 
+  // --- Effect to manage reminder visibility ---
+  useEffect(() => {
+    console.log(`[ReminderEffect] isDirty changed to: ${isDirty}`); // Add log
+    if (isDirty) {
+      // If dirty, show the reminder immediately for rendering
+      console.log('[ReminderEffect] Setting isReminderRendered=true'); // Add log
+      setIsReminderRendered(true);
+      // Then set a timeout to actually make it visible (trigger fade-in)
+      reminderTimeoutRef.current = setTimeout(() => {
+        setShowReminder(true);
+        console.log('[ReminderEffect] Setting showReminder=true (after delay)'); // Add log
+      }, 50); // Short delay for fade-in transition
+    } else {
+      // If not dirty (saved/canceled), start fade-out
+      console.log('[ReminderEffect] Setting showReminder=false'); // Add log
+      setShowReminder(false);
+      // Set a timeout to remove from DOM after fade-out completes
+      reminderTimeoutRef.current = setTimeout(() => {
+        setIsReminderRendered(false);
+        console.log('[ReminderEffect] Setting isReminderRendered=false (after delay)'); // Add log
+      }, 550); // Match the duration in ReminderText component + buffer
+    }
+
+    return () => {
+      if (reminderTimeoutRef.current) {
+        clearTimeout(reminderTimeoutRef.current);
+        console.log('[ReminderEffect] Cleanup timeout'); // Add log
+      }
+    };
+  }, [isDirty]);
+
   return (
     <AlertDialog>
       <TooltipProvider delayDuration={100}>
