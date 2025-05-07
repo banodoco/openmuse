@@ -26,7 +26,7 @@ export interface LoRADetails {
   loraDescription: string;
   creator: 'self' | 'someone_else';
   creatorName: string;
-  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  model: string;
   modelVariant: string; // Can be more specific if needed
   loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
   loraStorageMethod: 'upload' | 'link';
@@ -56,8 +56,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     loraDescription: '',
     creator: 'self',
     creatorName: '',
-    model: 'wan',
-    modelVariant: '1.3b',
+    model: '',
+    modelVariant: '',
     loraType: 'Concept',
     loraStorageMethod: 'link',
     loraLink: '',

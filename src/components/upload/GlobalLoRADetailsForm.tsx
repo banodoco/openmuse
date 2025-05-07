@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import TextareaAutosize from 'react-textarea-autosize';
@@ -14,6 +14,15 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
+import { supabase } from '@/integrations/supabase/client';
+
+interface ModelData {
+  id: string;
+  internal_identifier: string;
+  display_name: string;
+  variants: string[];
+  default_variant?: string | null;
+}
 
 interface LoRADetailsForm {
   loraName: string;
@@ -21,7 +30,7 @@ interface LoRADetailsForm {
   creator: 'self' | 'someone_else';
   creatorName: string;
   creatorOrigin?: string;
-  model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  model: string;
   modelVariant: string;
   loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
   loraStorageMethod: 'upload' | 'link';
@@ -37,14 +46,6 @@ interface GlobalLoRADetailsFormProps {
   disabled?: boolean;
 }
 
-const MODEL_VARIANTS = {
-  wan: ['1.3b', '14b T2V', '14b I2V'],
-  ltxv: ['0.9', '0.9.5', '0.9.7'],
-  hunyuan: ['Base', 'Large', 'Mini'],
-  cogvideox: ['Base', 'SD', 'SDXL'],
-  animatediff: ['Base', 'v3', 'Lightning']
-};
-
 const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({ 
   loraDetails, 
   updateLoRADetails,
@@ -52,6 +53,8 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
   disabled = false
 }) => {
   const { user } = useAuth();
+  const [availableModels, setAvailableModels] = useState<ModelData[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
   
   // Preload the tooltip image
   useEffect(() => {
@@ -59,15 +62,75 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
     img.src = '/write_access.png';
   }, []);
   
-  // Update model variant when model changes
+  // Fetch models from Supabase on component mount
   useEffect(() => {
-    if (loraDetails.model && MODEL_VARIANTS[loraDetails.model]?.length > 0) {
-      const variants = MODEL_VARIANTS[loraDetails.model as keyof typeof MODEL_VARIANTS];
-      if (!variants.includes(loraDetails.modelVariant)) {
-        updateLoRADetails('modelVariant', variants[0]);
+    const fetchModels = async () => {
+      setIsLoadingModels(true);
+      const { data, error } = await supabase
+        .from('models')
+        .select('id, internal_identifier, display_name, variants, default_variant')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('display_name', { ascending: true });
+
+      if (error) {
+        console.error("Error fetching models:", error);
+        // Handle error appropriately, e.g., show a toast message
+      } else if (data) {
+        setAvailableModels(data as ModelData[]);
+      }
+      setIsLoadingModels(false);
+    };
+
+    fetchModels();
+  }, []);
+
+  // Effect to initialize or update model and variant when availableModels are loaded
+  // or if loraDetails.model prop changes (for edit scenarios - though less critical here)
+  useEffect(() => {
+    if (availableModels.length > 0 && !isLoadingModels) {
+      const currentModelIsValid = availableModels.some(m => m.internal_identifier === loraDetails.model);
+      if (!loraDetails.model || !currentModelIsValid) {
+        // If no model is set, or current model is not in the fetched list, set to the first available
+        const firstModel = availableModels[0];
+        updateLoRADetails('model', firstModel.internal_identifier);
+        const initialVariant = firstModel.default_variant || (firstModel.variants.length > 0 ? firstModel.variants[0] : '');
+        updateLoRADetails('modelVariant', initialVariant);
+      } else {
+        // Current model is valid, ensure variant is also valid for this model
+        const selectedModelData = availableModels.find(m => m.internal_identifier === loraDetails.model);
+        if (selectedModelData && !selectedModelData.variants.includes(loraDetails.modelVariant)) {
+          const newVariant = selectedModelData.default_variant || (selectedModelData.variants.length > 0 ? selectedModelData.variants[0] : '');
+          updateLoRADetails('modelVariant', newVariant);
+        }
       }
     }
-  }, [loraDetails.model]);
+  }, [availableModels, isLoadingModels, loraDetails.model, updateLoRADetails]);
+
+  // Update model variant when model selection changes by the user
+  useEffect(() => {
+    if (!isLoadingModels && availableModels.length > 0 && loraDetails.model) {
+      const selectedModelData = availableModels.find(m => m.internal_identifier === loraDetails.model);
+      if (selectedModelData) {
+        // Check if the current variant is valid for the new model
+        // This check is important if the model was changed programmatically or by prop update
+        if (!selectedModelData.variants.includes(loraDetails.modelVariant)) {
+            const newVariant = selectedModelData.default_variant || (selectedModelData.variants.length > 0 ? selectedModelData.variants[0] : '');
+            // Only update if the model itself is a valid one from the list
+            // This prevents resetting variant if loraDetails.model is temporarily out of sync during initial load
+            if (availableModels.some(m => m.internal_identifier === loraDetails.model)) {
+                 updateLoRADetails('modelVariant', newVariant);
+            }
+        }
+      } else {
+        // If the selected model is not found (e.g. during intermediate state or error)
+        // It might be safer to not change the variant, or clear it, based on desired UX.
+        // For now, we let the previous effect handle setting a default if model becomes invalid.
+      }
+    }
+  // Removed loraDetails.modelVariant from dependency array to avoid potential loops
+  // The variant should only be auto-updated when the *model* changes.
+  }, [loraDetails.model, availableModels, isLoadingModels, updateLoRADetails]);
   
   return (
     <Card>
@@ -174,19 +237,27 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 Which model was this trained on? <span className="text-destructive">*</span>
               </Label>
               <Select 
-                value={loraDetails.model} 
-                onValueChange={(value: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff') => updateLoRADetails('model', value)}
-                disabled={disabled}
+                value={loraDetails.model}
+                onValueChange={(value) => {
+                  updateLoRADetails('model', value);
+                  // When model changes, find its variants and set the default/first
+                  const selectedModelData = availableModels.find(m => m.internal_identifier === value);
+                  if (selectedModelData) {
+                    const newVariant = selectedModelData.default_variant || (selectedModelData.variants.length > 0 ? selectedModelData.variants[0] : '');
+                    updateLoRADetails('modelVariant', newVariant);
+                  }
+                }}
+                disabled={disabled || isLoadingModels}
               >
                 <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Model" />
+                  <SelectValue placeholder={isLoadingModels ? "Loading models..." : "Select Model"} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="wan">Wan</SelectItem>
-                  <SelectItem value="hunyuan">Hunyuan</SelectItem>
-                  <SelectItem value="ltxv">LTXV</SelectItem>
-                  <SelectItem value="cogvideox">CogVideoX</SelectItem>
-                  <SelectItem value="animatediff">AnimateDiff</SelectItem>
+                  {availableModels.map(model => (
+                    <SelectItem key={model.id} value={model.internal_identifier}>
+                      {model.display_name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
@@ -195,31 +266,37 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
               <Label htmlFor="model-variant" className="text-sm font-medium mb-1.5 block">
                 Model Variant <span className="text-destructive">*</span>
               </Label>
-              {MODEL_VARIANTS[loraDetails.model as keyof typeof MODEL_VARIANTS] ? (
-                <Select 
-                  value={loraDetails.modelVariant} 
-                  onValueChange={(value) => updateLoRADetails('modelVariant', value)}
-                  disabled={disabled}
-                >
-                  <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select Variant" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {MODEL_VARIANTS[loraDetails.model as keyof typeof MODEL_VARIANTS].map(variant => (
-                      <SelectItem key={variant} value={variant}>{variant}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              ) : (
-                <Input
-                  type="text"
-                  id="model-variant"
-                  placeholder="Enter model variant"
-                  value={loraDetails.modelVariant}
-                  onChange={(e) => updateLoRADetails('modelVariant', e.target.value)}
-                  disabled={disabled}
-                />
-              )}
+              {(() => {
+                const selectedModelData = availableModels.find(m => m.internal_identifier === loraDetails.model);
+                const variants = selectedModelData ? selectedModelData.variants : [];
+                if (isLoadingModels || !selectedModelData) {
+                  return (
+                    <Input
+                      type="text"
+                      id="model-variant-disabled"
+                      placeholder={isLoadingModels ? "Loading..." : "Select model first"}
+                      value={loraDetails.modelVariant}
+                      disabled={true}
+                    />
+                  );
+                }
+                return (
+                  <Select 
+                    value={loraDetails.modelVariant}
+                    onValueChange={(value) => updateLoRADetails('modelVariant', value)}
+                    disabled={disabled || variants.length === 0}
+                  >
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={variants.length === 0 ? "No variants" : "Select Variant"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {variants.map(variant => (
+                        <SelectItem key={variant} value={variant}>{variant}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                );
+              })()}
             </div>
             
             <div>

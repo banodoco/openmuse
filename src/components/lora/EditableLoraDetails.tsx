@@ -19,13 +19,14 @@ import LoraCreatorInfo from './LoraCreatorInfo';
 import ReactMarkdown from 'react-markdown';
 import { cn } from '@/lib/utils';
 
-const MODEL_VARIANTS = {
-  wan: ['1.3b', '14b T2V', '14b I2V'],
-  ltxv: ['0.9', '0.9.5', '0.9.7'],
-  hunyuan: ['Base', 'Large', 'Mini'],
-  cogvideox: ['Base', 'SD', 'SDXL'],
-  animatediff: ['Base', 'v3', 'Lightning']
-};
+// Define ModelData interface (can be moved to a shared types file later)
+interface ModelData {
+  id: string;
+  internal_identifier: string;
+  display_name: string;
+  variants: string[];
+  default_variant?: string | null;
+}
 
 interface EditableLoraDetailsProps {
   asset: LoraAsset | null;
@@ -53,6 +54,8 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
   const [isEditing, setIsEditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
+  const [availableModels, setAvailableModels] = useState<ModelData[]>([]);
+  const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
 
   // Helper function to determine if the current user owns the asset
   const isOwnedByCurrentUser = () => {
@@ -65,7 +68,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
     creator: isOwnedByCurrentUser() ? 'self' : 'someone_else',
     creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : asset?.creator || '',
     lora_type: asset?.lora_type || 'Concept',
-    lora_base_model: asset?.lora_base_model || 'Wan',
+    lora_base_model: asset?.lora_base_model || '',
     model_variant: asset?.model_variant || '',
     lora_link: asset?.lora_link || ''
   });
@@ -80,6 +83,66 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
     loadUserProfile();
   }, [user]);
 
+  // Fetch models from Supabase
+  useEffect(() => {
+    const fetchModels = async () => {
+      setIsLoadingModels(true);
+      const { data, error } = await supabase
+        .from('models')
+        .select('id, internal_identifier, display_name, variants, default_variant')
+        .eq('is_active', true)
+        .order('sort_order', { ascending: true })
+        .order('display_name', { ascending: true });
+
+      if (error) {
+        console.error("Error fetching models:", error);
+        toast.error("Failed to load base models.");
+      } else if (data) {
+        setAvailableModels(data as ModelData[]);
+      }
+      setIsLoadingModels(false);
+    };
+
+    fetchModels();
+  }, []);
+
+  // Effect to synchronize asset prop with local details state and fetched models
+  useEffect(() => {
+    if (asset) {
+      let initialModel = asset.lora_base_model || '';
+      let initialVariant = asset.model_variant || '';
+
+      if (availableModels.length > 0 && !isLoadingModels) {
+        const assetModelInList = availableModels.find(m => m.internal_identifier === initialModel);
+
+        if (initialModel && assetModelInList) {
+          // Asset's model is valid and in the fetched list
+          if (!assetModelInList.variants.includes(initialVariant)) {
+            // Asset's variant is not valid for its model, pick default/first
+            initialVariant = assetModelInList.default_variant || (assetModelInList.variants.length > 0 ? assetModelInList.variants[0] : '');
+          }
+        } else if (availableModels.length > 0) {
+          // Asset's model is not set, not in list, or list just loaded; set to first available model
+          initialModel = availableModels[0].internal_identifier;
+          initialVariant = availableModels[0].default_variant || (availableModels[0].variants.length > 0 ? availableModels[0].variants[0] : '');
+        }
+        // If availableModels is empty, initialModel/Variant remain as from asset or empty
+      }
+      // Only update if truly changed to avoid loops if asset prop itself is stable
+      setDetails(prev => ({
+        ...prev,
+        name: asset.name || '',
+        description: asset.description || '',
+        creator: isOwnedByCurrentUser() ? 'self' : (asset.creator ? 'someone_else' : 'self'), // Adjusted logic slightly
+        creatorName: asset.creator?.includes('@') ? asset.creator.substring(1) : (asset.creator && !isOwnedByCurrentUser() ? asset.creator : ''),
+        lora_type: asset.lora_type || 'Concept',
+        lora_base_model: initialModel,
+        model_variant: initialVariant,
+        lora_link: asset.lora_link || ''
+      }));
+    }
+  }, [asset, availableModels, isLoadingModels, user]);
+
   const handleEdit = () => {
     setDetails({
       name: asset?.name || '',
@@ -87,7 +150,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
       creator: isOwnedByCurrentUser() ? 'self' : 'someone_else',
       creatorName: asset?.creator?.includes('@') ? asset.creator.substring(1) : asset?.creator || '',
       lora_type: asset?.lora_type || 'Concept',
-      lora_base_model: asset?.lora_base_model || 'Wan',
+      lora_base_model: asset?.lora_base_model || '',
       model_variant: asset?.model_variant || '',
       lora_link: asset?.lora_link || ''
     });
@@ -231,51 +294,69 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
             </Label>
             <Select 
               value={details.lora_base_model} 
-              onValueChange={(value: 'Wan' | 'Hunyuan' | 'LTXV' | 'CogVideoX' | 'AnimateDiff') => updateField('lora_base_model', value)}
-              disabled={isSaving}
+              onValueChange={(value) => {
+                updateField('lora_base_model', value);
+                const selectedModelData = availableModels.find(m => m.internal_identifier === value);
+                if (selectedModelData) {
+                  const newVariant = selectedModelData.default_variant || (selectedModelData.variants.length > 0 ? selectedModelData.variants[0] : '');
+                  updateField('model_variant', newVariant);
+                } else {
+                  updateField('model_variant', ''); // Clear variant if model becomes invalid
+                }
+              }}
+              disabled={isSaving || isLoadingModels}
             >
               <SelectTrigger className="w-full">
-                <SelectValue placeholder="Select Model" />
+                <SelectValue placeholder={isLoadingModels ? "Loading models..." : (availableModels.length === 0 ? "No models available" : "Select Model")} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Wan">Wan</SelectItem>
-                <SelectItem value="Hunyuan">Hunyuan</SelectItem>
-                <SelectItem value="LTXV">LTXV</SelectItem>
-                <SelectItem value="CogVideoX">CogVideoX</SelectItem>
-                <SelectItem value="AnimateDiff">AnimateDiff</SelectItem>
+                {availableModels.map(model => (
+                  <SelectItem key={model.id} value={model.internal_identifier}>
+                    {model.display_name}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
 
           <div>
             <Label htmlFor="model-variant" className="text-sm font-medium mb-1.5 block">
-              Model Variant
+              Model Variant <span className="text-destructive">*</span>
             </Label>
-            {MODEL_VARIANTS[details.lora_base_model as keyof typeof MODEL_VARIANTS] ? (
-              <Select 
-                value={details.model_variant} 
-                onValueChange={(value) => updateField('model_variant', value)}
-                disabled={isSaving}
-              >
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select Variant" />
-                </SelectTrigger>
-                <SelectContent>
-                  {MODEL_VARIANTS[details.lora_base_model as keyof typeof MODEL_VARIANTS].map(variant => (
-                    <SelectItem key={variant} value={variant}>{variant}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            ) : (
-              <Input
-                type="text"
-                id="model-variant"
-                placeholder="Enter model variant"
-                value={details.model_variant}
-                onChange={(e) => updateField('model_variant', e.target.value)}
-                disabled={isSaving}
-              />
-            )}
+            {(() => {
+              const selectedModelData = availableModels.find(m => m.internal_identifier === details.lora_base_model);
+              const variants = selectedModelData ? selectedModelData.variants : [];
+              
+              if (isLoadingModels || !selectedModelData) {
+                return (
+                  <Input
+                    type="text"
+                    id="model-variant-display"
+                    value={details.model_variant || (isLoadingModels ? "Loading..." : "Select model first")}
+                    readOnly
+                    disabled // Visually indicate it's not interactive
+                    className="bg-muted"
+                  />
+                );
+              }
+
+              return (
+                <Select 
+                  value={details.model_variant} 
+                  onValueChange={(value) => updateField('model_variant', value)}
+                  disabled={isSaving || variants.length === 0}
+                >
+                  <SelectTrigger className="w-full">
+                    <SelectValue placeholder={variants.length === 0 ? "No variants available" : "Select Variant"} />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {variants.map(variant => (
+                      <SelectItem key={variant} value={variant}>{variant}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              );
+            })()}
           </div>
 
           <div>
