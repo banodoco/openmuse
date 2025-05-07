@@ -52,6 +52,12 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
 }) => {
   const { user } = useAuth();
   
+  // Preload the tooltip image
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/write_access.png';
+  }, []);
+  
   // Update model variant when model changes
   useEffect(() => {
     if (loraDetails.model && MODEL_VARIANTS[loraDetails.model]?.length > 0) {
@@ -329,7 +335,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
-                  .
+                  . We don't store your HuggingFace credentials.
                 </p>
                 <div className="mt-4">
                   <Label htmlFor="lora-file-upload" className="text-sm font-medium mb-1.5 block">
