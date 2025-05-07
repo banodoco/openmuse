@@ -16,11 +16,12 @@ import { thumbnailService } from '@/lib/services/thumbnailService';
 import { getVideoAspectRatio } from '@/lib/utils/videoDimensionUtils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { uploadLoraToHuggingFace } from '@/lib/huggingfaceUploader';
 
 const logger = new Logger('Upload');
 
 // Define the LoRADetails type explicitly
-interface LoRADetails {
+export interface LoRADetails {
   loraName: string;
   loraDescription: string;
   creator: 'self' | 'someone_else';
@@ -28,7 +29,9 @@ interface LoRADetails {
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
   modelVariant: string; // Can be more specific if needed
   loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
+  loraStorageMethod: 'upload' | 'link';
   loraLink: string;
+  huggingFaceApiKey?: string;
 }
 
 interface UploadPageProps {
@@ -44,6 +47,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [loraFile, setLoraFile] = useState<File | null>(null);
   
   const [loraDetails, setLoraDetails] = useState<LoRADetails>({
     loraName: '',
@@ -53,7 +57,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     model: 'wan',
     modelVariant: '1.3b',
     loraType: 'Concept',
-    loraLink: ''
+    loraStorageMethod: 'link',
+    loraLink: '',
+    huggingFaceApiKey: ''
   });
   
   const updateLoRADetails = (field: keyof LoRADetails, value: string) => {
@@ -248,17 +254,30 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       return;
     }
     
-    // Add check for loraLink
-    if (!loraDetails.loraLink || loraDetails.loraLink.trim() === '') {
-      toast.error('Please provide the LoRA Link (URL)');
-      return;
-    }
-    // Basic URL format check (browser input type="url" handles more robust checks)
-    try {
-      new URL(loraDetails.loraLink);
-    } catch (_) {
-      toast.error('Please enter a valid URL for the LoRA Link');
-      return;
+    // New validation logic for LoRA link / HuggingFace Upload
+    if (uploadMode === 'lora') { // Only validate these if we are in LoRA upload mode
+      if (loraDetails.loraStorageMethod === 'link') {
+        if (!loraDetails.loraLink || loraDetails.loraLink.trim() === '') {
+          toast.error('Please provide the LoRA Link (URL)');
+          return;
+        }
+        try {
+          new URL(loraDetails.loraLink);
+        } catch (_) {
+          toast.error('Please enter a valid URL for the LoRA Link');
+          return;
+        }
+      } else if (loraDetails.loraStorageMethod === 'upload') {
+        if (!loraDetails.huggingFaceApiKey || loraDetails.huggingFaceApiKey.trim() === '') {
+          toast.error('Please provide your HuggingFace API Key');
+          return;
+        }
+        if (!loraFile) {
+          toast.error('Please select a LoRA file to upload');
+          return;
+        }
+        // Potentially add more validation for loraFile (type, size) if needed
+      }
     }
 
     const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
@@ -272,7 +291,37 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     setIsSubmitting(true);
     
     try {
-      // logger.log("Starting video submission process");
+      let finalLoraLink = loraDetails.loraLink;
+
+      if (uploadMode === 'lora' && loraDetails.loraStorageMethod === 'upload') {
+        if (!loraFile || !loraDetails.huggingFaceApiKey) {
+          toast.error("LoRA file or HuggingFace API Key missing for upload.");
+          setIsSubmitting(false);
+          return;
+        }
+        logger.log(`Uploading LoRA file ${loraFile.name} to HuggingFace...`);
+        
+        try {
+          const uploadedLoraUrl = await uploadLoraToHuggingFace({
+            loraFile: loraFile,
+            loraDetails: loraDetails,
+            videos: videos, // Pass example videos for README generation
+            hfToken: loraDetails.huggingFaceApiKey
+          });
+
+          if (!uploadedLoraUrl) {
+            throw new Error("Failed to upload LoRA to HuggingFace. No URL returned.");
+          }
+          finalLoraLink = uploadedLoraUrl;
+          logger.log(`LoRA uploaded to HuggingFace: ${finalLoraLink}`);
+          toast.success("LoRA successfully uploaded to HuggingFace!");
+        } catch (hfUploadError: any) {
+          logger.error("HuggingFace upload failed:", hfUploadError);
+          toast.error(`HuggingFace Upload Error: ${hfUploadError.message || 'Unknown error'}`);
+          setIsSubmitting(false);
+          return; // Stop submission if HF upload fails
+        }
+      }
       
       // Process files first to upload them to storage
       for (const video of videos) {
@@ -298,7 +347,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         }
       }
       
-      await submitVideos(videos, loraDetails, reviewerName, user);
+      await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink);
       
       const message = videos.filter(v => v.url).length > 1 
         ? 'Videos submitted successfully! Awaiting admin approval.'
@@ -320,7 +369,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     }
   };
   
-  const submitVideos = async (videos: VideoItem[], loraDetails: LoRADetails, reviewerName: string, user: any) => {
+  const submitVideos = async (videos: VideoItem[], loraDetails: LoRADetails, reviewerName: string, user: any, finalLoraLinkToUse: string) => {
     logger.log("Starting asset creation and video submission process");
 
     let assetId = '';
@@ -341,7 +390,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           lora_type: loraDetails.loraType,
           lora_base_model: loraDetails.model,
           model_variant: loraDetails.modelVariant,
-          lora_link: loraDetails.loraLink || null,
+          lora_link: finalLoraLinkToUse || null,
           admin_status: 'Listed',
           user_status: 'Listed'
         })
@@ -503,6 +552,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               <LoRADetailsForm 
                 loraDetails={loraDetails} 
                 updateLoRADetails={updateLoRADetails}
+                onLoraFileSelect={setLoraFile}
                 disabled={!user} 
               />
             </div>

@@ -24,12 +24,15 @@ interface LoRADetailsForm {
   model: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
   modelVariant: string;
   loraType: 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other';
+  loraStorageMethod: 'upload' | 'link';
   loraLink: string;
+  huggingFaceApiKey?: string;
 }
 
 interface GlobalLoRADetailsFormProps {
   loraDetails: LoRADetailsForm;
   updateLoRADetails: (field: keyof LoRADetailsForm, value: string) => void;
+  onLoraFileSelect: (file: File | null) => void;
   disabled?: boolean;
 }
 
@@ -44,6 +47,7 @@ const MODEL_VARIANTS = {
 const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({ 
   loraDetails, 
   updateLoRADetails,
+  onLoraFileSelect,
   disabled = false
 }) => {
   const { user } = useAuth();
@@ -235,32 +239,113 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             </div>
             
             <div>
-              <div className="flex items-center space-x-1.5 mb-1.5">
-                <Label htmlFor="lora-link" className="text-sm font-medium block">
-                  LoRA Link (Huggingface, Civit, etc.)
-                  <span className="text-destructive"> *</span>
-                </Label>
-                <TooltipProvider delayDuration={100}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-xs">
-                      <p>We are too poor to host models. Ideally, host on Huggingface because it's easier to download from.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-              <Input
-                type="url"
-                id="lora-link"
-                placeholder="Enter LoRA link"
-                value={loraDetails.loraLink}
-                onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
-                required
+              <Label className="text-sm font-medium mb-2 block">
+                How do you want to store this LoRA? <span className="text-destructive">*</span>
+              </Label>
+              <RadioGroup
+                value={loraDetails.loraStorageMethod}
+                onValueChange={(value: 'upload' | 'link') => {
+                  updateLoRADetails('loraStorageMethod', value);
+                  // Reset the other field when switching
+                  if (value === 'upload') updateLoRADetails('loraLink', '');
+                  if (value === 'link') updateLoRADetails('huggingFaceApiKey', '');
+                }}
+                className="flex flex-col space-y-2 mb-4"
                 disabled={disabled}
-              />
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="link" id="lora-storage-link" />
+                  <Label htmlFor="lora-storage-link" className="cursor-pointer">Share Link</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="upload" id="lora-storage-upload" />
+                  <Label htmlFor="lora-storage-upload" className="cursor-pointer">Upload to HuggingFace</Label>
+                </div>
+              </RadioGroup>
             </div>
+
+            {loraDetails.loraStorageMethod === 'link' && (
+              <div>
+                <div className="flex items-center space-x-1.5 mb-1.5">
+                  <Label htmlFor="lora-link" className="text-sm font-medium block">
+                    LoRA Link (Huggingface, Civit, etc.)
+                    <span className="text-destructive"> *</span>
+                  </Label>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p>We are too poor to host models. Ideally, host on Huggingface because it's easier to download from.</p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </div>
+                <Input
+                  type="url"
+                  id="lora-link"
+                  placeholder="https://huggingface.co/user/model"
+                  value={loraDetails.loraLink}
+                  onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
+                  required={loraDetails.loraStorageMethod === 'link'}
+                  disabled={disabled}
+                />
+              </div>
+            )}
+
+            {loraDetails.loraStorageMethod === 'upload' && (
+              <div>
+                <Label htmlFor="huggingface-api-key" className="text-sm font-medium mb-1.5 block">
+                  HuggingFace API Key <span className="text-destructive">*</span>
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild className="ml-1.5">
+                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help inline-block" />
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="max-w-xs">
+                        <p>
+                          You can find or create your Hugging Face API token (with write permissions) at:
+                          <a 
+                            href="https://huggingface.co/settings/tokens" 
+                            target="_blank" 
+                            rel="noopener noreferrer" 
+                            className="text-olive hover:text-olive-dark underline ml-1"
+                          >
+                            huggingface.co/settings/tokens
+                          </a>.
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </Label>
+                <Input
+                  type="password"
+                  id="huggingface-api-key"
+                  placeholder="Enter your HuggingFace API Key (write access)"
+                  value={loraDetails.huggingFaceApiKey || ''}
+                  onChange={(e) => updateLoRADetails('huggingFaceApiKey', e.target.value)}
+                  required={loraDetails.loraStorageMethod === 'upload'}
+                  disabled={disabled}
+                />
+                <div className="mt-4">
+                  <Label htmlFor="lora-file-upload" className="text-sm font-medium mb-1.5 block">
+                    LoRA File (.safetensors, .bin, etc.) <span className="text-destructive">*</span>
+                  </Label>
+                  <Input
+                    type="file"
+                    id="lora-file-upload"
+                    onChange={(e) => onLoraFileSelect(e.target.files ? e.target.files[0] : null)}
+                    disabled={disabled}
+                    required={loraDetails.loraStorageMethod === 'upload'}
+                    accept=".safetensors,.bin,.pt,.ckpt"
+                  />
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Your API key will be used once for upload and not stored.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       </CardContent>
