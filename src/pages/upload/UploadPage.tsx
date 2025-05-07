@@ -32,6 +32,7 @@ export interface LoRADetails {
   loraStorageMethod: 'upload' | 'link';
   loraLink: string;
   huggingFaceApiKey?: string;
+  loraDirectDownloadLink?: string; // Added for the optional direct download link from form
 }
 
 interface UploadPageProps {
@@ -60,7 +61,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     loraType: 'Concept',
     loraStorageMethod: 'link',
     loraLink: '',
-    huggingFaceApiKey: ''
+    huggingFaceApiKey: '',
+    loraDirectDownloadLink: '' // Initialize new field
   });
   
   const updateLoRADetails = (field: keyof LoRADetails, value: string) => {
@@ -260,15 +262,31 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     // New validation logic for LoRA link / HuggingFace Upload
     if (uploadMode === 'lora') { // Only validate these if we are in LoRA upload mode
       if (loraDetails.loraStorageMethod === 'link') {
-        if (!loraDetails.loraLink || loraDetails.loraLink.trim() === '') {
-          toast.error('Please provide the LoRA Link (URL)');
+        const hasLoraLink = loraDetails.loraLink && loraDetails.loraLink.trim() !== '';
+        const hasDirectDownloadLink = loraDetails.loraDirectDownloadLink && loraDetails.loraDirectDownloadLink.trim() !== '';
+
+        if (!hasLoraLink && !hasDirectDownloadLink) {
+          toast.error('Please provide either the LoRA Link or the Direct Download Link (or both).');
+          setIsSubmitting(false);
           return;
         }
-        try {
-          new URL(loraDetails.loraLink);
-        } catch (_) {
-          toast.error('Please enter a valid URL for the LoRA Link');
-          return;
+        if (hasLoraLink) {
+          try {
+            new URL(loraDetails.loraLink);
+          } catch (_) {
+            toast.error('Please enter a valid URL for the LoRA Link.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        if (hasDirectDownloadLink) {
+          try {
+            new URL(loraDetails.loraDirectDownloadLink);
+          } catch (_) {
+            toast.error('Please enter a valid URL for the Direct Download Link.');
+            setIsSubmitting(false);
+            return;
+          }
         }
       } else if (loraDetails.loraStorageMethod === 'upload') {
         if (!loraDetails.huggingFaceApiKey || loraDetails.huggingFaceApiKey.trim() === '') {
@@ -292,40 +310,61 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     const reviewerName = user?.email || 'Anonymous';
     
     try {
-      let finalLoraLink = loraDetails.loraLink;
+      let finalLoraLink = '';
+      let directDownloadUrlToSave = '';
 
-      if (uploadMode === 'lora' && loraDetails.loraStorageMethod === 'upload') {
-        if (!loraFile || !loraDetails.huggingFaceApiKey) {
-          toast.error("LoRA file or HuggingFace API Key missing for upload.");
-          setCurrentStepMessage('Error: Missing LoRA file or API key.');
-          setIsSubmitting(false);
-          return;
-        }
-        const hfFileName = loraFile.name || 'LoRA file';
-        setCurrentStepMessage(`Uploading ${hfFileName} to Hugging Face... This may take a moment.`);
-        logger.log(`Uploading LoRA file ${loraFile.name} to HuggingFace...`);
-        
-        try {
-          const uploadedLoraUrl = await uploadLoraToHuggingFace({
-            loraFile: loraFile,
-            loraDetails: loraDetails,
-            videos: videos, 
-            hfToken: loraDetails.huggingFaceApiKey
-          });
-
-          if (!uploadedLoraUrl) {
-            throw new Error("Failed to upload LoRA to HuggingFace. No URL returned.");
+      if (uploadMode === 'lora') {
+        if (loraDetails.loraStorageMethod === 'upload') {
+          if (!loraFile || !loraDetails.huggingFaceApiKey) {
+            toast.error("LoRA file or HuggingFace API Key missing for upload.");
+            setCurrentStepMessage('Error: Missing LoRA file or API key.');
+            setIsSubmitting(false);
+            return;
           }
-          finalLoraLink = uploadedLoraUrl;
-          setCurrentStepMessage("LoRA uploaded to Hugging Face! Processing example media...");
-          logger.log(`LoRA uploaded to HuggingFace: ${finalLoraLink}`);
-          toast.success("LoRA successfully uploaded to HuggingFace!");
-        } catch (hfUploadError: any) {
-          logger.error("HuggingFace upload failed:", hfUploadError);
-          toast.error(`HuggingFace Upload Error: ${hfUploadError.message || 'Unknown error'}`);
-          setCurrentStepMessage(`Hugging Face upload failed: ${hfUploadError.message || 'Unknown error'}.`);
-          setIsSubmitting(false);
-          return; 
+          const hfFileName = loraFile.name || 'LoRA file';
+          setCurrentStepMessage(`Uploading ${hfFileName} to Hugging Face... This may take a moment.`);
+          logger.log(`Uploading LoRA file ${loraFile.name} to HuggingFace...`);
+          
+          try {
+            const uploadedHfUrl = await uploadLoraToHuggingFace({
+              loraFile: loraFile,
+              loraDetails: loraDetails,
+              videos: videos, 
+              hfToken: loraDetails.huggingFaceApiKey
+            });
+
+            if (!uploadedHfUrl) {
+              throw new Error("Failed to upload LoRA to HuggingFace. No URL returned.");
+            }
+            const repoUrl = uploadedHfUrl.split('/resolve/')[0];
+            finalLoraLink = repoUrl;
+            directDownloadUrlToSave = uploadedHfUrl;
+            setCurrentStepMessage("LoRA uploaded to Hugging Face! Processing example media...");
+            logger.log(`LoRA uploaded to HuggingFace: Repo URL: ${finalLoraLink}, File URL: ${directDownloadUrlToSave}`);
+            toast.success("LoRA successfully uploaded to HuggingFace!");
+          } catch (hfUploadError: any) {
+            logger.error("HuggingFace upload failed:", hfUploadError);
+            toast.error(`HuggingFace Upload Error: ${hfUploadError.message || 'Unknown error'}`);
+            setCurrentStepMessage(`Hugging Face upload failed: ${hfUploadError.message || 'Unknown error'}.`);
+            setIsSubmitting(false);
+            return; 
+          }
+        } else { // loraStorageMethod === 'link'
+          const formLoraLink = loraDetails.loraLink.trim();
+          const formDirectDownloadLink = loraDetails.loraDirectDownloadLink?.trim();
+
+          if (formLoraLink && formDirectDownloadLink) {
+            finalLoraLink = formLoraLink;
+            directDownloadUrlToSave = formDirectDownloadLink;
+          } else if (formLoraLink) {
+            finalLoraLink = formLoraLink;
+            directDownloadUrlToSave = formLoraLink; // Use general link as direct if only general is provided
+          } else if (formDirectDownloadLink) {
+            finalLoraLink = formDirectDownloadLink; // Use direct link as general if only direct is provided
+            directDownloadUrlToSave = formDirectDownloadLink;
+          }
+          // If neither, validation should have caught this, but as a fallback:
+          // finalLoraLink and directDownloadUrlToSave remain empty or default
         }
       }
       
@@ -355,7 +394,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       }
       
       setCurrentStepMessage('Saving LoRA and media details to database...');
-      await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink, setCurrentStepMessage);
+      await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink, directDownloadUrlToSave, setCurrentStepMessage);
       
       const message = videos.filter(v => v.url).length > 1 
         ? 'Videos submitted successfully! Awaiting admin approval.'
@@ -383,6 +422,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     reviewerName: string, 
     user: any, 
     finalLoraLinkToUse: string,
+    directDownloadUrlToSave: string,
     setCurrentStepMsg: (message: string) => void
   ) => {
     logger.log("Starting asset creation and video submission process");
@@ -407,6 +447,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           lora_base_model: loraDetails.model,
           model_variant: loraDetails.modelVariant,
           lora_link: finalLoraLinkToUse || null,
+          download_link: directDownloadUrlToSave || null,
           admin_status: 'Listed',
           user_status: 'Listed'
         })

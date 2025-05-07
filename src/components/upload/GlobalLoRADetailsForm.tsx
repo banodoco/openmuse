@@ -27,6 +27,7 @@ interface LoRADetailsForm {
   loraStorageMethod: 'upload' | 'link';
   loraLink: string;
   huggingFaceApiKey?: string;
+  loraDirectDownloadLink?: string;
 }
 
 interface GlobalLoRADetailsFormProps {
@@ -253,7 +254,10 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 onValueChange={(value: 'upload' | 'link') => {
                   updateLoRADetails('loraStorageMethod', value);
                   // Reset the other field when switching
-                  if (value === 'upload') updateLoRADetails('loraLink', '');
+                  if (value === 'upload') {
+                    updateLoRADetails('loraLink', '');
+                    updateLoRADetails('loraDirectDownloadLink', '');
+                  }
                   if (value === 'link') updateLoRADetails('huggingFaceApiKey', '');
                 }}
                 className="flex flex-col space-y-2 mb-4"
@@ -271,32 +275,59 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
             </div>
 
             {loraDetails.loraStorageMethod === 'link' && (
-              <div>
-                <div className="flex items-center space-x-1.5 mb-1.5">
-                  <Label htmlFor="lora-link" className="text-sm font-medium block">
-                    LoRA Link (Huggingface, Civit, etc.)
-                    <span className="text-destructive"> *</span>
-                  </Label>
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">
-                        <p>We are too poor to host models. Ideally, host on Huggingface because it's easier to download from.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+              <div className="space-y-4">
+                <div>
+                  <div className="flex items-center space-x-1.5 mb-1.5">
+                    <Label htmlFor="lora-link" className="text-sm font-medium block">
+                      LoRA Link (Huggingface, Civit, etc.)
+                      {!(loraDetails.loraDirectDownloadLink && loraDetails.loraDirectDownloadLink.trim() !== '') && <span className="text-destructive"> *</span>}
+                    </Label>
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p>We are too poor to host models. Ideally, host on Huggingface because it's easier to download from.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    type="url"
+                    id="lora-link"
+                    placeholder="https://huggingface.co/user/model"
+                    value={loraDetails.loraLink}
+                    onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
+                    required={loraDetails.loraStorageMethod === 'link'}
+                    disabled={disabled}
+                  />
                 </div>
-                <Input
-                  type="url"
-                  id="lora-link"
-                  placeholder="https://huggingface.co/user/model"
-                  value={loraDetails.loraLink}
-                  onChange={(e) => updateLoRADetails('loraLink', e.target.value)}
-                  required={loraDetails.loraStorageMethod === 'link'}
-                  disabled={disabled}
-                />
+                <div>
+                  <div className="flex items-center space-x-1.5 mb-1.5">
+                    <Label htmlFor="lora-direct-download-link" className="text-sm font-medium block">
+                      Direct Download Link
+                    </Label>
+                    <TooltipProvider delayDuration={100}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help" />
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="max-w-xs">
+                          <p>A link where a user can download the LoRA directly.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                  <Input
+                    type="url"
+                    id="lora-direct-download-link"
+                    placeholder="https://example.com/lora.safetensors"
+                    value={loraDetails.loraDirectDownloadLink || ''}
+                    onChange={(e) => updateLoRADetails('loraDirectDownloadLink', e.target.value)}
+                    disabled={disabled}
+                  />
+                </div>
               </div>
             )}
 
