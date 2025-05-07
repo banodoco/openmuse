@@ -637,12 +637,14 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             />
           </div>
           
-          <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
-            {isSubmitting ? 'Submitting...' : (uploadMode === 'lora' ? 'Submit LoRA' : 'Submit Media')}
-          </Button>
-          {isSubmitting && currentStepMessage && (
-            <p className="text-sm text-muted-foreground mt-2 animate-pulse">{currentStepMessage}</p>
-          )}
+          <div className="flex items-center space-x-4">
+            <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
+              {isSubmitting ? 'Submitting...' : (uploadMode === 'lora' ? 'Submit LoRA' : 'Submit Media')}
+            </Button>
+            {isSubmitting && currentStepMessage && (
+              <p className="text-sm text-muted-foreground animate-pulse">{currentStepMessage}</p>
+            )}
+          </div>
         </form>
       </main>
       

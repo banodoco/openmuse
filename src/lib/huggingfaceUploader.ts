@@ -70,7 +70,33 @@ export async function uploadLoraToHuggingFace({
     });
     logger.log(`LoRA file ${loraFile.name} uploaded successfully.`);
 
-    const readmeContent = generateReadmeContent(loraDetails, videos, loraFile.name, repoId);
+    // Upload up to 3 videos to a 'media' folder
+    const uploadedVideoPaths: string[] = [];
+    if (videos && videos.length > 0) {
+      logger.log(`Uploading example media to ${repoId}/media/`);
+      for (let i = 0; i < Math.min(videos.length, 3); i++) {
+        const videoItem = videos[i];
+        if (videoItem.file && videoItem.file instanceof File) {
+          try {
+            const videoFileName = videoItem.file.name;
+            const targetPathInRepo = `media/${videoFileName}`;
+            logger.log(`Uploading ${videoFileName} to ${targetPathInRepo}...`);
+            await uploadFile({
+              repo: repoId,
+              file: { path: targetPathInRepo, content: videoItem.file },
+              credentials: { accessToken: hfToken },
+            });
+            uploadedVideoPaths.push(targetPathInRepo);
+            logger.log(`${videoFileName} uploaded successfully to ${targetPathInRepo}.`);
+          } catch (videoUploadError: any) {
+            logger.error(`Failed to upload video ${videoItem.file.name}:`, videoUploadError);
+            // Decide if you want to throw, or just log and continue
+          }
+        }
+      }
+    }
+
+    const readmeContent = generateReadmeContent(loraDetails, uploadedVideoPaths, loraFile.name, repoId);
     logger.log(`Uploading README.md to ${repoId}`);
     const readmeBlob = new Blob([readmeContent], { type: 'text/markdown' });
     const readmeFile = new File([readmeBlob], 'README.md', { type: 'text/markdown' });
@@ -87,8 +113,10 @@ export async function uploadLoraToHuggingFace({
 
   } catch (error: any) {
     logger.error(`Error during HuggingFace upload process for ${repoId}:`, error);
-    if (error.message?.includes('authentication failed') || error.status === 401) {
-        throw new Error('HuggingFace authentication failed. Please check your API key.');
+    if (error.message?.includes('authentication failed') || error.status === 401 || (error.response && error.response.status === 401)) {
+        throw new Error('HuggingFace authentication failed. Please check your API key and its permissions.');
+    } else if (error.message?.includes('You don\'t have the rights') || error.status === 403 || (error.response && error.response.status === 403)) {
+        throw new Error('HuggingFace permission error: Your API key may not have write access to create repositories. Please check its permissions on huggingface.co/settings/tokens.');
     }
     throw new Error(`Failed to upload to HuggingFace: ${error.message || 'Unknown error'}`);
   }
@@ -104,59 +132,39 @@ function sanitizeRepoName(name: string): string {
     .replace(/--+/g, '-');
 }
 
-function generateReadmeContent(loraDetails: LoRADetails, videos: VideoItem[], loraFileName: string, repoId: string): string {
-  // Determine how to link to the file.
-  // For files in the root of a model repo, it's usually just the filename.
-  // If you decide to put it in a subfolder e.g. "models/", it would be "models/yourfile.safetensors"
-  const loraFilePathInRepo = loraFileName; 
-
-  let readme = `---
-license: mit 
-tags:
-- lora
-- ${loraDetails.model || 'unknown-model'}
-- ${loraDetails.loraType?.toLowerCase().replace(' ', '-') || 'unknown-type'}
-library_name: diffusers
----
-
-# ${loraDetails.loraName || 'Unnamed LoRA'}
-
-This LoRA was uploaded via [OpenMuse](https://app.openmuse.ai). 
-
-## Model Details
-
-**File:** \`./${loraFilePathInRepo}\` ([Download Link](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(loraFilePathInRepo)}))
-
-**Base Model:** ${loraDetails.model || 'N/A'} (${loraDetails.modelVariant || 'N/A'})
-**LoRA Type:** ${loraDetails.loraType || 'N/A'}
-
-### Trigger Words & Usage Notes
-\`\`\`text
-${loraDetails.loraDescription || 'No specific trigger words or usage notes provided.'}
-\`\`\`
-
-`;
+function generateReadmeContent(loraDetails: LoRADetails, uploadedVideoPaths: string[], loraFileName: string, repoId: string): string {
+  const loraFilePathInRepo = loraFileName;
+  let readme = "";
+  readme += `---\n`;
+  readme += `license: mit\n`;
+  readme += `tags:\n`;
+  readme += `- lora\n`;
+  readme += `- ${loraDetails.model || 'unknown-model'}\n`;
+  readme += `- ${loraDetails.loraType ? loraDetails.loraType.toLowerCase().replace(/\s+/g, '-') : 'unknown-type'}\n`;
+  readme += `library_name: diffusers\n`;
+  readme += `---\n\n`;
+  readme += `# ${loraDetails.loraName || 'Unnamed LoRA'}\n\n`;
+  readme += `This LoRA was uploaded via OpenMuse.ai: [https://openmuse.ai/](https://openmuse.ai/)\n\n`;
+  readme += `## Model Details\n\n`;
+  readme += `**File:** \`./${loraFilePathInRepo}\` ([Download Link](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(loraFilePathInRepo)}))\n\n`;
+  readme += `**Base Model:** ${loraDetails.model || 'N/A'} (${loraDetails.modelVariant || 'N/A'})\n`;
+  readme += `**LoRA Type:** ${loraDetails.loraType || 'N/A'}\n\n`;
+  readme += `### Trigger Words & Usage Notes\n`;
+  readme += "```text\n";
+  readme += `${loraDetails.loraDescription || 'No specific trigger words or usage notes provided.'}\n`;
+  readme += "```\n\n";
 
   if (loraDetails.creator === 'someone_else' && loraDetails.creatorName) {
     readme += `## Creator Information\n`;
-    readme += `Originally created by: **${loraDetails.creatorName}**\n`;
-    // Assuming loraDetails.creatorOrigin might be added in the future
-    // if (loraDetails.creatorOrigin) { 
-    //    readme += `Creator Origin/Profile: ${loraDetails.creatorOrigin}\n`;
-    // }
-  } else if (loraDetails.creator === 'self') {
-    readme += `## Creator Information\n`;
-    readme += `Uploaded by the original creator.\n`;
+    readme += `Originally created by: **${loraDetails.creatorName}**\n\n`;
   }
-  
-  if (videos && videos.length > 0) {
-    readme += `\n## Example Media\n`;
+
+  if (uploadedVideoPaths && uploadedVideoPaths.length > 0) {
+    readme += `## Example Media\n`;
     readme += `The following media were generated or provided as examples for this LoRA:\n\n`;
-    videos.forEach((video, index) => {
-      if (video.url) {
-        const title = video.metadata?.title || `Example Video ${index + 1}`;
-        readme += `* **${title}**: [View Media](${video.url})\n`;
-      }
+    uploadedVideoPaths.forEach((videoPath, index) => {
+      const videoFileName = videoPath.split('/').pop() || `Example Video ${index + 1}`;
+      readme += `* **${videoFileName}**: [View Media](./${videoPath}) or [Download](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(videoPath)})\n`;
     });
   }
 
@@ -165,6 +173,6 @@ ${loraDetails.loraDescription || 'No specific trigger words or usage notes provi
 
 // Ensure LoRADetails and VideoItem types are correctly imported based on your project structure.
 // Example for LoRADetails if it's in UploadPage.tsx:
-// import type { LoRADetails } from '../../pages/upload/UploadPage'; 
+// import type { LoRADetails } from \'../../pages/upload/UploadPage\'; 
 // If VideoItem is in src/lib/types.ts
-// import type { VideoItem } from '../types'; 
+// import type { VideoItem } from \'../types\'; 
