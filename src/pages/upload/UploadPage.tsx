@@ -47,6 +47,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
   const navigate = useNavigate();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [currentStepMessage, setCurrentStepMessage] = useState<string>('');
   const [loraFile, setLoraFile] = useState<File | null>(null);
   
   const [loraDetails, setLoraDetails] = useState<LoRADetails>({
@@ -121,14 +122,19 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       return;
     }
     
+    setIsSubmitting(true);
+    setCurrentStepMessage('Preparing submission...');
+
     if (uploadMode === 'media') {
       // MEDIA ONLY FLOW --------------------------------------------------
-      setIsSubmitting(true);
       const reviewerName = user?.email || 'Anonymous';
       try {
-        // Process files first to upload them to storage
-        for (const video of videos) {
+        setCurrentStepMessage('Processing video files...');
+        for (let i = 0; i < videos.length; i++) {
+          const video = videos[i];
           if (video.file) {
+            const videoName = video.file.name || `video ${i + 1}`;
+            setCurrentStepMessage(`Uploading ${videoName}...`);
             const videoId = uuidv4();
             const uploadResult = await supabaseStorage.uploadVideo({
               id: videoId,
@@ -138,12 +144,16 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             video.url = uploadResult.url;
             video.id = videoId;
             video.file = null;
+            setCurrentStepMessage(`${videoName} uploaded. Processing...`);
           }
         }
 
-        // create media rows & link to LoRA assets
-        for (const video of videos) {
+        setCurrentStepMessage('Saving media entries to database...');
+        for (let i = 0; i < videos.length; i++) {
+          const video = videos[i];
           if (!video.url) continue;
+          const videoName = video.metadata.title || `media entry ${i + 1}`;
+          setCurrentStepMessage(`Saving ${videoName}...`);
           
           logger.log(`Processing video ${video.id} for media entry creation. URL: ${video.url}`);
 
@@ -155,7 +165,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             logger.log(`Successfully got aspect ratio for video ${video.id}: ${aspectRatio}`);
           } catch (ratioError) {
             logger.error(`Error getting aspect ratio for video ${video.id} (URL: ${video.url}):`, ratioError);
-            // Keep default aspect ratio, but log the error
           }
 
           // Generate thumbnail for media-only upload
@@ -166,7 +175,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             logger.log(`Successfully generated thumbnail for video ${video.id}: ${thumbnailUrl ? 'Generated' : 'Failed or null'}`);
           } catch (thumbError) {
              logger.error(`Error generating thumbnail for video ${video.id} (URL: ${video.url}):`, thumbError);
-             // Keep null thumbnail, but log the error
           }
 
           logger.log(`STEP 1: Before DB Insert for video ${video.id}`);
@@ -196,31 +204,25 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           const mediaId = mediaData.id;
           logger.log(`Successfully created media entry for video ${video.id}. Media ID: ${mediaId}`);
 
-          // If we are uploading to an existing LoRA asset, create the asset_media link
           if (finalForcedLoraId) {
+            setCurrentStepMessage(`Linking ${videoName} to LoRA...`);
             logger.log(`Linking media ${mediaId} to existing asset ${finalForcedLoraId}`);
-
-            // Insert relationship into asset_media
             const { error: linkError } = await supabase
               .from('asset_media')
               .insert({ asset_id: finalForcedLoraId, media_id: mediaId });
-
             if (linkError) {
               logger.error(`Error linking media ${mediaId} to asset ${finalForcedLoraId}:`, linkError);
             } else {
               logger.log(`Successfully linked media ${mediaId} to asset ${finalForcedLoraId}`);
             }
-
-            // Optionally set as primary media
             const shouldSetPrimary = video.metadata.isPrimary || false;
-
             if (shouldSetPrimary) {
+              setCurrentStepMessage(`Setting ${videoName} as primary media...`);
               logger.log(`Setting media ${mediaId} as primary for asset ${finalForcedLoraId}`);
               const { error: primaryErr } = await supabase
                 .from('assets')
                 .update({ primary_media_id: mediaId })
                 .eq('id', finalForcedLoraId);
-
               if (primaryErr) {
                 logger.error(`Error setting primary media for asset ${finalForcedLoraId}:`, primaryErr);
               }
@@ -229,7 +231,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         }
 
         logger.log('Finished processing all videos for media entry creation.');
-
+        setCurrentStepMessage('Submission complete!');
         toast.success('Media submitted successfully! Awaiting admin approval.');
         logger.log('Success toast shown.');
         if (onSuccess) {
@@ -238,10 +240,11 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       } catch (error: any) {
         console.error('Error submitting media:', error);
         toast.error(error.message || 'Failed to submit media');
+        setCurrentStepMessage('Submission failed. Please try again.');
       } finally {
         setIsSubmitting(false);
       }
-      return; // We are done for media flow
+      return;
     }
     
     if (!loraDetails.loraName) {
@@ -288,24 +291,25 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     
     const reviewerName = user?.email || 'Anonymous';
     
-    setIsSubmitting(true);
-    
     try {
       let finalLoraLink = loraDetails.loraLink;
 
       if (uploadMode === 'lora' && loraDetails.loraStorageMethod === 'upload') {
         if (!loraFile || !loraDetails.huggingFaceApiKey) {
           toast.error("LoRA file or HuggingFace API Key missing for upload.");
+          setCurrentStepMessage('Error: Missing LoRA file or API key.');
           setIsSubmitting(false);
           return;
         }
+        const hfFileName = loraFile.name || 'LoRA file';
+        setCurrentStepMessage(`Uploading ${hfFileName} to Hugging Face... This may take a moment.`);
         logger.log(`Uploading LoRA file ${loraFile.name} to HuggingFace...`);
         
         try {
           const uploadedLoraUrl = await uploadLoraToHuggingFace({
             loraFile: loraFile,
             loraDetails: loraDetails,
-            videos: videos, // Pass example videos for README generation
+            videos: videos, 
             hfToken: loraDetails.huggingFaceApiKey
           });
 
@@ -313,50 +317,53 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             throw new Error("Failed to upload LoRA to HuggingFace. No URL returned.");
           }
           finalLoraLink = uploadedLoraUrl;
+          setCurrentStepMessage("LoRA uploaded to Hugging Face! Processing example media...");
           logger.log(`LoRA uploaded to HuggingFace: ${finalLoraLink}`);
           toast.success("LoRA successfully uploaded to HuggingFace!");
         } catch (hfUploadError: any) {
           logger.error("HuggingFace upload failed:", hfUploadError);
           toast.error(`HuggingFace Upload Error: ${hfUploadError.message || 'Unknown error'}`);
+          setCurrentStepMessage(`Hugging Face upload failed: ${hfUploadError.message || 'Unknown error'}.`);
           setIsSubmitting(false);
-          return; // Stop submission if HF upload fails
+          return; 
         }
       }
       
-      // Process files first to upload them to storage
-      for (const video of videos) {
+      setCurrentStepMessage('Processing and uploading example media files...');
+      for (let i = 0; i < videos.length; i++) {
+        const video = videos[i];
         if (video.file) {
-          // Generate UUID for the video
+          const videoName = video.file.name || `example media ${i + 1}`;
+          setCurrentStepMessage(`Uploading ${videoName}...`);
           const videoId = uuidv4();
           
-          // Upload to Supabase Storage
           const uploadResult = await supabaseStorage.uploadVideo({
             id: videoId,
             blob: video.file,
             metadata: {
               ...video.metadata,
-              model: loraDetails.model, // Ensure model is set from loraDetails
-              modelVariant: loraDetails.modelVariant // Add model variant
+              model: loraDetails.model, 
+              modelVariant: loraDetails.modelVariant 
             }
           });
           
-          // Replace the local blob URL with the permanent Supabase URL
           video.url = uploadResult.url;
           video.id = videoId;
-          video.file = null; // Clear the file reference as we've uploaded it
+          video.file = null; 
+          setCurrentStepMessage(`${videoName} uploaded. Continuing...`);
         }
       }
       
-      await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink);
+      setCurrentStepMessage('Saving LoRA and media details to database...');
+      await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink, setCurrentStepMessage);
       
       const message = videos.filter(v => v.url).length > 1 
         ? 'Videos submitted successfully! Awaiting admin approval.'
         : 'Video submitted successfully! Awaiting admin approval.';
       
+      setCurrentStepMessage('Submission complete!');
       toast.success(message);
       
-      // If onSuccess prop exists, call it (parent handles closing modal/dialog)
-      // Otherwise (if used as standalone page), navigate based on location state
       if (onSuccess) {
         onSuccess();
       }
@@ -364,13 +371,22 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     } catch (error: any) {
       console.error('Error submitting videos:', error);
       toast.error(error.message || 'Failed to submit videos');
+      setCurrentStepMessage('Submission failed. Please try again.');
     } finally {
       setIsSubmitting(false);
     }
   };
   
-  const submitVideos = async (videos: VideoItem[], loraDetails: LoRADetails, reviewerName: string, user: any, finalLoraLinkToUse: string) => {
+  const submitVideos = async (
+    videos: VideoItem[], 
+    loraDetails: LoRADetails, 
+    reviewerName: string, 
+    user: any, 
+    finalLoraLinkToUse: string,
+    setCurrentStepMsg: (message: string) => void
+  ) => {
     logger.log("Starting asset creation and video submission process");
+    setCurrentStepMsg('Creating LoRA asset entry...');
 
     let assetId = '';
     let primaryMediaId: string | null = null;
@@ -404,24 +420,28 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
       assetId = assetData.id;
       logger.log(`Asset created successfully with ID: ${assetId}`);
+      setCurrentStepMsg('LoRA asset created. Processing example media...');
 
       // Step 2: Process and link each video
       const processedVideos = [];
-      for (const video of videos) {
-        if (!video.url) continue; // Skip if URL is missing (e.g., upload failed earlier)
+      for (let i = 0; i < videos.length; i++) {
+        const video = videos[i];
+        if (!video.url) continue; 
 
+        const videoName = video.metadata.title || `Example Media ${i + 1}`;
+        setCurrentStepMsg(`Processing ${videoName}...`);
         const videoUrl = video.url;
 
         try {
-          // Generate thumbnail for the video
+          setCurrentStepMsg(`Generating thumbnail for ${videoName}...`);
           logger.log(`Generating thumbnail for video: ${video.metadata.title || 'Untitled'}`);
           const thumbnailUrl = await thumbnailService.generateThumbnail(videoUrl);
           logger.log(`Thumbnail generated for ${video.metadata.title || 'Untitled'}: ${thumbnailUrl ? 'Success' : 'Failed'}`);
 
-          // Get aspect ratio
           const aspectRatio = await getVideoAspectRatio(videoUrl);
           logger.log(`Calculated aspect ratio for ${video.metadata.title}: ${aspectRatio}`);
           
+          setCurrentStepMsg(`Saving ${videoName} to database...`);
           logger.log(`Creating media entry for video ${video.metadata.title || 'Untitled'}`);
           const { data: mediaData, error: mediaError } = await supabase
             .from('media')
@@ -453,15 +473,18 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
           const mediaId = mediaData.id;
           logger.log(`Created media with ID: ${mediaId} for ${video.metadata.title}`);
+          setCurrentStepMsg(`${videoName} saved. Linking to LoRA...`);
 
           // Determine if this video is primary
           const isPrimary = video.metadata.isPrimary || (!primaryMediaId && video === videos[0]);
           if (isPrimary && !primaryMediaId) {
             primaryMediaId = mediaId;
             logger.log(`Set primary media ID: ${primaryMediaId}`);
+            setCurrentStepMsg(`Set primary media ID: ${primaryMediaId}`);
           }
 
           // Link asset and media
+          setCurrentStepMsg(`Linking ${videoName} to LoRA asset...`);
           logger.log(`Linking asset ${assetId} with media ${mediaId}`);
           const { error: linkError } = await supabase
             .from('asset_media')
@@ -482,6 +505,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
       // Step 3: Update asset with primary media ID if found
       if (primaryMediaId && assetId) {
+        setCurrentStepMsg('Setting primary media for LoRA...');
         logger.log(`Updating asset ${assetId} with primary media ${primaryMediaId}`);
         const { error: updateError } = await supabase
           .from('assets')
@@ -493,16 +517,19 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           console.error('Error updating asset with primary media:', updateError);
         } else {
           logger.log(`Updated asset ${assetId} with primary media ${primaryMediaId}`);
+          setCurrentStepMsg('Updated asset with primary media.');
         }
       } else {
         logger.warn(`Warning: No primary media ID set or determined for asset ${assetId}`);
       }
 
+      setCurrentStepMsg('Finalizing submission details...');
       logger.log(`Asset creation and video submission completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
 
     } catch (error) {
       logger.error('Exception during asset creation or video submission process:', error);
-      throw error; // Re-throw to be caught by the outer handleSubmit try-catch
+      setCurrentStepMsg('An error occurred while saving data.');
+      throw error; 
     }
   };
   
@@ -572,6 +599,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           <Button type="submit" disabled={isSubmitting || !user} size={isMobile ? "sm" : "default"}>
             {isSubmitting ? 'Submitting...' : (uploadMode === 'lora' ? 'Submit LoRA' : 'Submit Media')}
           </Button>
+          {isSubmitting && currentStepMessage && (
+            <p className="text-sm text-muted-foreground mt-2 animate-pulse">{currentStepMessage}</p>
+          )}
         </form>
       </main>
       

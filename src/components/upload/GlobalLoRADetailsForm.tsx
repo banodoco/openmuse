@@ -298,26 +298,6 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
               <div>
                 <Label htmlFor="huggingface-api-key" className="text-sm font-medium mb-1.5 block">
                   HuggingFace API Key <span className="text-destructive">*</span>
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild className="ml-1.5">
-                        <Info className="h-3.5 w-3.5 text-muted-foreground cursor-help inline-block" />
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="max-w-xs">
-                        <p>
-                          You can find or create your Hugging Face API token (with write permissions) at:
-                          <a 
-                            href="https://huggingface.co/settings/tokens" 
-                            target="_blank" 
-                            rel="noopener noreferrer" 
-                            className="text-olive hover:text-olive-dark underline ml-1"
-                          >
-                            huggingface.co/settings/tokens
-                          </a>.
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
                 </Label>
                 <Input
                   type="password"
@@ -328,6 +308,29 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                   required={loraDetails.loraStorageMethod === 'upload'}
                   disabled={disabled}
                 />
+                <p className="text-xs text-muted-foreground mt-2">
+                  You can create your Hugging Face API token{' '}
+                  <a
+                    href="https://huggingface.co/settings/tokens"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-olive hover:text-olive-dark underline"
+                  >
+                    here
+                  </a>
+                  . You will need to give it{' '}
+                  <TooltipProvider delayDuration={100}>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="underline cursor-help font-medium">personal namespace write access</span>
+                      </TooltipTrigger>
+                      <TooltipContent side="top" className="p-0 border-none shadow-lg bg-transparent">
+                        <img src="/write_access.png" alt="Hugging Face API token write access permission example" className="max-w-md rounded" />
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                  .
+                </p>
                 <div className="mt-4">
                   <Label htmlFor="lora-file-upload" className="text-sm font-medium mb-1.5 block">
                     LoRA File (.safetensors, .bin, etc.) <span className="text-destructive">*</span>
