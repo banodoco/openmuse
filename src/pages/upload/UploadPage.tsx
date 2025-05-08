@@ -16,7 +16,7 @@ import { thumbnailService } from '@/lib/services/thumbnailService';
 import { getVideoAspectRatio } from '@/lib/utils/videoDimensionUtils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import HuggingFaceService from '@/lib/services/huggingfaceService';
+import HuggingFaceService, { type HuggingFaceRepoInfo } from '@/lib/services/huggingfaceService';
 
 const logger = new Logger('Upload');
 
@@ -450,13 +450,23 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     const reviewerName = user?.email || 'Anonymous';
     console.log('CHECKPOINT 10 - AFTER reviewerName assignment. Value:', reviewerName);
 
+    // Declare variables here to be in scope for both HF operations and README update step
+    let repoInfo: HuggingFaceRepoInfo | null = null; 
+    let uploadedVideoHfPaths: { text: string, output: { url: string } }[] = [];
+    let hfService: HuggingFaceService | null = null;
+
     try {
       console.log('CHECKPOINT 11 - ENTERED TRY BLOCK');
+      // The actual first setCurrentStepMessage will be conditional based on loraDetails.loraStorageMethod
+      // For example:
+      // setCurrentStepMessage('Uploading LoRA file to temporary storage...');
+      // OR
+      // setCurrentStepMessage('Processing and uploading example media files...');
+
       let finalLoraLink = '';
       let directDownloadUrlToSave = '';
-      let hfRepoInfo: import('@/lib/services/huggingfaceService').HuggingFaceRepoInfo | null = null;
-      let initialReadmeContent: string = ''; 
-      let hfServiceInstance: HuggingFaceService | null = null;
+      let loraSupabaseStoragePath: string | undefined = undefined;
+      const videoMetadataForHfUpload: VideoItemUploadMetadata[] = [];
 
       if (uploadMode === 'lora') {
         console.log('CHECKPOINT 11.1 - LORA MODE, before storage method check');
@@ -473,7 +483,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
           try {
             console.log('[HF Upload] About to instantiate HuggingFaceService.');
-            hfServiceInstance = new HuggingFaceService(loraDetails.huggingFaceApiKey!);
+            hfService = new HuggingFaceService(loraDetails.huggingFaceApiKey);
             console.log('[HF Upload] HuggingFaceService instantiated successfully.');
 
             // Sanitize loraName for use as a repo name (simple example, might need more robust slugification)
@@ -487,20 +497,23 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             logger.log(`[HF Upload] Attempting to create HF repo: ${repoName} with key: ${loraDetails.huggingFaceApiKey}`);
 
             console.log(`[HF Upload] About to call createOrGetRepo for repo: ${repoName}`);
-            hfRepoInfo = await hfServiceInstance.createOrGetRepo(repoName);
+            repoInfo = await hfService.createOrGetRepo(repoName);
             console.log('[HF Upload] createOrGetRepo call finished.');
-            logger.log('[HF Upload] Hugging Face Repository Info:', hfRepoInfo);
-            setCurrentStepMessage(`Hugging Face repository ready: ${hfRepoInfo.url}`);
+            logger.log('[HF Upload] Hugging Face Repository Info:', repoInfo);
+            setCurrentStepMessage(`Hugging Face repository ready: ${repoInfo.url}`);
 
-            finalLoraLink = hfRepoInfo.url;
+            // TODO: Next steps will be uploading files to this repoInfo.repoIdString
+            // For now, we will stop here to test repo creation and then proceed to database save (skipping old HF upload)
+            
+            finalLoraLink = repoInfo.url; // The general repo URL
 
             if (loraFile) {
-              setCurrentStepMessage(`Uploading LoRA file (${loraFile.name}) to ${hfRepoInfo.repoIdString}...`);
-              console.log(`[HF Upload] Attempting to upload LoRA file: ${loraFile.name} to repo: ${hfRepoInfo.repoIdString}`);
+              setCurrentStepMessage(`Uploading LoRA file (${loraFile.name}) to ${repoInfo.repoIdString}...`);
+              console.log(`[HF Upload] Attempting to upload LoRA file: ${loraFile.name} to repo: ${repoInfo.repoIdString}`);
               try {
                 const loraFileNameInRepo = loraFile.name; // Or a sanitized version
-                const commitUrl = await hfServiceInstance.uploadRawFile({
-                  repoIdString: hfRepoInfo.repoIdString,
+                const commitUrl = await hfService.uploadRawFile({
+                  repoIdString: repoInfo.repoIdString,
                   fileContent: loraFile,
                   pathInRepo: loraFileNameInRepo, // This is used by the service if fileContent is Blob, File.name is used if File
                   commitTitle: `Upload LoRA file: ${loraFileNameInRepo}`
@@ -509,10 +522,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                 // Construct the direct download URL. Pattern: {repoUrl}/resolve/main/{fileName}
                 // The `commitUrl` from hf.co/api/uploadFile might be just the commit itself, not the direct file URL.
                 // The direct download URL is typically: https://huggingface.co/{repoIdString}/resolve/main/{fileNameInRepo}
-                directDownloadUrlToSave = `${hfRepoInfo.url}/resolve/main/${encodeURIComponent(loraFileNameInRepo)}`;
+                directDownloadUrlToSave = `${repoInfo.url}/resolve/main/${encodeURIComponent(loraFileNameInRepo)}`;
                 logger.log(`[HF Upload] LoRA file direct download URL set to: ${directDownloadUrlToSave}`);
                 setCurrentStepMessage('LoRA file uploaded to Hugging Face!');
-                toast.success(`LoRA file uploaded to ${hfRepoInfo.url}`);
+                toast.success(`LoRA file uploaded to ${repoInfo.url}`);
 
                 // === Step 3: Upload Example Videos to Hugging Face ===
                 const uploadedVideoHfPaths: { text: string, output: { url: string } }[] = [];
@@ -523,15 +536,14 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                       const videoFileNameInRepo = `assets/${videoItem.file.name}`;
                       console.log(`[HF Upload] Attempting to upload example video: ${videoItem.file.name} to repo path: ${videoFileNameInRepo}`);
                       try {
-                        await hfServiceInstance.uploadRawFile({
-                          repoIdString: hfRepoInfo.repoIdString,
+                        await hfService.uploadRawFile({
+                          repoIdString: repoInfo.repoIdString,
                           fileContent: videoItem.file,
                           pathInRepo: videoFileNameInRepo,
                           commitTitle: `Upload example media: ${videoItem.file.name}`
                         });
                         console.log(`[HF Upload] Example video ${videoItem.file.name} uploaded.`);
                         // The path in the widget should be relative to the repo root
-                        logger.log(`[HF Upload] Populating widget for ${videoItem.file.name}. Metadata:`, safeStringify(videoItem.metadata));
                         uploadedVideoHfPaths.push({
                           text: videoItem.metadata.description || videoItem.metadata.title || "Example prompt",
                           output: { url: videoFileNameInRepo }
@@ -550,25 +562,25 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                   setCurrentStepMessage('Example media processing complete.');
                 }
 
-                // === Step 4: Generate and Upload README.md ===
+                // === Step 4: Generate and Upload README.md (First Pass) ===
                 setCurrentStepMessage('Generating README.md for Hugging Face repository...');
-                initialReadmeContent = generateReadmeContent(
+                const initialReadmeContent = generateReadmeContent(
                   loraDetails,
-                  uploadedVideoHfPaths 
+                  uploadedVideoHfPaths // No OpenMuse URL yet
                 );
-                console.log("[HF Upload] Generated README.md content:", initialReadmeContent);
+                console.log("[HF Upload] Generated initial README.md content:", initialReadmeContent);
                 try {
-                  await hfServiceInstance.uploadTextAsFile({
-                    repoIdString: hfRepoInfo.repoIdString,
+                  await hfService.uploadTextAsFile({
+                    repoIdString: repoInfo.repoIdString,
                     textData: initialReadmeContent,
                     pathInRepo: 'README.md',
                     commitTitle: 'Add LoRA model card (README.md)'
                   });
-                  console.log('[HF Upload] README.md uploaded successfully.');
-                  toast.success('README.md uploaded to Hugging Face repository.');
+                  console.log('[HF Upload] Initial README.md uploaded successfully.');
+                  toast.success('Initial README.md uploaded to Hugging Face repository.');
                 } catch (readmeError: any) {
-                  logger.error("[HF Upload] README.md upload failed:", readmeError);
-                  toast.error(`Failed to upload README.md: ${readmeError.message || 'Unknown error'}`);
+                  logger.error("[HF Upload] Initial README.md upload failed:", readmeError);
+                  toast.error(`Failed to upload initial README.md: ${readmeError.message || 'Unknown error'}`);
                   // Don't fail the whole submission for README error, but log it.
                 }
 
@@ -649,7 +661,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
           } catch (hfClientError: any) {
             logger.error("[HF Upload] Client-side Hugging Face operation failed:", hfClientError);
-            console.error("[HF Upload] hfClientError object:", hfClientError); // Log the full error object
+            console.error("[HF Upload] hfClientError object:", hfClientError); 
             toast.error(`Hugging Face Error: ${hfClientError.message || 'Unknown error'}`);
             setCurrentStepMessage(`Hugging Face operation failed: ${hfClientError.message || 'Unknown error'}.`);
             setIsSubmitting(false);
@@ -721,43 +733,37 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       
       setCurrentStepMessage('Saving LoRA and media details to database...');
       // Pass the potentially updated `videos` state to submitVideos
-      logger.log("[handleSubmit] About to call submitVideos. Final LoRA Link:", finalLoraLink, "Direct Download URL:", directDownloadUrlToSave);
-      logger.log("[handleSubmit] Videos state being passed to submitVideos:", safeStringify(videos));
-      logger.log("[handleSubmit] LoRA Details being passed to submitVideos:", safeStringify(loraDetails));
-
-      const createdAssetId = await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink, directDownloadUrlToSave, setCurrentStepMessage);
-
-      if (!createdAssetId) {
-        // submitVideos already set an error message and toast, so just ensure isSubmitting is false.
-        logger.error("[handleSubmit] Asset creation failed (submitVideos returned null). Submission terminated.");
-        setIsSubmitting(false); // Ensure submission state is reset
-        return; // Stop further execution
-      }
-      logger.log(`[handleSubmit] Asset created successfully in Supabase with ID: ${createdAssetId}`);
-
-      // === Step 5: Update README.md with OpenMuse link (if HF upload happened) ===
-      if (uploadMode === 'lora' && loraDetails.loraStorageMethod === 'upload' && hfRepoInfo && hfServiceInstance) {
-        const openMuseLink = `\n\n---\nYou can find this LoRA on OpenMuse here:\n[https://openmuse.ai/assets/loras/${createdAssetId}](https://openmuse.ai/assets/loras/${createdAssetId})\n`;
-        const finalReadmeContent = initialReadmeContent + openMuseLink; 
+      const assetCreationResult = await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink, directDownloadUrlToSave, setCurrentStepMessage);
+      
+      // === Step 5: Update README.md with OpenMuse Link ===
+      if (uploadMode === 'lora' && loraDetails.loraStorageMethod === 'upload' && assetCreationResult && assetCreationResult.assetId && repoInfo && hfService) {
+        const openMuseAssetUrl = `https://openmuse.ai/assets/loras/${assetCreationResult.assetId}`;
+        setCurrentStepMessage('Updating README.md with OpenMuse link...');
+        console.log(`[HF Upload] Attempting to update README.md with OpenMuse URL: ${openMuseAssetUrl}`);
         
-        setCurrentStepMessage('Updating Hugging Face README.md with OpenMuse link...');
-        console.log("[HF Upload] Attempting to update README.md with OpenMuse link. New content:", finalReadmeContent);
+        const updatedReadmeContent = generateReadmeContent(
+          loraDetails,
+          uploadedVideoHfPaths, // Reuse the paths from the earlier video upload step
+          openMuseAssetUrl
+        );
+        console.log("[HF Upload] Generated updated README.md content:", updatedReadmeContent);
         try {
-          await hfServiceInstance.uploadTextAsFile({
-            repoIdString: hfRepoInfo.repoIdString, 
-            textData: finalReadmeContent,
+          // Re-upload README.md with the appended link
+          await hfService.uploadTextAsFile({
+            repoIdString: repoInfo.repoIdString, 
+            textData: updatedReadmeContent,
             pathInRepo: 'README.md',
             commitTitle: 'Update README.md with OpenMuse link'
           });
           console.log('[HF Upload] README.md updated successfully with OpenMuse link.');
           toast.success('README.md updated with OpenMuse link.');
         } catch (readmeUpdateError: any) {
-          logger.error("[HF Upload] README.md update with OpenMuse link failed:", readmeUpdateError);
-          toast.warning(`Failed to update README.md with OpenMuse link: ${readmeUpdateError.message || 'Unknown error'}`);
-          // Continue, as this is a non-critical enhancement
+          logger.error("[HF Upload] Failed to update README.md with OpenMuse link:", readmeUpdateError);
+          toast.warning('Failed to update README.md with OpenMuse link. The link will be missing on Hugging Face.');
+          // Continue anway, primary submission was successful
         }
       }
-      
+
       const message = videos.filter(v => v.url).length > 1 
         ? 'Videos submitted successfully! Awaiting admin approval.'
         : 'Video submitted successfully! Awaiting admin approval.';
@@ -786,7 +792,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     finalLoraLinkToUse: string,
     directDownloadUrlToSave: string,
     setCurrentStepMsg: (message: string) => void
-  ): Promise<string | null> => {
+  ): Promise<{ assetId: string | null }> => {
     logger.log("Starting asset creation and video submission process");
     setCurrentStepMsg('Creating LoRA asset entry...');
 
@@ -795,34 +801,30 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
     try {
       // Step 1: Create the Asset entry
-      const assetPayload = {
-        name: loraDetails.loraName,
-        description: loraDetails.loraDescription,
-        creator: loraDetails.creator === 'someone_else' ? loraDetails.creatorName : reviewerName,
-        user_id: loraDetails.creator === 'self' ? (user?.id || null) : null,
-        curator_id: loraDetails.creator === 'someone_else' ? (user?.id || null) : null,
-        type: 'lora' as const, // Ensure type safety
-        lora_type: loraDetails.loraType,
-        lora_base_model: loraDetails.model,
-        model_variant: loraDetails.modelVariant,
-        lora_link: finalLoraLinkToUse || null,
-        download_link: directDownloadUrlToSave || null,
-        admin_status: 'Listed' as const,
-        user_status: 'Listed' as const
-      };
-      logger.log("[submitVideos] Attempting to insert asset with payload:", safeStringify(assetPayload));
-      logger.log(`[submitVideos] Current user ID for insert: ${user?.id}`);
-
+      logger.log(`Creating asset: ${loraDetails.loraName}`);
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
-        .insert(assetPayload)
+        .insert({
+          name: loraDetails.loraName,
+          description: loraDetails.loraDescription,
+          creator: loraDetails.creator === 'someone_else' ? loraDetails.creatorName : reviewerName,
+          user_id: loraDetails.creator === 'self' ? (user?.id || null) : null,
+          curator_id: loraDetails.creator === 'someone_else' ? (user?.id || null) : null,
+          type: 'lora',
+          lora_type: loraDetails.loraType,
+          lora_base_model: loraDetails.model,
+          model_variant: loraDetails.modelVariant,
+          lora_link: finalLoraLinkToUse || null,
+          download_link: directDownloadUrlToSave || null,
+          admin_status: 'Listed',
+          user_status: 'Listed'
+        })
         .select()
         .single();
 
       if (assetError) {
         logger.error('Error creating asset:', assetError);
-        setCurrentStepMsg(`Error: Failed to create asset entry. ${assetError.message}`);
-        return null; 
+        throw new Error(`Failed to create asset: ${assetError.message}`);
       }
 
       assetId = assetData.id;
@@ -933,11 +935,12 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       setCurrentStepMsg('Finalizing submission details...');
       logger.log(`Asset creation and video submission completed. Summary: assetId=${assetId}, primaryMediaId=${primaryMediaId}, videos=${processedVideos.length}`);
 
-      return assetId;
+      return { assetId };
+
     } catch (error) {
       logger.error('Exception during asset creation or video submission process:', error);
       setCurrentStepMsg('An error occurred while saving data.');
-      return null;
+      return { assetId: null };
     }
   };
   
@@ -1034,14 +1037,17 @@ function sanitizeRepoName(name: string): string {
 
 // Helper function to generate README.md content
 // This function should be defined outside handleSubmit, e.g., at the bottom of the file or imported
-const generateReadmeContent = (loraDetails: LoRADetails, videoWidgets: { text: string, output: { url: string } }[]): string => {
+const generateReadmeContent = (
+  loraDetails: LoRADetails, 
+  videoWidgets: { text: string, output: { url: string } }[],
+  openMuseUrl?: string // Optional OpenMuse URL to append
+): string => {
   const modelTitle = `${loraDetails.model} (${loraDetails.modelVariant || ''})`;
   
   let widgetSection = '';
   if (videoWidgets && videoWidgets.length > 0) {
     widgetSection = videoWidgets.map(v => {
-      // Ensure the prompt text is properly indented for YAML block scalar
-      const promptText = v.text.trim().replace(/\n/g, '\n      '); // Indent subsequent lines if any
+      const promptText = v.text.trim().replace(/\n/g, '\n      ');
       return (
 `  - text: |
       ${promptText}
@@ -1061,7 +1067,15 @@ ${widgetSection ? `widget:\n${widgetSection}\n` : ''}tags:
 - lora
 `.trimStart();
 
-  // Using the structure provided by the user
+  const userDescription = loraDetails.loraDescription || 'No description provided.';
+  let openMuseLinkSection = '';
+  if (openMuseUrl) {
+    openMuseLinkSection = `
+
+---
+Find this LoRA on OpenMuse: [${openMuseUrl}](${openMuseUrl})
+`;
+  }
   return `---
 ${readmeFrontMatter}---
 
@@ -1070,18 +1084,8 @@ ${readmeFrontMatter}---
 <Gallery />
 
 ## Description:
-Trained only on videos.
-
-- dataset: 135 videos 768x480x41
-- steps: 17000
-- LR: 2e-4
-- optimizer: adamw
-- scheduler: contant
-- rank: 128
-- batch size: 1
-- gradient accumulation steps: 1
-
-For training I used the official [LTX-Video Trainer](https://github.com/Lightricks/LTX-Video-Trainer) repo.
+${userDescription}
+${openMuseLinkSection}
 `;
 };
 
