@@ -92,7 +92,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     saveApiKey: true
   });
   
-  const updateLoRADetails = (field: keyof LoRADetails, value: string) => {
+  const updateLoRADetails = (field: keyof LoRADetails, value: string | boolean) => {
     setLoraDetails(prev => ({
       ...prev,
       [field]: value
@@ -135,6 +135,56 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     };
     fetchLoras();
   }, [uploadMode, finalForcedLoraId]);
+
+  // Effect to fetch and pre-fill HuggingFace API key if 'upload' method is selected and user has a saved key
+  useEffect(() => {
+    const fetchAndSetApiKey = async () => {
+      if (user && loraDetails.loraStorageMethod === 'upload') {
+        // Check if API key is already fetched or being entered manually to avoid override
+        // This simple check might need refinement if manual entry and auto-fetch can conflict
+        if (loraDetails.huggingFaceApiKey && loraDetails.huggingFaceApiKey.startsWith('hf_')) {
+            console.log('[API Key Effect] Key already present or being entered, skipping fetch.');
+            return;
+        }
+
+        console.log('[API Key Effect] Upload method selected, attempting to fetch saved API key for user:', user.id);
+        try {
+          const { data, error } = await supabase
+            .from('api_keys')
+            .select('api_key') // Select the actual key
+            .eq('user_id', user.id)
+            .eq('service', 'huggingface')
+            .single();
+
+          if (error && error.code !== 'PGRST116') { // PGRST116: "single row not found" - this is okay, means no key
+            console.error('[API Key Effect] Error fetching API key:', error);
+            toast.error('Could not fetch your saved Hugging Face API key.');
+          } else if (data && data.api_key) {
+            console.log('[API Key Effect] Successfully fetched API key. Updating loraDetails.');
+            updateLoRADetails('huggingFaceApiKey', data.api_key);
+            // Optionally, you might want to ensure 'saveApiKey' reflects that this is a saved key,
+            // though current form logic for display relies on 'hasExistingApiKey' from its own fetch.
+          } else {
+            console.log('[API Key Effect] No saved Hugging Face API key found for this user.');
+            // If no key is found, loraDetails.huggingFaceApiKey remains as it is (likely empty),
+            // and the form should show the input field if it's configured to do so based on its own check.
+          }
+        } catch (e) {
+          console.error('[API Key Effect] Exception during API key fetch:', e);
+          toast.error('An unexpected error occurred while fetching your API key.');
+        }
+      } else if (loraDetails.loraStorageMethod !== 'upload' && loraDetails.huggingFaceApiKey) {
+        // If storage method changes away from 'upload', clear any fetched/entered API key
+        // This prevents an old key from being accidentally used if the user switches back and forth.
+        // However, the GlobalLoRADetailsForm already does this in its onValueChange for loraStorageMethod.
+        // Keeping this commented for now as it might be redundant or cause loops if not careful.
+        // console.log('[API Key Effect] Storage method is not upload, clearing API key from loraDetails.');
+        // updateLoRADetails('huggingFaceApiKey', '');
+      }
+    };
+
+    fetchAndSetApiKey();
+  }, [user, loraDetails.loraStorageMethod]); // Removed updateLoRADetails from deps to avoid potential loops, check loraDetails.huggingFaceApiKey directly
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -297,7 +347,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     // Log the details being checked
     console.log('[Validation] Checking loraDetails:', safeStringify(loraDetails));
     console.log('[Validation] Checking loraFile:', loraFile ? `File: ${loraFile.name}` : 'null');
-
+    
     if (!loraDetails.loraName) {
       console.log('[Validation] FAILED: loraName is missing');
       toast.error('Please provide a LoRA name');
