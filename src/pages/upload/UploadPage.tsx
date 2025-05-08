@@ -16,7 +16,7 @@ import { thumbnailService } from '@/lib/services/thumbnailService';
 import { getVideoAspectRatio } from '@/lib/utils/videoDimensionUtils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
-import { uploadLoraToHuggingFace } from '@/lib/huggingfaceUploader';
+import HuggingFaceService from '@/lib/services/huggingfaceService';
 
 const logger = new Logger('Upload');
 
@@ -462,97 +462,72 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       const videoMetadataForHfUpload: VideoItemUploadMetadata[] = [];
 
       if (uploadMode === 'lora') {
+        console.log('CHECKPOINT 11.1 - LORA MODE, before storage method check');
         if (loraDetails.loraStorageMethod === 'upload') {
+          console.log('CHECKPOINT 11.2 - LORA UPLOAD METHOD SELECTED');
           if (!loraFile || !loraDetails.huggingFaceApiKey) {
             toast.error("LoRA file or HuggingFace API Key missing for upload.");
             setCurrentStepMessage('Error: Missing LoRA file or API key.');
             setIsSubmitting(false);
             return;
           }
+          console.log('CHECKPOINT 11.3 - LoRA file and API key present');
+          setCurrentStepMessage('Initializing Hugging Face service...');
 
-          // Step 1: Upload LoRA file to Supabase temporary storage
           try {
-            const loraFileName = loraFile.name;
-            setCurrentStepMessage(`Uploading LoRA file (${loraFileName}) to temporary storage...`);
-            logger.log(`Uploading LoRA file ${loraFileName} to Supabase temporary storage.`);
-            const loraSbPath = `users/${user.id}/loras_temp/${uuidv4()}-${loraFileName}`;
-            const { data: loraSbUploadData, error: loraSbUploadError } = await supabase.storage
-              .from('temporary') // Make sure 'temporary' is your bucket name
-              .upload(loraSbPath, loraFile, {
-                cacheControl: '3600',
-                upsert: false // Or true if you want to allow overwrites, though UUID should make it unique
-              });
-
-            if (loraSbUploadError) {
-              logger.error('Supabase LoRA upload error:', loraSbUploadError);
-              throw new Error(`Failed to upload LoRA to temporary storage: ${loraSbUploadError.message}`);
-            }
-            if (!loraSbUploadData || !loraSbUploadData.path) {
-              throw new Error('LoRA temporary storage upload failed: No path returned.');
-            }
-            loraSupabaseStoragePath = loraSbUploadData.path;
-            logger.log(`LoRA file uploaded to Supabase temporary storage: ${loraSupabaseStoragePath}`);
-            setCurrentStepMessage('LoRA file temporarily stored. Processing videos...');
-          } catch (tempUploadError: any) {
-            logger.error("Temporary LoRA upload failed:", tempUploadError);
-            toast.error(`Temporary LoRA Upload Error: ${tempUploadError.message || 'Unknown error'}`);
-            setCurrentStepMessage(`Temporary LoRA upload failed: ${tempUploadError.message || 'Unknown error'}.`);
-            setIsSubmitting(false);
-            return;
-          }
-
-          // Step 2: Upload Video files to Supabase temporary storage
-          for (const video of videos) {
-            if (video.file && video.file instanceof File) {
-              try {
-                const videoFileName = video.file.name;
-                setCurrentStepMessage(`Uploading video (${videoFileName}) to temporary storage...`);
-                logger.log(`Uploading video file ${videoFileName} to Supabase temporary storage.`);
-                const videoSbPath = `users/${user.id}/videos_temp/${uuidv4()}-${videoFileName}`;
-                const { data: videoSbUploadData, error: videoSbUploadError } = await supabase.storage
-                  .from('temporary') // Ensure this is your correct bucket name
-                  .upload(videoSbPath, video.file, {
-                    cacheControl: '3600',
-                    upsert: false
-                  });
-
-                if (videoSbUploadError) {
-                  logger.error(`Supabase video upload error (${videoFileName}):`, videoSbUploadError);
-                  throw new Error(`Failed to upload video ${videoFileName} to temporary storage: ${videoSbUploadError.message}`);
-                }
-                if (!videoSbUploadData || !videoSbUploadData.path) {
-                  throw new Error(`Video temporary storage upload failed for ${videoFileName}: No path returned.`);
-                }
-                videoMetadataForHfUpload.push({
-                  storagePath: videoSbUploadData.path,
-                  metadata: video.metadata,
-                  originalFileName: videoFileName
-                });
-                logger.log(`Video ${videoFileName} uploaded to Supabase temporary storage: ${videoSbUploadData.path}`);
-              } catch (tempVideoUploadError: any) {
-                logger.error("Temporary video upload failed:", tempVideoUploadError);
-                toast.error(`Temporary Video Upload Error: ${tempVideoUploadError.message || 'Unknown error'}`);
-                setCurrentStepMessage(`Temporary video upload failed: ${tempVideoUploadError.message || 'Unknown error'}.`);
+            const hfService = new HuggingFaceService(loraDetails.huggingFaceApiKey);
+            // Sanitize loraName for use as a repo name (simple example, might need more robust slugification)
+            const repoName = sanitizeRepoName(loraDetails.loraName) || `lora-model-${uuidv4().substring(0,8)}`;
+            if (!repoName) { // Fallback if sanitizeRepoName results in empty string
+                toast.error("Invalid LoRA name for Hugging Face repository.");
                 setIsSubmitting(false);
-                return; // Stop if any video fails to upload to temp storage
-              }
-            } else if (video.url) { // Existing video with a URL
-              videoMetadataForHfUpload.push({
-                existingUrl: video.url,
-                metadata: video.metadata,
-                originalFileName: video.metadata.title || 'existing_video' // Or derive a name if possible
-              });
+                return;
             }
-          }
-          setCurrentStepMessage('All files temporarily stored. Proceeding to Hugging Face...');
+            setCurrentStepMessage(`Creating Hugging Face repository: ${repoName}...`);
+            logger.log(`Attempting to create HF repo: ${repoName}`);
 
-          // Step 3: Call uploadLoraToHuggingFace with storage paths
-          const hfFileNameForDisplay = loraFile.name || 'LoRA file'; // loraFile is guaranteed by earlier check
-          setCurrentStepMessage(`Transferring ${hfFileNameForDisplay} and videos to Hugging Face... This may take a moment.`);
-          logger.log(`Calling uploadLoraToHuggingFace with LoRA path: ${loraSupabaseStoragePath}`);
-          
-          try {
-            // Expect a different response structure now
+            const repoInfo = await hfService.createOrGetRepo(repoName);
+            logger.log('Hugging Face Repository Info:', repoInfo);
+            setCurrentStepMessage(`Hugging Face repository ready: ${repoInfo.url}`);
+
+            // TODO: Next steps will be uploading files to this repoInfo.repoIdString
+            // For now, we will stop here to test repo creation and then proceed to database save (skipping old HF upload)
+            
+            // TEMPORARILY SETTING finalLoraLink and directDownloadUrlToSave for DB submission test
+            // These will eventually come from client-side uploads to HF.
+            finalLoraLink = repoInfo.url; // The general repo URL
+            // directDownloadUrlToSave = ???; // This would be the URL of the LoRA file itself after upload
+            
+            toast.success(`Test: HF Repo created/accessed: ${repoInfo.url}`);
+            logger.log(`TEMPORARY END OF HF UPLOAD FLOW. Repo URL: ${repoInfo.url}`);
+
+            // --- Code for Supabase temp storage and old edge function call (TO BE REMOVED/REPLACED) ---
+            // The following block will be replaced by direct client-side uploads to HF repoInfo.repoIdString
+            /* 
+            // Step 1: Upload LoRA file to Supabase temporary storage
+            try {
+              const loraFileName = loraFile.name;
+              setCurrentStepMessage(`Uploading LoRA file (${loraFileName}) to temporary storage...`);
+              // ... supabase temp upload logic ...
+              loraSupabaseStoragePath = loraSbUploadData.path;
+              setCurrentStepMessage('LoRA file temporarily stored. Processing videos...');
+            } catch (tempUploadError: any) {
+              // ... error handling ...
+              setIsSubmitting(false);
+              return;
+            }
+
+            // Step 2: Upload Video files to Supabase temporary storage
+            for (const video of videos) {
+              // ... supabase temp video upload logic ...
+            }
+            setCurrentStepMessage('All files temporarily stored. Proceeding to Hugging Face...');
+
+            // Step 3: Call uploadLoraToHuggingFace with storage paths (OLD METHOD)
+            const hfFileNameForDisplay = loraFile.name || 'LoRA file';
+            setCurrentStepMessage(`Transferring ${hfFileNameForDisplay} and videos to Hugging Face... This may take a moment.`);
+            logger.log(`Calling OLD uploadLoraToHuggingFace with LoRA path: ${loraSupabaseStoragePath}`);
+            
             const hfResponse = await uploadLoraToHuggingFace({
               loraStoragePath: loraSupabaseStoragePath, 
               loraDetails: loraDetails,
@@ -561,68 +536,31 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               saveApiKey: loraDetails.saveApiKey
             });
 
-            // Type guard or check for the expected response structure
             if (!hfResponse || typeof hfResponse !== 'object' || !hfResponse.loraUrl) {
               throw new Error("Failed to process LoRA via HuggingFace. Invalid response from uploader.");
             }
 
             const uploadedHfLoraUrl = hfResponse.loraUrl;
-            const uploadedHfVideoUrls = hfResponse.videoUrls || []; // Array of video URLs from HF
+            const uploadedHfVideoUrls = hfResponse.videoUrls || [];
 
-            const repoUrl = uploadedHfLoraUrl.split('/resolve/')[0];
-            finalLoraLink = repoUrl;
+            const repoUrlFromOld = uploadedHfLoraUrl.split('/resolve/')[0];
+            finalLoraLink = repoUrlFromOld;
             directDownloadUrlToSave = uploadedHfLoraUrl;
             setCurrentStepMessage("LoRA and media transferred to Hugging Face! Saving details...");
-            logger.log(`LoRA and media transferred to HuggingFace: Repo URL: ${finalLoraLink}, LoRA File URL: ${directDownloadUrlToSave}`);
-            logger.log(`Returned Video URLs from HF:`, uploadedHfVideoUrls);
+            logger.log(`LoRA and media transferred to HuggingFace (OLD): Repo URL: ${finalLoraLink}, LoRA File URL: ${directDownloadUrlToSave}`);
+            logger.log(`Returned Video URLs from HF (OLD):`, uploadedHfVideoUrls);
+            
+            // Update videos state with HF URLs (OLD logic, needs to be adapted for new client-side flow)
+            // setVideos(updatedVideosForDb);
 
-            // --- IMPORTANT: Update the 'videos' state array with the HF URLs --- 
-            const updatedVideosForDb = videos.map(originalVideo => {
-              // Find the corresponding processed metadata for this original video item
-              const processedMeta = videoMetadataForHfUpload.find(meta => 
-                (meta.storagePath && originalVideo.file && meta.originalFileName === originalVideo.file.name) ||
-                (meta.existingUrl && originalVideo.url === meta.existingUrl)
-              );
-              
-              if (processedMeta?.storagePath && processedMeta.originalFileName) {
-                // This video was uploaded to temp storage and then to HF.
-                // Find its final HF URL from the response.
-                const hfUrl = uploadedHfVideoUrls.find(url => {
-                  // Extract filename from HF URL and compare with original name
-                  try {
-                    const urlParts = url.split('/');
-                    const encodedFileName = urlParts[urlParts.length - 1];
-                    const decodedFileName = decodeURIComponent(encodedFileName);
-                    // We might need to compare against sanitized name depending on HF URL structure
-                    // Assuming URL contains sanitized name from edge function: `media/sanitized_name.ext`
-                    const sanitizedOriginal = sanitizeRepoName(processedMeta.originalFileName);
-                    return decodedFileName === `media/${sanitizedOriginal}` || decodedFileName === sanitizedOriginal;
-                  } catch (e) { return false; }
-                });
+            toast.success("LoRA and media successfully processed via HuggingFace (OLD METHOD)!");
+            */
+            // --- END OF OLD HF UPLOAD FLOW ---
 
-                if (hfUrl) {
-                  logger.log(`Mapping original video ${processedMeta.originalFileName} to HF URL: ${hfUrl}`);
-                  return { ...originalVideo, file: null, url: hfUrl }; // Update URL, remove file
-                } else {
-                  logger.warn(`Could not find matching HF URL for uploaded video: ${processedMeta.originalFileName}. It might not be saved correctly.`);
-                  return { ...originalVideo, file: null, url: null }; // Mark as failed/missing URL?
-                }
-              } else {
-                // This video was either existing (had URL) or wasn't processed for HF.
-                // Keep its original state (it might have URL already, or be skipped).
-                return originalVideo;
-              }
-            });
-            // Update the state that will be passed to submitVideos
-            setVideos(updatedVideosForDb);
-            logger.log('Updated video state with HF URLs before calling submitVideos.');
-            // --- End Video State Update ---
-
-            toast.success("LoRA and media successfully processed via HuggingFace!");
-          } catch (hfProcessingError: any) {
-            logger.error("HuggingFace processing (from temp storage) failed:", hfProcessingError);
-            toast.error(`HuggingFace Processing Error: ${hfProcessingError.message || 'Unknown error'}`);
-            setCurrentStepMessage(`Hugging Face processing failed: ${hfProcessingError.message || 'Unknown error'}.`);
+          } catch (hfClientError: any) {
+            logger.error("Client-side Hugging Face operation failed:", hfClientError);
+            toast.error(`Hugging Face Error: ${hfClientError.message || 'Unknown error'}`);
+            setCurrentStepMessage(`Hugging Face operation failed: ${hfClientError.message || 'Unknown error'}.`);
             setIsSubmitting(false);
             return; 
           }
