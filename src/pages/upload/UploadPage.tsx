@@ -566,7 +566,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                 setCurrentStepMessage('Generating README.md for Hugging Face repository...');
                 const initialReadmeContent = generateReadmeContent(
                   loraDetails,
-                  uploadedVideoHfPaths // No OpenMuse URL yet
+                  uploadedVideoHfPaths, // No OpenMuse URL yet
                 );
                 console.log("[HF Upload] Generated initial README.md content:", initialReadmeContent);
                 try {
