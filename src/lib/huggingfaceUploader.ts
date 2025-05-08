@@ -82,7 +82,7 @@ export async function uploadLoraToHuggingFace({
   // formData.append('loraFile', loraFile, loraFile.name); // REMOVED
   formData.append('loraStoragePath', loraStoragePath); // NEW
   formData.append('loraDetails', JSON.stringify(loraDetails));
-  
+
   // The client now sends 'videosMetadata' which includes storagePath or existingUrl
   // The old 'videos.forEach' loop that appended actual files is no longer needed here,
   // as files are already in Supabase storage by the time this function is called.
@@ -95,7 +95,7 @@ export async function uploadLoraToHuggingFace({
   const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
   if (!accessToken) {
     throw new Error('User not authenticated, cannot get access token.');
-  }
+    }
 
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/huggingface-upload`, {
     method: 'POST',
@@ -118,7 +118,7 @@ export async function uploadLoraToHuggingFace({
   if (!result || result.success !== true || !result.loraUrl) {
     logger.error('Invalid success response structure from Edge Function:', result);
     throw new Error('Received an invalid response from the Hugging Face upload function.');
-  }
+    }
   
   // Ensure videoUrls is an array, even if empty
   result.videoUrls = result.videoUrls || []; 

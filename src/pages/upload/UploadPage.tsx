@@ -327,9 +327,19 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       }
     }
 
-    const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
+    // Log the entire videos array content for detailed inspection
+    console.log('[handleSubmit] Videos array before primary check:', JSON.stringify(videos, null, 2));
+
+    // const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
+    // Robust check for primary video
+    const hasPrimary = videos.some(video => 
+      (video.file || video.url) && 
+      video.metadata && 
+      video.metadata.isPrimary
+    );
     if (!hasPrimary) {
       toast.error('Please set one video as the primary media for this LoRA');
+      setIsSubmitting(false); // Also ensure isSubmitting is reset
       return;
     }
     
