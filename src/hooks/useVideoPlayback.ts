@@ -32,10 +32,15 @@ export const useVideoPlayback = ({
   const isHoveringRef = useRef(isHovering);
   const hasPlayedOnceRef = useRef(false);
   const unmountedRef = useRef(false);
-  const logPrefix = componentId ? `[${componentId}] ` : '';
+  const logPrefix = componentId ? `[VideoHoverPlayDebug] [${componentId}] ` : '[VideoHoverPlayDebug] [UnknownComponent] ';
 
   useEffect(() => {
-    logger.log(`${logPrefix}useVideoPlayback mount effect ran.`);
+    isHoveringRef.current = isHovering;
+    logger.log(`${logPrefix}isHovering prop changed to: ${isHovering}. ExternallyControlled: ${externallyControlled}`);
+  }, [isHovering, externallyControlled, logPrefix]);
+
+  useEffect(() => {
+    logger.log(`${logPrefix}useVideoPlayback mount effect ran. Initial props: externallyControlled=${externallyControlled}, isHovering=${isHovering}, muted=${muted}, isMobile=${isMobile}, loadedDataFired=${loadedDataFired}, playAttempted=${playAttempted}, forcedPlay=${forcedPlay}`);
     return () => {
       logger.log(`${logPrefix}useVideoPlayback unmounting.`);
       isHoveringRef.current = false;
@@ -45,40 +50,53 @@ export const useVideoPlayback = ({
   
   useEffect(() => {
     const video = videoRef.current;
-    if (!video) return;
+    logger.log(`${logPrefix}Playback effect triggered. ExternallyControlled: ${externallyControlled}, IsHovering (prop): ${isHovering}, IsHovering (ref): ${isHoveringRef.current}, VideoPaused: ${video?.paused}, LoadedDataFired: ${loadedDataFired}, PlayAttempted: ${playAttempted}, ForcedPlay: ${forcedPlay}, Muted: ${muted}, IsMobile: ${isMobile}, VideoSrc: ${video?.src?.substring(0,30)}`);
+
+    if (!video || unmountedRef.current) {
+      logger.log(`${logPrefix}Playback effect: No video element or component unmounted. Aborting. Video: ${!!video}, Unmounted: ${unmountedRef.current}`);
+      return;
+    }
     
     if (externallyControlled) {
-      logger.log(`${logPrefix}External hover state: ${isHovering ? 'hovering' : 'not hovering'}`);
+      logger.log(`${logPrefix}Externally controlled. Current isHovering (prop): ${isHovering}`);
       
       if (isHovering) {
-        logger.log(`${logPrefix}VideoPlayer: External hover detected - playing video`);
+        const shouldAttemptPlayExternal = (forcedPlay && isMobile) || 
+                                      (!playAttempted && video.readyState >= 1) || 
+                                      (video.paused && playAttempted);
+
+        logger.log(`${logPrefix}External hover detected. ShouldAttemptPlayExternal: ${shouldAttemptPlayExternal}. ForcedPlay: ${forcedPlay}, IsMobile: ${isMobile}, PlayAttempted: ${playAttempted}, VideoReadyState: ${video.readyState}, VideoPaused: ${video.paused}`);
         
-        // For mobile in lightbox, we want to autoplay regardless
-        const shouldAttemptPlay = (forcedPlay && isMobile) || (!playAttempted && video.readyState >= 2);
-        
-        if (shouldAttemptPlay) {
-          setTimeout(() => {
-            if (video && !unmountedRef.current) {
-              attemptVideoPlay(video, muted)
-                .then(() => logger.log(`${logPrefix}Play succeeded on hover or forced play`))
-                .catch(e => logger.error(`${logPrefix}Play failed on hover or forced play:`, e));
-              setPlayAttempted(true);
-            }
-          }, 100);
+        if (shouldAttemptPlayExternal) {
+          logger.log(`${logPrefix}Attempting play IMMEDIATELY due to external hover/forced play. Muted: ${muted}. Video src: ${video.src?.substring(0,30)}`);
+          if (videoRef.current && !unmountedRef.current && isHoveringRef.current) {
+            attemptVideoPlay(videoRef.current, muted)
+              .then(() => {
+                logger.log(`${logPrefix}Play SUCCEEDED via attemptVideoPlay (external hover/forced).`);
+                if (!unmountedRef.current) setPlayAttempted(true);
+                hasPlayedOnceRef.current = true;
+              })
+              .catch(e => {
+                logger.error(`${logPrefix}Play FAILED via attemptVideoPlay (external hover/forced):`, e);
+              });
+          } else {
+            logger.log(`${logPrefix}Play attempt aborted (video gone, unmounted, or somehow no longer hovering immediately). HoverState: ${isHoveringRef.current}`);
+          }
         }
       } else if (!isHovering && !video.paused) {
-        logger.log(`${logPrefix}VideoPlayer: External hover ended - pausing video`);
+        logger.log(`${logPrefix}External hover ended - pausing video. Video src: ${video.src?.substring(0,30)}`);
         video.pause();
-        setPlayAttempted(false);
       }
+    } else {
+      logger.log(`${logPrefix}NOT externally controlled. isHovering (prop) is ${isHovering}. This hook currently relies on VideoPlayer's primary play logic or direct calls for non-external control.`);
     }
-  }, [isHovering, externallyControlled, videoRef, muted, isMobile, playAttempted, setPlayAttempted, forcedPlay, componentId]);
+  }, [videoRef, externallyControlled, isHovering, muted, isMobile, loadedDataFired, playAttempted, setPlayAttempted, forcedPlay, componentId, logPrefix]);
 
   const resetVideo = () => {
     if (videoRef.current && !unmountedRef.current) {
       logger.log(`${logPrefix}Resetting video currentTime to 0.`);
       videoRef.current.currentTime = 0;
-      hasPlayedOnceRef.current = false; // Allow replay after reset
+      hasPlayedOnceRef.current = false;
     }
   };
 

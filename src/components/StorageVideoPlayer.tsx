@@ -29,6 +29,7 @@ interface StorageVideoPlayerProps {
   onVisibilityChange?: (isVisible: boolean) => void;
   shouldBePlaying?: boolean;
   onEnterPreloadArea?: (isInPreloadArea: boolean) => void;
+  onError?: (message: string) => void;
 }
 
 const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
@@ -52,6 +53,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   onVisibilityChange,
   shouldBePlaying = false,
   onEnterPreloadArea,
+  onError,
 }) => {
   const componentId = useRef(`storage_video_${Math.random().toString(36).substring(2, 9)}`).current;
   const logPrefix = `[SVP_DEBUG][${componentId}]`;
@@ -287,6 +289,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       setError(message);
       setIsVideoLoaded(false); 
       setIsLoadingVideoUrl(false); // Stop loading state on error
+      if (onError) {
+        onError(message);
+      }
     }
   };
 
@@ -426,7 +431,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
             onError={handleVideoError}
             showPlayButtonOnHover={showPlayButtonOnHover && !isMobile}
             containerRef={containerRef} 
-            videoRef={videoRef} 
+            ref={videoRef}
             externallyControlled={isHoveringExternally !== undefined} 
             isHovering={isHovering} 
             poster={showThumbnail ? thumbnailUrl : undefined}

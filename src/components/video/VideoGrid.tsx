@@ -7,6 +7,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 import { useResizeObserver } from '@/hooks/useResizeObserver';
 import { cn } from "@/lib/utils";
+import { Logger } from "@/lib/logger";
 
 // Define standard video resolutions and their aspect ratios
 const resolutions = [
@@ -74,10 +75,13 @@ export default function VideoGrid({
 
   // Track how many videos are currently visible (rendered)
   const [visibleCount, setVisibleCount] = useState<number>(() => Math.min(videos.length, INITIAL_CHUNK));
+  // NEW: State to track unsupported video IDs on mobile
+  const [unsupportedVideoIds, setUnsupportedVideoIds] = useState<Set<string>>(new Set());
 
   // Reset visibleCount if the videos array changes significantly (e.g., new search)
   useEffect(() => {
     setVisibleCount(Math.min(videos.length, INITIAL_CHUNK));
+    setUnsupportedVideoIds(new Set()); // Reset unsupported videos when the main video list changes
   }, [videos]);
 
   // Use intersection observer on a sentinel element at the bottom of the grid to progressively load more
@@ -96,6 +100,7 @@ export default function VideoGrid({
   const [hoveredVideoId, setHoveredVideoId] = useState<string | null>(null);
   const [visibleVideoId, setVisibleVideoId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const logger = new Logger('VideoGrid'); // Assuming Logger is available or add import if not
 
   // --- NEW: Use ResizeObserver --- 
   const handleResize = useCallback((entry: ResizeObserverEntry) => {
@@ -146,7 +151,12 @@ export default function VideoGrid({
       return 2;
     })();
 
-    if (!containerWidth || !visibleVideos.length) return [];
+    // Filter out unsupported videos on mobile first
+    const filteredVisibleVideos = isMobile 
+      ? visibleVideos.filter(video => !unsupportedVideoIds.has(video.id)) 
+      : visibleVideos;
+
+    if (!containerWidth || !filteredVisibleVideos.length) return [];
     
     // Helper function to get the correct aspect ratio
     const getAspectRatio = (vid: VideoEntry): number => {
@@ -158,8 +168,8 @@ export default function VideoGrid({
     };
 
     // --- Single Video Case --- 
-    if (visibleVideos.length === 1) {
-      const video = visibleVideos[0];
+    if (filteredVisibleVideos.length === 1) {
+      const video = filteredVisibleVideos[0];
       const aspectRatio = getAspectRatio(video);
       let displayH = DEFAULT_ROW_HEIGHT * 1.5; // Make single videos a bit larger than default row height
       let displayW = aspectRatio * displayH;
@@ -184,7 +194,7 @@ export default function VideoGrid({
     
     // --- Mobile: Single Column Layout ---
     if (isMobile) {
-      return visibleVideos.map((video) => {
+      return filteredVisibleVideos.map((video) => {
         // Use the same helper as desktop to get the correct aspect ratio
         const aspectRatio = getAspectRatio(video);
         // Use full container width for the video
@@ -206,8 +216,8 @@ export default function VideoGrid({
     let cursor = 0;
     
     // Initial layout calculation
-    while (cursor < visibleVideos.length) {
-      const slice = visibleVideos.slice(cursor, cursor + effectiveItemsPerRow);
+    while (cursor < filteredVisibleVideos.length) {
+      const slice = filteredVisibleVideos.slice(cursor, cursor + effectiveItemsPerRow);
       const GAP_PX = 8; // Tailwind gap-2 equals 0.5rem
       const totalGapWidth = (slice.length - 1) * GAP_PX;
 
@@ -276,9 +286,10 @@ export default function VideoGrid({
     }
     
     return initialRows.filter(row => row.length > 0); 
-  }, [containerWidth, visibleVideos, itemsPerRow, isMobile]);
+  }, [containerWidth, visibleVideos, itemsPerRow, isMobile, unsupportedVideoIds]);
 
   const handleHoverChange = (videoId: string, isHovering: boolean) => {
+    logger.log(`[VideoHoverPlayDebug] handleHoverChange: videoId=${videoId}, isHovering=${isHovering}`);
     setHoveredVideoId(isHovering ? videoId : null);
   };
 
@@ -289,6 +300,14 @@ export default function VideoGrid({
       setVisibleVideoId(null);
     }
   };
+
+  // NEW: Callback for VideoCard to report unsupported format error on mobile
+  const handleFormatUnsupportedOnMobile = useCallback((videoId: string) => {
+    if (isMobile) {
+      logger.log(`[VideoGrid] Format unsupported for video ID ${videoId} on mobile. Hiding item.`);
+      setUnsupportedVideoIds(prev => new Set(prev).add(videoId));
+    }
+  }, [isMobile]);
 
   return (
     <LayoutGroup id={gridId}>
@@ -326,6 +345,7 @@ export default function VideoGrid({
                 shouldBePlaying={isMobile && video.id === visibleVideoId}
                 alwaysShowInfo={alwaysShowInfo}
                 forceCreatorHoverDesktop={forceCreatorHoverDesktop}
+                onFormatUnsupportedOnMobile={handleFormatUnsupportedOnMobile}
               />
             </motion.div>
           ))}

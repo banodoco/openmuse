@@ -27,6 +27,8 @@ interface VideoPreviewProps {
   onVisibilityChange?: (isVisible: boolean) => void;
   shouldBePlaying?: boolean;
   onEnterPreloadArea?: (isInPreloadArea: boolean) => void;
+  onError?: (message: string) => void;
+  isMobile?: boolean;
 }
 
 /**
@@ -48,9 +50,12 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   onVisibilityChange,
   shouldBePlaying = false,
   onEnterPreloadArea,
+  onError,
+  isMobile: propIsMobile,
 }) => {
   const { user } = useAuth();
-  const isMobile = useIsMobile();
+  const internalIsMobile = useIsMobile();
+  const effectiveIsMobile = propIsMobile !== undefined ? propIsMobile : internalIsMobile;
   const isExternalLink = url && (url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com'));
   const isBlobUrl = url?.startsWith('blob:');
   const [isPlaying, setIsPlaying] = useState(false);
@@ -84,11 +89,11 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     if (externalHoverState !== undefined && !unmountedRef.current) {
       logger.log(`VideoPreview [${componentId.current}]: External hover state changed to ${externalHoverState}`);
       setIsHovering(externalHoverState);
-      if (!isMobile) {
+      if (!effectiveIsMobile) {
         setIsPlaying(externalHoverState);
       }
     }
-  }, [externalHoverState, isMobile]);
+  }, [externalHoverState, effectiveIsMobile]);
   
   useEffect(() => {
     if (file && !unmountedRef.current) {
@@ -144,7 +149,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       logger.log(`VideoPreview [${componentId.current}]: Mouse entered`);
       setInternalHoverState(true);
       setIsHovering(true);
-      if (!isMobile) {
+      if (!effectiveIsMobile) {
         setIsPlaying(true);
       }
     }
@@ -176,7 +181,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   };
 
   // Determine if we should force preload based on context
-  const shouldForcePreload = (!thumbnailUrl && !isMobile) || (externalHoverState && !isMobile) || (!lazyLoad && !previewMode);
+  const shouldForcePreload = (!thumbnailUrl && !effectiveIsMobile) || (externalHoverState && !effectiveIsMobile) || (!lazyLoad && !previewMode);
 
   return (
     <div 
@@ -185,7 +190,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-hovering={effectiveHoverState ? "true" : "false"}
-      data-is-mobile={isMobile ? "true" : "false"}
+      data-is-mobile={effectiveIsMobile ? "true" : "false"}
       data-component-id={componentId.current}
       data-thumbnail-loaded={thumbnailLoaded ? "true" : "false"}
     >
@@ -206,7 +211,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           isPlaying={isPlaying}
           posterUrl={posterUrl}
           onTogglePlay={() => setIsPlaying(!isPlaying)}
-          isMobile={isMobile}
+          isMobile={effectiveIsMobile}
         />
       ) : file ? (
         <StandardVideoPreview 
@@ -214,7 +219,7 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           posterUrl={posterUrl}
           onError={handleVideoError}
           isHovering={effectiveHoverState}
-          isMobile={isMobile}
+          isMobile={effectiveIsMobile}
           preventLoadingFlicker={preventLoadingFlicker}
         />
       ) : isBlobUrl ? (
@@ -225,17 +230,18 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={true}
           previewMode={true}
-          showPlayButtonOnHover={!isMobile}
+          showPlayButtonOnHover={!effectiveIsMobile}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={shouldForcePreload}
-          isMobile={isMobile}
+          isMobile={effectiveIsMobile}
           preventLoadingFlicker={preventLoadingFlicker}
           onLoadedData={onLoadedData}
           onVisibilityChange={onVisibilityChange}
           shouldBePlaying={shouldBePlaying}
           onEnterPreloadArea={onEnterPreloadArea}
+          onError={onError}
         />
       ) : url ? (
         <StorageVideoPlayer
@@ -245,17 +251,18 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
           className="w-full h-full object-cover"
           playOnHover={true}
           previewMode={previewMode}
-          showPlayButtonOnHover={!isMobile}
+          showPlayButtonOnHover={!effectiveIsMobile}
           autoPlay={effectiveHoverState}
           isHoveringExternally={effectiveHoverState}
           thumbnailUrl={thumbnailUrl || posterUrl}
           forcePreload={shouldForcePreload}
-          isMobile={isMobile}
+          isMobile={effectiveIsMobile}
           preventLoadingFlicker={preventLoadingFlicker}
           onLoadedData={onLoadedData}
           onVisibilityChange={onVisibilityChange}
           shouldBePlaying={shouldBePlaying}
           onEnterPreloadArea={onEnterPreloadArea}
+          onError={onError}
         />
       ) : null}
 

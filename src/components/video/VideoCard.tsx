@@ -49,6 +49,7 @@ interface VideoCardProps {
   /** If true, forces creator info to only show on hover on desktop, overriding alwaysShowInfo for that element */
   forceCreatorHoverDesktop?: boolean;
   compact?: boolean;
+  onFormatUnsupportedOnMobile?: (videoId: string) => void;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -69,6 +70,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   alwaysShowInfo = false,
   forceCreatorHoverDesktop = false,
   compact = false,
+  onFormatUnsupportedOnMobile,
 }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -294,6 +296,21 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   // No need to log every hover state change; handled in handlers.
 
+  // NEW: Handler for VideoPlayer errors
+  const handleVideoPlayerError = useCallback((message: string) => {
+    logger.log(`[VideoCard] VideoPlayer reported error for video ${video.id}: ${message}`);
+    // Check for the specific error message and if on mobile
+    if (
+      isMobile &&
+      message === "The video source is not supported." && // This message comes from VideoPlayer's handleVideoError
+      onFormatUnsupportedOnMobile
+    ) {
+      logger.log(`[VideoCard] Unsupported format for video ${video.id} on mobile. Calling onFormatUnsupportedOnMobile.`);
+      onFormatUnsupportedOnMobile(video.id);
+    }
+    // If you have other generic error handling for VideoCard itself, it can go here.
+  }, [isMobile, onFormatUnsupportedOnMobile, video.id]);
+
   // ---------------------------------------------------------------------------
   // Fetch Creator Profile (avatar + display name) when NOT on profile page
   // ---------------------------------------------------------------------------
@@ -367,6 +384,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
             onLoadedData={handleVideoLoad}
             onVisibilityChange={handleVisibilityChange}
             shouldBePlaying={shouldBePlaying}
+            onError={handleVideoPlayerError}
+            isMobile={isMobile}
           />
 
           {/* Expand Icon for Mobile - Now Bottom Right */}
@@ -660,6 +679,9 @@ const areEqual = (prev: Readonly<VideoCardProps>, next: Readonly<VideoCardProps>
   // Video object reference – if the parent supplies a new object ref the
   // card should update.  Deep compare is avoided for perf.
   if (prev.video !== next.video) return false;
+
+  // Check the new callback prop
+  if (prev.onFormatUnsupportedOnMobile !== next.onFormatUnsupportedOnMobile) return false;
 
   return true; // No significant changes → skip re-render
 };

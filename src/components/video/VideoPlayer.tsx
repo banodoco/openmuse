@@ -172,6 +172,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 ) => {
   const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
   logger.log(`[${componentId}] Rendering. src: ${src?.substring(0,30)}..., poster: ${!!poster}, lazyLoad: ${lazyLoad}, preventLoadingFlicker: ${preventLoadingFlicker}`);
+  logger.log(`[VideoHoverPlayDebug] [${componentId}] Initial props: playOnHover=${playOnHover}, autoPlay=${autoPlay}, externallyControlled=${externallyControlled}, isMobile=${isMobile}`);
 
   const localVideoRef = useRef<HTMLVideoElement>(null);
   const setVideoRef = (node: HTMLVideoElement | null) => {
@@ -219,10 +220,12 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     isHovering: externallyControlled ? isHovering : isInternallyHovering,
     isMobile
   });
+  logger.log(`[VideoHoverPlayDebug] [${componentId}] useVideoLoader init: playOnHover=${playOnHover}, externallyControlled=${externallyControlled}, isHovering (prop)=${isHovering}, isInternallyHovering=${isInternallyHovering}, isMobile=${isMobile}`);
   
   useEffect(() => {
     if (triggerPlay && localVideoRef?.current && localVideoRef.current.paused && !unmountedRef.current) {
       logger.log(`[${componentId}] triggerPlay is true, attempting to play.`);
+      logger.log(`[VideoHoverPlayDebug] [${componentId}] triggerPlay active. Video src: ${localVideoRef.current?.src?.substring(0,30)}...`);
       localVideoRef.current.play().catch(err => {
         logger.error(`[${componentId}] Error attempting to play via triggerPlay:`, err);
       });
@@ -241,6 +244,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     forcedPlay,
     componentId
   });
+  logger.log(`[VideoHoverPlayDebug] [${componentId}] useVideoPlayback init: externallyControlled=${!isMobile && externallyControlled}, isHovering (prop)=${isHovering}, isInternallyHovering=${isInternallyHovering}, muted=${muted}, isMobile=${isMobile}, loadedDataFired=${!isLoading}, playAttempted=${playAttempted}`);
   
   useEffect(() => {
     logger.log(`[${componentId}] Mounting effect ran.`);
@@ -315,12 +319,14 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     if (!isMobile && !unmountedRef.current) {
       loadFullVideo();
       setIsInternallyHovering(true);
+      logger.log(`[VideoHoverPlayDebug] [${componentId}] handleMouseEnter: Setting isInternallyHovering to true. playOnHover=${playOnHover}. src: ${src?.substring(0,30)}...`);
     }
   };
 
   const handleMouseLeave = () => {
     if (!unmountedRef.current) {
       setIsInternallyHovering(false);
+      logger.log(`[VideoHoverPlayDebug] [${componentId}] handleMouseLeave: Setting isInternallyHovering to false. src: ${src?.substring(0,30)}...`);
     }
   };
 
@@ -533,25 +539,10 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   }, [retryAttempt, localVideoRef, error, clearRetryTimeout, performActualReset, componentId]); // Added dependencies
 
-  // --- Timeout Clearing (Old functions removed) ---
-  // const clearInitialPlayTimeout = useCallback(() => { ... }); // REMOVED
-  // const clearWaitingTimeout = useCallback(() => { ... }); // REMOVED
-
-  // Cleanup timeouts on unmount
-  useEffect(() => {
-    return () => {
-      // clearInitialPlayTimeout(); // REMOVED
-      // clearWaitingTimeout(); // REMOVED
-      clearRetryTimeout(); // Use the new unified clear function
-      logger.log(`[${componentId}] Unmounting, cleared timeouts.`);
-      unmountedRef.current = true;
-    };
-  // }, [clearInitialPlayTimeout, clearWaitingTimeout]); // REMOVED
-  }, [clearRetryTimeout]); // Updated dependency
-
   // --- Initial Play Timeout Logic (Modified) ---
   useEffect(() => {
     const video = localVideoRef.current;
+    logger.log(`[VideoHoverPlayDebug] [${componentId}] Initial play/retry check: hasPlayedOnce=${hasPlayedOnce}, error=${!!error}, unmounted=${unmountedRef.current}, video?.paused=${video?.paused}, isIntersecting=${isIntersecting}, isMobile=${isMobile}, playAttempted=${playAttempted}, playOnHover=${playOnHover}, isInternallyHovering=${isInternallyHovering}, externallyControlled=${externallyControlled}, isHovering (prop)=${isHovering}. src: ${src?.substring(0,30)}...`);
     // Need video, not played yet, no error, not unmounted, and video is currently paused
     if (!video || hasPlayedOnce || error || unmountedRef.current || !video.paused) {
       clearRetryTimeout(); // Clear if condition is no longer met
@@ -561,6 +552,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     const shouldAttemptPlay = (isIntersecting && isMobile) || (!isMobile && playAttempted);
 
     if (shouldAttemptPlay) {
+       logger.log(`[VideoHoverPlayDebug] [${componentId}] Condition met for initial play/retry schedule. Attempt: ${retryAttempt}. src: ${src?.substring(0,30)}...`);
        logger.log(`[${componentId}] Condition met for initial play/retry check. Attempt: ${retryAttempt}`);
       // Instead of setting a timeout directly, schedule the first retry check.
       // If play succeeds before the timeout, handlePlay will clear it.
@@ -570,14 +562,12 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
        // If conditions like intersection are no longer met, clear pending retry.
        clearRetryTimeout();
     }
-
-  // }, [isIntersecting, isMobile, videoRef, hasPlayedOnce, error, clearInitialPlayTimeout, attemptReset, componentId, dynamicTimeoutMs, playAttempted]); // Old dependencies
   }, [isIntersecting, isMobile, localVideoRef, hasPlayedOnce, error, playAttempted, scheduleNextRetry, clearRetryTimeout, componentId, retryAttempt]); // Updated dependencies
-
 
   // --- Video Event Handlers ---
   const handlePlayInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     logger.log(`[${componentId}] onPlay event fired. Playback successful.`);
+    logger.log(`[VideoHoverPlayDebug] [${componentId}] handlePlayInternal: Playback successful. src: ${src?.substring(0,30)}...`);
     setHasPlayedOnce(true);
     setRetryAttempt(0); // Reset retry count on successful play
     // clearInitialPlayTimeout(); // REMOVED
@@ -590,6 +580,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const handlePauseInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     // logger.log(`[${componentId}] onPause event fired.`);
     // clearWaitingTimeout(); // REMOVED
+    logger.log(`[VideoHoverPlayDebug] [${componentId}] handlePauseInternal: Video paused. isMobile=${isMobile}, isIntersecting=${isIntersecting}, video?.ended=${localVideoRef.current?.ended}. src: ${src?.substring(0,30)}...`);
     // Clear retry timeout ONLY if the pause seems intentional (end of video OR not intersecting on mobile)
     // If paused unexpectedly while intersecting on mobile, let the waiting handler/timeout handle it.
     const video = localVideoRef.current;

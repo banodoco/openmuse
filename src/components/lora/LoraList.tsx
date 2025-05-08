@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/pagination';
 
 const logger = new Logger('LoraList');
+const LORA_LIST_PERF_ID_PREFIX = '[LoraLoadSpeed_LoraList]';
 
 interface LoraListProps {
   loras: LoraAsset[];
@@ -32,6 +33,8 @@ const LoraList: React.FC<LoraListProps> = ({
   isUpdatingStatusMap,
   hideCreatorInfo = false,
 }) => {
+  const renderId = React.useId(); // Generate ID once per render
+  console.time(`${LORA_LIST_PERF_ID_PREFIX}_Render_${renderId}`);
   const isMobile = useIsMobile();
   
   // Add state and refs for autoplay
@@ -39,8 +42,12 @@ const LoraList: React.FC<LoraListProps> = ({
   const visibilityTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const unmountedRef = useRef(false);
   
+  console.time(`${LORA_LIST_PERF_ID_PREFIX}_PropsAndStateInitialization`);
+  
   useEffect(() => {
+    console.time(`${LORA_LIST_PERF_ID_PREFIX}_LorasPropEffect`);
     logger.log("LoraList received loras:", loras?.length || 0);
+    console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_LorasPropEffect`);
   }, [loras]);
 
   // Ensure loras is an array
@@ -54,6 +61,7 @@ const LoraList: React.FC<LoraListProps> = ({
   useEffect(() => {
     // Reset to page 1 whenever the list of LoRAs changes
     setCurrentPage(1);
+    console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_PropsAndStateInitialization`);
   }, [safeLoraList]);
 
   // Cleanup effect for timeout
@@ -101,9 +109,20 @@ const LoraList: React.FC<LoraListProps> = ({
   }, []);
 
   const paginatedLoras = React.useMemo(() => {
+    console.time(`${LORA_LIST_PERF_ID_PREFIX}_PaginatedLorasMemo`);
     const start = (currentPage - 1) * itemsPerPage;
-    return safeLoraList.slice(start, start + itemsPerPage);
+    const result = safeLoraList.slice(start, start + itemsPerPage);
+    console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_PaginatedLorasMemo`);
+    return result;
   }, [safeLoraList, currentPage]);
+
+  console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_PropsAndStateInitialization`);
+
+  React.useEffect(() => {
+    // This useEffect will run after the component has rendered.
+    // We log the end of the render time here.
+    console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_Render_${renderId}`);
+  });
 
   return (
     <div className="space-y-4">
