@@ -1006,12 +1006,16 @@ const generateReadmeContent = (loraDetails: LoRADetails, videoWidgets: { text: s
   
   let widgetSection = '';
   if (videoWidgets && videoWidgets.length > 0) {
-    widgetSection = videoWidgets.map(v => 
-      `  - text: >-
-        "${v.text.replace(/\n/g, '\\n')}"
-      output:
-        url: ${v.output.url}`
-    ).join('\n');
+    widgetSection = videoWidgets.map(v => {
+      // Ensure the prompt text is properly indented for YAML block scalar
+      const promptText = v.text.trim().replace(/\n/g, '\n      '); // Indent subsequent lines if any
+      return (
+`  - text: |
+      ${promptText}
+    output:
+      url: ${v.output.url}`
+      );
+    }).join('\n');
   }
 
   const readmeFrontMatter = `
