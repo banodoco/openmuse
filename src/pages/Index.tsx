@@ -35,6 +35,7 @@ import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('IndexPage', true, 'SessionPersist');
 const LORA_INDEX_PERF_ID_PREFIX = '[LoraLoadSpeed_IndexPage]';
+const INDEX_LORA_ITEMS_PER_PAGE = 10; // Number of LoRAs to display per page on Index
 
 // === Helper Functions (Copied from UserProfilePage) ===
 
@@ -133,15 +134,35 @@ const Index: React.FC = () => {
   const [currentModelFilter, setCurrentModelFilter] = useState(modelFilterFromUrl);
   const [filterText, setFilterText] = useState('');
   const [currentApprovalFilter, setCurrentApprovalFilter] = useState<'curated' | 'all'>('curated');
+  const [loraDisplayPage, setLoraDisplayPage] = useState(1); // State for LoRA pagination on Index page
+  const fetchTimerStartedRef = useRef(false); // Ref to track if fetch timer has started
 
-  // Pass filters to the hook
+  // Pass filters and pagination parameters to the hook
   console.time(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_HookInitialization`);
   const { 
     loras, 
     isLoading: lorasLoading, 
+    totalCount: totalLorasFromHook, // Get totalCount from the hook
     refetchLoras
-  } = useLoraManagement({ modelFilter: currentModelFilter, approvalFilter: currentApprovalFilter });
+  } = useLoraManagement({ 
+    modelFilter: currentModelFilter, 
+    approvalFilter: currentApprovalFilter,
+    page: loraDisplayPage,          // Pass current page
+    pageSize: INDEX_LORA_ITEMS_PER_PAGE // Pass page size
+  });
   console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_HookInitialization`);
+
+  useEffect(() => {
+    if (lorasLoading && !fetchTimerStartedRef.current) {
+      console.time(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_FetchDuration`);
+      fetchTimerStartedRef.current = true;
+    } else if (!lorasLoading && fetchTimerStartedRef.current) {
+      // This condition means loading has finished *and* the timer was previously started.
+      console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_FetchDuration`);
+      fetchTimerStartedRef.current = false; // Reset for potential subsequent fetches
+    }
+  }, [lorasLoading]); // Depend only on lorasLoading for starting/ending the timer
+  
   // logger.log(`Index: useLoraManagement() state - lorasLoading: ${lorasLoading}, loras count: ${loras?.length || 0}`);
   
   // Client-side filtering for TEXT only
@@ -171,7 +192,15 @@ const Index: React.FC = () => {
     console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_Memo_displayLoras`);
     return filtered;
 
-  }, [loras, filterText]); // Keep dependency on filterText, even if not updated
+  }, [loras, filterText]); // displayLoras now depends on loras (paginated from hook) and filterText
+
+  const totalLoraDisplayPages = React.useMemo(() => {
+    console.time(`${LORA_INDEX_PERF_ID_PREFIX}_Memo_totalLoraDisplayPages`);
+    // Calculate based on totalLorasFromHook and items per page
+    const result = getTotalPages(totalLorasFromHook, INDEX_LORA_ITEMS_PER_PAGE);
+    console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_Memo_totalLoraDisplayPages`);
+    return result;
+  }, [totalLorasFromHook]); // Depends on totalCount from hook
   
   // Add lifecycle logging
   useEffect(() => {
@@ -613,7 +642,7 @@ const Index: React.FC = () => {
 
   // Add a useEffect to log when loras data is received/updated from the hook
   React.useEffect(() => {
-    if (loras) {
+    if (loras) { // Keep this log for data arrival visibility
       console.log(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_DataReceived`, { count: loras.length, isLoading: lorasLoading });
     }
   }, [loras, lorasLoading]);
@@ -714,6 +743,13 @@ const Index: React.FC = () => {
               )}
             />
             {void console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_Render_LoraManagerSection`)}
+
+            {/* Pagination for LoRAs on Index Page */}
+            {totalLoraDisplayPages > 1 && (
+              <React.Fragment key="lora-pagination-controls">
+                {renderPaginationControls(loraDisplayPage, totalLoraDisplayPages, setLoraDisplayPage)}
+              </React.Fragment>
+            )}
 
             <div className="mt-6 mb-8 flex justify-start">
               <Link

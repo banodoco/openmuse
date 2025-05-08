@@ -34,6 +34,7 @@ const LoraList: React.FC<LoraListProps> = ({
   hideCreatorInfo = false,
 }) => {
   const renderId = React.useId(); // Generate ID once per render
+  console.log(`[LoraLoadSpeed_LoraList_Instance:${renderId}] Received loras count:`, loras?.length);
   console.time(`${LORA_LIST_PERF_ID_PREFIX}_Render_${renderId}`);
   const isMobile = useIsMobile();
   
@@ -117,11 +118,9 @@ const LoraList: React.FC<LoraListProps> = ({
 
   console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_PropsAndStateInitialization`);
 
-  React.useEffect(() => {
-    // This useEffect will run after the component has rendered.
-    // We log the end of the render time here.
-    console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_Render_${renderId}`);
-  });
+  // Log end of render time directly here. Note: This is less accurate for async effects within render but safer for avoiding timer warnings.
+  // The actual perceived end of render is when the browser paints.
+  console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_Render_${renderId}`);
 
   return (
     <div className="space-y-4">
