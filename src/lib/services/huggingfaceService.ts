@@ -128,23 +128,27 @@ class HuggingFaceService {
    */
   async uploadRawFile(options: { 
     repoIdString: string;
-    fileContent: File | Blob; // Keep this for our method's flexibility
-    pathInRepo: string;
+    fileContent: File | Blob; 
+    pathInRepo: string; // This should be the full relative path in the repo, e.g., "assets/video.mp4" or "model.safetensors"
     commitTitle?: string;
   }): Promise<string> {
     const { repoIdString, fileContent, pathInRepo, commitTitle } = options;
-    const fileNameForLog = fileContent instanceof File ? fileContent.name : pathInRepo;
-    // logger.log(`Uploading file '${fileNameForLog}' to '${repoIdString}/${pathInRepo}'`);
-    console.log(`[${serviceContext}] Uploading file '${fileNameForLog}' to '${repoIdString}/${pathInRepo}'`);
+    // The pathInRepo is ALREADY the full relative path including any subdirectories like "assets/"
+    console.log(`[${serviceContext}] Uploading file to repo path '${pathInRepo}' in '${repoIdString}'`);
+    
     try {
-      const fileToUpload = fileContent instanceof File ? fileContent : new File([fileContent], pathInRepo);
+      // The @huggingface/hub library expects `file` to be a File object for simplicity in many cases,
+      // and it uses `File.name` as the path inside the repository.
+      // OR it can be { path: string, content: ContentSource }
+      // To ensure the path is exactly what we specify in `pathInRepo` without modifications:
+      const fileData = fileContent instanceof File ? fileContent : new Blob([fileContent]);
+
       const commitInfo = await uploadFile({
         repo: repoIdString, 
-        file: fileToUpload,
+        file: { path: pathInRepo, content: fileData }, // Use explicit path and content object
         commitTitle: commitTitle || `Upload ${pathInRepo}`,
         credentials: this.credentials,
       });
-      // logger.log(`File '${pathInRepo}' uploaded successfully to ${repoIdString}. Commit URL: ${commitInfo.commit.url}`);
       console.log(`[${serviceContext}] File '${pathInRepo}' uploaded successfully to ${repoIdString}. Commit URL: ${commitInfo.commit.url}`);
       return commitInfo.commit.url;
     } catch (error: any) {

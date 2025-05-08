@@ -1003,25 +1003,30 @@ function sanitizeRepoName(name: string): string {
 // This function should be defined outside handleSubmit, e.g., at the bottom of the file or imported
 const generateReadmeContent = (loraDetails: LoRADetails, videoWidgets: { text: string, output: { url: string } }[]): string => {
   const modelTitle = `${loraDetails.model} (${loraDetails.modelVariant || ''})`;
-  const widgetSection = videoWidgets.map(v => 
-    `  - text: >-
-      "${v.text.replace(/\n/g, '\\n')}"
-    output:
-      url: ${v.output.url}`
-  ).join('\n');
+  
+  let widgetSection = '';
+  if (videoWidgets && videoWidgets.length > 0) {
+    widgetSection = videoWidgets.map(v => 
+      `  - text: >-
+        "${v.text.replace(/\n/g, '\\n')}"
+      output:
+        url: ${v.output.url}`
+    ).join('\n');
+  }
 
-  // Using the structure provided by the user
-  return `---
+  const readmeFrontMatter = `
 base_model:
 - Lightricks/LTX-Video
-widget:
-${widgetSection}
-tags:
+${widgetSection ? `widget:\n${widgetSection}\n` : ''}tags:
 - ltxv
 - 13B
 - text-to-video
 - lora
----
+`.trimStart();
+
+  // Using the structure provided by the user
+  return `---
+${readmeFrontMatter}---
 
 # ${modelTitle}
 
