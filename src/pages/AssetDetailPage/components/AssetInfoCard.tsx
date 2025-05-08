@@ -22,7 +22,8 @@ import {
   Flame,
   ListChecks,
   Pencil,
-  Trash
+  Trash,
+  Copy
 } from 'lucide-react';
 import { Button, buttonVariants } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -81,6 +82,7 @@ const AssetInfoCard = ({
   const { user } = useAuth();
   const [isUpdatingStatus, setIsUpdatingStatus] = React.useState(false);
   const [isDeleting, setIsDeleting] = React.useState(false);
+  const [copied, setCopied] = React.useState(false);
 
   // Ref to control EditableLoraDetails actions (e.g., start editing)
   const editableDetailsRef = React.useRef<EditableLoraDetailsHandle>(null);
@@ -120,6 +122,17 @@ const AssetInfoCard = ({
     }
   };
 
+  const handleCopyLink = (link: string) => {
+    navigator.clipboard.writeText(link).then(() => {
+      setCopied(true);
+      toast.success("Download link copied to clipboard!");
+      setTimeout(() => setCopied(false), 2000);
+    }).catch(err => {
+      toast.error("Failed to copy link.");
+      logger.error("Failed to copy link: ", err);
+    });
+  };
+
   return (
     <div className="md:col-span-1 space-y-4">
       <Card>
@@ -149,17 +162,42 @@ const AssetInfoCard = ({
         </CardContent>
         
         <CardFooter className="flex flex-col gap-4 border-t pt-4">
-          {/* External Link Button */}
-          {asset?.lora_link && (
-            <a 
-              href={asset.lora_link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className={cn(buttonVariants({ variant: 'outline' }), "w-full gap-2")}
-            > 
-              <ExternalLink className="h-4 w-4" />
-              View External Link
-            </a>
+          {/* External and Download Link Buttons Container */}
+          {(asset?.lora_link || asset?.lora_direct_download_link) && (
+            <div className="flex w-full gap-2">
+              {/* External Link Button */}
+              {asset?.lora_link && (
+                <a
+                  href={asset.lora_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    buttonVariants({ variant: 'outline' }),
+                    "gap-2",
+                    asset?.lora_direct_download_link ? "w-1/2" : "w-full"
+                  )}
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  View External Link
+                </a>
+              )}
+
+              {/* Copy Download Link Button */}
+              {asset?.lora_direct_download_link && (
+                <Button
+                  variant="outline"
+                  onClick={() => handleCopyLink(asset.lora_direct_download_link!)}
+                  className={cn(
+                    "gap-2",
+                    asset?.lora_link ? "w-1/2" : "w-full"
+                  )}
+                  disabled={copied}
+                >
+                  <Copy className="h-4 w-4" />
+                  {copied ? "Copied!" : "Copy Download Link"}
+                </Button>
+              )}
+            </div>
           )}
 
           {/* User Status Buttons (Owner/Admin Only) - Reversed Order */}

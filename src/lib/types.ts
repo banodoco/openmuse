@@ -84,20 +84,23 @@ export interface UserProfile {
 export interface LoraAsset {
   id: string;
   name: string;
-  description?: string;
-  creator?: string;
-  creatorDisplayName?: string;
-  type: string;
+  description?: string | null;
+  creator?: string | null;
+  user_id?: string | null;
   created_at: string;
-  user_id?: string;
-  curator_id?: string | null;
-  primary_media_id?: string;
-  admin_status?: AdminStatus | null;
+  primary_media_id?: string | null;
+  primary_media_url?: string | null;
+  primary_media_thumbnail_url?: string | null;
+  admin_status?: string | null;
   user_status?: UserAssetPreferenceStatus | null;
-  lora_type?: string;
-  lora_base_model?: string;
-  model_variant?: string;
-  lora_link?: string;
+  lora_type?: string | null;
+  lora_base_model?: string | null;
+  model_variant?: string | null;
+  lora_link?: string | null;
+  lora_direct_download_link?: string | null;
+  admin_reviewed: boolean;
+  type: 'lora';
+  curator_id?: string | null;
   primaryVideo?: VideoEntry;
   videos?: VideoEntry[];
   user_preference_status?: UserAssetPreferenceStatus | null;
@@ -108,7 +111,6 @@ export interface LoraAsset {
     thumbnailUrl?: string;
     title?: string;
   }>;
-  admin_reviewed?: boolean;
 }
 
 export interface LoraManagerProps {
