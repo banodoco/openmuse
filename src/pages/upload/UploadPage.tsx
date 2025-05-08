@@ -138,8 +138,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
   // Effect to fetch and pre-fill HuggingFace API key if 'upload' method is selected and user has a saved key
   useEffect(() => {
+    console.log('[API Key Effect RUNNING] User:', !!user, 'Storage Method:', loraDetails.loraStorageMethod, 'Current Key in loraDetails:', loraDetails.huggingFaceApiKey);
     const fetchAndSetApiKey = async () => {
       if (user && loraDetails.loraStorageMethod === 'upload') {
+        console.log('[API Key Effect Condition MET] User and Upload method. Current Key:', loraDetails.huggingFaceApiKey);
         // Check if API key is already fetched or being entered manually to avoid override
         // This simple check might need refinement if manual entry and auto-fetch can conflict
         if (loraDetails.huggingFaceApiKey && loraDetails.huggingFaceApiKey.startsWith('hf_')) {
