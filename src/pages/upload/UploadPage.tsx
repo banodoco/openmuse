@@ -20,6 +20,21 @@ import { uploadLoraToHuggingFace } from '@/lib/huggingfaceUploader';
 
 const logger = new Logger('Upload');
 
+// Helper function to safely stringify objects with non-JSON-serializable content like File objects
+function safeStringify(obj: any, indent = 2): string {
+  try {
+    return JSON.stringify(obj, (key, value) => {
+      if (value instanceof File) {
+        return `[File: ${value.name}, size: ${value.size}, type: ${value.type}]`;
+      }
+      return value;
+    }, indent);
+  } catch (e) {
+    console.error('Error stringifying object:', e);
+    return '[Object could not be stringified]';
+  }
+}
+
 // Define the LoRADetails type explicitly
 export interface LoRADetails {
   loraName: string;
@@ -329,8 +344,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     }
 
     console.log('[handleSubmit] <<< Checkpoint 2: Before JSON.stringify(videos) >>>');
-    // Log the entire videos array content for detailed inspection
-    console.log('[handleSubmit] Videos array before primary check:', JSON.stringify(videos, null, 2));
+    // Log the entire videos array content for detailed inspection - using safeStringify
+    console.log('[handleSubmit] Videos array before primary check:', safeStringify(videos));
     console.log('[handleSubmit] <<< Checkpoint 3: After JSON.stringify(videos) >>>');
 
     // const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
