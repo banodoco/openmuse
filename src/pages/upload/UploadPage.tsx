@@ -152,6 +152,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       loraDetails, 
       videos 
     });
+    console.log('[handleSubmit] <<< Checkpoint 1: Immediately after State before main logic log >>>');
 
     if (uploadMode === 'media') {
       // MEDIA ONLY FLOW --------------------------------------------------
