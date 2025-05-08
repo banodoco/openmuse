@@ -153,7 +153,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         try {
           const { data, error } = await supabase
             .from('api_keys')
-            .select('api_key') // Select the actual key
+            .select('key_value') // Select the actual key column
             .eq('user_id', user.id)
             .eq('service', 'huggingface')
             .single();
@@ -161,9 +161,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           if (error && error.code !== 'PGRST116') { // PGRST116: "single row not found" - this is okay, means no key
             console.error('[API Key Effect] Error fetching API key:', error);
             toast.error('Could not fetch your saved Hugging Face API key.');
-          } else if (data && data.api_key) {
+          } else if (data && data.key_value) { // Access the correct column
             console.log('[API Key Effect] Successfully fetched API key. Updating loraDetails.');
-            updateLoRADetails('huggingFaceApiKey', data.api_key);
+            updateLoRADetails('huggingFaceApiKey', data.key_value); // Use the correct column
             // Optionally, you might want to ensure 'saveApiKey' reflects that this is a saved key,
             // though current form logic for display relies on 'hasExistingApiKey' from its own fetch.
           } else {
