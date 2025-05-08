@@ -1,6 +1,6 @@
 import { Logger } from '@/lib/logger';
 import type { LoRADetails } from '@/pages/upload/UploadPage';
-import type { VideoItem } from '@/lib/types';
+import type { VideoItem } from '@/lib/types'; 
 import { supabase } from '@/integrations/supabase/client';
 
 const logger = new Logger('HuggingFaceUploader');
@@ -20,8 +20,8 @@ interface HuggingFaceUploadOptions {
   loraDetails: LoRADetails;
   // videos: VideoItem[]; // REMOVED
   videosMetadata: VideoItemClientUploadMetadata[]; // NEW - array of video metadata including their Supabase storage paths
-  hfToken: string;
-  repoName?: string;
+  hfToken: string; 
+  repoName?: string; 
   saveApiKey?: boolean;
 }
 

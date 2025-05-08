@@ -123,21 +123,35 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
+    console.log('[handleSubmit] Triggered');
     
     if (!user) {
       toast.error('You must be signed in to submit videos');
+      console.log('[handleSubmit] User not signed in, navigating to /auth');
       navigate('/auth');
       return;
     }
+    console.log('[handleSubmit] User check passed. User ID:', user.id);
     
     const hasVideos = videos.some(video => video.file !== null || video.url !== null);
     if (!hasVideos) {
       toast.error('Please add at least one video (file or link)');
+      console.log('[handleSubmit] No videos found.', videos);
       return;
     }
+    console.log('[handleSubmit] Video check passed.', videos);
     
     setIsSubmitting(true);
     setCurrentStepMessage('Preparing submission...');
+    console.log('[handleSubmit] Set submitting state. Current Step: Preparing submission...');
+
+    // Log state right before the main try block
+    console.log('[handleSubmit] State before main logic:', { 
+      uploadMode, 
+      loraFile: loraFile ? { name: loraFile.name, size: loraFile.size, type: loraFile.type } : null,
+      loraDetails, 
+      videos 
+    });
 
     if (uploadMode === 'media') {
       // MEDIA ONLY FLOW --------------------------------------------------
