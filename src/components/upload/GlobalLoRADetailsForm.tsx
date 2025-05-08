@@ -15,6 +15,7 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip";
 import { supabase } from '@/integrations/supabase/client';
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ModelData {
   id: string;
@@ -37,11 +38,12 @@ interface LoRADetailsForm {
   loraLink: string;
   huggingFaceApiKey?: string;
   loraDirectDownloadLink?: string;
+  saveApiKey: boolean;
 }
 
 interface GlobalLoRADetailsFormProps {
   loraDetails: LoRADetailsForm;
-  updateLoRADetails: (field: keyof LoRADetailsForm, value: string) => void;
+  updateLoRADetails: (field: keyof LoRADetailsForm, value: string | boolean) => void;
   onLoraFileSelect: (file: File | null) => void;
   disabled?: boolean;
 }
@@ -55,6 +57,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
   const { user } = useAuth();
   const [availableModels, setAvailableModels] = useState<ModelData[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
+  const [hasExistingApiKey, setHasExistingApiKey] = useState(false);
   
   // Preload the tooltip image
   useEffect(() => {
@@ -84,6 +87,24 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
 
     fetchModels();
   }, []);
+
+  // Check for existing API key
+  useEffect(() => {
+    const checkExistingApiKey = async () => {
+      if (!user) return;
+      
+      const { data, error } = await supabase
+        .from('api_keys')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('service', 'huggingface')
+        .single();
+
+      setHasExistingApiKey(!!data && !error);
+    };
+
+    checkExistingApiKey();
+  }, [user]);
 
   // Effect to initialize or update model and variant when availableModels are loaded
   // or if loraDetails.model prop changes (for edit scenarios - though less critical here)
@@ -346,7 +367,7 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 </div>
                 <div className="flex items-center space-x-2">
                   <RadioGroupItem value="upload" id="lora-storage-upload" />
-                  <Label htmlFor="lora-storage-upload" className="cursor-pointer">Upload to HuggingFace</Label>
+                  <Label htmlFor="lora-storage-upload" className="cursor-pointer">Upload</Label>
                 </div>
               </RadioGroup>
             </div>
@@ -410,43 +431,62 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
 
             {loraDetails.loraStorageMethod === 'upload' && (
               <div>
-                <Label htmlFor="huggingface-api-key" className="text-sm font-medium mb-1.5 block">
-                  HuggingFace API Key <span className="text-destructive">*</span>
-                </Label>
-                <Input
-                  type="password"
-                  id="huggingface-api-key"
-                  name="huggingface-api-key"
-                  autoComplete="on"
-                  placeholder="Enter your HuggingFace API Key (write access)"
-                  value={loraDetails.huggingFaceApiKey || ''}
-                  onChange={(e) => updateLoRADetails('huggingFaceApiKey', e.target.value)}
-                  required={loraDetails.loraStorageMethod === 'upload'}
-                  disabled={disabled}
-                />
-                <p className="text-xs text-muted-foreground mt-2">
-                  You can create your Hugging Face API token{' '}
-                  <a
-                    href="https://huggingface.co/settings/tokens"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-olive hover:text-olive-dark underline"
-                  >
-                    here
-                  </a>
-                  . You will need to give it{' '}
-                  <TooltipProvider delayDuration={100}>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="underline cursor-help font-medium">personal namespace write access</span>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="p-0 border-none shadow-lg bg-transparent">
-                        <img src="/write_access.png" alt="Hugging Face API token write access permission example" className="max-w-md rounded" />
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                  . We don't store your HuggingFace credentials.
-                </p>
+                {hasExistingApiKey ? (
+                  <div className="text-sm text-muted-foreground mb-4">
+                    We'll upload it to your HuggingFace account - you can change this on your profile
+                  </div>
+                ) : (
+                  <>
+                    <Label htmlFor="huggingface-api-key" className="text-sm font-medium mb-1.5 block">
+                      HuggingFace API Key <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      type="password"
+                      id="huggingface-api-key"
+                      name="huggingface-api-key"
+                      autoComplete="on"
+                      placeholder="Enter your HuggingFace API Key (write access)"
+                      value={loraDetails.huggingFaceApiKey || ''}
+                      onChange={(e) => updateLoRADetails('huggingFaceApiKey', e.target.value)}
+                      required={loraDetails.loraStorageMethod === 'upload'}
+                      disabled={disabled}
+                    />
+                    <div className="flex items-center space-x-2 mt-2">
+                      <Checkbox
+                        id="save-api-key"
+                        checked={loraDetails.saveApiKey}
+                        onCheckedChange={(checked) => updateLoRADetails('saveApiKey', checked)}
+                        disabled={disabled}
+                      />
+                      <Label htmlFor="save-api-key" className="text-sm text-muted-foreground">
+                        Save API Key for future uploads
+                      </Label>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-2">
+                      You can create your Hugging Face API token{' '}
+                      <a
+                        href="https://huggingface.co/settings/tokens"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-olive hover:text-olive-dark underline"
+                      >
+                        here
+                      </a>
+                      . You will need to give it{' '}
+                      <TooltipProvider delayDuration={100}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span className="underline cursor-help font-medium">personal namespace write access</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="p-0 border-none shadow-lg bg-transparent">
+                            <img src="/write_access.png" alt="Hugging Face API token write access permission example" className="max-w-md rounded" />
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                      .
+                    </p>
+                  </>
+                )}
                 <div className="mt-4">
                   <Label htmlFor="lora-file-upload" className="text-sm font-medium mb-1.5 block">
                     LoRA File (.safetensors, .bin, etc.) <span className="text-destructive">*</span>
@@ -460,9 +500,6 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                     accept=".safetensors,.bin,.pt,.ckpt"
                   />
                 </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  Your API key will be used once for upload and not stored.
-                </p>
               </div>
             )}
           </div>

@@ -1,20 +1,17 @@
-import {
-  whoAmI,       // Corrected casing
-  createRepo,
-  uploadFile,
-} from '@huggingface/hub';
 import { Logger } from '@/lib/logger';
-import type { LoRADetails } from '@/pages/upload/UploadPage'; // Adjust path if LoRADetails is defined elsewhere or globally
-import type { VideoItem } from '@/lib/types'; 
+import type { LoRADetails } from '@/pages/upload/UploadPage';
+import type { VideoItem } from '@/lib/types';
+import { supabase } from '@/integrations/supabase/client';
 
 const logger = new Logger('HuggingFaceUploader');
 
 interface HuggingFaceUploadOptions {
   loraFile: File;
   loraDetails: LoRADetails;
-  videos: VideoItem[]; 
-  hfToken: string; 
-  repoName?: string; 
+  videos: VideoItem[];
+  hfToken: string;
+  repoName?: string;
+  saveApiKey?: boolean;
 }
 
 export async function uploadLoraToHuggingFace({
@@ -23,103 +20,52 @@ export async function uploadLoraToHuggingFace({
   videos,
   hfToken,
   repoName,
+  saveApiKey = false,
 }: HuggingFaceUploadOptions): Promise<string | null> {
   if (!hfToken) {
     logger.error('HuggingFace token is missing.');
     throw new Error('HuggingFace token is required for upload.');
   }
 
-  let username: string;
-  try {
-    const hfUser = await whoAmI({ credentials: { accessToken: hfToken } }); 
-    if (!hfUser.name) {
-        logger.error('Could not determine HuggingFace username from token.');
-        throw new Error('Could not determine HuggingFace username.');
+  // Store the API key in Supabase only if saveApiKey is true
+  if (saveApiKey) {
+    const { error: apiKeyError } = await supabase
+      .from('api_keys')
+      .upsert({
+        service: 'huggingface',
+        key_value: hfToken,
+      }, {
+        onConflict: 'user_id,service'
+      });
+
+    if (apiKeyError) {
+      logger.error('Failed to store HuggingFace API key:', apiKeyError);
+      throw new Error('Failed to store HuggingFace API key securely.');
     }
-    username = hfUser.name;
-  } catch (err: any) {
-    logger.error('Error fetching HuggingFace user info (whoAmI):', err);
-    throw new Error(`Failed to authenticate with HuggingFace: ${err.message}`);
   }
-  
-  const finalRepoName = repoName || sanitizeRepoName(loraDetails.loraName) || `unnamed-lora-${Date.now()}`;
-  const repoId = `${username}/${finalRepoName}`;
 
-  try {
-    logger.log(`Ensuring HuggingFace repo exists (or creating if not): ${repoId}`);
-    try {
-      await createRepo({
-        repo: repoId,
-        private: false, 
-        credentials: { accessToken: hfToken }
-      }); 
-      logger.log(`Repository ${repoId} created successfully.`);
-    } catch (error: any) {
-      if (error.message && error.message.toLowerCase().includes('already exists')) {
-        logger.log(`Repository ${repoId} already exists, continuing.`);
-      } else {
-        throw error;
-      }
-    }
+  // Call the secure endpoint
+  const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/huggingface-upload`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+    },
+    body: JSON.stringify({
+      loraFile,
+      loraDetails,
+      videos,
+      repoName,
+    }),
+  });
 
-    logger.log(`Uploading LoRA file: ${loraFile.name} to ${repoId}`);
-    await uploadFile({
-      repo: repoId,
-      file: loraFile,
-      credentials: { accessToken: hfToken },
-    });
-    logger.log(`LoRA file ${loraFile.name} uploaded successfully.`);
-
-    // Upload up to 3 videos to a 'media' folder
-    const uploadedVideoPaths: string[] = [];
-    if (videos && videos.length > 0) {
-      logger.log(`Uploading example media to ${repoId}/media/`);
-      for (let i = 0; i < Math.min(videos.length, 3); i++) {
-        const videoItem = videos[i];
-        if (videoItem.file && videoItem.file instanceof File) {
-          try {
-            const videoFileName = videoItem.file.name;
-            const targetPathInRepo = `media/${videoFileName}`;
-            logger.log(`Uploading ${videoFileName} to ${targetPathInRepo}...`);
-            await uploadFile({
-              repo: repoId,
-              file: { path: targetPathInRepo, content: videoItem.file },
-              credentials: { accessToken: hfToken },
-            });
-            uploadedVideoPaths.push(targetPathInRepo);
-            logger.log(`${videoFileName} uploaded successfully to ${targetPathInRepo}.`);
-          } catch (videoUploadError: any) {
-            logger.error(`Failed to upload video ${videoItem.file.name}:`, videoUploadError);
-            // Decide if you want to throw, or just log and continue
-          }
-        }
-      }
-    }
-
-    const readmeContent = generateReadmeContent(loraDetails, videos, uploadedVideoPaths, loraFile.name, repoId);
-    logger.log(`Uploading README.md to ${repoId}`);
-    const readmeBlob = new Blob([readmeContent], { type: 'text/markdown' });
-    const readmeFile = new File([readmeBlob], 'README.md', { type: 'text/markdown' });
-    await uploadFile({
-      repo: repoId,
-      file: readmeFile,
-      credentials: { accessToken: hfToken },
-    });
-    logger.log('README.md uploaded successfully.');
-
-    const loraFileUrl = `https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(loraFile.name)}`;
-    logger.log(`LoRA accessible at: ${loraFileUrl}`);
-    return loraFileUrl;
-
-  } catch (error: any) {
-    logger.error(`Error during HuggingFace upload process for ${repoId}:`, error);
-    if (error.message?.includes('authentication failed') || error.status === 401 || (error.response && error.response.status === 401)) {
-        throw new Error('HuggingFace authentication failed. Please check your API key and its permissions.');
-    } else if (error.message?.includes('You don\'t have the rights') || error.status === 403 || (error.response && error.response.status === 403)) {
-        throw new Error('HuggingFace permission error: Your API key may not have write access to create repositories. Please check its permissions on huggingface.co/settings/tokens.');
-    }
-    throw new Error(`Failed to upload to HuggingFace: ${error.message || 'Unknown error'}`);
+  if (!response.ok) {
+    const error = await response.json();
+    throw new Error(error.error || 'Failed to upload to HuggingFace');
   }
+
+  const result = await response.json();
+  return result.url;
 }
 
 function sanitizeRepoName(name: string): string {

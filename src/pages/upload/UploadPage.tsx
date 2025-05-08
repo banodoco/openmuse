@@ -33,6 +33,7 @@ export interface LoRADetails {
   loraLink: string;
   huggingFaceApiKey?: string;
   loraDirectDownloadLink?: string; // Added for the optional direct download link from form
+  saveApiKey: boolean;
 }
 
 interface UploadPageProps {
@@ -62,7 +63,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     loraStorageMethod: 'link',
     loraLink: '',
     huggingFaceApiKey: '',
-    loraDirectDownloadLink: '' // Initialize new field
+    loraDirectDownloadLink: '', // Initialize new field
+    saveApiKey: true
   });
   
   const updateLoRADetails = (field: keyof LoRADetails, value: string) => {
@@ -330,7 +332,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               loraFile: loraFile,
               loraDetails: loraDetails,
               videos: videos, 
-              hfToken: loraDetails.huggingFaceApiKey
+              hfToken: loraDetails.huggingFaceApiKey,
+              saveApiKey: loraDetails.saveApiKey
             });
 
             if (!uploadedHfUrl) {

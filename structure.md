@@ -2,6 +2,29 @@
 
 This document outlines the directory structure of the openmuse` project, providing a brief overview of the purpose of each major file and folder.
 
+## Database Tables
+
+### api_keys
+- Stores user API keys securely
+- Columns:
+  - id (UUID, primary key)
+  - user_id (UUID, foreign key to auth.users)
+  - service (VARCHAR, e.g., 'huggingface')
+  - key_value (TEXT, encrypted API key)
+  - created_at (TIMESTAMPTZ)
+  - updated_at (TIMESTAMPTZ)
+- Row Level Security enabled
+- Policies ensure users can only access their own API keys
+
+## Edge Functions
+
+### huggingface-upload
+- Handles secure uploads to Hugging Face
+- Uses stored API keys from the api_keys table
+- Handles file uploads, README generation, and repository management
+- Requires authentication
+- Returns the URL of the uploaded LoRA file
+
 ```
 .
 ├── .git/                   # Git version control directory
