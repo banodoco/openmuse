@@ -543,6 +543,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                           commitTitle: `Upload example media: ${videoItem.file.name}`
                         });
                         console.log(`[HF Upload] Example video ${videoItem.file.name} uploaded.`);
+                        // Update the video item with the HF URL
+                        videoItem.url = `${repoInfo.url}/resolve/main/${encodeURIComponent(videoFileNameInRepo)}`;
                         // The path in the widget should be relative to the repo root
                         uploadedVideoHfPaths.push({
                           text: videoItem.metadata.description || videoItem.metadata.title || "Example prompt",
