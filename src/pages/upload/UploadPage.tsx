@@ -85,10 +85,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     model: '',
     modelVariant: '',
     loraType: 'Concept',
-    loraStorageMethod: 'link',
+    loraStorageMethod: 'upload',
     loraLink: '',
     huggingFaceApiKey: '',
-    loraDirectDownloadLink: '', // Initialize new field
+    loraDirectDownloadLink: '',
     saveApiKey: true
   });
   

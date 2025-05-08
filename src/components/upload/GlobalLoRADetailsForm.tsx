@@ -362,12 +362,12 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 disabled={disabled}
               >
                 <div className="flex items-center space-x-2">
-                  <RadioGroupItem value="link" id="lora-storage-link" />
-                  <Label htmlFor="lora-storage-link" className="cursor-pointer">Share Link</Label>
-                </div>
-                <div className="flex items-center space-x-2">
                   <RadioGroupItem value="upload" id="lora-storage-upload" />
                   <Label htmlFor="lora-storage-upload" className="cursor-pointer">Upload</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="link" id="lora-storage-link" />
+                  <Label htmlFor="lora-storage-link" className="cursor-pointer">Share Link</Label>
                 </div>
               </RadioGroup>
             </div>
