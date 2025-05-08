@@ -47,37 +47,50 @@ export const useAssetDetails = (assetId: string | undefined) => {
     }
 
     try {
-      logger.log('[useAssetDetails] Fetching core asset details and asset_media joined data in parallel for ID:', assetId);
+      logger.log('[useAssetDetails] Fetching core asset details for ID:', assetId);
 
-      const [assetResult, assetMediaJoinResult] = await Promise.all([
-        supabase
-          .from('assets')
-          .select(`*, primaryVideo:primary_media_id(*)`)
-          .eq('id', assetId)
-          .maybeSingle(),
-        supabase
-          .from('asset_media')
-          .select(`
-            status,
-            is_primary,
-            asset_id,
-            media:media_id!inner(*)
-          `)
-          .eq('asset_id', assetId)
-      ]);
+      const { data: assetData, error: assetError } = await supabase
+        .from('assets')
+        .select('id, name, description, creator, type, created_at, user_id, primary_media_id, admin_status, user_status, lora_type, lora_base_model, model_variant, lora_link, download_link, admin_reviewed, curator_id')
+        .eq('id', assetId)
+        .maybeSingle();
 
-      // Destructure results and handle errors
-      const { data: assetData, error: assetError } = assetResult;
-      const { data: assetMediaJoinData, error: assetMediaJoinError } = assetMediaJoinResult;
-
-      // Combined error handling
       if (assetError) {
         logger.error('[useAssetDetails] Error fetching asset:', assetError);
-        throw assetError; // Throw to be caught by the outer catch block
+        throw assetError;
       }
+
+      let primaryVideoData: VideoEntry | null = null;
+      if (assetData && assetData.primary_media_id) {
+        logger.log('[useAssetDetails] Fetching primary video details for media ID:', assetData.primary_media_id);
+        const { data: pVideoData, error: pVideoError } = await supabase
+          .from('media')
+          .select('*')
+          .eq('id', assetData.primary_media_id)
+          .maybeSingle();
+        
+        if (pVideoError) {
+          logger.error('[useAssetDetails] Error fetching primary video:', pVideoError);
+          // Not throwing here, asset can exist without a primary video if link is broken
+        } else {
+          primaryVideoData = pVideoData as VideoEntry | null;
+        }
+      }
+
+      logger.log('[useAssetDetails] Fetching asset_media joined data for ID:', assetId);
+      const { data: assetMediaJoinData, error: assetMediaJoinError } = await supabase
+        .from('asset_media')
+        .select(`
+          status,
+          is_primary,
+          asset_id,
+          media:media_id!inner(*)
+        `)
+        .eq('asset_id', assetId);
+
       if (assetMediaJoinError) {
         logger.error('[useAssetDetails] Error fetching asset_media joined data:', assetMediaJoinError);
-        throw assetMediaJoinError; // Throw to be caught by the outer catch block
+        throw assetMediaJoinError;
       }
 
       if (!assetData) {
@@ -91,14 +104,13 @@ export const useAssetDetails = (assetId: string | undefined) => {
         logger.log(`[useAssetDetails] Fetched asset user_status: ${assetData.user_status}`);
       }
 
-
       const fetchedAssetMedia = assetMediaJoinData || [];
       logger.log(`[useAssetDetails] Fetched ${fetchedAssetMedia.length} asset_media join records.`);
 
       // --- The rest of the function remains largely the same, using assetData and fetchedAssetMedia ---
 
       // Ensure assetData is checked before accessing its properties
-      const pVideo = assetData?.primaryVideo; 
+      const pVideo = primaryVideoData; // Use the separately fetched primaryVideoData
       logger.log(`[VideoLightboxDebug] Processing asset: ${assetData?.id}, Fetched Primary Video Data (pVideo):`, {
           exists: !!pVideo,
           id: pVideo?.id,
@@ -126,6 +138,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
             lora_base_model: assetData.lora_base_model,
             model_variant: assetData.model_variant,
             lora_link: assetData.lora_link,
+            download_link: assetData.download_link,
+            admin_reviewed: assetData.admin_reviewed,
+            curator_id: assetData.curator_id,
             primaryVideo: pVideo ? {
                 id: pVideo.id,
                 url: pVideo.url,
@@ -145,7 +160,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                     assetId: assetData.id,
                     loraType: assetData.lora_type,
                     model: validModel,
-                    modelVariant: assetData.model_variant,
+                    modelVariant: assetData.model_variant
                 }
             } : undefined
         };
@@ -217,7 +232,6 @@ export const useAssetDetails = (assetId: string | undefined) => {
                   description: media.description || '',
                   placeholder_image: media.placeholder_image || null,
                   classification: media.classification,
-                  // Use processedAsset values which are guaranteed to exist if we are here
                   model: processedAsset.lora_base_model || media.type, 
                   loraName: processedAsset.name,
                   loraDescription: processedAsset.description,

@@ -71,7 +71,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
     lora_base_model: asset?.lora_base_model || '',
     model_variant: asset?.model_variant || '',
     lora_link: asset?.lora_link || '',
-    lora_direct_download_link: asset?.lora_direct_download_link || ''
+    download_link: asset?.download_link || ''
   });
 
   useEffect(() => {
@@ -139,7 +139,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
         lora_base_model: initialModel,
         model_variant: initialVariant,
         lora_link: asset.lora_link || '',
-        lora_direct_download_link: asset.lora_direct_download_link || ''
+        download_link: asset.download_link || ''
       }));
     }
   }, [asset, availableModels, isLoadingModels, user]);
@@ -168,7 +168,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
       lora_base_model: asset?.lora_base_model || '',
       model_variant: asset?.model_variant || '',
       lora_link: asset?.lora_link || '',
-      lora_direct_download_link: asset?.lora_direct_download_link || ''
+      download_link: asset?.download_link || ''
     });
     setIsEditing(true);
   };
@@ -189,7 +189,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
         lora_base_model: details.lora_base_model,
         model_variant: details.model_variant,
         lora_link: details.lora_link,
-        lora_direct_download_link: details.lora_direct_download_link
+        download_link: details.download_link
       };
 
       if (details.creator === 'self') {
@@ -416,15 +416,15 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
           </div>
 
           <div>
-            <Label htmlFor="lora-direct-download-link" className="text-sm font-medium mb-1.5 block">
+            <Label htmlFor="lora-download-link" className="text-sm font-medium mb-1.5 block">
               Direct Download URL
             </Label>
             <Input
               type="url"
-              id="lora-direct-download-link"
+              id="lora-download-link"
               placeholder="Enter direct download URL"
-              value={details.lora_direct_download_link}
-              onChange={(e) => updateField('lora_direct_download_link', e.target.value)}
+              value={details.download_link}
+              onChange={(e) => updateField('download_link', e.target.value)}
               disabled={isSaving}
             />
           </div>
@@ -532,7 +532,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
         )}
 
         {/* Model Details - Reverted Structure */} 
-        {(asset?.lora_base_model || asset?.lora_type || asset?.lora_link || asset?.lora_direct_download_link) && <hr className="my-2" />} 
+        {(asset?.lora_base_model || asset?.lora_type || asset?.lora_link || asset?.download_link) && <hr className="my-2" />} 
         <div className="grid grid-cols-2 gap-x-4 gap-y-1">
           {asset?.lora_base_model && (
              <div className="space-y-0.5">
@@ -549,22 +549,7 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
                <p className="text-sm font-medium">{asset.lora_type}</p>
              </div>
           )}
-          {asset?.lora_link && (
-            <div className="space-y-0.5">
-              <Label className="text-xs text-muted-foreground">Source Link</Label>
-              <a href={asset.lora_link} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline break-all">
-                {asset.lora_link}
-              </a>
-            </div>
-          )}
-          {asset?.lora_direct_download_link && (
-            <div className="space-y-0.5">
-              <Label className="text-xs text-muted-foreground">Direct Download</Label>
-              <a href={asset.lora_direct_download_link} target="_blank" rel="noopener noreferrer" className="text-sm font-medium text-primary hover:underline break-all">
-                {asset.lora_direct_download_link}
-              </a>
-            </div>
-          )}
+          {/* Removed plain text Source Link and Direct Download renderings */}
         </div>
 
       </div>

@@ -44,6 +44,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Logger } from "@/lib/logger";
+import { Label } from "@/components/ui/label";
 
 const logger = new Logger('AssetInfoCard');
 
@@ -163,7 +164,7 @@ const AssetInfoCard = ({
         
         <CardFooter className="flex flex-col gap-4 border-t pt-4">
           {/* External and Download Link Buttons Container */}
-          {(asset?.lora_link || asset?.lora_direct_download_link) && (
+          {(asset?.lora_link || asset?.download_link) && (
             <div className="flex w-full gap-2">
               {/* External Link Button */}
               {asset?.lora_link && (
@@ -174,27 +175,27 @@ const AssetInfoCard = ({
                   className={cn(
                     buttonVariants({ variant: 'outline' }),
                     "gap-2",
-                    asset?.lora_direct_download_link ? "w-1/2" : "w-full"
+                    asset?.download_link ? "w-1/2" : "w-full"
                   )}
                 >
                   <ExternalLink className="h-4 w-4" />
-                  View External Link
+                  <span className="hidden xl:inline">View External Link</span>
                 </a>
               )}
 
               {/* Copy Download Link Button */}
-              {asset?.lora_direct_download_link && (
+              {asset?.download_link && (
                 <Button
                   variant="outline"
-                  onClick={() => handleCopyLink(asset.lora_direct_download_link!)}
+                  onClick={() => handleCopyLink(asset.download_link!)}
                   className={cn(
                     "gap-2",
                     asset?.lora_link ? "w-1/2" : "w-full"
                   )}
                   disabled={copied}
                 >
-                  <Copy className="h-4 w-4" />
-                  {copied ? "Copied!" : "Copy Download Link"}
+                  {copied ? <Check className="h-4 w-4 text-green-500" /> : <Copy className="h-4 w-4" />}
+                  {copied ? (<span className="hidden xl:inline">Copied!</span>) : (<span className="hidden xl:inline">Copy Download Link</span>)}
                 </Button>
               )}
             </div>
@@ -212,7 +213,7 @@ const AssetInfoCard = ({
                 className={getStatusButtonStyle('Hidden')}
               >
                 <EyeOff className="h-3 w-3 mr-1" /> 
-                <span className="hidden lg:inline">Hide</span>
+                <span className="hidden xl:inline">Hide</span>
               </Button>
               
               {/* List Button */}
@@ -224,7 +225,7 @@ const AssetInfoCard = ({
                 className={getStatusButtonStyle('Listed')}
               >
                 <List className="h-3 w-3 mr-1" />
-                <span className="hidden lg:inline">List</span>
+                <span className="hidden xl:inline">List</span>
               </Button>
               
               {/* Pin Button */}
@@ -236,7 +237,7 @@ const AssetInfoCard = ({
                 className={getStatusButtonStyle('Pinned')}
               >
                 <PinIcon className="h-3 w-3 mr-1" /> 
-                <span className="hidden lg:inline">Pin</span>
+                <span className="hidden xl:inline">Pin</span>
               </Button>
             </div>
           )}
@@ -262,7 +263,7 @@ const AssetInfoCard = ({
                     className="gap-1 h-8 text-xs"
                     disabled={isUpdatingAdminStatus || asset?.admin_status === 'Hidden'}
                   >
-                    <EyeOff className="h-4 w-4" /> Hide
+                    <EyeOff className="h-4 w-4" /><span className="hidden xl:inline">Hide</span>
                   </Button>
                   {/* Listed Button */}
                   <Button
@@ -272,7 +273,7 @@ const AssetInfoCard = ({
                     className="gap-1 h-8 text-xs"
                     disabled={isUpdatingAdminStatus || asset?.admin_status === 'Listed'}
                   >
-                    <List className="h-4 w-4" /> List
+                    <List className="h-4 w-4" /><span className="hidden xl:inline">List</span>
                   </Button>
                   {/* Curated Button */}
                   <Button
@@ -282,7 +283,7 @@ const AssetInfoCard = ({
                     className="gap-1 h-8 text-xs"
                     disabled={isUpdatingAdminStatus || asset?.admin_status === 'Curated'}
                   >
-                    <ListChecks className="h-4 w-4" /> Curate
+                    <ListChecks className="h-4 w-4" /><span className="hidden xl:inline">Curate</span>
                   </Button>
                   {/* Featured Button */}
                   <Button
@@ -292,7 +293,7 @@ const AssetInfoCard = ({
                     className="gap-1 h-8 text-xs"
                     disabled={isUpdatingAdminStatus || asset?.admin_status === 'Featured'}
                   >
-                    <Flame className="h-4 w-4" /> Feature
+                    <Flame className="h-4 w-4" /><span className="hidden xl:inline">Feature</span>
                   </Button>
                 </div>
               </div>

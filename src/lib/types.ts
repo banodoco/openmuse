@@ -97,7 +97,7 @@ export interface LoraAsset {
   lora_base_model?: string | null;
   model_variant?: string | null;
   lora_link?: string | null;
-  lora_direct_download_link?: string | null;
+  download_link?: string | null;
   admin_reviewed: boolean;
   type: 'lora';
   curator_id?: string | null;
