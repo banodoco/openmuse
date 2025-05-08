@@ -44,27 +44,29 @@ const VideoMetadataForm: React.FC<VideoMetadataFormProps> = ({
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-foreground">Video Details</h3>
             
-            <div>
-              <Label htmlFor={`title-${videoId}`} className="text-sm font-medium mb-1.5 block">
-                Title
-              </Label>
-              <Input
-                type="text"
-                id={`title-${videoId}`}
-                placeholder="Optional video title"
-                value={metadata.title}
-                onChange={(e) => updateMetadata(videoId, 'title', e.target.value)}
-                disabled={disabled}
-              />
-            </div>
+            {metadata.classification !== 'gen' && (
+              <div>
+                <Label htmlFor={`title-${videoId}`} className="text-sm font-medium mb-1.5 block">
+                  Title
+                </Label>
+                <Input
+                  type="text"
+                  id={`title-${videoId}`}
+                  placeholder="Optional video title"
+                  value={metadata.title}
+                  onChange={(e) => updateMetadata(videoId, 'title', e.target.value)}
+                  disabled={disabled}
+                />
+              </div>
+            )}
             
             <div>
               <Label htmlFor={`description-${videoId}`} className="text-sm font-medium mb-1.5 block">
-                Description
+                {metadata.classification === 'gen' ? 'Prompt' : 'Description'}
               </Label>
               <Textarea
                 id={`description-${videoId}`}
-                placeholder="Optional video description"
+                placeholder={metadata.classification === 'gen' ? 'Enter prompt used for generation...' : 'Optional video description'}
                 value={metadata.description}
                 onChange={(e) => updateMetadata(videoId, 'description', e.target.value)}
                 disabled={disabled}

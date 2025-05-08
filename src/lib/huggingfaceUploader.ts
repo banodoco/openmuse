@@ -96,7 +96,7 @@ export async function uploadLoraToHuggingFace({
       }
     }
 
-    const readmeContent = generateReadmeContent(loraDetails, uploadedVideoPaths, loraFile.name, repoId);
+    const readmeContent = generateReadmeContent(loraDetails, videos, uploadedVideoPaths, loraFile.name, repoId);
     logger.log(`Uploading README.md to ${repoId}`);
     const readmeBlob = new Blob([readmeContent], { type: 'text/markdown' });
     const readmeFile = new File([readmeBlob], 'README.md', { type: 'text/markdown' });
@@ -123,26 +123,56 @@ export async function uploadLoraToHuggingFace({
 }
 
 function sanitizeRepoName(name: string): string {
-  if (!name || name.trim() === '') return '';
   return name
     .toLowerCase()
-    .replace(/\s+/g, '-')
-    .replace(/[^a-z0-9-._]/g, '')
-    .substring(0, 96) // Max repo name length on HF is often around 96 chars for user/org + repo
-    .replace(/--+/g, '-');
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/[^a-z0-9-._]/g, '') // Remove invalid characters
+    .replace(/--+/g, '-') // Replace multiple hyphens with a single one
+    .replace(/^-+|-+$/g, ''); // Trim hyphens from start/end
 }
 
-function generateReadmeContent(loraDetails: LoRADetails, uploadedVideoPaths: string[], loraFileName: string, repoId: string): string {
-  const loraFilePathInRepo = loraFileName;
+function generateReadmeContent(loraDetails: LoRADetails, videos: VideoItem[], uploadedVideoPaths: string[], loraFileName: string, repoId: string): string {
+  const loraFilePathInRepo = loraFileName; // Assumes loraFile is at the root
   let readme = "";
-  readme += `---\n`;
-  readme += `license: mit\n`;
-  readme += `tags:\n`;
-  readme += `- lora\n`;
-  readme += `- ${loraDetails.model || 'unknown-model'}\n`;
-  readme += `- ${loraDetails.loraType ? loraDetails.loraType.toLowerCase().replace(/\s+/g, '-') : 'unknown-type'}\n`;
-  readme += `library_name: diffusers\n`;
-  readme += `---\n\n`;
+
+  // YAML Frontmatter
+  readme += "---\n";
+  readme += "base_model:\n";
+  // TODO: Make base_model dynamic if necessary, e.g., from loraDetails.model or a mapping
+  readme += "- Lightricks/LTX-Video\n"; // As per user example
+  readme += "tags:\n";
+  readme += "- ltxv\n"; // As per user example
+  readme += "- 13B\n"; // As per user example
+  readme += "- text-to-video\n"; // As per user example
+  readme += "- lora\n";
+  if (loraDetails.model) {
+    readme += `- ${loraDetails.model.toLowerCase().replace(/\s+/g, '-')}\n`;
+  }
+  if (loraDetails.loraType) {
+    readme += `- ${loraDetails.loraType.toLowerCase().replace(/\s+/g, '-')}\n`;
+  }
+  readme += "library_name: diffusers\n"; // Common for LoRAs
+
+  // Widget section for videos
+  if (uploadedVideoPaths && uploadedVideoPaths.length > 0) {
+    readme += "widget:\n";
+    uploadedVideoPaths.forEach(videoPathInRepo => {
+      const videoFileName = videoPathInRepo.split('/').pop();
+      const videoItem = videos.find(v => v.file && v.file.name === videoFileName);
+      if (videoItem && videoItem.metadata.description) {
+        // Ensure description is formatted nicely for YAML multi-line string using >-
+        // Remove existing newlines from description and replace double quotes to avoid breaking YAML
+        const promptText = videoItem.metadata.description.replace(/\n/g, ' ').replace(/\"/g, '\\"');
+        readme += `- text: >-\n`;
+        readme += `    "${promptText}"\n`; // Indentation is important for YAML
+        readme += `  output:\n`;
+        readme += `    url: ${videoPathInRepo}\n`; // Path relative to repo root
+      }
+    });
+  }
+  readme += "---\n\n";
+
+  // Rest of the README content
   readme += `# ${loraDetails.loraName || 'Unnamed LoRA'}\n\n`;
   readme += `This LoRA was uploaded via OpenMuse.ai: [https://openmuse.ai/](https://openmuse.ai/)\n\n`;
   readme += `## Model Details\n\n`;
@@ -159,13 +189,19 @@ function generateReadmeContent(loraDetails: LoRADetails, uploadedVideoPaths: str
     readme += `Originally created by: **${loraDetails.creatorName}**\n\n`;
   }
 
+  // Adjusted Example Media section to avoid redundancy if widget is present,
+  // but still useful to list them with direct links if widget isn't fully comprehensive
+  // or for non-widget UIs.
   if (uploadedVideoPaths && uploadedVideoPaths.length > 0) {
-    readme += `## Example Media\n`;
-    readme += `The following media were generated or provided as examples for this LoRA:\n\n`;
+    readme += `## Example Media Files\n`;
+    readme += `The following media files were uploaded as examples for this LoRA:\n\n`;
     uploadedVideoPaths.forEach((videoPath, index) => {
       const videoFileName = videoPath.split('/').pop() || `Example Video ${index + 1}`;
+      // Link to the file within the repo (Hugging Face UI will handle display)
+      // and a direct download link.
       readme += `* **${videoFileName}**: [View Media](./${videoPath}) or [Download](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(videoPath)})\n`;
     });
+    readme += `\n`;
   }
 
   return readme;
