@@ -32,7 +32,13 @@ class HuggingFaceService {
    */
   async createOrGetRepo(repoName: string, privateRepo = false): Promise<HuggingFaceRepoInfo> {
     // logger.log(`Attempting to create or get repo: ${repoName}`);
-    console.log(`[${serviceContext}] Attempting to create or get repo: ${repoName}, private: ${privateRepo}`);
+    console.log(`[${serviceContext}] Initial attempt to create or get repo: ${repoName}, private: ${privateRepo}`);
+    
+    let finalRepoName = repoName;
+    let repoExists = false;
+    let attempt = 0;
+    const maxAttempts = 5; // Max attempts to find a unique repo name
+
     try {
       console.log(`[${serviceContext}] Calling whoAmI...`);
       const currentUser = await whoAmI({ credentials: this.credentials });
@@ -44,52 +50,73 @@ class HuggingFaceService {
       }
       console.log(`[${serviceContext}] Hugging Face username: ${currentUser.name}`);
       
-      const fullRepoName = `${currentUser.name}/${repoName}`;
-      const repoWebUrl = `https://huggingface.co/${fullRepoName}`;
-      console.log(`[${serviceContext}] Full repo name: ${fullRepoName}, Web URL: ${repoWebUrl}`);
+      let fullRepoName = `${currentUser.name}/${finalRepoName}`;
+      let repoWebUrl = `https://huggingface.co/${fullRepoName}`;
 
-      try {
-        // logger.log(`Checking if repo ${fullRepoName} exists by fetching modelInfo...`);
-        console.log(`[${serviceContext}] Checking if repo ${fullRepoName} exists by fetching modelInfo...`);
-        await modelInfo({ name: fullRepoName, credentials: this.credentials });
-        // logger.log(`Repo ${fullRepoName} already exists.`);
-        console.log(`[${serviceContext}] modelInfo successful. Repo ${fullRepoName} already exists.`);
-        return { repoIdString: fullRepoName, url: repoWebUrl };
-      } catch (error: any) {
-        console.log(`[${serviceContext}] modelInfo caught error:`, error);
-        if (error && (error.httpStatus === 404 || error.httpStatus === 401)) {
-          // logger.log(`Repo ${fullRepoName} does not exist or not accessible (status: ${error.httpStatus || 'unknown'}). Attempting to create...`);
-          console.log(`[${serviceContext}] Repo ${fullRepoName} does not exist or not accessible (status: ${error.httpStatus || 'unknown'}). Will attempt to create...`);
-        } else if (error && error.message && (error.message.includes('404') || error.message.includes('not found'))) {
-          // logger.log(`Repo ${fullRepoName} does not exist (error message check). Attempting to create...`);
-          console.log(`[${serviceContext}] Repo ${fullRepoName} does not exist (error message check). Will attempt to create...`);
-        } else {
-          // logger.error(`Unexpected error while checking repo ${fullRepoName} existence:`, error.message, error);
-          console.error(`[${serviceContext}] Unexpected error while checking repo ${fullRepoName} existence:`, error.message, error);
-          throw error; 
+      while (attempt < maxAttempts) {
+        fullRepoName = `${currentUser.name}/${finalRepoName}${attempt > 0 ? `_${attempt}` : ''}`;
+        repoWebUrl = `https://huggingface.co/${fullRepoName}`;
+        console.log(`[${serviceContext}] Attempt ${attempt + 1}/${maxAttempts}: Checking repo ${fullRepoName}`);
+
+        try {
+          console.log(`[${serviceContext}] Checking if repo ${fullRepoName} exists by fetching modelInfo...`);
+          await modelInfo({ name: fullRepoName, credentials: this.credentials });
+          console.log(`[${serviceContext}] modelInfo successful. Repo ${fullRepoName} already exists.`);
+          repoExists = true;
+          attempt++;
+          if (attempt >= maxAttempts) {
+            throw new Error(`Repo ${repoName} and its variants up to _${attempt-1} already exist. Max attempts reached.`);
+          }
+          console.log(`[${serviceContext}] Repo exists, trying next variant.`);
+          continue; // Try next suffix
+        } catch (error: any) {
+          console.log(`[${serviceContext}] modelInfo caught error for ${fullRepoName}:`, error);
+          if (error && (error.httpStatus === 404 || error.httpStatus === 401)) {
+            console.log(`[${serviceContext}] Repo ${fullRepoName} does not exist or not accessible. Will attempt to create this one.`);
+            repoExists = false;
+            break; // Found an available name
+          } else if (error && error.message && (error.message.includes('404') || error.message.includes('not found'))) {
+            console.log(`[${serviceContext}] Repo ${fullRepoName} does not exist (error message check). Will attempt to create this one.`);
+            repoExists = false;
+            break; // Found an available name
+          } else {
+            console.error(`[${serviceContext}] Unexpected error while checking repo ${fullRepoName} existence:`, error.message, error);
+            throw error; // Rethrow unexpected error
+          }
         }
       }
 
-      // logger.log(`Creating new repo: ${fullRepoName}, private: ${privateRepo}`);
+      if (repoExists && attempt >= maxAttempts) {
+        // This case should be caught by the error thrown inside the loop, but as a safeguard:
+        throw new Error(`Failed to find an available repository name for ${repoName} after ${maxAttempts} attempts.`);
+      }
+      
+      if (repoExists) {
+        // This means the loop finished because an existing repo (without suffix or with the final suffix tried) was found and confirmed by modelInfo
+        // However, the logic above is designed to break from the loop if a 404 is received, so this block might be redundant
+        // if modelInfo confirms existence on the final attempt.
+        // For clarity, if repoExists is true here, it means the *last successfully checked name* (e.g. name_4) was found.
+        console.log(`[${serviceContext}] Using existing confirmed repo: ${fullRepoName}`);
+        return { repoIdString: fullRepoName, url: repoWebUrl };
+      }
+
+      // If we are here, it means modelInfo threw a 404/401 for `fullRepoName`, so we try to create it.
       console.log(`[${serviceContext}] Attempting to create new repo: ${fullRepoName}, private: ${privateRepo}`);
       try {
         const createdRepo = await createRepo({
-          repo: fullRepoName,
+          repo: fullRepoName, // Use the potentially suffixed name
           private: privateRepo,
           credentials: this.credentials,
         });
-        // logger.log(`Repo created successfully. URL from response: ${createdRepo.repoUrl}`);
         console.log(`[${serviceContext}] createRepo successful. Response:`, createdRepo);
         return { repoIdString: fullRepoName, url: createdRepo.repoUrl };
       } catch (creationError: any) {
         console.error(`[${serviceContext}] Error during createRepo call for ${fullRepoName}:`, creationError);
-        throw new Error(`Failed to create Hugging Face repository ${fullRepoName} after initial check: ${creationError.message}`);
+        throw new Error(`Failed to create Hugging Face repository ${fullRepoName}: ${creationError.message}`);
       }
 
     } catch (error: any) {
-      // logger.error(`Error in createOrGetRepo for ${repoName}:`, error.message, error);
       console.error(`[${serviceContext}] Overall error in createOrGetRepo for ${repoName}:`, error.message, error);
-      // Ensure the re-thrown error message is informative
       const finalMessage = error.message || "Unknown error in createOrGetRepo";
       throw new Error(`Failed to create or access Hugging Face repository ${repoName}: ${finalMessage}`);
     }

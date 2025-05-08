@@ -500,13 +500,45 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             // TODO: Next steps will be uploading files to this repoInfo.repoIdString
             // For now, we will stop here to test repo creation and then proceed to database save (skipping old HF upload)
             
-            // TEMPORARILY SETTING finalLoraLink and directDownloadUrlToSave for DB submission test
-            // These will eventually come from client-side uploads to HF.
             finalLoraLink = repoInfo.url; // The general repo URL
-            // directDownloadUrlToSave = ???; // This would be the URL of the LoRA file itself after upload
+
+            if (loraFile) {
+              setCurrentStepMessage(`Uploading LoRA file (${loraFile.name}) to ${repoInfo.repoIdString}...`);
+              console.log(`[HF Upload] Attempting to upload LoRA file: ${loraFile.name} to repo: ${repoInfo.repoIdString}`);
+              try {
+                const loraFileNameInRepo = loraFile.name; // Or a sanitized version
+                const commitUrl = await hfService.uploadRawFile({
+                  repoIdString: repoInfo.repoIdString,
+                  fileContent: loraFile,
+                  pathInRepo: loraFileNameInRepo, // This is used by the service if fileContent is Blob, File.name is used if File
+                  commitTitle: `Upload LoRA file: ${loraFileNameInRepo}`
+                });
+                console.log(`[HF Upload] LoRA file uploaded. Commit URL: ${commitUrl}`);
+                // Construct the direct download URL. Pattern: {repoUrl}/resolve/main/{fileName}
+                // The `commitUrl` from hf.co/api/uploadFile might be just the commit itself, not the direct file URL.
+                // The direct download URL is typically: https://huggingface.co/{repoIdString}/resolve/main/{fileNameInRepo}
+                directDownloadUrlToSave = `${repoInfo.url}/resolve/main/${encodeURIComponent(loraFileNameInRepo)}`;
+                logger.log(`[HF Upload] LoRA file direct download URL set to: ${directDownloadUrlToSave}`);
+                setCurrentStepMessage('LoRA file uploaded to Hugging Face!');
+                toast.success(`LoRA file uploaded to ${repoInfo.url}`);
+              } catch (uploadError: any) {
+                logger.error("[HF Upload] LoRA file upload failed:", uploadError);
+                console.error("[HF Upload] loraFile uploadError object:", uploadError);
+                toast.error(`LoRA file upload failed: ${uploadError.message || 'Unknown error'}`);
+                setCurrentStepMessage(`LoRA file upload failed: ${uploadError.message || 'Unknown error'}.`);
+                setIsSubmitting(false);
+                return; 
+              }
+            } else {
+              // This case should ideally be caught by earlier validation
+              logger.warn("[HF Upload] Lora file is null, cannot upload to Hugging Face.");
+              toast.error("LoRA file was missing, cannot complete Hugging Face upload.");
+              setIsSubmitting(false);
+              return;
+            }
             
-            toast.success(`Test: HF Repo created/accessed: ${repoInfo.url}`);
-            logger.log(`[HF Upload] TEMPORARY END OF HF UPLOAD FLOW. Repo URL: ${repoInfo.url}`);
+            // toast.success(`Test: HF Repo created/accessed: ${repoInfo.url}`); // Original Test Toast
+            // logger.log(`[HF Upload] TEMPORARY END OF HF UPLOAD FLOW. Repo URL: ${repoInfo.url}`); // Original log
 
             // --- Code for Supabase temp storage and old edge function call (TO BE REMOVED/REPLACED) ---
             // The following block will be replaced by direct client-side uploads to HF repoInfo.repoIdString
