@@ -477,7 +477,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           setCurrentStepMessage('Initializing Hugging Face service...');
 
           try {
+            console.log('[HF Upload] About to instantiate HuggingFaceService.');
             const hfService = new HuggingFaceService(loraDetails.huggingFaceApiKey);
+            console.log('[HF Upload] HuggingFaceService instantiated successfully.');
+
             // Sanitize loraName for use as a repo name (simple example, might need more robust slugification)
             const repoName = sanitizeRepoName(loraDetails.loraName) || `lora-model-${uuidv4().substring(0,8)}`;
             if (!repoName) { // Fallback if sanitizeRepoName results in empty string
@@ -486,10 +489,12 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                 return;
             }
             setCurrentStepMessage(`Creating Hugging Face repository: ${repoName}...`);
-            logger.log(`Attempting to create HF repo: ${repoName}`);
+            logger.log(`[HF Upload] Attempting to create HF repo: ${repoName} with key: ${loraDetails.huggingFaceApiKey}`);
 
+            console.log(`[HF Upload] About to call createOrGetRepo for repo: ${repoName}`);
             const repoInfo = await hfService.createOrGetRepo(repoName);
-            logger.log('Hugging Face Repository Info:', repoInfo);
+            console.log('[HF Upload] createOrGetRepo call finished.');
+            logger.log('[HF Upload] Hugging Face Repository Info:', repoInfo);
             setCurrentStepMessage(`Hugging Face repository ready: ${repoInfo.url}`);
 
             // TODO: Next steps will be uploading files to this repoInfo.repoIdString
@@ -501,7 +506,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             // directDownloadUrlToSave = ???; // This would be the URL of the LoRA file itself after upload
             
             toast.success(`Test: HF Repo created/accessed: ${repoInfo.url}`);
-            logger.log(`TEMPORARY END OF HF UPLOAD FLOW. Repo URL: ${repoInfo.url}`);
+            logger.log(`[HF Upload] TEMPORARY END OF HF UPLOAD FLOW. Repo URL: ${repoInfo.url}`);
 
             // --- Code for Supabase temp storage and old edge function call (TO BE REMOVED/REPLACED) ---
             // The following block will be replaced by direct client-side uploads to HF repoInfo.repoIdString
@@ -560,7 +565,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             // --- END OF OLD HF UPLOAD FLOW ---
 
           } catch (hfClientError: any) {
-            logger.error("Client-side Hugging Face operation failed:", hfClientError);
+            logger.error("[HF Upload] Client-side Hugging Face operation failed:", hfClientError);
+            console.error("[HF Upload] hfClientError object:", hfClientError); // Log the full error object
             toast.error(`Hugging Face Error: ${hfClientError.message || 'Unknown error'}`);
             setCurrentStepMessage(`Hugging Face operation failed: ${hfClientError.message || 'Unknown error'}.`);
             setIsSubmitting(false);
