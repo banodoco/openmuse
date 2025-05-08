@@ -1,4 +1,4 @@
-import { createRepo, whoAmI, modelInfo, type RepoId as HubRepoId } from "@huggingface/hub";
+import { createRepo, whoAmI, modelInfo, uploadFile, type RepoId as HubRepoId } from "@huggingface/hub";
 import { Logger } from "@/lib/logger";
 
 const logger = new Logger('HuggingFaceService');
@@ -11,6 +11,7 @@ export interface HuggingFaceRepoInfo {
 class HuggingFaceService {
   private hfToken: string;
   private credentials: { accessToken: string };
+  private textEncoder: TextEncoder; // For converting string to Uint8Array
 
   constructor(hfToken: string) {
     if (!hfToken) {
@@ -18,6 +19,7 @@ class HuggingFaceService {
     }
     this.hfToken = hfToken;
     this.credentials = { accessToken: this.hfToken };
+    this.textEncoder = new TextEncoder();
     logger.log("HuggingFaceService initialized (using direct function imports with credentials object).");
   }
 
@@ -69,8 +71,66 @@ class HuggingFaceService {
       throw new Error(`Failed to create or access Hugging Face repository ${repoName}: ${error.message}`);
     }
   }
-  
-  // TODO: Add methods for file uploads, e.g., uploadFile, createCommit
+
+  /**
+   * Uploads a single file (File or Blob-like content) to the specified repository.
+   * The 'file' parameter for the underlying library call can be Blob | Buffer | Uint8Array.
+   */
+  async uploadRawFile(options: { 
+    repoIdString: string;
+    fileContent: File | Blob; // Keep this for our method's flexibility
+    pathInRepo: string;
+    commitTitle?: string;
+  }): Promise<string> {
+    const { repoIdString, fileContent, pathInRepo, commitTitle } = options;
+    const fileNameForLog = fileContent instanceof File ? fileContent.name : pathInRepo;
+    logger.log(`Uploading file '${fileNameForLog}' to '${repoIdString}/${pathInRepo}'`);
+    try {
+      const fileToUpload = fileContent instanceof File ? fileContent : new File([fileContent], pathInRepo);
+      const commitInfo = await uploadFile({
+        repo: repoIdString, 
+        file: fileToUpload,
+        commitTitle: commitTitle || `Upload ${pathInRepo}`,
+        credentials: this.credentials,
+      });
+      logger.log(`File '${pathInRepo}' uploaded successfully to ${repoIdString}. Commit URL: ${commitInfo.commit.url}`);
+      return commitInfo.commit.url;
+    } catch (error: any) {
+      logger.error(`Error uploading file '${pathInRepo}' to ${repoIdString}:`, error.message, error);
+      throw new Error(`Failed to upload file ${pathInRepo}: ${error.message}`);
+    }
+  }
+
+  /**
+   * Uploads text data (e.g., for README.md) to the specified repository.
+   */
+  async uploadTextAsFile(options: {
+    repoIdString: string;
+    textData: string;
+    pathInRepo: string;
+    commitTitle?: string;
+  }): Promise<string> {
+    const { repoIdString, textData, pathInRepo, commitTitle } = options;
+    logger.log(`Uploading text data to '${repoIdString}/${pathInRepo}'`);
+    const textFile = new File([textData], pathInRepo, { type: 'text/plain' });
+    
+    try {
+      const commitInfo = await uploadFile({
+        repo: repoIdString,
+        file: textFile,
+        commitTitle: commitTitle || `Create/Update ${pathInRepo}`,
+        credentials: this.credentials,
+      });
+      logger.log(`Text data uploaded as '${pathInRepo}' successfully to ${repoIdString}. Commit URL: ${commitInfo.commit.url}`);
+      return commitInfo.commit.url;
+    } catch (error: any) {
+      logger.error(`Error uploading text data as '${pathInRepo}' to ${repoIdString}:`, error.message, error);
+      throw new Error(`Failed to upload text data as ${pathInRepo}: ${error.message}`);
+    }
+  }
+
+  // TODO: Consider a method for batching operations into a single commit if needed and supported cleanly.
+  // For multiple distinct file uploads, separate commits might be acceptable initially.
 }
 
 export default HuggingFaceService; 
