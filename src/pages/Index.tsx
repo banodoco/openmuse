@@ -34,6 +34,7 @@ import VideoLightbox from '@/components/VideoLightbox';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('IndexPage', true, 'SessionPersist');
+const LORA_INDEX_PERF_ID_PREFIX = '[LoraLoadSpeed_IndexPage]';
 
 // === Helper Functions (Copied from UserProfilePage) ===
 
@@ -134,23 +135,28 @@ const Index: React.FC = () => {
   const [currentApprovalFilter, setCurrentApprovalFilter] = useState<'curated' | 'all'>('curated');
 
   // Pass filters to the hook
+  console.time(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_HookInitialization`);
   const { 
     loras, 
     isLoading: lorasLoading, 
     refetchLoras
   } = useLoraManagement({ modelFilter: currentModelFilter, approvalFilter: currentApprovalFilter });
+  console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_HookInitialization`);
   // logger.log(`Index: useLoraManagement() state - lorasLoading: ${lorasLoading}, loras count: ${loras?.length || 0}`);
   
   // Client-side filtering for TEXT only
   const displayLoras = React.useMemo(() => {
+    console.time(`${LORA_INDEX_PERF_ID_PREFIX}_Memo_displayLoras`);
     // logger.log('[Memo displayLoras] Calculating text filter...');
     if (!loras || loras.length === 0) {
       // logger.log('[Memo displayLoras] No LoRAs available (post-backend-filter), returning empty array.');
+      console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_Memo_displayLoras`);
       return [];
     }
     
     if (!filterText) {
       // logger.log('[Memo displayLoras] No text filter applied, returning all loras from hook.');
+      console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_Memo_displayLoras`);
       return loras; // Return all if no text filter
     }
 
@@ -159,10 +165,10 @@ const Index: React.FC = () => {
       lora.name?.toLowerCase().includes(lowerCaseFilter) ||
       lora.description?.toLowerCase().includes(lowerCaseFilter) ||
       lora.creator?.toLowerCase().includes(lowerCaseFilter) ||
-      lora.creatorDisplayName?.toLowerCase().includes(lowerCaseFilter) ||
       lora.lora_base_model?.toLowerCase().includes(lowerCaseFilter)
     );
     // logger.log(`[Memo displayLoras] Applying text filter '${filterText}', count: ${filtered.length}`);
+    console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_Memo_displayLoras`);
     return filtered;
 
   }, [loras, filterText]); // Keep dependency on filterText, even if not updated
@@ -598,10 +604,19 @@ const Index: React.FC = () => {
   const heroRef = useRef<HTMLDivElement>(null);
 
   // Apply fade-in animation when each section scrolls into view
+  console.time(`${LORA_INDEX_PERF_ID_PREFIX}_ComponentSetup`);
   useFadeInOnScroll(loraSectionRef);
   useFadeInOnScroll(artSectionRef);
   useFadeInOnScroll(generationsSectionRef);
   useFadeInOnScroll(heroRef);
+  console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_ComponentSetup`);
+
+  // Add a useEffect to log when loras data is received/updated from the hook
+  React.useEffect(() => {
+    if (loras) {
+      console.log(`${LORA_INDEX_PERF_ID_PREFIX}_useLoraManagement_DataReceived`, { count: loras.length, isLoading: lorasLoading });
+    }
+  }, [loras, lorasLoading]);
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -662,6 +677,7 @@ const Index: React.FC = () => {
 
           {/* LoRA Section */}
           <div ref={loraSectionRef}>
+            {void console.time(`${LORA_INDEX_PERF_ID_PREFIX}_Render_LoraManagerSection`)}
             <LoraManager
               loras={displayLoras}
               isLoading={lorasLoading}
@@ -697,6 +713,7 @@ const Index: React.FC = () => {
                 </Dialog>
               )}
             />
+            {void console.timeEnd(`${LORA_INDEX_PERF_ID_PREFIX}_Render_LoraManagerSection`)}
 
             <div className="mt-6 mb-8 flex justify-start">
               <Link

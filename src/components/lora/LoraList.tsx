@@ -61,7 +61,6 @@ const LoraList: React.FC<LoraListProps> = ({
   useEffect(() => {
     // Reset to page 1 whenever the list of LoRAs changes
     setCurrentPage(1);
-    console.timeEnd(`${LORA_LIST_PERF_ID_PREFIX}_PropsAndStateInitialization`);
   }, [safeLoraList]);
 
   // Cleanup effect for timeout

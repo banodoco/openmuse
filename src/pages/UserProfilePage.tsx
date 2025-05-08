@@ -36,6 +36,7 @@ import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('UserProfilePage');
+const LORA_PROFILE_PERF_ID_PREFIX = '[LoraLoadSpeed_UserProfilePage]';
 
 // Define standard breakpoints
 const defaultBreakpointColumnsObj = {
@@ -165,6 +166,8 @@ export default function UserProfilePage() {
 
   // Add a ref to track mounted state for cleanup
   const unmountedRef = useRef(false);
+  // console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_ComponentSetup`); // We will rely on "Timer already exists" to indicate re-renders for now.
+
   useEffect(() => {
     unmountedRef.current = false;
     return () => {
@@ -184,11 +187,13 @@ export default function UserProfilePage() {
   // Insert missing hook definitions
   const fetchUserAssets = useCallback(async (profileUserId: string, canViewerSeeHiddenAssets: boolean, page: number) => {
     logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
+    console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_Total`);
     setIsLoadingAssets(true);
     const pageSize = 16; // Use a fixed page size
     const rangeFrom = (page - 1) * pageSize;
     const rangeTo = rangeFrom + pageSize - 1;
     try {
+      console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_SupabaseQuery`);
       const { data: assetsData, error: assetsError, count } = await supabase
         .from('assets')
         .select(`*, primaryVideo:primary_media_id(*)`, { count: 'exact' })
@@ -196,7 +201,9 @@ export default function UserProfilePage() {
         .order('created_at', { ascending: false })
         .range(rangeFrom, rangeTo);
       if (assetsError) throw assetsError;
+      console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_SupabaseQuery`);
       if (assetsData) {
+        console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_DataProcessing`);
         const processedAssets: LoraAsset[] = assetsData.map((asset: any) => {
           const pVideo = asset.primaryVideo;
           const userStatus = asset.user_status as UserAssetPreferenceStatus | null;
@@ -210,6 +217,7 @@ export default function UserProfilePage() {
             user_id: asset.user_id,
             primary_media_id: asset.primary_media_id,
             admin_status: asset.admin_status,
+            admin_reviewed: asset.admin_reviewed ?? false,
             user_status: userStatus,
             lora_type: asset.lora_type,
             lora_base_model: asset.lora_base_model,
@@ -243,7 +251,10 @@ export default function UserProfilePage() {
         const visibleAssets = canViewerSeeHiddenAssets
           ? processedAssets
           : processedAssets.filter(asset => asset.user_status !== 'Hidden');
+        console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_SortUserAssets`);
         const sortedPageAssets = sortUserAssets(visibleAssets);
+        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_SortUserAssets`);
+        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_DataProcessing`);
         setUserAssets(sortedPageAssets);
         setTotalAssets(count ?? 0);
       } else {
@@ -258,6 +269,7 @@ export default function UserProfilePage() {
     } finally {
       setIsLoadingAssets(false);
     }
+    console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_Total`);
   }, []);
 
   const fetchUserVideos = useCallback(async (
@@ -376,8 +388,10 @@ export default function UserProfilePage() {
   // --- Main Data Fetching Effect ---
   useEffect(() => {
     logger.log("Main data fetching effect triggered", { username, isAuthLoading, userId: user?.id, isAdmin, loggedOutViewParam });
+    console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`);
     if (isAuthLoading) {
       logger.log("Auth is loading, deferring profile fetch...");
+      console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early if auth loading
       return; // Don't proceed until auth is resolved
     }
     // Define isMounted flag here, in the useEffect scope
@@ -394,6 +408,7 @@ export default function UserProfilePage() {
         setProfile(null);
         setUserAssets([]);
         setUserVideos([]);
+        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early if no username
         return;
       }
       
@@ -415,6 +430,7 @@ export default function UserProfilePage() {
           logger.error('[fetchProfileAndInitialData] Step 1 Failed - Error fetching profile:', username, profileError);
           toast.error(`Error loading profile for ${username}.`);
           setIsLoadingProfile(false); setIsLoadingAssets(false); setIsLoadingVideos(false);
+          console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early on error
           return;
         }
         if (!profileData) {
@@ -422,6 +438,7 @@ export default function UserProfilePage() {
           toast.error(`Profile not found for ${username}`);
           setIsLoadingProfile(false); setIsLoadingAssets(false); setIsLoadingVideos(false);
           setProfile(null); 
+          console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early if not found
           return;
         }
 
@@ -443,6 +460,7 @@ export default function UserProfilePage() {
 
         // Step 2: Fetch assets associated with the profile ID
         logger.log('[fetchProfileAndInitialData] Step 2: Fetching assets for profile ID:', fetchedProfileUserId);
+        console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsFetch`);
         const { data: assetsData, error: assetsError } = await supabase
           .from('assets')
           .select('*, primaryVideo:primary_media_id(*)')
@@ -453,6 +471,7 @@ export default function UserProfilePage() {
             logger.error('[fetchProfileAndInitialData] Step 2 Failed - Error fetching assets:', assetsError);
             toast.error('Failed to load associated LoRAs.');
         } else {
+            console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsProcessing`);
             processedAssets = (assetsData || []).map((asset) => { 
               const pVideo = asset.primaryVideo;
               return {
@@ -465,6 +484,7 @@ export default function UserProfilePage() {
                 user_id: asset.user_id,
                 primary_media_id: asset.primary_media_id,
                 admin_status: asset.admin_status,
+                admin_reviewed: asset.admin_reviewed ?? false,
                 user_status: asset.user_status,
                 lora_type: asset.lora_type,
                 lora_base_model: asset.lora_base_model,
@@ -491,12 +511,15 @@ export default function UserProfilePage() {
               };
             });
             logger.log('[fetchProfileAndInitialData] Step 2 Success - Assets raw data processed.');
+            console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsProcessing`);
         }
         
         const visibleAssets = viewerCanSeeHidden
             ? processedAssets
             : processedAssets.filter(asset => asset.user_status !== 'Hidden');
+        console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsSort`);
         const sortedPageAssets = sortUserAssets(visibleAssets);
+        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsSort`);
         
         if (!unmountedRef.current) {
           setUserAssets(sortedPageAssets);
@@ -504,6 +527,7 @@ export default function UserProfilePage() {
           setIsLoadingAssets(false);
           logger.log('[fetchProfileAndInitialData] Step 2 State Updated - Assets filtered and sorted.');
         }
+        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsFetch`);
 
         // Step 3: Fetch media (videos) associated with the profile ID
         logger.log('[fetchProfileAndInitialData] Step 3: Fetching media for profile ID:', fetchedProfileUserId);
@@ -603,23 +627,37 @@ export default function UserProfilePage() {
       setProfile(null);
     }
 
-  // NOTE: Removed searchParamsWithoutVideo and initialVideoParamHandled dependencies
-  // to prevent refetching when lightbox opens/closes via ?video param.
+    console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`);
   }, [username, user?.id, isAdmin, isAuthLoading, loggedOutViewParam, navigate]);
 
   // --- Derived State with useMemo ---
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
   const artVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'art'), [userVideos]);
-  const loraPageSize = useMemo(() => calculatePageSize(userAssets.length), [userAssets.length]);
+  const loraPageSize = useMemo(() => {
+    console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_Memo_loraPageSize`);
+    const result = calculatePageSize(userAssets.length);
+    console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_Memo_loraPageSize`);
+    return result;
+  }, [userAssets.length]);
   const generationPageSize = useMemo(() => {
     const calc = calculatePageSize(generationVideos.length);
     return Math.min(calc, 12);
   }, [generationVideos.length]);
   const artPageSize = useMemo(() => calculatePageSize(artVideos.length), [artVideos.length]);
-  const totalLoraPages = useMemo(() => getTotalPages(userAssets.length, loraPageSize), [userAssets.length, loraPageSize]);
+  const totalLoraPages = useMemo(() => {
+    console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_Memo_totalLoraPages`);
+    const result = getTotalPages(userAssets.length, loraPageSize);
+    console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_Memo_totalLoraPages`);
+    return result;
+  }, [userAssets.length, loraPageSize]);
   const totalGenerationPages = useMemo(() => getTotalPages(generationVideos.length, generationPageSize), [generationVideos.length, generationPageSize]);
   const totalArtPages = useMemo(() => getTotalPages(artVideos.length, artPageSize), [artVideos.length, artPageSize]);
-  const loraItemsForPage = useMemo(() => getPaginatedItems(userAssets, loraPage, loraPageSize), [userAssets, loraPage, loraPageSize]);
+  const loraItemsForPage = useMemo(() => {
+    console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_Memo_loraItemsForPage`);
+    const result = getPaginatedItems(userAssets, loraPage, loraPageSize);
+    console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_Memo_loraItemsForPage`);
+    return result;
+  }, [userAssets, loraPage, loraPageSize]);
   const generationItemsForPage = useMemo(() => getPaginatedItems(generationVideos, generationPage, generationPageSize), [generationVideos, generationPage, generationPageSize]);
   const artItemsForPage = useMemo(() => getPaginatedItems(artVideos, artPage, artPageSize), [artVideos, artPage, artPageSize]);
 
@@ -1042,6 +1080,7 @@ export default function UserProfilePage() {
                 <CardContent ref={lorasGridRef} className="p-4 md:p-6 pt-6">
                   {isLoadingAssets ? ( <LoraGallerySkeleton count={isMobile ? 2 : 6} /> ) : 
                    userAssets.length > 0 ? ( <> 
+                      {void console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_Render_LoraManagerSection`)}
                       <LoraManager
                         loras={loraItemsForPage} 
                         isLoading={isLoadingAssets} // Reflect LoRA loading state
@@ -1056,6 +1095,7 @@ export default function UserProfilePage() {
                         // Omit hideCreatorInfo (handled by LoraManager or default)
                         // Omit visibility/autoplay props for now
                       />
+                      {void console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_Render_LoraManagerSection`)}
                       {totalLoraPages > 1 && renderPaginationControls(loraPage, totalLoraPages, handleLoraPageChange)} </> 
                   ) : ( <div className="text-center text-muted-foreground py-8 bg-muted/20 rounded-lg"> This user hasn't created any LoRAs yet. </div> )} 
                 </CardContent>
@@ -1194,3 +1234,5 @@ export default function UserProfilePage() {
     </div>
   );
 }
+
+console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_ComponentSetup`); // End after all initial setup, including initial useEffect runs
