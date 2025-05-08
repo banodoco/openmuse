@@ -416,6 +416,8 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 <Input
                   type="password"
                   id="huggingface-api-key"
+                  name="huggingface-api-key"
+                  autoComplete="on"
                   placeholder="Enter your HuggingFace API Key (write access)"
                   value={loraDetails.huggingFaceApiKey || ''}
                   onChange={(e) => updateLoRADetails('huggingFaceApiKey', e.target.value)}

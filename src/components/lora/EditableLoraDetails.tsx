@@ -126,7 +126,6 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
           initialModel = availableModels[0].internal_identifier;
           initialVariant = availableModels[0].default_variant || (availableModels[0].variants.length > 0 ? availableModels[0].variants[0] : '');
         }
-        // If availableModels is empty, initialModel/Variant remain as from asset or empty
       }
       // Only update if truly changed to avoid loops if asset prop itself is stable
       setDetails(prev => ({
@@ -142,6 +141,20 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
       }));
     }
   }, [asset, availableModels, isLoadingModels, user]);
+
+  // Effect to synchronize model variant when model changes in edit mode
+  useEffect(() => {
+    if (!isLoadingModels && availableModels.length > 0 && details.lora_base_model) {
+      const selectedModelData = availableModels.find(m => m.internal_identifier === details.lora_base_model);
+      if (selectedModelData) {
+        // Check if the current variant is valid for the selected model
+        if (!selectedModelData.variants.includes(details.model_variant)) {
+          const newVariant = selectedModelData.default_variant || (selectedModelData.variants.length > 0 ? selectedModelData.variants[0] : '');
+          updateField('model_variant', newVariant);
+        }
+      }
+    }
+  }, [details.lora_base_model, availableModels, isLoadingModels]);
 
   const handleEdit = () => {
     setDetails({
@@ -296,8 +309,10 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
               value={details.lora_base_model} 
               onValueChange={(value) => {
                 updateField('lora_base_model', value);
+                // When model changes, find its variants and set the default/first
                 const selectedModelData = availableModels.find(m => m.internal_identifier === value);
                 if (selectedModelData) {
+                  // Always update the variant when model changes to ensure it's valid
                   const newVariant = selectedModelData.default_variant || (selectedModelData.variants.length > 0 ? selectedModelData.variants[0] : '');
                   updateField('model_variant', newVariant);
                 } else {
