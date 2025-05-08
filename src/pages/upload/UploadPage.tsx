@@ -167,9 +167,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       loraDetails, 
       videos 
     });
-    console.log('[handleSubmit] <<< Checkpoint 1: Immediately after State before main logic log >>>');
+    console.log('CHECKPOINT 1');
 
     if (uploadMode === 'media') {
+      console.log('CHECKPOINT 2 - MEDIA MODE');
       // MEDIA ONLY FLOW --------------------------------------------------
       const reviewerName = user?.email || 'Anonymous';
       try {
@@ -291,62 +292,11 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       return;
     }
     
-    if (!loraDetails.loraName) {
-      toast.error('Please provide a LoRA name');
-      return;
-    }
-    
-    if (loraDetails.creator === 'someone_else' && !loraDetails.creatorName) {
-      toast.error('Please provide the creator name for the LoRA');
-      return;
-    }
-    
-    // New validation logic for LoRA link / HuggingFace Upload
-    if (uploadMode === 'lora') { // Only validate these if we are in LoRA upload mode
-      if (loraDetails.loraStorageMethod === 'link') {
-        const hasLoraLink = loraDetails.loraLink && loraDetails.loraLink.trim() !== '';
-        const hasDirectDownloadLink = loraDetails.loraDirectDownloadLink && loraDetails.loraDirectDownloadLink.trim() !== '';
-
-        if (!hasLoraLink && !hasDirectDownloadLink) {
-          toast.error('Please provide either the LoRA Link or the Direct Download Link (or both).');
-          setIsSubmitting(false);
-          return;
-        }
-        if (hasLoraLink) {
-          try {
-            new URL(loraDetails.loraLink);
-          } catch (_) {
-            toast.error('Please enter a valid URL for the LoRA Link.');
-            setIsSubmitting(false);
-            return;
-          }
-        }
-        if (hasDirectDownloadLink) {
-          try {
-            new URL(loraDetails.loraDirectDownloadLink);
-          } catch (_) {
-            toast.error('Please enter a valid URL for the Direct Download Link.');
-            setIsSubmitting(false);
-            return;
-          }
-        }
-      } else if (loraDetails.loraStorageMethod === 'upload') {
-        if (!loraDetails.huggingFaceApiKey || loraDetails.huggingFaceApiKey.trim() === '') {
-          toast.error('Please provide your HuggingFace API Key');
-          return;
-        }
-        if (!loraFile) {
-          toast.error('Please select a LoRA file to upload');
-          return;
-        }
-        // Potentially add more validation for loraFile (type, size) if needed
-      }
-    }
-
-    console.log('[handleSubmit] <<< Checkpoint 2: Before JSON.stringify(videos) >>>');
+    console.log('CHECKPOINT 3 - LORA MODE');
     // Log the entire videos array content for detailed inspection - using safeStringify
+    console.log('CHECKPOINT 4 - BEFORE VIDEOS LOG');
     console.log('[handleSubmit] Videos array before primary check:', safeStringify(videos));
-    console.log('[handleSubmit] <<< Checkpoint 3: After JSON.stringify(videos) >>>');
+    console.log('CHECKPOINT 5 - AFTER VIDEOS LOG');
 
     // const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
     // Robust check for primary video
@@ -558,28 +508,28 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       // For HF uploads from temp storage, video processing into videoMetadataForHfUpload is already done.
       // This original loop will now only run if loraDetails.loraStorageMethod === 'link'
       if (loraDetails.loraStorageMethod === 'link') {
-        for (let i = 0; i < videos.length; i++) {
-          const video = videos[i];
-          if (video.file) {
-            const videoName = video.file.name || `example media ${i + 1}`;
-            setCurrentStepMessage(`Uploading ${videoName}...`);
-            const videoId = uuidv4();
-            
-            const uploadResult = await supabaseStorage.uploadVideo({
-              id: videoId,
-              blob: video.file,
-              metadata: {
-                ...video.metadata,
-                model: loraDetails.model, 
-                modelVariant: loraDetails.modelVariant 
-              }
-            });
-            
-            video.url = uploadResult.url;
-            video.id = videoId;
-            video.file = null; 
-            setCurrentStepMessage(`${videoName} uploaded. Continuing...`);
-          }
+      for (let i = 0; i < videos.length; i++) {
+        const video = videos[i];
+        if (video.file) {
+          const videoName = video.file.name || `example media ${i + 1}`;
+          setCurrentStepMessage(`Uploading ${videoName}...`);
+          const videoId = uuidv4();
+          
+          const uploadResult = await supabaseStorage.uploadVideo({
+            id: videoId,
+            blob: video.file,
+            metadata: {
+              ...video.metadata,
+              model: loraDetails.model, 
+              modelVariant: loraDetails.modelVariant 
+            }
+          });
+          
+          video.url = uploadResult.url;
+          video.id = videoId;
+          video.file = null; 
+          setCurrentStepMessage(`${videoName} uploaded. Continuing...`);
+        }
         }
       } else { // loraStorageMethod === 'upload' (to Hugging Face)
         // For HF uploads, the videos array might now contain `storagePath` if we choose to update it,
