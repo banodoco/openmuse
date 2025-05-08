@@ -328,8 +328,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       }
     }
 
+    console.log('[handleSubmit] <<< Checkpoint 2: Before JSON.stringify(videos) >>>');
     // Log the entire videos array content for detailed inspection
     console.log('[handleSubmit] Videos array before primary check:', JSON.stringify(videos, null, 2));
+    console.log('[handleSubmit] <<< Checkpoint 3: After JSON.stringify(videos) >>>');
 
     // const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
     // Robust check for primary video
