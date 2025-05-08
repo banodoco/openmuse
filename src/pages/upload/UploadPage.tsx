@@ -293,8 +293,61 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     }
     
     console.log('CHECKPOINT 3 - LORA MODE');
-    // Log the entire videos array content for detailed inspection - using safeStringify
+    
+    if (!loraDetails.loraName) {
+      toast.error('Please provide a LoRA name');
+      return;
+    }
+    
+    if (loraDetails.creator === 'someone_else' && !loraDetails.creatorName) {
+      toast.error('Please provide the creator name for the LoRA');
+      return;
+    }
+    
+    // New validation logic for LoRA link / HuggingFace Upload
+    if (uploadMode === 'lora') { // Only validate these if we are in LoRA upload mode
+      if (loraDetails.loraStorageMethod === 'link') {
+        const hasLoraLink = loraDetails.loraLink && loraDetails.loraLink.trim() !== '';
+        const hasDirectDownloadLink = loraDetails.loraDirectDownloadLink && loraDetails.loraDirectDownloadLink.trim() !== '';
+
+        if (!hasLoraLink && !hasDirectDownloadLink) {
+          toast.error('Please provide either the LoRA Link or the Direct Download Link (or both).');
+          setIsSubmitting(false);
+          return;
+        }
+        if (hasLoraLink) {
+          try {
+            new URL(loraDetails.loraLink);
+          } catch (_) {
+            toast.error('Please enter a valid URL for the LoRA Link.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+        if (hasDirectDownloadLink) {
+          try {
+            new URL(loraDetails.loraDirectDownloadLink);
+          } catch (_) {
+            toast.error('Please enter a valid URL for the Direct Download Link.');
+            setIsSubmitting(false);
+            return;
+          }
+        }
+      } else if (loraDetails.loraStorageMethod === 'upload') {
+        if (!loraDetails.huggingFaceApiKey || loraDetails.huggingFaceApiKey.trim() === '') {
+          toast.error('Please provide your HuggingFace API Key');
+          return;
+        }
+        if (!loraFile) {
+          toast.error('Please select a LoRA file to upload');
+          return;
+        }
+        // Potentially add more validation for loraFile (type, size) if needed
+      }
+    }
+
     console.log('CHECKPOINT 4 - BEFORE VIDEOS LOG');
+    // Log the entire videos array content for detailed inspection - using safeStringify
     console.log('[handleSubmit] Videos array before primary check:', safeStringify(videos));
     console.log('CHECKPOINT 5 - AFTER VIDEOS LOG');
 
