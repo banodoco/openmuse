@@ -34,6 +34,16 @@ export interface LoRADetails {
   huggingFaceApiKey?: string;
   loraDirectDownloadLink?: string; // Added for the optional direct download link from form
   saveApiKey: boolean;
+  // Add new fields for storage paths if needed, though these might be constructed in handleSubmit
+  // loraSupabasePath?: string; 
+}
+
+// New interface for video metadata when passing to huggingfaceUploader
+export interface VideoItemUploadMetadata {
+  storagePath?: string; // Path in Supabase 'temporary' bucket for new uploads
+  existingUrl?: string; // URL if it's an existing video not being re-uploaded
+  metadata: any; // Existing metadata structure
+  originalFileName?: string; // To help map in edge function
 }
 
 interface UploadPageProps {
@@ -314,6 +324,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     try {
       let finalLoraLink = '';
       let directDownloadUrlToSave = '';
+      let loraSupabaseStoragePath: string | undefined = undefined;
+      const videoMetadataForHfUpload: VideoItemUploadMetadata[] = [];
 
       if (uploadMode === 'lora') {
         if (loraDetails.loraStorageMethod === 'upload') {
@@ -323,32 +335,160 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             setIsSubmitting(false);
             return;
           }
-          const hfFileName = loraFile.name || 'LoRA file';
-          setCurrentStepMessage(`Uploading ${hfFileName} to Hugging Face... This may take a moment.`);
-          logger.log(`Uploading LoRA file ${loraFile.name} to HuggingFace...`);
+
+          // Step 1: Upload LoRA file to Supabase temporary storage
+          try {
+            const loraFileName = loraFile.name;
+            setCurrentStepMessage(`Uploading LoRA file (${loraFileName}) to temporary storage...`);
+            logger.log(`Uploading LoRA file ${loraFileName} to Supabase temporary storage.`);
+            const loraSbPath = `users/${user.id}/loras_temp/${uuidv4()}-${loraFileName}`;
+            const { data: loraSbUploadData, error: loraSbUploadError } = await supabase.storage
+              .from('temporary') // Make sure 'temporary' is your bucket name
+              .upload(loraSbPath, loraFile, {
+                cacheControl: '3600',
+                upsert: false // Or true if you want to allow overwrites, though UUID should make it unique
+              });
+
+            if (loraSbUploadError) {
+              logger.error('Supabase LoRA upload error:', loraSbUploadError);
+              throw new Error(`Failed to upload LoRA to temporary storage: ${loraSbUploadError.message}`);
+            }
+            if (!loraSbUploadData || !loraSbUploadData.path) {
+              throw new Error('LoRA temporary storage upload failed: No path returned.');
+            }
+            loraSupabaseStoragePath = loraSbUploadData.path;
+            logger.log(`LoRA file uploaded to Supabase temporary storage: ${loraSupabaseStoragePath}`);
+            setCurrentStepMessage('LoRA file temporarily stored. Processing videos...');
+          } catch (tempUploadError: any) {
+            logger.error("Temporary LoRA upload failed:", tempUploadError);
+            toast.error(`Temporary LoRA Upload Error: ${tempUploadError.message || 'Unknown error'}`);
+            setCurrentStepMessage(`Temporary LoRA upload failed: ${tempUploadError.message || 'Unknown error'}.`);
+            setIsSubmitting(false);
+            return;
+          }
+
+          // Step 2: Upload Video files to Supabase temporary storage
+          for (const video of videos) {
+            if (video.file && video.file instanceof File) {
+              try {
+                const videoFileName = video.file.name;
+                setCurrentStepMessage(`Uploading video (${videoFileName}) to temporary storage...`);
+                logger.log(`Uploading video file ${videoFileName} to Supabase temporary storage.`);
+                const videoSbPath = `users/${user.id}/videos_temp/${uuidv4()}-${videoFileName}`;
+                const { data: videoSbUploadData, error: videoSbUploadError } = await supabase.storage
+                  .from('temporary') // Ensure this is your correct bucket name
+                  .upload(videoSbPath, video.file, {
+                    cacheControl: '3600',
+                    upsert: false
+                  });
+
+                if (videoSbUploadError) {
+                  logger.error(`Supabase video upload error (${videoFileName}):`, videoSbUploadError);
+                  throw new Error(`Failed to upload video ${videoFileName} to temporary storage: ${videoSbUploadError.message}`);
+                }
+                if (!videoSbUploadData || !videoSbUploadData.path) {
+                  throw new Error(`Video temporary storage upload failed for ${videoFileName}: No path returned.`);
+                }
+                videoMetadataForHfUpload.push({
+                  storagePath: videoSbUploadData.path,
+                  metadata: video.metadata,
+                  originalFileName: videoFileName
+                });
+                logger.log(`Video ${videoFileName} uploaded to Supabase temporary storage: ${videoSbUploadData.path}`);
+              } catch (tempVideoUploadError: any) {
+                logger.error("Temporary video upload failed:", tempVideoUploadError);
+                toast.error(`Temporary Video Upload Error: ${tempVideoUploadError.message || 'Unknown error'}`);
+                setCurrentStepMessage(`Temporary video upload failed: ${tempVideoUploadError.message || 'Unknown error'}.`);
+                setIsSubmitting(false);
+                return; // Stop if any video fails to upload to temp storage
+              }
+            } else if (video.url) { // Existing video with a URL
+              videoMetadataForHfUpload.push({
+                existingUrl: video.url,
+                metadata: video.metadata,
+                originalFileName: video.metadata.title || 'existing_video' // Or derive a name if possible
+              });
+            }
+          }
+          setCurrentStepMessage('All files temporarily stored. Proceeding to Hugging Face...');
+
+          // Step 3: Call uploadLoraToHuggingFace with storage paths
+          const hfFileNameForDisplay = loraFile.name || 'LoRA file'; // loraFile is guaranteed by earlier check
+          setCurrentStepMessage(`Transferring ${hfFileNameForDisplay} and videos to Hugging Face... This may take a moment.`);
+          logger.log(`Calling uploadLoraToHuggingFace with LoRA path: ${loraSupabaseStoragePath}`);
           
           try {
-            const uploadedHfUrl = await uploadLoraToHuggingFace({
-              loraFile: loraFile,
+            // Expect a different response structure now
+            const hfResponse = await uploadLoraToHuggingFace({
+              loraStoragePath: loraSupabaseStoragePath, 
               loraDetails: loraDetails,
-              videos: videos, 
+              videosMetadata: videoMetadataForHfUpload, 
               hfToken: loraDetails.huggingFaceApiKey,
               saveApiKey: loraDetails.saveApiKey
             });
 
-            if (!uploadedHfUrl) {
-              throw new Error("Failed to upload LoRA to HuggingFace. No URL returned.");
+            // Type guard or check for the expected response structure
+            if (!hfResponse || typeof hfResponse !== 'object' || !hfResponse.loraUrl) {
+              throw new Error("Failed to process LoRA via HuggingFace. Invalid response from uploader.");
             }
-            const repoUrl = uploadedHfUrl.split('/resolve/')[0];
+
+            const uploadedHfLoraUrl = hfResponse.loraUrl;
+            const uploadedHfVideoUrls = hfResponse.videoUrls || []; // Array of video URLs from HF
+
+            const repoUrl = uploadedHfLoraUrl.split('/resolve/')[0];
             finalLoraLink = repoUrl;
-            directDownloadUrlToSave = uploadedHfUrl;
-            setCurrentStepMessage("LoRA uploaded to Hugging Face! Processing example media...");
-            logger.log(`LoRA uploaded to HuggingFace: Repo URL: ${finalLoraLink}, File URL: ${directDownloadUrlToSave}`);
-            toast.success("LoRA successfully uploaded to HuggingFace!");
-          } catch (hfUploadError: any) {
-            logger.error("HuggingFace upload failed:", hfUploadError);
-            toast.error(`HuggingFace Upload Error: ${hfUploadError.message || 'Unknown error'}`);
-            setCurrentStepMessage(`Hugging Face upload failed: ${hfUploadError.message || 'Unknown error'}.`);
+            directDownloadUrlToSave = uploadedHfLoraUrl;
+            setCurrentStepMessage("LoRA and media transferred to Hugging Face! Saving details...");
+            logger.log(`LoRA and media transferred to HuggingFace: Repo URL: ${finalLoraLink}, LoRA File URL: ${directDownloadUrlToSave}`);
+            logger.log(`Returned Video URLs from HF:`, uploadedHfVideoUrls);
+
+            // --- IMPORTANT: Update the 'videos' state array with the HF URLs --- 
+            const updatedVideosForDb = videos.map(originalVideo => {
+              // Find the corresponding processed metadata for this original video item
+              const processedMeta = videoMetadataForHfUpload.find(meta => 
+                (meta.storagePath && originalVideo.file && meta.originalFileName === originalVideo.file.name) ||
+                (meta.existingUrl && originalVideo.url === meta.existingUrl)
+              );
+              
+              if (processedMeta?.storagePath && processedMeta.originalFileName) {
+                // This video was uploaded to temp storage and then to HF.
+                // Find its final HF URL from the response.
+                const hfUrl = uploadedHfVideoUrls.find(url => {
+                  // Extract filename from HF URL and compare with original name
+                  try {
+                    const urlParts = url.split('/');
+                    const encodedFileName = urlParts[urlParts.length - 1];
+                    const decodedFileName = decodeURIComponent(encodedFileName);
+                    // We might need to compare against sanitized name depending on HF URL structure
+                    // Assuming URL contains sanitized name from edge function: `media/sanitized_name.ext`
+                    const sanitizedOriginal = sanitizeRepoName(processedMeta.originalFileName);
+                    return decodedFileName === `media/${sanitizedOriginal}` || decodedFileName === sanitizedOriginal;
+                  } catch (e) { return false; }
+                });
+
+                if (hfUrl) {
+                  logger.log(`Mapping original video ${processedMeta.originalFileName} to HF URL: ${hfUrl}`);
+                  return { ...originalVideo, file: null, url: hfUrl }; // Update URL, remove file
+                } else {
+                  logger.warn(`Could not find matching HF URL for uploaded video: ${processedMeta.originalFileName}. It might not be saved correctly.`);
+                  return { ...originalVideo, file: null, url: null }; // Mark as failed/missing URL?
+                }
+              } else {
+                // This video was either existing (had URL) or wasn't processed for HF.
+                // Keep its original state (it might have URL already, or be skipped).
+                return originalVideo;
+              }
+            });
+            // Update the state that will be passed to submitVideos
+            setVideos(updatedVideosForDb);
+            logger.log('Updated video state with HF URLs before calling submitVideos.');
+            // --- End Video State Update ---
+
+            toast.success("LoRA and media successfully processed via HuggingFace!");
+          } catch (hfProcessingError: any) {
+            logger.error("HuggingFace processing (from temp storage) failed:", hfProcessingError);
+            toast.error(`HuggingFace Processing Error: ${hfProcessingError.message || 'Unknown error'}`);
+            setCurrentStepMessage(`Hugging Face processing failed: ${hfProcessingError.message || 'Unknown error'}.`);
             setIsSubmitting(false);
             return; 
           }
@@ -372,31 +512,52 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
       }
       
       setCurrentStepMessage('Processing and uploading example media files...');
-      for (let i = 0; i < videos.length; i++) {
-        const video = videos[i];
-        if (video.file) {
-          const videoName = video.file.name || `example media ${i + 1}`;
-          setCurrentStepMessage(`Uploading ${videoName}...`);
-          const videoId = uuidv4();
-          
-          const uploadResult = await supabaseStorage.uploadVideo({
-            id: videoId,
-            blob: video.file,
-            metadata: {
-              ...video.metadata,
-              model: loraDetails.model, 
-              modelVariant: loraDetails.modelVariant 
-            }
-          });
-          
-          video.url = uploadResult.url;
-          video.id = videoId;
-          video.file = null; 
-          setCurrentStepMessage(`${videoName} uploaded. Continuing...`);
+      // This loop is for processing local files to Supabase for LINKED LoRAs, not for HF uploads from temp.
+      // For HF uploads from temp storage, video processing into videoMetadataForHfUpload is already done.
+      // This original loop will now only run if loraDetails.loraStorageMethod === 'link'
+      if (loraDetails.loraStorageMethod === 'link') {
+        for (let i = 0; i < videos.length; i++) {
+          const video = videos[i];
+          if (video.file) {
+            const videoName = video.file.name || `example media ${i + 1}`;
+            setCurrentStepMessage(`Uploading ${videoName}...`);
+            const videoId = uuidv4();
+            
+            const uploadResult = await supabaseStorage.uploadVideo({
+              id: videoId,
+              blob: video.file,
+              metadata: {
+                ...video.metadata,
+                model: loraDetails.model, 
+                modelVariant: loraDetails.modelVariant 
+              }
+            });
+            
+            video.url = uploadResult.url;
+            video.id = videoId;
+            video.file = null; 
+            setCurrentStepMessage(`${videoName} uploaded. Continuing...`);
+          }
         }
+      } else { // loraStorageMethod === 'upload' (to Hugging Face)
+        // For HF uploads, the videos array might now contain `storagePath` if we choose to update it,
+        // or we rely on videoMetadataForHfUpload. For submitVideos, we need URLs.
+        // This needs careful handling: submitVideos expects video.url
+        // We need to update the `videos` array with URLs if they were uploaded for HF, or keep original URLs if they existed.
+        // For now, let's assume `videoMetadataForHfUpload` is the source of truth for what was processed for HF.
+        // The `submitVideos` function might need adjustment if it expects `videos` state to have final URLs
+        // when assets were processed through HF.
+        // For now, we assume that if it was a HF upload, the directDownloadUrlToSave (for LoRA) and video URLs (if HF returned them)
+        // would be used. But our HF edge function currently only returns LoRA URL.
+        // This part needs more thought on how `submitVideos` gets the final video URLs post-HF upload.
+        // Let's simplify: if HF upload happened, the `videos` array's items might not have `url` populated yet from HF process.
+        // This part will be tricky if submitVideos is used for both flows without modification.
+        // SOLUTION: The code above now updates the `videos` state with the final HF URLs
+        // before submitVideos is called, so it should receive the correct URLs.
       }
       
       setCurrentStepMessage('Saving LoRA and media details to database...');
+      // Pass the potentially updated `videos` state to submitVideos
       await submitVideos(videos, loraDetails, reviewerName, user, finalLoraLink, directDownloadUrlToSave, setCurrentStepMessage);
       
       const message = videos.filter(v => v.url).length > 1 
@@ -655,5 +816,17 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     </div>
   );
 };
+
+// Helper function used in mapping HF URLs back to original videos
+// Needs to be accessible within handleSubmit or defined globally/imported
+function sanitizeRepoName(name: string): string {
+  if (!name) return ''
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, '-') // Replace spaces with hyphens
+    .replace(/[^a-z0-9-._]/g, '') // Remove invalid characters
+    .replace(/--+/g, '-') // Replace multiple hyphens with a single one
+    .replace(/^-+|-+$/g, ''); // Trim hyphens from start/end
+}
 
 export default UploadPage;

@@ -5,23 +5,43 @@ import { supabase } from '@/integrations/supabase/client';
 
 const logger = new Logger('HuggingFaceUploader');
 
+// Interface for video metadata passed from UploadPage to this uploader
+// when files are first uploaded to Supabase temporary storage.
+export interface VideoItemClientUploadMetadata {
+  storagePath?: string; // Path in Supabase 'temporary' bucket for new uploads
+  existingUrl?: string; // URL if it's an existing video not being re-uploaded
+  metadata: any; // Existing metadata structure from VideoItem
+  originalFileName?: string; // To help map in edge function
+}
+
 interface HuggingFaceUploadOptions {
-  loraFile: File;
+  // loraFile: File; // REMOVED - no longer sending file directly
+  loraStoragePath: string; // NEW - path to LoRA file in Supabase temporary storage
   loraDetails: LoRADetails;
-  videos: VideoItem[];
+  // videos: VideoItem[]; // REMOVED
+  videosMetadata: VideoItemClientUploadMetadata[]; // NEW - array of video metadata including their Supabase storage paths
   hfToken: string;
   repoName?: string;
   saveApiKey?: boolean;
 }
 
+// NEW: Define the expected response structure from the Edge Function
+interface HuggingFaceUploadSuccessResponse {
+  success: true;
+  loraUrl: string;
+  videoUrls: string[];
+}
+
+// Update the return type of the function
 export async function uploadLoraToHuggingFace({
-  loraFile,
+  loraStoragePath, 
   loraDetails,
-  videos,
+  videosMetadata, 
   hfToken,
   repoName,
   saveApiKey = false,
-}: HuggingFaceUploadOptions): Promise<string | null> {
+// The Promise should resolve to the new object structure on success, or null/error
+}: HuggingFaceUploadOptions): Promise<HuggingFaceUploadSuccessResponse | null> {
   if (!hfToken) {
     logger.error('HuggingFace token is missing.');
     throw new Error('HuggingFace token is required for upload.');
@@ -57,18 +77,33 @@ export async function uploadLoraToHuggingFace({
   }
 
   // Call the secure endpoint
+  // Construct FormData
+  const formData = new FormData();
+  // formData.append('loraFile', loraFile, loraFile.name); // REMOVED
+  formData.append('loraStoragePath', loraStoragePath); // NEW
+  formData.append('loraDetails', JSON.stringify(loraDetails));
+  
+  // The client now sends 'videosMetadata' which includes storagePath or existingUrl
+  // The old 'videos.forEach' loop that appended actual files is no longer needed here,
+  // as files are already in Supabase storage by the time this function is called.
+  formData.append('videosMetadata', JSON.stringify(videosMetadata)); // videosMetadata now contains storage paths
+
+  if (repoName) {
+    formData.append('repoName', repoName);
+  }
+
+  const accessToken = (await supabase.auth.getSession()).data.session?.access_token;
+  if (!accessToken) {
+    throw new Error('User not authenticated, cannot get access token.');
+  }
+
   const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/huggingface-upload`, {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
-      'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+      // 'Content-Type': 'multipart/form-data' // fetch will set this automatically with boundary
+      'Authorization': `Bearer ${accessToken}`,
     },
-    body: JSON.stringify({
-      loraFile,
-      loraDetails,
-      videos,
-      repoName,
-    }),
+    body: formData, // Use FormData object as body
   });
 
   if (!response.ok) {
@@ -76,8 +111,19 @@ export async function uploadLoraToHuggingFace({
     throw new Error(error.error || 'Failed to upload to HuggingFace');
   }
 
-  const result = await response.json();
-  return result.url;
+  // Parse the response assuming it matches the new structure
+  const result: HuggingFaceUploadSuccessResponse = await response.json();
+  
+  // Basic validation of the response structure
+  if (!result || result.success !== true || !result.loraUrl) {
+    logger.error('Invalid success response structure from Edge Function:', result);
+    throw new Error('Received an invalid response from the Hugging Face upload function.');
+  }
+  
+  // Ensure videoUrls is an array, even if empty
+  result.videoUrls = result.videoUrls || []; 
+
+  return result;
 }
 
 function sanitizeRepoName(name: string): string {
