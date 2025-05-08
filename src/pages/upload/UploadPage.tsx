@@ -521,6 +521,64 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                 logger.log(`[HF Upload] LoRA file direct download URL set to: ${directDownloadUrlToSave}`);
                 setCurrentStepMessage('LoRA file uploaded to Hugging Face!');
                 toast.success(`LoRA file uploaded to ${repoInfo.url}`);
+
+                // === Step 3: Upload Example Videos to Hugging Face ===
+                const uploadedVideoHfPaths: { text: string, output: { url: string } }[] = [];
+                if (videos && videos.length > 0) {
+                  setCurrentStepMessage('Uploading example media to Hugging Face...');
+                  for (const videoItem of videos) {
+                    if (videoItem.file) {
+                      const videoFileNameInRepo = `assets/${videoItem.file.name}`;
+                      console.log(`[HF Upload] Attempting to upload example video: ${videoItem.file.name} to repo path: ${videoFileNameInRepo}`);
+                      try {
+                        await hfService.uploadRawFile({
+                          repoIdString: repoInfo.repoIdString,
+                          fileContent: videoItem.file,
+                          pathInRepo: videoFileNameInRepo,
+                          commitTitle: `Upload example media: ${videoItem.file.name}`
+                        });
+                        console.log(`[HF Upload] Example video ${videoItem.file.name} uploaded.`);
+                        // The path in the widget should be relative to the repo root
+                        uploadedVideoHfPaths.push({
+                          text: videoItem.metadata.description || videoItem.metadata.title || "Example prompt",
+                          output: { url: videoFileNameInRepo }
+                        });
+                      } catch (videoUploadError: any) {
+                        logger.error(`[HF Upload] Example video ${videoItem.file.name} upload failed:`, videoUploadError);
+                        toast.warning(`Failed to upload example video ${videoItem.file.name}. It will be skipped in README.`);
+                        // Continue to next video
+                      }
+                    } else if (videoItem.url) {
+                        // If it's a URL, we can't upload it directly to HF assets unless we download it first.
+                        // For now, we'll skip pre-existing URLs for the HF widget.
+                        logger.log(`[HF Upload] Skipping video with existing URL for HF assets: ${videoItem.url}`);
+                    }
+                  }
+                  setCurrentStepMessage('Example media processing complete.');
+                }
+
+                // === Step 4: Generate and Upload README.md ===
+                setCurrentStepMessage('Generating README.md for Hugging Face repository...');
+                const readmeContent = generateReadmeContent(
+                  loraDetails,
+                  uploadedVideoHfPaths // Pass the paths of videos uploaded to HF
+                );
+                console.log("[HF Upload] Generated README.md content:", readmeContent);
+                try {
+                  await hfService.uploadTextAsFile({
+                    repoIdString: repoInfo.repoIdString,
+                    textData: readmeContent,
+                    pathInRepo: 'README.md',
+                    commitTitle: 'Add LoRA model card (README.md)'
+                  });
+                  console.log('[HF Upload] README.md uploaded successfully.');
+                  toast.success('README.md uploaded to Hugging Face repository.');
+                } catch (readmeError: any) {
+                  logger.error("[HF Upload] README.md upload failed:", readmeError);
+                  toast.error(`Failed to upload README.md: ${readmeError.message || 'Unknown error'}`);
+                  // Don't fail the whole submission for README error, but log it.
+                }
+
               } catch (uploadError: any) {
                 logger.error("[HF Upload] LoRA file upload failed:", uploadError);
                 console.error("[HF Upload] loraFile uploadError object:", uploadError);
@@ -940,5 +998,49 @@ function sanitizeRepoName(name: string): string {
     .replace(/--+/g, '-') // Replace multiple hyphens with a single one
     .replace(/^-+|-+$/g, ''); // Trim hyphens from start/end
 }
+
+// Helper function to generate README.md content
+// This function should be defined outside handleSubmit, e.g., at the bottom of the file or imported
+const generateReadmeContent = (loraDetails: LoRADetails, videoWidgets: { text: string, output: { url: string } }[]): string => {
+  const modelTitle = `${loraDetails.model} (${loraDetails.modelVariant || ''})`;
+  const widgetSection = videoWidgets.map(v => 
+    `  - text: >-
+      "${v.text.replace(/\n/g, '\\n')}"
+    output:
+      url: ${v.output.url}`
+  ).join('\n');
+
+  // Using the structure provided by the user
+  return `---
+base_model:
+- Lightricks/LTX-Video
+widget:
+${widgetSection}
+tags:
+- ltxv
+- 13B
+- text-to-video
+- lora
+---
+
+# ${modelTitle}
+
+<Gallery />
+
+## Description:
+Trained only on videos.
+
+- dataset: 135 videos 768x480x41
+- steps: 17000
+- LR: 2e-4
+- optimizer: adamw
+- scheduler: contant
+- rank: 128
+- batch size: 1
+- gradient accumulation steps: 1
+
+For training I used the official [LTX-Video Trainer](https://github.com/Lightricks/LTX-Video-Trainer) repo.
+`;
+};
 
 export default UploadPage;
