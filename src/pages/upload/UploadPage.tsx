@@ -294,23 +294,37 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     
     console.log('CHECKPOINT 3 - LORA MODE');
     
+    // Log the details being checked
+    console.log('[Validation] Checking loraDetails:', safeStringify(loraDetails));
+    console.log('[Validation] Checking loraFile:', loraFile ? `File: ${loraFile.name}` : 'null');
+
     if (!loraDetails.loraName) {
+      console.log('[Validation] FAILED: loraName is missing');
       toast.error('Please provide a LoRA name');
+      setIsSubmitting(false);
       return;
     }
+    console.log('[Validation] PASSED: loraName check');
     
     if (loraDetails.creator === 'someone_else' && !loraDetails.creatorName) {
+      console.log('[Validation] FAILED: creatorName is missing for someone_else');
       toast.error('Please provide the creator name for the LoRA');
+      setIsSubmitting(false);
       return;
     }
+    console.log('[Validation] PASSED: creatorName check');
     
     // New validation logic for LoRA link / HuggingFace Upload
     if (uploadMode === 'lora') { // Only validate these if we are in LoRA upload mode
+      console.log('[Validation] Inside uploadMode === lora block. loraStorageMethod:', loraDetails.loraStorageMethod);
       if (loraDetails.loraStorageMethod === 'link') {
+        console.log('[Validation] Checking loraStorageMethod: link');
         const hasLoraLink = loraDetails.loraLink && loraDetails.loraLink.trim() !== '';
         const hasDirectDownloadLink = loraDetails.loraDirectDownloadLink && loraDetails.loraDirectDownloadLink.trim() !== '';
+        console.log('[Validation] Link checks: hasLoraLink:', hasLoraLink, 'hasDirectDownloadLink:', hasDirectDownloadLink);
 
         if (!hasLoraLink && !hasDirectDownloadLink) {
+          console.log('[Validation] FAILED: Both loraLink and loraDirectDownloadLink are missing');
           toast.error('Please provide either the LoRA Link or the Direct Download Link (or both).');
           setIsSubmitting(false);
           return;
@@ -318,7 +332,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         if (hasLoraLink) {
           try {
             new URL(loraDetails.loraLink);
+            console.log('[Validation] PASSED: loraLink URL validation');
           } catch (_) {
+            console.log('[Validation] FAILED: loraLink is not a valid URL');
             toast.error('Please enter a valid URL for the LoRA Link.');
             setIsSubmitting(false);
             return;
@@ -327,23 +343,34 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         if (hasDirectDownloadLink) {
           try {
             new URL(loraDetails.loraDirectDownloadLink);
+            console.log('[Validation] PASSED: loraDirectDownloadLink URL validation');
           } catch (_) {
+            console.log('[Validation] FAILED: loraDirectDownloadLink is not a valid URL');
             toast.error('Please enter a valid URL for the Direct Download Link.');
             setIsSubmitting(false);
             return;
           }
         }
+        console.log('[Validation] PASSED: link method checks');
       } else if (loraDetails.loraStorageMethod === 'upload') {
+        console.log('[Validation] Checking loraStorageMethod: upload');
         if (!loraDetails.huggingFaceApiKey || loraDetails.huggingFaceApiKey.trim() === '') {
+          console.log('[Validation] FAILED: huggingFaceApiKey is missing');
           toast.error('Please provide your HuggingFace API Key');
+          setIsSubmitting(false);
           return;
         }
+        console.log('[Validation] PASSED: huggingFaceApiKey check');
         if (!loraFile) {
+          console.log('[Validation] FAILED: loraFile is missing');
           toast.error('Please select a LoRA file to upload');
+          setIsSubmitting(false);
           return;
         }
+        console.log('[Validation] PASSED: loraFile check');
         // Potentially add more validation for loraFile (type, size) if needed
       }
+      console.log('[Validation] PASSED: uploadMode === lora block');
     }
 
     console.log('CHECKPOINT 4 - BEFORE VIDEOS LOG');
