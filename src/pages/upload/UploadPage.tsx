@@ -531,7 +531,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                 const uploadedVideoHfPaths: { text: string, output: { url: string } }[] = [];
                 if (videos && videos.length > 0) {
                   setCurrentStepMessage('Uploading example media to Hugging Face...');
-                  for (const videoItem of videos) {
+                  for (let i = 0; i < videos.length; i++) {
+                    const videoItem = videos[i];
                     if (videoItem.file) {
                       const videoFileNameInRepo = `assets/${videoItem.file.name}`;
                       console.log(`[HF Upload] Attempting to upload example video: ${videoItem.file.name} to repo path: ${videoFileNameInRepo}`);
@@ -544,7 +545,14 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                         });
                         console.log(`[HF Upload] Example video ${videoItem.file.name} uploaded.`);
                         // Update the video item with the HF URL
-                        videoItem.url = `${repoInfo.url}/resolve/main/${encodeURIComponent(videoFileNameInRepo)}`;
+                        const hfUrl = `${repoInfo.url}/resolve/main/${encodeURIComponent(videoFileNameInRepo)}`;
+                        console.log(`[HF Upload] Setting video URL to: ${hfUrl}`);
+                        // Create a new video item with the HF URL
+                        videos[i] = {
+                          ...videoItem,
+                          url: hfUrl,
+                          file: null // Clear the file since we've uploaded it
+                        };
                         // The path in the widget should be relative to the repo root
                         uploadedVideoHfPaths.push({
                           text: videoItem.metadata.description || videoItem.metadata.title || "Example prompt",
