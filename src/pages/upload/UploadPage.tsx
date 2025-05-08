@@ -351,22 +351,34 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
     console.log('[handleSubmit] Videos array before primary check:', safeStringify(videos));
     console.log('CHECKPOINT 5 - AFTER VIDEOS LOG');
 
-    // const hasPrimary = videos.some(video => (video.file || video.url) && video.metadata.isPrimary);
+    console.log('CHECKPOINT 6 - BEFORE hasPrimary calculation');
     // Robust check for primary video
     const hasPrimary = videos.some(video => 
       (video.file || video.url) && 
       video.metadata && 
       video.metadata.isPrimary
     );
+    console.log('CHECKPOINT 7 - AFTER hasPrimary calculation. Value:', hasPrimary);
+
     if (!hasPrimary) {
+      console.log('CHECKPOINT 8 - INSIDE !hasPrimary block (ERROR IF HERE)');
       toast.error('Please set one video as the primary media for this LoRA');
       setIsSubmitting(false); // Also ensure isSubmitting is reset
       return;
     }
+    console.log('CHECKPOINT 9 - SKIPPED !hasPrimary block (SUCCESS)');
     
     const reviewerName = user?.email || 'Anonymous';
-    
+    console.log('CHECKPOINT 10 - AFTER reviewerName assignment. Value:', reviewerName);
+
     try {
+      console.log('CHECKPOINT 11 - ENTERED TRY BLOCK');
+      // The actual first setCurrentStepMessage will be conditional based on loraDetails.loraStorageMethod
+      // For example:
+      // setCurrentStepMessage('Uploading LoRA file to temporary storage...');
+      // OR
+      // setCurrentStepMessage('Processing and uploading example media files...');
+
       let finalLoraLink = '';
       let directDownloadUrlToSave = '';
       let loraSupabaseStoragePath: string | undefined = undefined;
