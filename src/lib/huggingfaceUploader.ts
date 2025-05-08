@@ -29,19 +29,31 @@ export async function uploadLoraToHuggingFace({
 
   // Store the API key in Supabase only if saveApiKey is true
   if (saveApiKey) {
+    const { data: { user }, error: getUserError } = await supabase.auth.getUser(); // Get user first
+
+    if (getUserError || !user) {
+      logger.error('User not authenticated or error fetching user, cannot save API key.', getUserError);
+      throw new Error('User not authenticated or error fetching user, cannot save API key.');
+    }
+
+    logger.log('Attempting to save API key for user:', user.id);
     const { error: apiKeyError } = await supabase
       .from('api_keys')
       .upsert({
+        user_id: user.id,
         service: 'huggingface',
         key_value: hfToken,
+        updated_at: new Date().toISOString(), // Keep updated_at consistent
       }, {
         onConflict: 'user_id,service'
       });
 
     if (apiKeyError) {
       logger.error('Failed to store HuggingFace API key:', apiKeyError);
+      console.error('Supabase apiKeyError details:', apiKeyError); 
       throw new Error('Failed to store HuggingFace API key securely.');
     }
+    logger.log('API key stored successfully for user:', user.id);
   }
 
   // Call the secure endpoint

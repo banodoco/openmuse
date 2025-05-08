@@ -8,13 +8,22 @@ import { Textarea } from '@/components/ui/textarea';
 import { getCurrentUserProfile, updateUserProfile } from '@/lib/auth';
 import { UserProfile } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
-import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil, ExternalLink, HelpCircle, Trash2 } from 'lucide-react';
+import { Loader2, X, Plus, Camera, Image as ImageIcon, Check, Pencil, ExternalLink, HelpCircle, Trash2, Settings } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { Link as RouterLink, useLocation } from 'react-router-dom';
 import { supabase } from '@/integrations/supabase/client';
 import { cn } from '@/lib/utils';
 import { Skeleton } from '@/components/ui/skeleton';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -142,6 +151,13 @@ export default function UserProfileSettings() {
   const initialAvatarUrl = useRef<string | null>(null);
   const initialBackgroundImageUrl = useRef<string | null>(null);
 
+  // State for HuggingFace API Key
+  const [huggingFaceApiKey, setHuggingFaceApiKey] = useState('');
+  const [initialHuggingFaceApiKey, setInitialHuggingFaceApiKey] = useState('');
+  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
+
   // Add state for reminder logic
   const [lastChangeTimestamp, setLastChangeTimestamp] = useState<number | null>(null);
   const [showReminder, setShowReminder] = useState(false);
@@ -180,6 +196,24 @@ export default function UserProfileSettings() {
           setBackgroundImageUrl(loadedBackgroundImageUrl);
           initialBackgroundImageUrl.current = loadedBackgroundImageUrl;
           setIsUsernameValid(true);
+
+          // Fetch HuggingFace API Key
+          const { data: apiKeyData, error: apiKeyFetchError } = await supabase
+            .from('api_keys')
+            .select('key_value')
+            .eq('user_id', user.id)
+            .eq('service', 'huggingface')
+            .single();
+
+          if (apiKeyFetchError && apiKeyFetchError.code !== 'PGRST116') { // PGRST116: no rows found
+            console.error('Error fetching API key:', apiKeyFetchError);
+            // Optionally set an error state here to display to the user
+          }
+          if (apiKeyData) {
+            setHuggingFaceApiKey(apiKeyData.key_value);
+            setInitialHuggingFaceApiKey(apiKeyData.key_value);
+          }
+
         } catch (err) {
           console.error('Error loading profile:', err);
           setError('Failed to load profile information');
@@ -388,6 +422,8 @@ export default function UserProfileSettings() {
       title: "Changes Discarded",
       description: "Your profile settings have been reset to the last saved state.",
     });
+    // Also reset API key input to the last saved state if modal was open
+    setHuggingFaceApiKey(initialHuggingFaceApiKey);
   }, []); // Dependencies are refs, so they don't need to be listed
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -604,6 +640,53 @@ export default function UserProfileSettings() {
   const handleCancelEdit = () => {
     setEditingLinkIndex(null);
     setEditingLinkValue('');
+  };
+
+  const handleSaveApiKey = async () => {
+    if (!user) {
+      setApiKeyError("User not authenticated.");
+      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+      return;
+    }
+    // Validate against the current input state `huggingFaceApiKey`
+    if (!huggingFaceApiKey.trim()) {
+      setApiKeyError("API Key cannot be empty.");
+      // toast({ title: "Validation Error", description: "API Key cannot be empty.", variant: "destructive" });
+      return; // Return early, error displayed in modal
+    }
+
+    setIsSavingApiKey(true);
+    setApiKeyError(null);
+
+    try {
+      const { error } = await supabase
+        .from('api_keys')
+        .upsert(
+          {
+            user_id: user.id,
+            service: 'huggingface',
+            key_value: huggingFaceApiKey.trim(), // Save the current input value
+            updated_at: new Date().toISOString(),
+          },
+          {
+            onConflict: 'user_id,service',
+          }
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      setInitialHuggingFaceApiKey(huggingFaceApiKey.trim()); // Update the initial saved key to the new value
+      toast({ title: "Success", description: "HuggingFace API Key updated successfully." });
+      setIsApiKeyModalOpen(false);
+    } catch (err: any) {
+      console.error('Error saving API key:', err);
+      setApiKeyError(err.message || "Failed to save API Key.");
+      // toast({ title: "Error", description: err.message || "Failed to save API Key.", variant: "destructive" });
+    } finally {
+      setIsSavingApiKey(false);
+    }
   };
 
   // Use the skeleton loader when isLoading is true
@@ -888,6 +971,77 @@ export default function UserProfileSettings() {
             )}
             {links.length >= 5 && editingLinkIndex === null && <p className="text-xs text-muted-foreground">Maximum of 5 links reached.</p>}
           </div>
+
+          {/* API Keys Section */}
+          <div className="space-y-2 pt-6 border-t border-border/20">
+            <h3 className="text-lg font-medium">API Keys</h3>
+            <Card className="bg-background/50">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <Label htmlFor="hf-api-key-current" className="text-sm font-medium">HuggingFace API Key</Label>
+                    <p className="text-xs text-muted-foreground">
+                      {initialHuggingFaceApiKey ? 'Key is set. Click manage to update it.' : 'No key set. Click manage to add your key.'}
+                    </p>
+                  </div>
+                  <Dialog open={isApiKeyModalOpen} onOpenChange={(isOpen) => {
+                     setIsApiKeyModalOpen(isOpen);
+                     if (!isOpen) { // When modal is closed
+                        setHuggingFaceApiKey(initialHuggingFaceApiKey); // Reset input to last saved value
+                        setApiKeyError(null); // Clear any modal-specific errors
+                     }
+                  }}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm">
+                        <Settings className="mr-2 h-4 w-4" /> Manage Key
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent className="sm:max-w-[480px]">
+                      <DialogHeader>
+                        <DialogTitle>HuggingFace API Key</DialogTitle>
+                        <DialogDescription>
+                          Enter your HuggingFace API Key with write permissions to upload models directly from OpenMuse. 
+                          You can create or find your keys at{" "}
+                          <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="underline text-primary hover:text-primary/80">
+                            huggingface.co/settings/tokens <ExternalLink className="inline-block h-3 w-3 ml-0.5" />
+                          </a>.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="grid gap-4 py-4">
+                        <div className="grid grid-cols-4 items-center gap-4">
+                          <Label htmlFor="hf-api-key-input" className="text-right col-span-1">
+                            API Key
+                          </Label>
+                          <Input
+                            id="hf-api-key-input"
+                            type="password"
+                            value={huggingFaceApiKey} // Bound to the current input state
+                            onChange={(e) => {
+                              setHuggingFaceApiKey(e.target.value);
+                              if (apiKeyError) setApiKeyError(null); // Clear error on input change
+                            }}
+                            placeholder="hf_YourAccessToken"
+                            className="col-span-3"
+                          />
+                        </div>
+                        {apiKeyError && <p className="text-xs text-destructive col-span-4 text-center pt-1">{apiKeyError}</p>}
+                      </div>
+                      <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsApiKeyModalOpen(false)} disabled={isSavingApiKey}>
+                          Cancel
+                        </Button>
+                        <Button onClick={handleSaveApiKey} disabled={isSavingApiKey || huggingFaceApiKey.trim() === initialHuggingFaceApiKey.trim() || !huggingFaceApiKey.trim()}>
+                          {isSavingApiKey ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                          Save API Key
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
         </CardContent>
         <CardFooter className="border-t pt-6 flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4 sm:gap-2">
           <Button 
