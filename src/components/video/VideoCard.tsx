@@ -394,18 +394,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
             isMobile={isMobile}
           />
 
-          {isAdmin && video.admin_status && isProfilePage && (
-            <Badge
-              variant="secondary"
-              className={cn(
-                "absolute top-2 right-2 z-10 mt-8 text-xs px-1.5 py-0.5 h-auto pointer-events-none", 
-                getAdminStatusBadgeVariant(video.admin_status as AdminStatus | null)
-              )}
-            >
-              {video.admin_status}
-            </Badge>
-          )}
-
           {isMobile && (
             <div 
               className="absolute bottom-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none"
