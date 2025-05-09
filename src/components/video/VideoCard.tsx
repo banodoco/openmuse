@@ -499,6 +499,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             <div 
               className="absolute bottom-2 left-2 z-20"
               style={isAuthorized && isProfilePage ? { transform: 'translateX(calc(100% + 8px))' } : {}}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
@@ -507,9 +508,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     size="sm"
                     className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
                     disabled={isChangingAdminStatus}
-                    onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
-                    onPointerDown={(e) => { e.stopPropagation(); }}
-                    onMouseUp={(e) => { e.stopPropagation(); e.preventDefault(); }}
                   >
                     {isChangingAdminStatus ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
