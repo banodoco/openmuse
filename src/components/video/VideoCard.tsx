@@ -118,6 +118,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const adminDropdownClickedRef = useRef(false);
 
+  // Add a log for hover states on re-render
+  console.log(`[VideoCardHoverDebug ${video.id}] Render - localHovering: ${localHovering}, combinedHovering: ${isHovering || localHovering}`);
+
   useEffect(() => {
     if (video.metadata?.placeholder_image) {
       setThumbnailUrl(video.metadata.placeholder_image);
@@ -139,10 +142,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   const handleMouseEnter = () => {
+    console.log(`[VideoCardHoverDebug ${video.id}] MouseEnter`);
     setLocalHovering(true);
   };
   
   const handleMouseLeave = () => {
+    console.log(`[VideoCardHoverDebug ${video.id}] MouseLeave`);
     setLocalHovering(false);
   };
   
@@ -350,15 +355,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
       onMouseLeave={handleMouseLeave}
       onClickCapture={(e) => {
         if (adminDropdownClickedRef.current) {
+          console.log(`[VideoCardHoverDebug ${video.id}] onClickCapture - dropdown click detected, stopping propagation`);
           e.stopPropagation();
           adminDropdownClickedRef.current = false;
         }
       }}
       onClick={(e) => {
         if (adminDropdownClickedRef.current) {
-          adminDropdownClickedRef.current = false;
+          console.log(`[VideoCardHoverDebug ${video.id}] onClick - dropdown click detected (fallback), returning`);
+          adminDropdownClickedRef.current = false; 
           return;
         }
+        console.log(`[VideoCardHoverDebug ${video.id}] onClick - opening lightbox`);
         onOpenLightbox(video);
       }}
       data-hovering={combinedHovering ? "true" : "false"}
@@ -518,10 +526,15 @@ const VideoCard: React.FC<VideoCardProps> = ({
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <span onMouseDown={(e) => {
+                    console.log(`[VideoCardHoverDebug ${video.id}] Admin dropdown onMouseDown`);
                     adminDropdownClickedRef.current = true;
                     setTimeout(() => {
-                      adminDropdownClickedRef.current = false;
-                    }, 100);
+                      // Only clear if it hasn't been cleared by onClickCapture already
+                      if (adminDropdownClickedRef.current) {
+                         console.log(`[VideoCardHoverDebug ${video.id}] Admin dropdown timeout clearing flag`);
+                         adminDropdownClickedRef.current = false;
+                      }
+                    }, 100); 
                   }}>
                     <Button
                       variant="outline"
