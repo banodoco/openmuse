@@ -107,7 +107,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [isChangingAdminStatus, setIsChangingAdminStatus] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [localHovering, setLocalHovering] = useState(false);
-  const dropdownInteractionRef = useRef(false);
   
   const combinedHovering = isHovering || localHovering;
   const isInViewport = useIntersectionObserver(previewRef, {
@@ -116,6 +115,8 @@ const VideoCard: React.FC<VideoCardProps> = ({
   });
   const pageContext = location.pathname.includes('/profile/') ? 'profile' : 'asset';
   const isProfilePage = pageContext === 'profile';
+
+  const adminDropdownClickedRef = useRef(false);
 
   useEffect(() => {
     if (video.metadata?.placeholder_image) {
@@ -347,11 +348,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-        if (dropdownInteractionRef.current) {
-          return;
-        }
-        if ((e.target as HTMLElement).closest('.admin-dropdown-blocker')) {
+      onClick={(e) => {
+        if (adminDropdownClickedRef.current) {
+          adminDropdownClickedRef.current = false;
           return;
         }
         onOpenLightbox(video);
@@ -510,35 +509,27 @@ const VideoCard: React.FC<VideoCardProps> = ({
               style={isAuthorized && isProfilePage ? { transform: 'translateX(calc(100% + 8px))' } : {}}
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             >
-              <DropdownMenu onOpenChange={(open) => {
-                if (!open) {
-                  setTimeout(() => {
-                    dropdownInteractionRef.current = false;
-                  }, 0);
-                }
-              }}>
+              <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
-                    disabled={isChangingAdminStatus}
-                    onPointerDown={(e) => {
-                      e.stopPropagation();
-                      dropdownInteractionRef.current = true;
-                    }}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      dropdownInteractionRef.current = true;
-                    }}
-                  >
-                    {isChangingAdminStatus ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      getAdminStatusIcon(video.admin_status)
-                    )}
-                    <span className="sr-only">Admin Status</span>
-                  </Button>
+                  <span onMouseDownCapture={(e) => {
+                    e.stopPropagation();
+                    e.nativeEvent.stopImmediatePropagation();
+                    adminDropdownClickedRef.current = true;
+                  }}>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
+                      disabled={isChangingAdminStatus}
+                    >
+                      {isChangingAdminStatus ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        getAdminStatusIcon(video.admin_status)
+                      )}
+                      <span className="sr-only">Admin Status</span>
+                    </Button>
+                  </span>
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-48">
                   <DropdownMenuLabel>Change Admin Status</DropdownMenuLabel>
@@ -549,10 +540,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
                       onClick={() => handleVideoAdminStatusChange(status)}
                       disabled={isStatusEqual(video.admin_status, status) || isChangingAdminStatus}
                       className={isStatusEqual(video.admin_status, status) ? statusOptionColors[status] : ""}
-                      onPointerDown={(e) => {
-                        e.stopPropagation();
-                        dropdownInteractionRef.current = true;
-                      }}
                     >
                       {getAdminStatusIcon(status)}
                       <span>{status}</span>
