@@ -29,7 +29,7 @@ export interface VideoMetadata {
 export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Rejected';
 
 // Define the user-settable display statuses
-export type VideoDisplayStatus = 'Pinned' | 'Listed' | 'Hidden' | 'View';
+export type VideoDisplayStatus = 'Pinned' | 'Listed' | 'Hidden';
 
 export interface VideoEntry {
   id: string;

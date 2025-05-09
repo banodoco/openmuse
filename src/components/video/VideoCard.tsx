@@ -342,7 +342,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
       className={cn(
         "relative group overflow-hidden rounded-lg cursor-pointer transition-all duration-300 ease-in-out",
         "bg-card/60 backdrop-blur-sm",
-        currentRelevantStatus === 'Hidden' && isAuthorized && "opacity-50 grayscale hover:opacity-75"
+        currentRelevantStatus === 'Hidden' && isAuthorized && !isAdmin && "opacity-50 grayscale hover:opacity-75"
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
@@ -479,7 +479,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {isAuthorized && (
+          {isAuthorized && (isProfilePage || !(isAdmin && onAdminStatusChange)) && (
             <div className={cn(
               "absolute bottom-2 left-2 z-30 transition-opacity duration-200",
               !isMobile && "opacity-0 group-hover:opacity-100"
@@ -498,7 +498,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
           {isAdmin && onAdminStatusChange && (
             <div 
               className="absolute bottom-2 left-2 z-20"
-              style={isAuthorized ? { transform: 'translateX(calc(100% + 8px))' } : {}}
+              style={isAuthorized && isProfilePage ? { transform: 'translateX(calc(100% + 8px))' } : {}}
               onClick={(e) => e.stopPropagation()}
             >
               <DropdownMenu>

@@ -147,7 +147,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 reviewer_name: (pVideo as any)?.creator || '',
                 skipped: false,
                 created_at: pVideo.created_at,
-                assetMediaDisplayStatus: (pVideo as any)?.status as VideoDisplayStatus || 'View',
+                assetMediaDisplayStatus: (pVideo as any)?.status as VideoDisplayStatus || 'Listed',
                 user_id: pVideo.user_id,
                 user_status: (pVideo as any)?.user_status as VideoDisplayStatus || null,
                 admin_status: (pVideo as any)?.admin_status as AdminStatus || null,
@@ -213,7 +213,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
               
               const isPrimary = item.is_primary === true; 
    
-              const assignedStatus = (item.status as VideoDisplayStatus) || 'View'; 
+              const assignedStatus = (item.status as VideoDisplayStatus) || 'Listed'; 
               logger.log(`[loraorderingbug] Processing Video ${media.id}: Assigned status '${assignedStatus}' (from asset_media.status: ${item.status}, is_primary: ${item.is_primary})`);
   
               return {

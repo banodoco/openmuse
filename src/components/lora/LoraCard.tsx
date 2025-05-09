@@ -354,6 +354,44 @@ const LoraCard: React.FC<LoraCardProps> = ({
             <p className="text-muted-foreground text-sm">No preview available</p>
           </div>
         )}
+
+        {/* Admin Status Controls - Repositioned to bottom left of video preview */}
+        {isAdmin && onAdminStatusChange && !isOwnProfile && (
+          <div className="absolute bottom-3 left-3 z-20" onClick={(e) => e.stopPropagation()}>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
+                  disabled={isChangingAdminStatus}
+                >
+                  {isChangingAdminStatus ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    getAdminStatusIcon((lora.admin_status || 'Listed') as AdminStatus)
+                  )}
+                  <span className="sr-only">Admin Status</span>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuLabel>Change Admin Status</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {adminStatusOptions.map((status) => (
+                  <DropdownMenuItem 
+                    key={status}
+                    onClick={() => handleAdminStatusChange(status)}
+                    disabled={isStatusEqual(lora.admin_status, status) || isChangingAdminStatus}
+                    className={isStatusEqual(lora.admin_status, status) ? statusOptionColors[status] : ""}
+                  >
+                    {getAdminStatusIcon(status)}
+                    <span>{status}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        )}
       </div>
       
       <CardContent className="p-3 flex-grow">
@@ -437,44 +475,6 @@ const LoraCard: React.FC<LoraCardProps> = ({
             </Button>
           </div>
         </CardFooter>
-      )}
-      
-      {/* Admin Status Controls - Repositioned to bottom right */}
-      {isAdmin && onAdminStatusChange && !isOwnProfile && (
-        <div className="absolute bottom-3 right-3 z-20" onClick={(e) => e.stopPropagation()}>
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
-                disabled={isChangingAdminStatus}
-              >
-                {isChangingAdminStatus ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  getAdminStatusIcon((lora.admin_status || 'Listed') as AdminStatus)
-                )}
-                <span className="sr-only">Admin Status</span>
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-48">
-              <DropdownMenuLabel>Change Admin Status</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {adminStatusOptions.map((status) => (
-                <DropdownMenuItem 
-                  key={status}
-                  onClick={() => handleAdminStatusChange(status)}
-                  disabled={isStatusEqual(lora.admin_status, status) || isChangingAdminStatus}
-                  className={isStatusEqual(lora.admin_status, status) ? statusOptionColors[status] : ""}
-                >
-                  {getAdminStatusIcon(status)}
-                  <span>{status}</span>
-                </DropdownMenuItem>
-              ))}
-            </DropdownMenuContent>
-          </DropdownMenu>
-        </div>
       )}
     </Card>
   );

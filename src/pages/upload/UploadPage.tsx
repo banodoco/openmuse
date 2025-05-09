@@ -306,7 +306,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             logger.log(`Linking media ${mediaId} to existing asset ${finalForcedLoraId}`);
             const { error: linkError } = await supabase
               .from('asset_media')
-              .insert({ asset_id: finalForcedLoraId, media_id: mediaId });
+              .insert({ asset_id: finalForcedLoraId, media_id: mediaId, status: 'Listed' });
             if (linkError) {
               logger.error(`Error linking media ${mediaId} to asset ${finalForcedLoraId}:`, linkError);
             } else {
@@ -908,7 +908,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           logger.log(`Linking asset ${assetId} with media ${mediaId}`);
           const { error: linkError } = await supabase
             .from('asset_media')
-            .insert({ asset_id: assetId, media_id: mediaId });
+            .insert({ asset_id: assetId, media_id: mediaId, status: 'Listed' });
 
           if (linkError) {
             logger.error(`Error linking asset ${assetId} and media ${mediaId}:`, linkError);
