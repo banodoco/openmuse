@@ -374,7 +374,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
     >
       <div 
         ref={previewRef}
-        className="w-full overflow-hidden bg-muted relative max-h-none group"
+        className="w-full overflow-hidden bg-muted relative max-h-none"
         style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16 / 9' }}
       >
         <div className="absolute inset-0 w-full h-full">
