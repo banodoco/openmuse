@@ -698,8 +698,66 @@ export default function UserProfileSettings() {
     <Card className="max-w-2xl mx-auto my-8 bg-card/80 backdrop-blur-sm border border-border/20 animate-fade-in">
       <form onSubmit={handleSubmit}>
         <CardHeader>
-          <CardTitle>Profile Settings</CardTitle>
-          <CardDescription>Manage your public profile information.</CardDescription>
+          <div className="flex justify-between items-center">
+            <div>
+              <CardTitle>Profile Settings</CardTitle>
+              <CardDescription>Manage your public profile information.</CardDescription>
+            </div>
+            <Dialog open={isApiKeyModalOpen} onOpenChange={(isOpen) => {
+               setIsApiKeyModalOpen(isOpen);
+               if (!isOpen) { // When modal is closed
+                  setHuggingFaceApiKey(initialHuggingFaceApiKey); // Reset input to last saved value
+                  setApiKeyError(null); // Clear any modal-specific errors
+               }
+            }}>
+              <DialogTrigger asChild>
+                <Button variant="ghost" size="icon" className="text-muted-foreground hover:text-primary">
+                  <Settings className="h-5 w-5" />
+                  <span className="sr-only">Manage API Keys</span>
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[480px]">
+                <DialogHeader>
+                  <DialogTitle>HuggingFace API Key</DialogTitle>
+                  <DialogDescription>
+                    Enter your HuggingFace API Key with write permissions to upload models directly from OpenMuse. 
+                    You can create or find your keys at{" "}
+                    <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="underline text-primary hover:text-primary/80">
+                      huggingface.co/settings/tokens <ExternalLink className="inline-block h-3 w-3 ml-0.5" />
+                    </a>.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="grid gap-4 py-4">
+                  <div className="grid grid-cols-4 items-center gap-4">
+                    <Label htmlFor="hf-api-key-input" className="text-right col-span-1">
+                      API Key
+                    </Label>
+                    <Input
+                      id="hf-api-key-input"
+                      type="password"
+                      value={huggingFaceApiKey} // Bound to the current input state
+                      onChange={(e) => {
+                        setHuggingFaceApiKey(e.target.value);
+                        if (apiKeyError) setApiKeyError(null); // Clear error on input change
+                      }}
+                      placeholder="hf_YourAccessToken"
+                      className="col-span-3"
+                    />
+                  </div>
+                  {apiKeyError && <p className="text-xs text-destructive col-span-4 text-center pt-1">{apiKeyError}</p>}
+                </div>
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setIsApiKeyModalOpen(false)} disabled={isSavingApiKey}>
+                    Cancel
+                  </Button>
+                  <Button onClick={handleSaveApiKey} disabled={isSavingApiKey || huggingFaceApiKey.trim() === initialHuggingFaceApiKey.trim() || !huggingFaceApiKey.trim()}>
+                    {isSavingApiKey ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                    Save API Key
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
         </CardHeader>
         <CardContent className="space-y-6">
           {error && <p className="text-destructive text-sm">{error}</p>}
@@ -970,76 +1028,6 @@ export default function UserProfileSettings() {
               </div>
             )}
             {links.length >= 5 && editingLinkIndex === null && <p className="text-xs text-muted-foreground">Maximum of 5 links reached.</p>}
-          </div>
-
-          {/* API Keys Section */}
-          <div className="space-y-2 pt-6 border-t border-border/20">
-            <h3 className="text-lg font-medium">API Keys</h3>
-            <Card className="bg-background/50">
-              <CardContent className="pt-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor="hf-api-key-current" className="text-sm font-medium">HuggingFace API Key</Label>
-                    <p className="text-xs text-muted-foreground">
-                      {initialHuggingFaceApiKey ? 'Key is set. Click manage to update it.' : 'No key set. Click manage to add your key.'}
-                    </p>
-                  </div>
-                  <Dialog open={isApiKeyModalOpen} onOpenChange={(isOpen) => {
-                     setIsApiKeyModalOpen(isOpen);
-                     if (!isOpen) { // When modal is closed
-                        setHuggingFaceApiKey(initialHuggingFaceApiKey); // Reset input to last saved value
-                        setApiKeyError(null); // Clear any modal-specific errors
-                     }
-                  }}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" size="sm">
-                        <Settings className="mr-2 h-4 w-4" /> Manage Key
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[480px]">
-                      <DialogHeader>
-                        <DialogTitle>HuggingFace API Key</DialogTitle>
-                        <DialogDescription>
-                          Enter your HuggingFace API Key with write permissions to upload models directly from OpenMuse. 
-                          You can create or find your keys at{" "}
-                          <a href="https://huggingface.co/settings/tokens" target="_blank" rel="noopener noreferrer" className="underline text-primary hover:text-primary/80">
-                            huggingface.co/settings/tokens <ExternalLink className="inline-block h-3 w-3 ml-0.5" />
-                          </a>.
-                        </DialogDescription>
-                      </DialogHeader>
-                      <div className="grid gap-4 py-4">
-                        <div className="grid grid-cols-4 items-center gap-4">
-                          <Label htmlFor="hf-api-key-input" className="text-right col-span-1">
-                            API Key
-                          </Label>
-                          <Input
-                            id="hf-api-key-input"
-                            type="password"
-                            value={huggingFaceApiKey} // Bound to the current input state
-                            onChange={(e) => {
-                              setHuggingFaceApiKey(e.target.value);
-                              if (apiKeyError) setApiKeyError(null); // Clear error on input change
-                            }}
-                            placeholder="hf_YourAccessToken"
-                            className="col-span-3"
-                          />
-                        </div>
-                        {apiKeyError && <p className="text-xs text-destructive col-span-4 text-center pt-1">{apiKeyError}</p>}
-                      </div>
-                      <DialogFooter>
-                        <Button variant="outline" onClick={() => setIsApiKeyModalOpen(false)} disabled={isSavingApiKey}>
-                          Cancel
-                        </Button>
-                        <Button onClick={handleSaveApiKey} disabled={isSavingApiKey || huggingFaceApiKey.trim() === initialHuggingFaceApiKey.trim() || !huggingFaceApiKey.trim()}>
-                          {isSavingApiKey ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
-                          Save API Key
-                        </Button>
-                      </DialogFooter>
-                    </DialogContent>
-                  </Dialog>
-                </div>
-              </CardContent>
-            </Card>
           </div>
 
         </CardContent>

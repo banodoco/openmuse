@@ -398,6 +398,18 @@ const Index: React.FC = () => {
     setCurrentModelFilter(modelFilterFromUrl);
   }, [modelFilterFromUrl]);
 
+  // Reset LoRA page to 1 when model filter changes
+  useEffect(() => {
+    // logger.log(`[Effect ModelFilterChange] Model filter changed to: ${currentModelFilter}, resetting LoRA page to 1.`);
+    setLoraDisplayPage(1);
+  }, [currentModelFilter]);
+
+  // Reset LoRA page to 1 when approval filter changes
+  useEffect(() => {
+    // logger.log(`[Effect ApprovalFilterChange] Approval filter changed to: ${currentApprovalFilter}, resetting LoRA page to 1.`);
+    setLoraDisplayPage(1);
+  }, [currentApprovalFilter]);
+
   // -----------------------------
   // Video Sections Filtering (Respecting Approval Filter)
   // -----------------------------
