@@ -361,18 +361,9 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
       data-video-loaded={isVideoLoaded ? "true" : "false"}
       data-has-hovered={hasHovered ? "true" : "false"}
     >
-      {/* Hover detection layer - conditionally disable pointer events */}
+      {/* Hover detection layer - NOW ALWAYS pointer-events-none */}
       <div
-        className={cn(
-          "absolute inset-0 z-50",
-          // Disable pointer events on the overlay ONLY when controls are enabled AND interaction is specifically allowed
-          allowControlInteraction && controls && "pointer-events-none"
-        )}
-        // Only attach hover handlers if interaction isn't allowed (or controls are off)
-        onMouseEnter={!(allowControlInteraction && controls) ? handleManualHoverStart : undefined}
-        onMouseLeave={!(allowControlInteraction && controls) ? handleManualHoverEnd : undefined}
-        // Don't set cursor style if pointer events are none
-        style={!(allowControlInteraction && controls) ? { cursor: 'pointer' } : {}}
+        className="absolute inset-0 z-50 pointer-events-none"
       />
 
       {/* Content wrapper - allows interaction with video */}

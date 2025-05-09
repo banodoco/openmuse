@@ -62,8 +62,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
   const [objectUrl, setObjectUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [posterUrl, setPosterUrl] = useState<string | null>(thumbnailUrl || null);
-  const [isHovering, setIsHovering] = useState(externalHoverState || false);
-  const [internalHoverState, setInternalHoverState] = useState(false);
   const previewRef = useRef<HTMLDivElement>(null);
   const [forceGenerate, setForceGenerate] = useState(!thumbnailUrl);
   const [thumbnailLoaded, setThumbnailLoaded] = useState(!!thumbnailUrl);
@@ -83,12 +81,10 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     };
   }, []);
   
-  const effectiveHoverState = externalHoverState !== undefined ? externalHoverState : internalHoverState;
+  const effectiveHoverState = externalHoverState || false;
   
   useEffect(() => {
     if (externalHoverState !== undefined && !unmountedRef.current) {
-      logger.log(`VideoPreview [${componentId.current}]: External hover state changed to ${externalHoverState}`);
-      setIsHovering(externalHoverState);
       if (!effectiveIsMobile) {
         setIsPlaying(externalHoverState);
       }
@@ -144,26 +140,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     }
   };
 
-  const handleMouseEnter = () => {
-    if (externalHoverState === undefined && !unmountedRef.current) {
-      logger.log(`VideoPreview [${componentId.current}]: Mouse entered`);
-      setInternalHoverState(true);
-      setIsHovering(true);
-      if (!effectiveIsMobile) {
-        setIsPlaying(true);
-      }
-    }
-  };
-
-  const handleMouseLeave = () => {
-    if (externalHoverState === undefined && !unmountedRef.current) {
-      logger.log(`VideoPreview [${componentId.current}]: Mouse left`);
-      setInternalHoverState(false);
-      setIsHovering(false);
-      setIsPlaying(false);
-    }
-  };
-
   if (!file && !url) {
     return <div className={`bg-muted rounded-md aspect-video ${className}`}>No video source</div>;
   }
@@ -187,8 +163,6 @@ const VideoPreview: React.FC<VideoPreviewProps> = memo(({
     <div 
       ref={previewRef}
       className={`relative rounded-md overflow-hidden aspect-video ${className}`}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
       data-hovering={effectiveHoverState ? "true" : "false"}
       data-is-mobile={effectiveIsMobile ? "true" : "false"}
       data-component-id={componentId.current}
