@@ -502,7 +502,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
           {isAdmin && onAdminStatusChange && (
             <div 
-              className="absolute bottom-2 left-2 z-20 admin-dropdown-blocker"
+              className="absolute bottom-2 left-2 z-40 admin-dropdown-blocker"
               style={isAuthorized && isProfilePage ? { transform: 'translateX(calc(100% + 8px))' } : {}}
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             >
