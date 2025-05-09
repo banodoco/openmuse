@@ -508,6 +508,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
                     disabled={isChangingAdminStatus}
                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                    onPointerDown={(e) => { e.stopPropagation(); }}
                   >
                     {isChangingAdminStatus ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
