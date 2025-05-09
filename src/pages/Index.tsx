@@ -35,7 +35,7 @@ import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 
 const logger = new Logger('IndexPage', true, 'SessionPersist');
 const LORA_INDEX_PERF_ID_PREFIX = '[LoraLoadSpeed_IndexPage]';
-const INDEX_LORA_ITEMS_PER_PAGE = 10; // Number of LoRAs to display per page on Index
+const INDEX_LORA_ITEMS_PER_PAGE = 6; // Number of LoRAs to display per page on Index
 
 // === Helper Functions (Copied from UserProfilePage) ===
 

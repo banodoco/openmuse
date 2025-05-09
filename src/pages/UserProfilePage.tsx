@@ -38,7 +38,7 @@ import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
 const logger = new Logger('UserProfilePage');
 const LORA_PROFILE_PERF_ID_PREFIX = '[LoraLoadSpeed_UserProfilePage]';
 
-const PROFILE_LORA_ITEMS_PER_PAGE = 16; // Defined page size for LoRAs on this page
+const PROFILE_LORA_ITEMS_PER_PAGE = 6; // Defined page size for LoRAs on this page
 
 // Define standard breakpoints
 const defaultBreakpointColumnsObj = {
@@ -191,7 +191,7 @@ export default function UserProfilePage() {
     logger.log('[fetchUserAssets] Fetching page...', { profileUserId, canViewerSeeHiddenAssets, page });
     console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_fetchUserAssets_Total`);
     setIsLoadingAssets(true);
-    const pageSize = 16; // Use a fixed page size
+    const pageSize = PROFILE_LORA_ITEMS_PER_PAGE; // Use a fixed page size
     const rangeFrom = (page - 1) * pageSize;
     const rangeTo = rangeFrom + pageSize - 1;
     try {
@@ -640,7 +640,7 @@ export default function UserProfilePage() {
 
   // Effect to fetch LoRAs when loraPage changes (after initial load)
   useEffect(() => {
-    if (loraPage === 1 || !profile?.id || isLoadingProfile || isLoadingAssets) {
+    if (!profile?.id || isLoadingProfile || isLoadingAssets) {
       // Do not fetch if:
       // - It's the first page (already loaded by fetchProfileAndInitialData)
       // - Profile is not loaded yet
@@ -656,7 +656,7 @@ export default function UserProfilePage() {
     // The `page` argument in fetchUserAssets is 1-indexed.
     fetchUserAssets(profile.id, canViewerSeeHiddenAssets, loraPage);
 
-  }, [loraPage, profile?.id, user?.id, isAdmin, forceLoggedOutView, fetchUserAssets, isLoadingProfile, isLoadingAssets]);
+  }, [loraPage, profile?.id, user?.id, isAdmin, forceLoggedOutView, fetchUserAssets, isLoadingProfile]);
 
   // --- Derived State with useMemo ---
   const generationVideos = useMemo(() => userVideos.filter(v => v.metadata?.classification === 'gen'), [userVideos]);
