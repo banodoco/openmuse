@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useMemo, useId, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { motion, LayoutGroup, AnimatePresence } from "framer-motion";
-import { VideoEntry } from "@/lib/types";
+import { VideoEntry, AdminStatus } from "@/lib/types";
 import VideoCard from "./VideoCard";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
@@ -38,6 +38,7 @@ interface VideoGridProps {
   onDeleteVideo?: (id: string) => Promise<void>;
   onRejectVideo?: (id: string) => Promise<void>;
   onSetPrimaryMedia?: (id: string) => Promise<void>;
+  onAdminStatusChange?: (videoId: string, newStatus: AdminStatus) => Promise<void>;
   onUpdateLocalVideoStatus?: (id: string, newStatus: string) => void;
   alwaysShowInfo?: boolean;
   forceCreatorHoverDesktop?: boolean;
@@ -61,6 +62,7 @@ export default function VideoGrid({
   onDeleteVideo,
   onRejectVideo,
   onSetPrimaryMedia,
+  onAdminStatusChange,
   onUpdateLocalVideoStatus,
   alwaysShowInfo = false,
   forceCreatorHoverDesktop = false,
@@ -338,6 +340,7 @@ export default function VideoGrid({
                 onDeleteVideo={onDeleteVideo}
                 onRejectVideo={onRejectVideo}
                 onSetPrimaryMedia={onSetPrimaryMedia}
+                onAdminStatusChange={onAdminStatusChange}
                 isHovering={hoveredVideoId === video.id}
                 onHoverChange={(isHovering) => handleHoverChange(video.id, isHovering)}
                 onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}

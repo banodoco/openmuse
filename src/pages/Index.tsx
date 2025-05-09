@@ -90,9 +90,8 @@ const Index: React.FC = () => {
     approveVideo, // Keep for potential other uses, but not in lightbox handler
     rejectVideo,  // Keep for potential other uses, but not in lightbox handler
     refetchVideos, 
-    setVideoAdminStatus // Import the new function
+    setVideoAdminStatus
   } = useVideoManagement();
-  // logger.log(`Index: useVideoManagement() state - videosLoading: ${videosLoading}`);
   
   // Get model filter from URL query params
   const [searchParams, setSearchParams] = useSearchParams();
@@ -598,20 +597,30 @@ const Index: React.FC = () => {
     }
   }, [currentLightboxIndex, lightboxVideoList]);
 
+  // Wrapper function to match expected signature for onAdminStatusChange
+  const handleVideoAdminStatusChange = useCallback(async (videoId: string, newStatus: AdminStatus): Promise<void> => {
+    try {
+      await setVideoAdminStatus(videoId, newStatus);
+      // Optionally, you could add a generic success toast here if not handled by the hook
+      // toast.success("Video admin status updated."); 
+    } catch (error) {
+      // Error is likely handled by the hook, but you could add more specific error handling here if needed
+      logger.error(`[IndexPage] Error in handleVideoAdminStatusChange for ${videoId} to ${newStatus}:`, error);
+    }
+  }, [setVideoAdminStatus]);
+
   // This function now RETURNS the actual handler needed by the Lightbox
   const getLightboxAdminStatusChangeHandler = useCallback((videoId: string) => {
-    return async (newStatus: AdminStatus) => {
-      logger.log(`[Lightbox] Admin status change requested: ${videoId} to ${newStatus}`);
+    return async (newStatus: AdminStatus): Promise<void> => {
+      logger.log(`[Lightbox] Admin status change requested for video ${videoId} to ${newStatus}`);
       try {
-        // Directly use the new function from the hook
         await setVideoAdminStatus(videoId, newStatus);
         // The hook's refetchVideos handles success/error toasts now
-        toast.success(`Video status set to ${newStatus}.`); // Optional: Add specific success toast here if desired
+        // toast.success(`Video status set to ${newStatus}.`); // Optional: Add specific success toast here if desired
         handleCloseLightbox(); // Close lightbox after update
       } catch (error) {
         logger.error(`[Lightbox] Error changing admin status for ${videoId} to ${newStatus}:`, error);
         // Error toast is handled within setVideoAdminStatus or refetchVideos
-        // toast.error("Failed to update video status."); // Can remove this redundant toast
       }
     };
   }, [setVideoAdminStatus, handleCloseLightbox]);
@@ -794,6 +803,9 @@ const Index: React.FC = () => {
               approvalFilter={currentApprovalFilter}
               headerTextClass="text-[#2F4F2E]/75"
               onUploadSuccess={handleArtUploadSuccess}
+              isAdmin={isAdmin}
+              isAuthorized={!!user}
+              onAdminStatusChange={handleVideoAdminStatusChange}
             />
             {renderPaginationControls(artPage, displayArtVideos.totalPages, handleArtPageChange)}
           </div>
@@ -817,6 +829,9 @@ const Index: React.FC = () => {
               approvalFilter={currentApprovalFilter}
               headerTextClass="text-[#2F4F2E]/75"
               onUploadSuccess={handleGenerationUploadSuccess}
+              isAdmin={isAdmin}
+              isAuthorized={!!user}
+              onAdminStatusChange={handleVideoAdminStatusChange}
             />
             {renderPaginationControls(generationPage, displayGenVideos.totalPages, handleGenerationPageChange)}
           </div>

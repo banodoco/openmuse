@@ -2,8 +2,8 @@ import React, { useState, useEffect, useRef, useCallback, memo } from 'react';
 import { useLocation } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
-import { Check, X, Play, ArrowUpRight, Trash, Star } from 'lucide-react';
-import { VideoEntry, VideoDisplayStatus } from '@/lib/types';
+import { Check, X, Play, ArrowUpRight, Trash, Star, ListChecks, Flame, EyeOff, List as ListIcon, Loader2 } from 'lucide-react';
+import { VideoEntry, VideoDisplayStatus, AdminStatus } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import { supabase } from '@/integrations/supabase/client';
 import VideoPreview from '../VideoPreview';
@@ -27,6 +27,15 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import LoraCreatorInfo from '../lora/LoraCreatorInfo';
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 
 const logger = new Logger('VideoCard');
 
@@ -39,6 +48,7 @@ interface VideoCardProps {
   onRejectVideo?: (videoId: string) => Promise<void>;
   onDeleteVideo?: (videoId: string) => Promise<void>;
   onSetPrimaryMedia?: (mediaId: string) => Promise<void>;
+  onAdminStatusChange?: (videoId: string, newStatus: AdminStatus) => Promise<void>;
   isHovering?: boolean;
   onHoverChange?: (isHovering: boolean) => void;
   onStatusUpdateComplete?: () => Promise<void>;
@@ -61,6 +71,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   onRejectVideo,
   onDeleteVideo,
   onSetPrimaryMedia,
+  onAdminStatusChange,
   isHovering = false,
   onHoverChange,
   onStatusUpdateComplete,
@@ -75,8 +86,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const location = useLocation();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  // Attempt to seed thumbnail from several possible fields, defaulting to a
-  // generic placeholder so the card never appears as a stark black square.
   const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(() =>
     video.metadata?.placeholder_image ||
     (video as any).placeholder_image ||
@@ -85,55 +94,29 @@ const VideoCard: React.FC<VideoCardProps> = ({
   );
   const previewRef = useRef<HTMLDivElement>(null);
   useFadeInOnScroll(previewRef);
-  // ---------------------------------------------------------------
-  // Use the dimensions calculated by the VideoGrid (displayW / displayH)
-  // to seed the local aspect-ratio state so that the placeholder box
-  // exactly matches the slot reserved by the grid on the very first
-  // paint.  This eliminates the brief "misshaped" flash that was visible
-  // before the video metadata loaded.
-  // ---------------------------------------------------------------
   const [aspectRatio, setAspectRatio] = useState<number | null>(() => {
-    // Prefer explicit displayW/H passed down from VideoGrid, if present
-    // (DisplayVideoEntry extends VideoEntry so these can exist).
     const displayW = (video as any).displayW as number | undefined;
     const displayH = (video as any).displayH as number | undefined;
-
     if (displayW && displayH) {
       return displayW / displayH;
     }
-
-    // Fall back to any aspectRatio provided at the top-level or in metadata.
     return (video as any).aspectRatio ?? video.metadata?.aspectRatio ?? null;
   });
   const [isDeleting, setIsDeleting] = useState(false);
   const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+  const [isChangingAdminStatus, setIsChangingAdminStatus] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
-  /**
-   * Local hover state allows the card to react immediately to pointer
-   * interactions instead of waiting for the parent grid to propagate the
-   * `isHovering` prop back down. This eliminates a render-round-trip and
-   * makes the placeholder hide + video playback start perceptibly faster.
-   */
   const [localHovering, setLocalHovering] = useState(false);
   
-  // Merge the externally-controlled hover prop with our local state so we
-  // can respond instantly while still respecting whichever card is marked
-  // as the current hover target by the parent grid.
   const combinedHovering = isHovering || localHovering;
-  
-  // Detect when the card itself enters the viewport (desktop only)
   const isInViewport = useIntersectionObserver(previewRef, {
-    rootMargin: '0px 0px 300px 0px', // preload a bit before it actually appears
+    rootMargin: '0px 0px 300px 0px',
     threshold: 0.05,
   });
-  
-  // Determine context based on URL
   const pageContext = location.pathname.includes('/profile/') ? 'profile' : 'asset';
-  // (debug) context determined
 
   useEffect(() => {
     if (video.metadata?.placeholder_image) {
-      // (debug) placeholder cached
       setThumbnailUrl(video.metadata.placeholder_image);
     }
   }, [video.metadata]);
@@ -154,29 +137,19 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleMouseEnter = () => {
     setLocalHovering(true);
-    // Removed callback to parent to avoid triggering parent state updates / re-renders on every hover.
-    // if (onHoverChange && !isHovering) {
-    //   onHoverChange(true);
-    // }
   };
   
   const handleMouseLeave = () => {
     setLocalHovering(false);
-    // Removed callback to parent to avoid triggering parent state updates / re-renders on every hover.
-    // if (onHoverChange && isHovering) {
-    //   onHoverChange(false);
-    // }
   };
   
   const getCreatorName = () => {
-    // No creatorName on metadata, use reviewer_name or fallback
     if (video.reviewer_name) {
       if (video.reviewer_name.includes('@')) {
         return video.reviewer_name.split('@')[0];
       }
       return video.reviewer_name;
     }
-    
     return 'Unknown';
   };
   
@@ -217,16 +190,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const isProfilePage = pageContext === 'profile';
   const isLoRAAssetPage = pageContext === 'asset';
-  
-  // Display badge for videos curated/featured by OpenMuse
   const shouldShowBadge = video.admin_status === 'Curated' || video.admin_status === 'Featured';
   
-  // (debug) render
-
   const handleStatusChange = async (newStatus: VideoDisplayStatus) => {
     setIsStatusUpdating(true);
     let updateType: 'user_status' | 'asset_media_status' | null = null;
-
     try {
       if (isProfilePage) {
         updateType = 'user_status';
@@ -235,37 +203,21 @@ const VideoCard: React.FC<VideoCardProps> = ({
           .update({ user_status: newStatus })
           .eq('id', video.id)
           .select();
-
-        if (error) {
-          throw error;
-        }
-
+        if (error) { throw error; }
         toast.success(`Video status updated to ${newStatus}`);
       } else {
         updateType = 'asset_media_status';
         const assetId = video.metadata?.assetId || video.associatedAssetId;
-        if (!assetId) {
-          throw new Error('Asset ID is missing');
-        }
-
+        if (!assetId) { throw new Error('Asset ID is missing'); }
         const { data, error } = await supabase
           .from('asset_media')
           .update({ status: newStatus })
           .eq('asset_id', assetId)
           .eq('media_id', video.id)
           .select();
-
-        if (error) {
-          throw error;
-        }
-
-        if (!data || data.length === 0) {
-          // Consider if this is an error or expected behavior
-        }
-
+        if (error) { throw error; }
         toast.success(`Video status updated to ${newStatus}`);
       }
-      
       if (onUpdateLocalVideoStatus) {
         onUpdateLocalVideoStatus(video.id, newStatus, updateType === 'user_status' ? 'user' : 'assetMedia');
       } else {
@@ -278,12 +230,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
   
-  // Log the full video object on render for debugging
   useEffect(() => {
     // logger.log(`{ITEMSHOWINGBUG} VideoCard Rendering with video prop (ID: ${video.id}) (user_status: ${video.user_status}, assetMediaDisplayStatus: ${video.assetMediaDisplayStatus}):`, video);
-  }, [video]); // Rerun if video object changes
+  }, [video]);
   
-  // Callback from VideoPlayer (via VideoPreview)
   const handleVisibilityChange = useCallback((visible: boolean) => {
     setIsVisible(visible);
     if (onVisibilityChange) {
@@ -291,36 +241,25 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   }, [video.id, onVisibilityChange]);
   
-  // Determine the relevant status to pass to the controls
   const currentRelevantStatus = isProfilePage ? video.user_status : video.assetMediaDisplayStatus;
 
-  // No need to log every hover state change; handled in handlers.
-
-  // NEW: Handler for VideoPlayer errors
   const handleVideoPlayerError = useCallback((message: string) => {
     logger.log(`[VideoCard] VideoPlayer reported error for video ${video.id}: ${message}`);
-    // Check for the specific error message and if on mobile
     if (
       isMobile &&
-      message === "The video source is not supported." && // This message comes from VideoPlayer's handleVideoError
+      message === "The video source is not supported." &&
       onFormatUnsupportedOnMobile
     ) {
       logger.log(`[VideoCard] Unsupported format for video ${video.id} on mobile. Calling onFormatUnsupportedOnMobile.`);
       onFormatUnsupportedOnMobile(video.id);
     }
-    // If you have other generic error handling for VideoCard itself, it can go here.
   }, [isMobile, onFormatUnsupportedOnMobile, video.id]);
 
-  // ---------------------------------------------------------------------------
-  // Fetch Creator Profile (avatar + display name) when NOT on profile page
-  // ---------------------------------------------------------------------------
   const [creatorProfile, setCreatorProfile] = useState<{ avatar_url: string | null; display_name: string | null; username: string | null } | null>(null);
 
   useEffect(() => {
-    // Only fetch when we are NOT already on that creator's profile page
     if (isProfilePage) return;
     if (!video.user_id) return;
-
     let cancelled = false;
     const fetchProfile = async () => {
       try {
@@ -339,7 +278,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
         if (!cancelled) console.warn('[VideoCard] Error fetching creator profile:', err);
       }
     };
-
     fetchProfile();
     return () => {
       cancelled = true;
@@ -348,10 +286,56 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
   const creatorAvatar = creatorProfile?.avatar_url ?? (video as any).creator_avatar_url ?? undefined;
   const creatorDisplayName = creatorProfile?.display_name || creatorProfile?.username || getCreatorName();
-
-  // Insert new variables before the return block
   const isGeneration = isProfilePage && video.metadata?.classification === 'gen';
   const shouldAlwaysShowInfo = alwaysShowInfo && !isGeneration;
+
+  const handleVideoAdminStatusChange = async (newStatus: AdminStatus) => {
+    if (!isAdmin || !onAdminStatusChange) return;
+    setIsChangingAdminStatus(true);
+    try {
+      await onAdminStatusChange(video.id, newStatus);
+    } catch (error) {
+      logger.error(`Error setting video admin status to ${newStatus} for ${video.id}:`, error);
+      toast.error(`Failed to set video admin status to ${newStatus}`);
+    } finally {
+      setIsChangingAdminStatus(false);
+    }
+  };
+
+  const getAdminStatusIcon = (status: AdminStatus | null | undefined) => {
+    switch (status) {
+      case 'Featured': return <Flame className="h-4 w-4" />;
+      case 'Curated': return <ListChecks className="h-4 w-4" />;
+      case 'Listed': return <ListIcon className="h-4 w-4" />;
+      case 'Hidden': return <EyeOff className="h-4 w-4" />;
+      case 'Rejected': return <X className="h-4 w-4" />;
+      default: return <ListIcon className="h-4 w-4" />;
+    }
+  };
+  
+  const getAdminStatusBadgeVariant = (status: AdminStatus | undefined | null) => {
+    if (!status) return "bg-gray-200 text-gray-800";
+    switch (status) {
+      case 'Featured': return "bg-orange-200 text-orange-800";
+      case 'Curated': return "bg-green-200 text-green-800";
+      case 'Listed': return "bg-blue-200 text-blue-800";
+      case 'Hidden': return "bg-gray-200 text-gray-800";
+      case 'Rejected': return "bg-red-200 text-red-800";
+      default: return "bg-gray-200 text-gray-800";
+    }
+  };
+
+  const adminStatusOptions: AdminStatus[] = ['Featured', 'Curated', 'Listed', 'Hidden', 'Rejected'];
+  const statusOptionColors: Record<AdminStatus, string> = {
+    'Featured': 'bg-orange-50',
+    'Curated': 'bg-green-50',
+    'Listed': 'bg-blue-50',
+    'Hidden': 'bg-gray-50',
+    'Rejected': 'bg-red-50'
+  };
+   const isStatusEqual = (status1: AdminStatus | string | undefined | null, status2: AdminStatus): boolean => {
+    return status1 === status2;
+  };
 
   return (
     <div 
@@ -388,7 +372,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
             isMobile={isMobile}
           />
 
-          {/* Expand Icon for Mobile - Now Bottom Right */}
+          {isAdmin && video.admin_status && (
+            <Badge
+              variant="secondary"
+              className={cn(
+                "absolute top-2 right-2 z-10 mt-8 text-xs px-1.5 py-0.5 h-auto pointer-events-none", 
+                getAdminStatusBadgeVariant(video.admin_status as AdminStatus | null)
+              )}
+            >
+              {video.admin_status}
+            </Badge>
+          )}
+
           {isMobile && (
             <div 
               className="absolute bottom-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none"
@@ -398,11 +393,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Title, badge, and creator info for mobile on profile */}
           {isMobile && (video.metadata?.title || (!isProfilePage && creatorDisplayName) || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute top-2 left-2 z-20 flex flex-col">
               <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
-                {/* Combine Badge and Title */}
                 {(video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
                   <div className="flex items-center space-x-1">
                     {isProfilePage && shouldShowBadge && (
@@ -410,7 +403,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                         src="/reward.png"
                         alt="Featured by OpenMuse"
                         title="Featured by OpenMuse"
-                        className="h-6 w-6 flex-shrink-0" // Adjusted size
+                        className="h-6 w-6 flex-shrink-0"
                       />
                     )}
                     {video.metadata?.title && (
@@ -420,13 +413,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     )}
                   </div>
                 )}
-                {/* Only show creator info when NOT on profile page */}
                 {!isProfilePage && creatorDisplayName && (() => {
                   const titleOrBadgeExists = video.metadata?.title || (isProfilePage && shouldShowBadge);
                   return (
                     <span className={cn(
                       "flex items-center space-x-1",
-                      titleOrBadgeExists && "mt-1" // Conditional Margin
+                      titleOrBadgeExists && "mt-1"
                     )}>
                       <Avatar className="h-4 w-4 border-0 bg-white/20">
                         <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
@@ -444,11 +436,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Title, badge for desktop on profile when shouldAlwaysShowInfo is true */}
           {!isMobile && shouldAlwaysShowInfo && !forceCreatorHoverDesktop && (video.metadata?.title || (!isProfilePage && creatorDisplayName) || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute top-2 left-2 z-20 flex flex-col">
               <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
-                {/* Combine Badge and Title */}
                 {(video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
                   <div className="flex items-center space-x-1">
                      {isProfilePage && shouldShowBadge && (
@@ -456,7 +446,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                         src="/reward.png"
                         alt="Featured by OpenMuse"
                         title="Featured by OpenMuse"
-                        className="h-5 w-5 flex-shrink-0" // Adjusted size
+                        className="h-5 w-5 flex-shrink-0"
                       />
                     )}
                     {video.metadata?.title && (
@@ -466,13 +456,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     )}
                   </div>
                 )}
-                {/* Creator Info (Only when NOT on profile page) */}
                 {!isProfilePage && creatorDisplayName && (() => {
                   const titleOrBadgeExists = video.metadata?.title || (isProfilePage && shouldShowBadge);
                   return (
                     <span className={cn(
                       "flex items-center space-x-1",
-                      titleOrBadgeExists && "mt-1" // Conditional Margin
+                      titleOrBadgeExists && "mt-1"
                     )}>
                       <Avatar className="h-4 w-4 border-0 bg-white/20">
                         <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
@@ -490,11 +479,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Status controls at bottom left */}
           {isAuthorized && (
             <div className={cn(
-              "absolute bottom-2 left-2 z-50 transition-opacity duration-200",
-              !isMobile && "opacity-0 group-hover:opacity-100" // Apply hover effect only on desktop
+              "absolute bottom-2 left-2 z-30 transition-opacity duration-200",
+              !isMobile && "opacity-0 group-hover:opacity-100"
             )} onClick={e => {
               e.stopPropagation();
               e.preventDefault();
@@ -507,12 +495,52 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Delete and primary buttons at top right (Adjust positioning if mobile expand icon is present) */}
+          {isAdmin && onAdminStatusChange && (
+            <div 
+              className="absolute bottom-2 left-2 z-20"
+              style={isAuthorized ? { transform: 'translateX(calc(100% + 8px))' } : {}}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
+                    disabled={isChangingAdminStatus}
+                  >
+                    {isChangingAdminStatus ? (
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : (
+                      getAdminStatusIcon(video.admin_status)
+                    )}
+                    <span className="sr-only">Admin Status</span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-48">
+                  <DropdownMenuLabel>Change Admin Status</DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {adminStatusOptions.map((status) => (
+                    <DropdownMenuItem
+                      key={status}
+                      onClick={() => handleVideoAdminStatusChange(status)}
+                      disabled={isStatusEqual(video.admin_status, status) || isChangingAdminStatus}
+                      className={isStatusEqual(video.admin_status, status) ? statusOptionColors[status] : ""}
+                    >
+                      {getAdminStatusIcon(status)}
+                      <span>{status}</span>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            </div>
+          )}
+
           {isAuthorized && (
             <div 
               className={cn(
                 "absolute top-2 right-2 z-50 flex gap-2",
-                !isMobile && "opacity-0 group-hover:opacity-100 transition-opacity duration-200" // Apply hover effect only on desktop
+                !isMobile && "opacity-0 group-hover:opacity-100 transition-opacity duration-200"
               )}
               onClick={e => {
                 e.stopPropagation();
@@ -577,7 +605,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Play Button overlay (only shown on hover on non-mobile) */}
           {!isMobile && (
             <div 
               className={`absolute inset-0 flex items-center justify-center transition-opacity duration-300 pointer-events-none
@@ -590,20 +617,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
             </div>
           )}
 
-          {/* Desktop: Info overlay that shows on hover when info is not always visible */}
           {!isMobile && (!shouldAlwaysShowInfo || forceCreatorHoverDesktop) && (video.metadata?.title || (!isProfilePage && creatorDisplayName) || (isProfilePage && shouldShowBadge)) && (
             <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-10">
               <div className="absolute top-2 left-2 z-20 flex flex-col">
                 <div className="bg-black/30 backdrop-blur-sm rounded-md p-1.5 pointer-events-none flex flex-col gap-1">
-                  {/* Combine Badge and Title */}
                   {(video.metadata?.title || (isProfilePage && shouldShowBadge)) && (
-                    <div className="flex items-center space-x-1 pointer-events-auto"> {/* Added pointer-events-auto here */}
+                    <div className="flex items-center space-x-1 pointer-events-auto">
                        {isProfilePage && shouldShowBadge && (
                         <img
                           src="/reward.png"
                           alt="Featured by OpenMuse"
                           title="Featured by OpenMuse"
-                          className="h-5 w-5 flex-shrink-0" // Adjusted size
+                          className="h-5 w-5 flex-shrink-0"
                         />
                       )}
                       {video.metadata?.title && (
@@ -613,13 +638,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
                       )}
                     </div>
                   )}
-                  {/* Creator Info (Only when NOT on profile page) */}
                   {!isProfilePage && creatorDisplayName && (() => {
                     const titleOrBadgeExists = video.metadata?.title || (isProfilePage && shouldShowBadge);
                     return (
                       <span className={cn(
-                        "flex items-center space-x-1 pointer-events-auto", // Added pointer-events-auto here previously
-                        titleOrBadgeExists && "mt-1" // Conditional Margin
+                        "flex items-center space-x-1 pointer-events-auto",
+                        titleOrBadgeExists && "mt-1"
                       )}>
                         <Avatar className="h-4 w-4 border-0 bg-white/20">
                           <AvatarImage src={creatorAvatar} alt={creatorDisplayName} />
@@ -640,12 +664,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
         </div>
       </div>
 
-      {/* Desktop Click Indicator - Bottom Right (Keep this outside the video preview area) */}
       {!isMobile && (
         <div 
           className={cn(
             "absolute bottom-2 right-2 z-20 p-1 rounded-full bg-black/40 backdrop-blur-sm pointer-events-none",
-            "opacity-0 group-hover:opacity-100 transition-opacity duration-300" // Only show on hover
+            "opacity-0 group-hover:opacity-100 transition-opacity duration-300"
           )}
           title="Click to view details"
         >
@@ -658,34 +681,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
 VideoCard.displayName = 'VideoCard';
 
-// ---------------------------------------------------------------------------
-// Memoization to prevent whole-grid re-renders on hover
-// ---------------------------------------------------------------------------
-
-// Only re-render when props that materially affect the card change.
 const areEqual = (prev: Readonly<VideoCardProps>, next: Readonly<VideoCardProps>) => {
-  // Primitive props that can toggle frequently
   if (prev.isHovering !== next.isHovering) return false;
   if (prev.shouldBePlaying !== next.shouldBePlaying) return false;
-
-  // Auth / role flags
   if (prev.isAdmin !== next.isAdmin) return false;
   if (prev.isAuthorized !== next.isAuthorized) return false;
-
-  // Display options
   if (prev.alwaysShowInfo !== next.alwaysShowInfo) return false;
   if (prev.forceCreatorHoverDesktop !== next.forceCreatorHoverDesktop) return false;
-
-  // Video object reference – if the parent supplies a new object ref the
-  // card should update.  Deep compare is avoided for perf.
   if (prev.video !== next.video) return false;
-
-  // Check the new callback prop
+  if (prev.onAdminStatusChange !== next.onAdminStatusChange) return false;
   if (prev.onFormatUnsupportedOnMobile !== next.onFormatUnsupportedOnMobile) return false;
-
-  return true; // No significant changes → skip re-render
+  return true;
 };
 
 const MemoizedVideoCard = memo(VideoCard, areEqual);
-
 export default MemoizedVideoCard;
