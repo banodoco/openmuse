@@ -513,6 +513,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     size="sm"
                     className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
                     disabled={isChangingAdminStatus}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                    }}
                   >
                     {isChangingAdminStatus ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -522,13 +525,18 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     <span className="sr-only">Admin Status</span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-48">
+                <DropdownMenuContent align="start" className="w-48" onClick={(e) => {
+                  e.stopPropagation();
+                }}>
                   <DropdownMenuLabel>Change Admin Status</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   {adminStatusOptions.map((status) => (
                     <DropdownMenuItem
                       key={status}
-                      onClick={() => handleVideoAdminStatusChange(status)}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleVideoAdminStatusChange(status);
+                      }}
                       disabled={isStatusEqual(video.admin_status, status) || isChangingAdminStatus}
                       className={isStatusEqual(video.admin_status, status) ? statusOptionColors[status] : ""}
                     >
