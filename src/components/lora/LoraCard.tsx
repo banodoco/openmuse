@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, AdminStatus } from '@/lib/types';
 import { Card, CardContent, CardFooter } from "@/components/ui/card";
-import { Trash, Check, X, ExternalLink, ArrowUpRight, PinIcon, List, EyeOff, Loader2 } from 'lucide-react';
+import { Trash, Check, X, ExternalLink, ArrowUpRight, PinIcon, List, EyeOff, Loader2, Star, ListChecks, Flame } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import VideoPreview from '@/components/VideoPreview';
 import { cn } from '@/lib/utils';
@@ -25,6 +25,14 @@ import { Logger } from '@/lib/logger';
 import LoraCreatorInfo from './LoraCreatorInfo';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 const logger = new Logger('LoraCard');
 
@@ -37,6 +45,7 @@ interface LoraCardProps {
   isOwnProfile?: boolean;
   userStatus?: UserAssetPreferenceStatus | null;
   onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
+  onAdminStatusChange?: (assetId: string, newStatus: AdminStatus) => Promise<void>;
   hideCreatorInfo?: boolean;
   isUpdatingStatus?: boolean;
   onVisibilityChange?: (loraId: string, isVisible: boolean) => void;
@@ -52,6 +61,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   isOwnProfile = false,
   userStatus = null,
   onUserStatusChange,
+  onAdminStatusChange,
   hideCreatorInfo = false,
   isUpdatingStatus = false,
   onVisibilityChange,
@@ -67,6 +77,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const [isPinning, setIsPinning] = useState(false);
   const [isListing, setIsListing] = useState(false);
   const [isHiding, setIsHiding] = useState(false);
+  const [isChangingAdminStatus, setIsChangingAdminStatus] = useState(false);
   const [currentStatus, setCurrentStatus] = useState(userStatus);
   const { user } = useAuth();
   // Initialize aspect ratio from metadata if it already exists to avoid layout shift on initial render
@@ -169,6 +180,37 @@ const LoraCard: React.FC<LoraCardProps> = ({
     }
   };
 
+  const handleAdminStatusChange = async (newStatus: AdminStatus) => {
+    if (!isAdmin || !onAdminStatusChange) return;
+    
+    setIsChangingAdminStatus(true);
+    try {
+      await onAdminStatusChange(lora.id, newStatus);
+    } catch (error) {
+      console.error(`Error setting admin status to ${newStatus}:`, error);
+      toast.error(`Failed to set admin status to ${newStatus}`);
+    } finally {
+      setIsChangingAdminStatus(false);
+    }
+  };
+  
+  const getAdminStatusIcon = (status: AdminStatus) => {
+    switch (status) {
+      case 'Featured':
+        return <Flame className="h-4 w-4 mr-2" />;
+      case 'Curated':
+        return <ListChecks className="h-4 w-4 mr-2" />;
+      case 'Listed':
+        return <List className="h-4 w-4 mr-2" />;
+      case 'Hidden':
+        return <EyeOff className="h-4 w-4 mr-2" />;
+      case 'Rejected':
+        return <X className="h-4 w-4 mr-2" />;
+      default:
+        return <List className="h-4 w-4 mr-2" />;
+    }
+  };
+
   const handlePin = () => updateAssetStatus('Pinned');
   const handleSetListed = () => updateAssetStatus('Listed');
   const handleHide = () => updateAssetStatus('Hidden');
@@ -213,6 +255,43 @@ const LoraCard: React.FC<LoraCardProps> = ({
       setAspectRatio(metaRatio);
     }
   }, [lora?.primaryVideo?.metadata?.aspectRatio, aspectRatio]);
+
+  // Get admin status badge variant
+  const getAdminStatusBadgeVariant = (status: AdminStatus | undefined | null) => {
+    if (!status) return "bg-gray-200 text-gray-800";
+    
+    switch (status) {
+      case 'Featured':
+        return "bg-orange-200 text-orange-800";
+      case 'Curated':
+        return "bg-green-200 text-green-800";
+      case 'Listed':
+        return "bg-blue-200 text-blue-800";
+      case 'Hidden':
+        return "bg-gray-200 text-gray-800";
+      case 'Rejected':
+        return "bg-red-200 text-red-800";
+      default:
+        return "bg-gray-200 text-gray-800";
+    }
+  };
+
+  // Define valid admin status options
+  const adminStatusOptions: AdminStatus[] = ['Featured', 'Curated', 'Listed', 'Hidden', 'Rejected'];
+
+  // Status option color classnames for dropdown items
+  const statusOptionColors: Record<AdminStatus, string> = {
+    'Featured': 'bg-orange-50',
+    'Curated': 'bg-green-50',
+    'Listed': 'bg-blue-50',
+    'Hidden': 'bg-gray-50',
+    'Rejected': 'bg-red-50'
+  };
+  
+  // Helper function to safely compare admin status values
+  const isStatusEqual = (status1: string | undefined | null, status2: AdminStatus): boolean => {
+    return status1 === status2;
+  };
 
   return (
     <Card onClick={handleView} className="relative overflow-hidden shadow-lg group transition-all duration-300 ease-in-out hover:shadow-xl border-transparent hover:border-primary/30 bg-card/70 backdrop-blur-sm">
@@ -299,14 +378,26 @@ const LoraCard: React.FC<LoraCardProps> = ({
             </Badge>
           )}
         </div>
-        {!hideCreatorInfo && (
-          <LoraCreatorInfo 
-            asset={lora} 
-            avatarSize="h-5 w-5" 
-            textSize="text-xs" 
-            className="text-muted-foreground mt-1"
-          />
-        )}
+        <div className="flex justify-between items-center">
+          {!hideCreatorInfo && (
+            <LoraCreatorInfo 
+              asset={lora} 
+              avatarSize="h-5 w-5" 
+              textSize="text-xs" 
+              className="text-muted-foreground mt-1"
+            />
+          )}
+          
+          {/* Admin Status Badge - Only shown when admin is viewing */}
+          {isAdmin && lora.admin_status && (
+            <Badge
+              variant="secondary"
+              className={cn("mt-1 text-xs px-2 py-0.5 h-5", getAdminStatusBadgeVariant(lora.admin_status))}
+            >
+              {lora.admin_status}
+            </Badge>
+          )}
+        </div>
       </CardContent>
       
       {isOwnProfile && (
@@ -344,6 +435,46 @@ const LoraCard: React.FC<LoraCardProps> = ({
               {isUpdatingStatus && currentStatus === 'Pinned' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PinIcon className="mr-2 h-4 w-4" />} 
               Pin
             </Button>
+          </div>
+        </CardFooter>
+      )}
+      
+      {/* Admin Status Controls */}
+      {isAdmin && onAdminStatusChange && !isOwnProfile && (
+        <CardFooter className="p-3 border-t" onClick={(e) => e.stopPropagation()}>
+          <div className="w-full">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="w-full"
+                  disabled={isChangingAdminStatus}
+                >
+                  {isChangingAdminStatus ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    getAdminStatusIcon((lora.admin_status || 'Listed') as AdminStatus)
+                  )}
+                  {isChangingAdminStatus ? 'Updating...' : 'Admin Status'}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuLabel>Change Admin Status</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {adminStatusOptions.map((status) => (
+                  <DropdownMenuItem 
+                    key={status}
+                    onClick={() => handleAdminStatusChange(status)}
+                    disabled={isStatusEqual(lora.admin_status, status) || isChangingAdminStatus}
+                    className={isStatusEqual(lora.admin_status, status) ? statusOptionColors[status] : ""}
+                  >
+                    {getAdminStatusIcon(status)}
+                    <span>{status}</span>
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </CardFooter>
       )}

@@ -1,9 +1,10 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
-import { LoraAsset } from '@/lib/types';
+import { LoraAsset, AdminStatus } from '@/lib/types';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { useAuth } from '@/hooks/useAuth';
 import { Logger } from '@/lib/logger';
+import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('useLoraManagement', true, 'SessionPersist');
 
@@ -240,10 +241,58 @@ export const useLoraManagement = (filters: LoraFilters) => {
     }
   }, [loadLorasPage]);
 
+  const setLoraAdminStatus = useCallback(async (assetId: string, status: AdminStatus): Promise<void> => {
+    logger.log(`[setLoraAdminStatus] Setting status for asset ${assetId} to ${status}`);
+    
+    if (!user) {
+      logger.error('[setLoraAdminStatus] No user logged in');
+      toast.error('You must be logged in to change asset status');
+      return;
+    }
+    
+    try {
+      // Check if user is admin
+      const isUserAdmin = await checkIsAdmin(user.id);
+      if (!isUserAdmin) {
+        logger.error('[setLoraAdminStatus] Non-admin user attempted to set asset status');
+        toast.error('Permission denied: Only admins can change admin status');
+        return;
+      }
+      
+      // Update the asset status
+      const { data, error } = await supabase
+        .from('assets')
+        .update({ admin_status: status, admin_reviewed: true })
+        .eq('id', assetId)
+        .select('*')
+        .single();
+      
+      if (error) {
+        logger.error(`[setLoraAdminStatus] Error updating asset ${assetId} status:`, error);
+        toast.error('Failed to update asset status');
+        throw error;
+      }
+      
+      // Optimistically update the local state
+      setLoras(prevLoras => 
+        prevLoras.map(lora => 
+          lora.id === assetId ? { ...lora, admin_status: status } : lora
+        )
+      );
+      
+      logger.log(`[setLoraAdminStatus] Asset ${assetId} status updated to ${status}`);
+      toast.success(`Asset status set to ${status}`);
+    } catch (error) {
+      logger.error('[setLoraAdminStatus] Unexpected error:', error);
+      toast.error('An unexpected error occurred');
+    }
+  }, [user]);
+
   return {
     loras,
     isLoading,
     totalCount,
-    refetchLoras
+    refetchLoras,
+    setLoraAdminStatus
   };
 };

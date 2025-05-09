@@ -143,7 +143,8 @@ const Index: React.FC = () => {
     loras, 
     isLoading: lorasLoading, 
     totalCount: totalLorasFromHook, // Get totalCount from the hook
-    refetchLoras
+    refetchLoras,
+    setLoraAdminStatus
   } = useLoraManagement({ 
     modelFilter: currentModelFilter, 
     approvalFilter: currentApprovalFilter,
@@ -716,6 +717,7 @@ const Index: React.FC = () => {
               isAdmin={isAdmin || false}
               onRefreshData={handleRefreshData}
               approvalFilter={currentApprovalFilter}
+              onAdminStatusChange={setLoraAdminStatus}
               headerAction={( 
                 <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
                   <DialogTrigger asChild>

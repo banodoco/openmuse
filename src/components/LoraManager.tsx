@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { LoraAsset, UserAssetPreferenceStatus } from '@/lib/types';
+import { LoraAsset, UserAssetPreferenceStatus, AdminStatus } from '@/lib/types';
 import LoraList from './lora/LoraList';
 import LoadingState from './LoadingState';
 import EmptyState from './EmptyState';
@@ -28,6 +28,7 @@ interface LoraManagerProps {
   /** The current approval filter state from the parent */
   approvalFilter?: 'all' | 'curated';
   onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
+  onAdminStatusChange?: (assetId: string, newStatus: AdminStatus) => Promise<void>;
   isUpdatingStatusMap?: Record<string, boolean>;
   /** Optional prop to control the visibility of the internal header (h2 and See All link). Defaults to true. */
   showHeader?: boolean;
@@ -49,6 +50,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
   showSeeAllLink,
   approvalFilter = 'curated', // Default to 'curated' if not provided
   onUserStatusChange,
+  onAdminStatusChange,
   isUpdatingStatusMap,
   showHeader = true, // Default to true if not provided
   headerAction, // Add new prop
@@ -89,6 +91,7 @@ const LoraManager: React.FC<LoraManagerProps> = ({
         <LoraList 
           loras={filteredLoras} 
           onUserStatusChange={onUserStatusChange}
+          onAdminStatusChange={onAdminStatusChange}
           isUpdatingStatusMap={isUpdatingStatusMap}
           isAdmin={isAdmin}
           hideCreatorInfo={hideCreatorInfo}

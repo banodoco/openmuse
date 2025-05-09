@@ -25,6 +25,19 @@ This document outlines the directory structure of the openmuse` project, providi
 - Requires authentication
 - Returns the URL of the uploaded LoRA file
 
+## Components Updates
+
+### LoraCard.tsx
+- Enhanced to allow admins to change asset admin_status directly from the card UI
+- Added dropdown menu with options for Featured, Curated, Listed, Hidden, and Rejected statuses
+- Added admin status badge to visually indicate current status
+- Includes loading indicators during status changes
+
+### useLoraManagement.tsx
+- Added setLoraAdminStatus function to allow changing admin status of LoRA assets
+- Includes admin permission checking and optimistic UI updates
+- Returns updated hook with new functionality exposed
+
 ```
 .
 ├── .git/                   # Git version control directory

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
-import { LoraAsset, UserAssetPreferenceStatus } from '@/lib/types';
+import { LoraAsset, UserAssetPreferenceStatus, AdminStatus } from '@/lib/types';
 import { FileVideo } from 'lucide-react';
 import LoraCard from './LoraCard';
 import { Logger } from '@/lib/logger';
@@ -21,6 +21,7 @@ interface LoraListProps {
   initialModelFilter?: string;
   isAdmin?: boolean;
   onUserStatusChange?: (assetId: string, newStatus: UserAssetPreferenceStatus) => Promise<void>;
+  onAdminStatusChange?: (assetId: string, newStatus: AdminStatus) => Promise<void>;
   isUpdatingStatusMap?: Record<string, boolean>;
   /** Whether to hide creator info on the LoraCard. Defaults to false. */
   hideCreatorInfo?: boolean;
@@ -29,7 +30,8 @@ interface LoraListProps {
 const LoraList: React.FC<LoraListProps> = ({ 
   loras, 
   isAdmin, 
-  onUserStatusChange, 
+  onUserStatusChange,
+  onAdminStatusChange,
   isUpdatingStatusMap,
   hideCreatorInfo = false,
 }) => {
@@ -134,6 +136,7 @@ const LoraList: React.FC<LoraListProps> = ({
               lora={lora} 
               isAdmin={isAdmin}
               onUserStatusChange={onUserStatusChange}
+              onAdminStatusChange={onAdminStatusChange}
               isUpdatingStatus={isUpdatingStatusMap ? isUpdatingStatusMap[lora.id] : undefined}
               onVisibilityChange={handleVideoVisibilityChange}
               shouldBePlaying={isMobile && lora.id === visibleVideoId}
