@@ -86,6 +86,19 @@ export const useLoraManagement = (filters: LoraFilters) => {
 
         const { data: loraAssets, error, count } = await query;
 
+        // === NEW: Gracefully handle out-of-range pagination ===
+        if (error && (error as any).code === 'PGRST103') {
+          logger.warn(`[loadLorasPage] Requested page is out of range (PGRST103). Returning empty results without retry.`);
+          if (isMounted.current) {
+            setLoras([]);
+            setTotalCount(count ?? 0);
+            setIsLoading(false);
+            fetchInProgress.current = false;
+          }
+          // Do not treat as fatal error; simply exit this load attempt without triggering retries
+          return;
+        }
+
         if (!isMounted.current) {
           logger.log(`[loadLorasPage] Abort query fetch (attempt ${attempt}): Unmounted`);
           fetchInProgress.current = false;
