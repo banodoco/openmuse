@@ -244,69 +244,66 @@ function sanitizeRepoName(name: string): string {
 }
 
 function generateReadmeContent(loraDetails: any, videosMetadata: any[], uploadedVideoPaths: string[], loraFileName: string, repoId: string): string {
-  let readme = ""
+  let readme = "";
 
-  // YAML Frontmatter
-  readme += "---\n"
-  readme += "base_model:\n"
-  readme += "- Lightricks/LTX-Video\n"
-  readme += "tags:\n"
-  readme += "- ltxv\n"
-  readme += "- 13B\n"
-  readme += "- text-to-video\n"
-  readme += "- lora\n"
-  if (loraDetails.model) {
-    readme += `- ${loraDetails.model.toLowerCase().replace(/\s+/g, '-')}\n`
-  }
-  if (loraDetails.loraType) {
-    readme += `- ${loraDetails.loraType.toLowerCase().replace(/\s+/g, '-')}\n`
-  }
-  readme += "library_name: diffusers\n"
+  // YAML Frontmatter based on user's specification
+  readme += "---\n";
+  readme += "base_model:\n";
+  readme += "- Lightricks/LTX-Video\n";
+  readme += "tags:\n";
+  readme += "- ltxv\n";
+  readme += "- 13B\n";
+  readme += "- text-to-video\n";
+  readme += "- lora\n";
 
-  // Widget section for videos
+  // Conditionally add widget section if videos were uploaded
   if (uploadedVideoPaths && uploadedVideoPaths.length > 0) {
-    readme += "widget:\n"
+    readme += "widget:\n";
     uploadedVideoPaths.forEach(videoPathInRepo => {
+      // Find the metadata for the current video to get its description (prompt)
       const videoFileNameFromPath = videoPathInRepo.split('/').pop();
-      const videoMetaItem = videosMetadata.find(vm => vm.originalFileName && sanitizeRepoName(vm.originalFileName) === videoFileNameFromPath);
+      const videoMetaItem = videosMetadata.find(
+        vm => vm.originalFileName && sanitizeRepoName(vm.originalFileName) === videoFileNameFromPath
+      );
 
       if (videoMetaItem && videoMetaItem.metadata && videoMetaItem.metadata.description) {
-        const promptText = videoMetaItem.metadata.description.replace(/\n/g, ' ').replace(/\"/g, '\\"');
-        readme += `- text: >-\n`
-        readme += `    "${promptText}"\n`
-        readme += `  output:\n`
-        readme += `    url: ${videoPathInRepo}\n`
+        const promptTextFormatted = videoMetaItem.metadata.description.replace(/\n/g, ' ').replace(/"/g, '\\"');
+        readme += `- text: >-\n`;
+        readme += `    "${promptTextFormatted}"\n`;
+        readme += `  output:\n`;
+        readme += `    url: ${videoPathInRepo}\n`; // videoPathInRepo is like 'media/filename.mp4'
       }
-    })
+    });
   }
-  readme += "---\n\n"
+  readme += "---\n\n";
+  // End of YAML Frontmatter generation
 
   // Rest of the README content
-  readme += `# ${loraDetails.loraName || 'Unnamed LoRA'}\n\n`
-  readme += `This LoRA was uploaded via OpenMuse.ai: [https://openmuse.ai/](https://openmuse.ai/)\n\n`
-  readme += `## Model Details\n\n`
-  readme += `**File:** \`./${loraFileName}\` ([Download Link](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(loraFileName)}))\n\n`
-  readme += `**Base Model:** ${loraDetails.model || 'N/A'} (${loraDetails.modelVariant || 'N/A'})\n`
-  readme += `**LoRA Type:** ${loraDetails.loraType || 'N/A'}\n\n`
-  readme += `### Trigger Words & Usage Notes\n`
-  readme += "```text\n"
-  readme += `${loraDetails.loraDescription || 'No specific trigger words or usage notes provided.'}\n`
-  readme += "```\n\n"
+  readme += `# ${loraDetails.loraName || 'Unnamed LoRA'}\n\n`;
+  readme += `This LoRA was uploaded via OpenMuse.ai: [https://openmuse.ai/](https://openmuse.ai/)\n\n`;
+  readme += `## Model Details\n\n`;
+  readme += `**File:** \`./${loraFileName}\` ([Download Link](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(loraFileName)}))\n\n`;
+  readme += `**Base Model:** ${loraDetails.model || 'N/A'} (${loraDetails.modelVariant || 'N/A'})\n`;
+  readme += `**LoRA Type:** ${loraDetails.loraType || 'N/A'}\n\n`;
+  readme += `### Trigger Words & Usage Notes\n`;
+  readme += "```text\n";
+  readme += `${loraDetails.loraDescription || 'No specific trigger words or usage notes provided.'}\n`;
+  readme += "```\n\n";
 
   if (loraDetails.creator === 'someone_else' && loraDetails.creatorName) {
-    readme += `## Creator Information\n`
-    readme += `Originally created by: **${loraDetails.creatorName}**\n\n`
+    readme += `## Creator Information\n`;
+    readme += `Originally created by: **${loraDetails.creatorName}**\n\n`;
   }
 
   if (uploadedVideoPaths && uploadedVideoPaths.length > 0) {
-    readme += `## Example Media Files\n`
-    readme += `The following media files were uploaded as examples for this LoRA:\n\n`
+    readme += `## Example Media Files\n`;
+    readme += `The following media files were uploaded as examples for this LoRA:\n\n`;
     uploadedVideoPaths.forEach((videoPath, index) => {
-      const videoFileName = videoPath.split('/').pop() || `Example Video ${index + 1}`
-      readme += `* **${videoFileName}**: [View Media](./${videoPath}) or [Download](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(videoPath)})\n`
-    })
-    readme += `\n`
+      const videoFileName = videoPath.split('/').pop() || `Example Video ${index + 1}`;
+      readme += `* **${videoFileName}**: [View Media](./${videoPath}) or [Download](https://huggingface.co/${repoId}/resolve/main/${encodeURIComponent(videoPath)})\n`;
+    });
+    readme += `\n`;
   }
 
-  return readme
+  return readme;
 } 
