@@ -180,3 +180,30 @@
   );
   pointer-events: none;
 }
+
+.prose-feathered-backdrop {
+  position: relative; /* Needed for absolute positioning of the pseudo-element */
+  /* Ensure padding and rounding are applied here to contain the effect properly */
+  /* If you have p-6 and rounded-lg on this element via Tailwind, that's fine */
+}
+
+.prose-feathered-backdrop::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: -1; /* Place it behind the text content of .prose-feathered-backdrop */
+
+  /* Apply the background color and backdrop blur here */
+  background-color: rgba(254, 253, 244, 0.3); /* Corresponds to bg-[#FEFDF4]/30 */
+  backdrop-filter: blur(4px); /* Corresponds to backdrop-blur-sm (Tailwind's default) */
+  /* The border-radius should ideally match the parent if it has rounded corners */
+  /* If parent has rounded-lg (0.5rem), this will make the effect also rounded */
+  border-radius: inherit; /* Inherit border-radius from parent */
+
+  /* Apply the mask here */
+  -webkit-mask-image: radial-gradient(ellipse 100% 70% at center, white 20%, transparent 80%);
+  mask-image: radial-gradient(ellipse 100% 70% at center, white 20%, transparent 80%);
+}

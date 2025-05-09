@@ -2,6 +2,8 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
+import SproutingCursorCanvas from '@/components/SproutingCursorCanvas';
+import { cn } from '@/lib/utils';
 
 const ManifestoPage: React.FC = () => {
   const isMobile = useIsMobile();
@@ -261,12 +263,22 @@ const ManifestoPage: React.FC = () => {
 
   return (
     <div className="flex flex-col min-h-screen">
-      <Navigation />
+      <div className="z-10 bg-[#FEFDF4]/30 backdrop-blur-sm">
+        <Navigation />
+      </div>
+      <SproutingCursorCanvas />
       
       <div className="flex-1 w-full">
         <div className="max-w-screen-2xl mx-auto p-4">
 
-          <div ref={proseRef} className="prose max-w-3xl mx-auto py-8">
+          <div 
+            ref={proseRef} 
+            className={cn(
+              "prose max-w-3xl mx-auto py-8",
+              "bg-[#FEFDF4]/30 p-6 rounded-lg",
+              "prose-feathered-backdrop"
+            )}
+          >
             <h2 className="text-3xl font-bold mb-6 text-left">Let's Build a Beautiful Home for Open-Source AI Art</h2>
 
             <p className="text-lg leading-relaxed mb-4">
@@ -306,6 +318,7 @@ const ManifestoPage: React.FC = () => {
             </p>
           </div>
 
+          {/* Commenting out the video section
           <div
             ref={containerRef}
             className="max-w-3xl mx-auto pb-8 flex justify-center items-center"
@@ -332,6 +345,7 @@ const ManifestoPage: React.FC = () => {
               />
             </div>
           </div>
+          */}
         </div>
       </div>
       

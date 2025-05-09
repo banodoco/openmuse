@@ -38,6 +38,9 @@ This document outlines the directory structure of the openmuse` project, providi
 - Includes admin permission checking and optimistic UI updates
 - Returns updated hook with new functionality exposed
 
+### SproutingCursorCanvas.tsx
+- Full-screen decorative canvas that renders sprouting cursor/branch effect across the entire app
+
 ```
 .
 ├── .git/                   # Git version control directory
