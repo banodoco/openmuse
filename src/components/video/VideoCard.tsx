@@ -114,6 +114,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
     threshold: 0.05,
   });
   const pageContext = location.pathname.includes('/profile/') ? 'profile' : 'asset';
+  const isProfilePage = pageContext === 'profile';
 
   useEffect(() => {
     if (video.metadata?.placeholder_image) {
@@ -188,7 +189,6 @@ const VideoCard: React.FC<VideoCardProps> = ({
     }
   };
   
-  const isProfilePage = pageContext === 'profile';
   const isLoRAAssetPage = pageContext === 'asset';
   const shouldShowBadge = video.admin_status === 'Curated' || video.admin_status === 'Featured';
   
@@ -372,7 +372,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             isMobile={isMobile}
           />
 
-          {isAdmin && video.admin_status && (
+          {isAdmin && video.admin_status && isProfilePage && (
             <Badge
               variant="secondary"
               className={cn(
@@ -499,7 +499,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
             <div 
               className="absolute bottom-2 left-2 z-20"
               style={isAuthorized && isProfilePage ? { transform: 'translateX(calc(100% + 8px))' } : {}}
-              onClick={(e) => e.stopPropagation()}
+              onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
