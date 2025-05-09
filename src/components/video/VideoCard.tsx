@@ -346,7 +346,24 @@ const VideoCard: React.FC<VideoCardProps> = ({
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      onClick={() => onOpenLightbox(video)}
+      onClick={(e: React.MouseEvent<HTMLDivElement>) => {
+        let targetElement = e.target as HTMLElement;
+        let isClickOnAdminToggle = false;
+        while (targetElement && targetElement !== e.currentTarget) {
+            if (targetElement.classList.contains('admin-dropdown-blocker') || targetElement.querySelector('.admin-dropdown-blocker')) {
+                isClickOnAdminToggle = true;
+                break;
+            }
+            targetElement = targetElement.parentElement as HTMLElement;
+        }
+        if ((e.target as HTMLElement).classList.contains('admin-dropdown-blocker')) {
+            isClickOnAdminToggle = true;
+        }
+
+        if (!isClickOnAdminToggle) {
+            onOpenLightbox(video);
+        }
+      }}
       data-hovering={combinedHovering ? "true" : "false"}
       data-video-id={video.id}
     >
@@ -497,7 +514,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
 
           {isAdmin && onAdminStatusChange && (
             <div 
-              className="absolute bottom-2 left-2 z-20"
+              className="absolute bottom-2 left-2 z-20 admin-dropdown-blocker"
               style={isAuthorized && isProfilePage ? { transform: 'translateX(calc(100% + 8px))' } : {}}
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             >
