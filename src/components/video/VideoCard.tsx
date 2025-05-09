@@ -509,6 +509,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
                     disabled={isChangingAdminStatus}
                     onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
                     onPointerDown={(e) => { e.stopPropagation(); }}
+                    onMouseUp={(e) => { e.stopPropagation(); e.preventDefault(); }}
                   >
                     {isChangingAdminStatus ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
