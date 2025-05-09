@@ -348,6 +348,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
       )}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
+      onClickCapture={(e) => {
+        if (adminDropdownClickedRef.current) {
+          e.stopPropagation();
+          adminDropdownClickedRef.current = false;
+        }
+      }}
       onClick={(e) => {
         if (adminDropdownClickedRef.current) {
           adminDropdownClickedRef.current = false;
@@ -511,10 +517,11 @@ const VideoCard: React.FC<VideoCardProps> = ({
             >
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
-                  <span onMouseDownCapture={(e) => {
-                    e.stopPropagation();
-                    e.nativeEvent.stopImmediatePropagation();
+                  <span onMouseDown={(e) => {
                     adminDropdownClickedRef.current = true;
+                    setTimeout(() => {
+                      adminDropdownClickedRef.current = false;
+                    }, 100);
                   }}>
                     <Button
                       variant="outline"
