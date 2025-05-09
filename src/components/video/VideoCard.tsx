@@ -107,6 +107,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [isChangingAdminStatus, setIsChangingAdminStatus] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [localHovering, setLocalHovering] = useState(false);
+  const dropdownInteractionRef = useRef(false);
   
   const combinedHovering = isHovering || localHovering;
   const isInViewport = useIntersectionObserver(previewRef, {
@@ -347,8 +348,12 @@ const VideoCard: React.FC<VideoCardProps> = ({
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       onClick={(e: React.MouseEvent<HTMLDivElement>) => {
-        if (e.defaultPrevented) return;
-        if ((e.target as HTMLElement).closest('.admin-dropdown-blocker')) return;
+        if (dropdownInteractionRef.current) {
+          return;
+        }
+        if ((e.target as HTMLElement).closest('.admin-dropdown-blocker')) {
+          return;
+        }
         onOpenLightbox(video);
       }}
       data-hovering={combinedHovering ? "true" : "false"}
@@ -505,13 +510,27 @@ const VideoCard: React.FC<VideoCardProps> = ({
               style={isAuthorized && isProfilePage ? { transform: 'translateX(calc(100% + 8px))' } : {}}
               onClick={(e) => { e.stopPropagation(); e.preventDefault(); }}
             >
-              <DropdownMenu>
+              <DropdownMenu onOpenChange={(open) => {
+                if (!open) {
+                  setTimeout(() => {
+                    dropdownInteractionRef.current = false;
+                  }, 0);
+                }
+              }}>
                 <DropdownMenuTrigger asChild>
                   <Button
                     variant="outline"
                     size="sm"
                     className="h-8 w-auto px-2 py-1 shadow-md bg-background/80 hover:bg-background/100 backdrop-blur-sm"
                     disabled={isChangingAdminStatus}
+                    onPointerDown={(e) => {
+                      e.stopPropagation();
+                      dropdownInteractionRef.current = true;
+                    }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      dropdownInteractionRef.current = true;
+                    }}
                   >
                     {isChangingAdminStatus ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -530,6 +549,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
                       onClick={() => handleVideoAdminStatusChange(status)}
                       disabled={isStatusEqual(video.admin_status, status) || isChangingAdminStatus}
                       className={isStatusEqual(video.admin_status, status) ? statusOptionColors[status] : ""}
+                      onPointerDown={(e) => {
+                        e.stopPropagation();
+                        dropdownInteractionRef.current = true;
+                      }}
                     >
                       {getAdminStatusIcon(status)}
                       <span>{status}</span>
