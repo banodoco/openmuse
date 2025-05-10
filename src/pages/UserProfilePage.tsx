@@ -34,9 +34,11 @@ import UploadPage from '@/pages/upload/UploadPage';
 import LoraManager from '@/components/LoraManager';
 import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
+import { useMockRoleContext } from '@/contexts/MockRoleContext';
 
 const logger = new Logger('UserProfilePage');
 const LORA_PROFILE_PERF_ID_PREFIX = '[LoraLoadSpeed_UserProfilePage]';
+const MOCK_OWNER_MARKER_USER_ID = '---MOCK_ASSET_OWNER_USER---';
 
 const PROFILE_LORA_ITEMS_PER_PAGE = 6; // Defined page size for LoRAs on this page
 
@@ -125,10 +127,11 @@ const scrollToElementWithOffset = (element: HTMLElement | null, offset: number =
 };
 
 export default function UserProfilePage() {
-  const { username } = useParams<{ username: string }>();
+  const { username: usernameFromParams } = useParams<{ username: string }>();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { user, isAdmin, isLoading: isAuthLoading } = useAuth();
+  const { mockRole, mockOwnerId: mockOwnerIdentifierFromContext, isStaging } = useMockRoleContext();
   const isMobile = useIsMobile();
 
   // === Move ALL Hooks BEFORE the conditional return ===
@@ -389,212 +392,172 @@ export default function UserProfilePage() {
 
   // --- Main Data Fetching Effect ---
   useEffect(() => {
-    logger.log("Main data fetching effect triggered", { username, isAuthLoading, userId: user?.id, isAdmin, loggedOutViewParam });
+    const LOG_TAG = '[UserProfileOwnerDebug]';
+    logger.log(`${LOG_TAG} Main data fetching effect triggered`, { usernameFromParams, isAuthLoading, userId: user?.id, isAdmin, loggedOutViewParam, mockRole, mockOwnerIdentifierFromContext });
     console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`);
     if (isAuthLoading) {
-      logger.log("Auth is loading, deferring profile fetch...");
-      console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early if auth loading
-      return; // Don't proceed until auth is resolved
+      logger.log(`${LOG_TAG} Auth is loading, deferring profile fetch...`);
+      console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); 
+      return; 
     }
-    // Define isMounted flag here, in the useEffect scope
     let isMounted = true;
 
-    // Determine if user should see the public view
     const forcePublic = loggedOutViewParam === 'true';
     setForceLoggedOutView(forcePublic);
 
     const fetchProfileAndInitialData = async () => {
-      if (!username) {
-        logger.warn("No username in URL parameters, cannot fetch profile.");
+      if (!usernameFromParams) {
+        logger.warn(`${LOG_TAG} No username in URL parameters, cannot fetch profile.`);
         setIsLoadingProfile(false);
         setProfile(null);
         setUserAssets([]);
         setUserVideos([]);
-        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early if no username
+        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`);
         return;
       }
       
-      logger.log("Fetching profile for username:", username);
+      logger.log(`${LOG_TAG} Fetching profile for username:`, usernameFromParams);
       setIsLoadingProfile(true);
       setIsLoadingAssets(true);
       setIsLoadingVideos(true);
 
       try {
-        // Step 1: Fetch profile by username
-        logger.log('[fetchProfileAndInitialData] Step 1: Fetching profile by username:', username);
+        logger.log(`${LOG_TAG} Step 1: Fetching profile by username:`, usernameFromParams);
         const { data: profileData, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('username', username)
+          .eq('username', usernameFromParams)
           .maybeSingle();
 
-        if (profileError) {
-          logger.error('[fetchProfileAndInitialData] Step 1 Failed - Error fetching profile:', username, profileError);
-          toast.error(`Error loading profile for ${username}.`);
+        if (profileError || !profileData) {
+          logger.error(`${LOG_TAG} Step 1 Failed or Profile not found for:`, usernameFromParams, profileError);
+          toast.error(`Error loading profile for ${usernameFromParams}.`);
           setIsLoadingProfile(false); setIsLoadingAssets(false); setIsLoadingVideos(false);
-          console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early on error
-          return;
-        }
-        if (!profileData) {
-          logger.warn('[fetchProfileAndInitialData] Step 1 Failed - Profile not found:', username);
-          toast.error(`Profile not found for ${username}`);
-          setIsLoadingProfile(false); setIsLoadingAssets(false); setIsLoadingVideos(false);
-          setProfile(null); 
-          console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); // End early if not found
+          if (!profileError && !profileData) setProfile(null); 
+          console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`); 
           return;
         }
 
-        logger.log('[fetchProfileAndInitialData] Step 1 Success - Profile found:', profileData.id);
+        logger.log(`${LOG_TAG} Step 1 Success - Profile found:`, profileData.id, profileData.username);
         const fetchedProfileUserId = profileData.id;
+        const fetchedProfileUsername = profileData.username; 
 
-        // Determine ownership and edit permissions
-        const currentUserId = user?.id;
-        const isProfileOwner = !!currentUserId && currentUserId === fetchedProfileUserId;
-        const canEditProfile = isProfileOwner || isAdmin;
-        const viewerCanSeeHidden = canEditProfile || forcePublic === false;
+        const currentAuthUserId = user?.id;
+        
+        const actualIsProfileOwner = !!currentAuthUserId && currentAuthUserId === fetchedProfileUserId;
+
+        const isViewingAsMockOwner = 
+          isStaging && 
+          mockRole === 'owner' && 
+          currentAuthUserId === MOCK_OWNER_MARKER_USER_ID &&
+          fetchedProfileUsername === mockOwnerIdentifierFromContext;
+
+        const finalIsOwner = actualIsProfileOwner || isViewingAsMockOwner;
+        const finalCanEdit = finalIsOwner || (isAdmin && !forcePublic);
+
+        logger.log(`${LOG_TAG} Ownership Calculation: 
+          Profile User ID (fetched): ${fetchedProfileUserId}
+          Profile Username (fetched): ${fetchedProfileUsername}
+          Current Auth User ID (from useAuth): ${currentAuthUserId}
+          mockRole: ${mockRole}
+          mockOwnerIdentifierFromContext (URL param via context): ${mockOwnerIdentifierFromContext}
+          MOCK_OWNER_MARKER_USER_ID: ${MOCK_OWNER_MARKER_USER_ID}
+          isStaging: ${isStaging}
+          actualIsProfileOwner: ${actualIsProfileOwner}
+          isViewingAsMockOwner: ${isViewingAsMockOwner} 
+          finalIsOwner: ${finalIsOwner}
+          finalCanEdit: ${finalCanEdit}`);
 
         if (!unmountedRef.current) {
           setProfile(profileData);
-          setIsOwner(isProfileOwner);
-          setCanEdit(canEditProfile);
+          setIsOwner(finalIsOwner); 
+          setCanEdit(finalCanEdit);  
           setIsLoadingProfile(false);
         }
 
-        // Step 2: Fetch INITIAL page of assets associated with the profile ID
-        logger.log('[fetchProfileAndInitialData] Step 2: Fetching INITIAL page of assets for profile ID:', fetchedProfileUserId);
-        console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsFetch_InitialPage`);
-        // Fetch page 1 (0-indexed range for Supabase)
+        const viewerCanSeeHidden = finalCanEdit || (finalIsOwner && !forcePublic);
+
+        logger.log(`${LOG_TAG} Step 2: Fetching INITIAL page of assets for profile ID:`, fetchedProfileUserId, `viewerCanSeeHidden: ${viewerCanSeeHidden}`);
         const { data: initialAssetsData, error: initialAssetsError, count: totalAssetCount } = await supabase
           .from('assets')
-          .select('*, primaryVideo:primary_media_id(*)', { count: 'exact' }) // Get total count
+          .select('*, primaryVideo:primary_media_id(*)', { count: 'exact' })
           .eq('user_id', fetchedProfileUserId)
-          .order('created_at', { ascending: false }) // Keep existing sort order
+          .order('created_at', { ascending: false })
           .range(0, PROFILE_LORA_ITEMS_PER_PAGE - 1);
-
-        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_AssetsFetch_InitialPage`);
-          
+        
         let processedInitialAssets: LoraAsset[] = [];
         if (initialAssetsError) {
-            logger.error('[fetchProfileAndInitialData] Step 2 Failed - Error fetching initial assets:', initialAssetsError);
+            logger.error(`${LOG_TAG} Step 2 Failed - Error fetching initial assets:`, initialAssetsError);
             toast.error('Failed to load associated LoRAs.');
         } else {
-            console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_InitialAssetsProcessing`);
             processedInitialAssets = (initialAssetsData || []).map((asset) => { 
               const pVideo = asset.primaryVideo;
               return {
-                id: asset.id,
-                name: asset.name,
-                description: asset.description,
-                creator: asset.creator,
-                type: asset.type,
-                created_at: asset.created_at,
-                user_id: asset.user_id,
-                primary_media_id: asset.primary_media_id,
-                admin_status: asset.admin_status,
-                admin_reviewed: asset.admin_reviewed ?? false,
-                user_status: asset.user_status as UserAssetPreferenceStatus | null,
-                lora_type: asset.lora_type,
-                lora_base_model: asset.lora_base_model,
-                model_variant: asset.model_variant,
-                lora_link: asset.lora_link,
-                primaryVideo: pVideo ? { 
-                  id: pVideo.id,
-                  url: pVideo.url,
-                  reviewer_name: pVideo.creator || '',
-                  skipped: false,
-                  created_at: pVideo.created_at,
-                  admin_status: pVideo.admin_status,
-                  user_id: pVideo.user_id,
-                  user_status: pVideo.user_status || null,
-                  metadata: {
-                    title: pVideo.title || asset.name,
-                    description: pVideo.description || '',
-                    creator: pVideo.creator ? 'self' : undefined,
-                    classification: pVideo.classification || 'gen',
-                    placeholder_image: pVideo.placeholder_image || null,
-                    assetId: asset.id,
-                  }
-                } : undefined
+                id: asset.id, name: asset.name, description: asset.description, creator: asset.creator, type: asset.type, created_at: asset.created_at, user_id: asset.user_id, primary_media_id: asset.primary_media_id, admin_status: asset.admin_status, admin_reviewed: asset.admin_reviewed ?? false, user_status: asset.user_status as UserAssetPreferenceStatus | null, lora_type: asset.lora_type, lora_base_model: asset.lora_base_model, model_variant: asset.model_variant, lora_link: asset.lora_link,
+                primaryVideo: pVideo ? { id: pVideo.id, url: pVideo.url, reviewer_name: pVideo.creator || '', skipped: false, created_at: pVideo.created_at, admin_status: pVideo.admin_status, user_id: pVideo.user_id, user_status: pVideo.user_status || null, metadata: { title: pVideo.title || asset.name, description: pVideo.description || '', creator: pVideo.creator ? 'self' : undefined, classification: pVideo.classification || 'gen', placeholder_image: pVideo.placeholder_image || null, assetId: asset.id, } } : undefined
               };
             });
-            logger.log('[fetchProfileAndInitialData] Step 2 Success - Initial assets raw data processed.');
-            console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_InitialAssetsProcessing`);
+            logger.log(`${LOG_TAG} Step 2 Success - Initial assets raw data processed.`);
         }
-        
-        const visibleInitialAssets = viewerCanSeeHidden
-            ? processedInitialAssets
-            : processedInitialAssets.filter(asset => asset.user_status !== 'Hidden');
-        
-        console.time(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_InitialAssetsSort`);
-        const sortedInitialPageAssets = sortUserAssets(visibleInitialAssets); // Sort only the current page's assets
-        console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetching_InitialAssetsSort`);
-        
+        const visibleInitialAssets = viewerCanSeeHidden ? processedInitialAssets : processedInitialAssets.filter(asset => asset.user_status !== 'Hidden');
+        const sortedInitialPageAssets = sortUserAssets(visibleInitialAssets);
         if (!unmountedRef.current) {
-          setUserAssets(sortedInitialPageAssets); // Set only the first page of assets
-          setTotalAssets(totalAssetCount ?? 0);   // Set the total count from the query
-          setLoraPage(1); // Ensure loraPage is reset to 1
+          setUserAssets(sortedInitialPageAssets);
+          setTotalAssets(totalAssetCount ?? 0);
+          setLoraPage(1);
           setIsLoadingAssets(false);
-          logger.log('[fetchProfileAndInitialData] Step 2 State Updated - Initial assets page filtered, sorted, and set.');
+          logger.log(`${LOG_TAG} Step 2 State Updated - Initial assets page filtered, sorted, and set.`);
         }
 
-        // Step 3: Fetch media (videos) associated with the profile ID
-        logger.log('[fetchProfileAndInitialData] Step 3: Fetching media for profile ID:', fetchedProfileUserId);
+        logger.log(`${LOG_TAG} Step 3: Fetching media for profile ID:`, fetchedProfileUserId, `viewerCanSeeHidden: ${viewerCanSeeHidden}`);
         const { data: videosData, error: videosError } = await supabase
           .from('media')
           .select('*, asset_media!left(asset_id)')
           .eq('user_id', fetchedProfileUserId)
           .eq('type', 'video'); 
-
-        let allVideos = [];
+        
+        let allVideos: VideoEntry[] = [];
         if (videosError) {
-            logger.error('[fetchProfileAndInitialData] Step 3 Failed - Error fetching media:', videosError);
+            logger.error(`${LOG_TAG} Step 3 Failed - Error fetching media:`, videosError);
             toast.error('Failed to load associated videos.');
         } else {
-            allVideos = (videosData || []).map((video) => { 
-              let classification = video.classification || 'gen';
-              if (classification !== 'art' && classification !== 'gen') {
-                classification = 'gen';
-              }
-              const associatedAssetId = video.asset_media?.[0]?.asset_id || null; 
+            allVideos = (videosData || []).map((videoRaw): VideoEntry => { 
+              let classification = videoRaw.classification || 'gen';
+              if (classification !== 'art' && classification !== 'gen') classification = 'gen';
+              const associatedAssetId = videoRaw.asset_media?.[0]?.asset_id || null; 
               return {
-                id: video.id,
-                url: video.url,
-                associatedAssetId: associatedAssetId,
-                reviewer_name: video.creator || '',
-                skipped: false,
-                created_at: video.created_at,
-                admin_status: video.admin_status,
-                user_status: video.user_status || null,
-                assetMediaDisplayStatus: null,
-                user_id: video.user_id,
+                id: videoRaw.id, 
+                url: videoRaw.url, 
+                associatedAssetId: associatedAssetId, 
+                reviewer_name: videoRaw.creator || '', 
+                skipped: false, 
+                created_at: videoRaw.created_at, 
+                admin_status: videoRaw.admin_status as AdminStatus | null,
+                user_status: videoRaw.user_status as VideoDisplayStatus | null,
+                assetMediaDisplayStatus: null, 
+                user_id: videoRaw.user_id,
                 metadata: { 
-                  title: video.title || '',
-                  description: video.description || '',
-                  creator: 'self',
-                  classification: classification,
-                  placeholder_image: video.placeholder_image,
-                  assetId: associatedAssetId,
-                  creatorName: video.creator,
-                },
-                thumbnailUrl: video.placeholder_image,
-                title: video.title || '',
-                description: video.description || '',
-                is_primary: false,
-                aspectRatio: (video.metadata)?.aspectRatio || 16/9,
-                classification: classification,
+                  title: videoRaw.title || '', 
+                  description: videoRaw.description || '', 
+                  creator: 'self', 
+                  classification: classification as 'art' | 'gen', 
+                  placeholder_image: videoRaw.placeholder_image, 
+                  assetId: associatedAssetId, 
+                  creatorName: videoRaw.creator, 
+                  aspectRatio: (videoRaw.metadata as any)?.aspectRatio ?? 16/9 
+                }, 
+                thumbnailUrl: videoRaw.placeholder_image, 
+                title: videoRaw.title || '', 
+                description: videoRaw.description || '', 
+                is_primary: false, 
               };
-            }).filter(Boolean);
-            logger.log('[fetchProfileAndInitialData] Step 3 Success - Media raw data processed.');
+            }).filter(Boolean) as VideoEntry[];
+            logger.log(`${LOG_TAG} Step 3 Success - Media raw data processed.`);
         }
         
-        const visibleVideos = viewerCanSeeHidden
-            ? allVideos
-            : allVideos.filter(video => 
-                video.user_status !== 'Hidden' && 
-                (video.admin_status !== 'Hidden' && video.admin_status !== 'Rejected')
-              );
-        const generationVideos = visibleVideos.filter(v => v.metadata?.classification === 'gen');
-        const artVideos = visibleVideos.filter(v => v.metadata?.classification === 'art');
+        const visibleVideosResult = viewerCanSeeHidden ? allVideos : allVideos.filter(video => video.user_status !== 'Hidden' && (video.admin_status !== 'Hidden' && video.admin_status !== 'Rejected'));
+        const generationVideos = visibleVideosResult.filter(v => v.metadata?.classification === 'gen');
+        const artVideos = visibleVideosResult.filter(v => v.metadata?.classification === 'art');
         const sortedGenerationVideos = sortProfileVideos(generationVideos);
         const sortedArtVideos = sortProfileVideos(artVideos);
 
@@ -604,20 +567,20 @@ export default function UserProfilePage() {
           setTotalArtVideos(sortedArtVideos.length);
           const videoIdParam = searchParams.get('video');
           if (videoIdParam && !initialVideoParamHandled) {
-            const initialVideo = visibleVideos.find(v => v.id === videoIdParam);
+            const initialVideo = visibleVideosResult.find(v => v.id === videoIdParam);
             if (initialVideo) {
               setLightboxVideo(initialVideo);
               setInitialVideoParamHandled(true);
             }
           }
           setIsLoadingVideos(false);
-          logger.log('[fetchProfileAndInitialData] Step 3 State Updated - Videos filtered and sorted.');
+          logger.log(`${LOG_TAG} Step 3 State Updated - Videos filtered and sorted.`);
         }
 
-        logger.log('[fetchProfileAndInitialData] All steps complete.');
+        logger.log(`${LOG_TAG} All steps complete.`);
 
       } catch (error) {
-        logger.error('[fetchProfileAndInitialData] Unexpected error during multi-step fetch:', error);
+        logger.error(`${LOG_TAG} Unexpected error during multi-step fetch:`, error);
         if (!unmountedRef.current) {
             toast.error('Failed to load profile data. Please try again later.');
             setIsLoadingProfile(false);
@@ -627,16 +590,16 @@ export default function UserProfilePage() {
       }
     };
 
-    if (username) {
+    if (usernameFromParams) {
       fetchProfileAndInitialData();
     } else {
-      logger.warn("No username in URL parameter, skipping fetch.");
+      logger.warn(`${LOG_TAG} No username in URL parameter, skipping fetch.`);
       setIsLoadingProfile(false);
       setProfile(null);
     }
 
     console.timeEnd(`${LORA_PROFILE_PERF_ID_PREFIX}_MainDataFetchingEffect_Total`);
-  }, [username, user?.id, isAdmin, isAuthLoading, loggedOutViewParam, navigate]);
+  }, [usernameFromParams, user?.id, isAdmin, isAuthLoading, loggedOutViewParam, navigate, mockRole, mockOwnerIdentifierFromContext, isStaging]);
 
   // Effect to fetch LoRAs when loraPage changes (after initial load)
   useEffect(() => {
@@ -1039,7 +1002,11 @@ export default function UserProfilePage() {
           ) : (
             <>
               <div className="max-w-2xl mx-auto">
-                {isOwner && !forceLoggedOutView ? ( <UserProfileSettings /> ) : ( 
+                {(isOwner && !forceLoggedOutView) ? (
+                  <UserProfileSettings 
+                    profileDataForEdit={ (isStaging && mockRole === 'owner') ? profile : null }
+                  />
+                ) : ( 
                   <Card className="w-full overflow-hidden shadow-lg bg-white/10 backdrop-blur-sm border border-white/20 animate-scale-in"> 
                     {profile.background_image_url && <div className="w-full h-48 bg-cover bg-center rounded-t-lg" style={{ backgroundImage: `url(${profile.background_image_url})` }} />} 
                     <CardContent className={`pt-6 pb-4 ${profile.background_image_url ? '-mt-16 relative z-10 bg-gradient-to-t from-card to-transparent' : ''}`}> 

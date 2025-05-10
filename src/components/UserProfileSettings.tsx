@@ -24,6 +24,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import { useMockRoleContext } from '@/contexts/MockRoleContext';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('UserProfileSettings');
 
 function debounce<T extends (...args: any[]) => any>(func: T, wait: number): (...args: Parameters<T>) => void {
   let timeout: ReturnType<typeof setTimeout> | null = null;
@@ -117,8 +121,13 @@ function ReminderText({ isVisible }: { isVisible: boolean }) {
   );
 }
 
-export default function UserProfileSettings() {
+interface UserProfileSettingsProps {
+  profileDataForEdit?: UserProfile | null;
+}
+
+export default function UserProfileSettings({ profileDataForEdit }: UserProfileSettingsProps) {
   const { user } = useAuth();
+  const { mockRole, isStaging } = useMockRoleContext();
   const location = useLocation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [username, setUsername] = useState('');
@@ -165,66 +174,128 @@ export default function UserProfileSettings() {
   // Track if reminder should be rendered (allows fade-out before removal/hiding)
   const [isReminderRendered, setIsReminderRendered] = useState(false);
 
+  const LOG_TAG = '[UserProfileSettingsDebug]';
+
   useEffect(() => {
     async function loadProfile() {
-      if (user) {
-        try {
-          setIsLoading(true);
-          setIsUsernameAvailable(null);
-          setUsernameCheckError(null);
-          const userProfile = await getCurrentUserProfile();
-          setProfile(userProfile);
-          const loadedUsername = userProfile?.username || '';
-          setUsername(loadedUsername);
-          initialUsername.current = loadedUsername;
-          const loadedDisplayName = userProfile?.display_name || userProfile?.username || '';
-          setDisplayName(loadedDisplayName);
-          initialDisplayName.current = loadedDisplayName;
-          const loadedRealName = userProfile?.real_name || '';
-          setRealName(loadedRealName);
-          initialRealName.current = loadedRealName;
-          const loadedDescription = userProfile?.description || '';
-          setDescription(loadedDescription);
-          initialDescription.current = loadedDescription;
-          const loadedLinks = userProfile?.links || [];
-          setLinks(loadedLinks);
-          initialLinks.current = loadedLinks;
-          const loadedAvatarUrl = userProfile?.avatar_url || '';
-          setAvatarUrl(loadedAvatarUrl);
-          initialAvatarUrl.current = loadedAvatarUrl;
-          const loadedBackgroundImageUrl = userProfile?.background_image_url || '';
-          setBackgroundImageUrl(loadedBackgroundImageUrl);
-          initialBackgroundImageUrl.current = loadedBackgroundImageUrl;
-          setIsUsernameValid(true);
+      logger.log(`${LOG_TAG} loadProfile effect triggered. User authenticated: ${!!user}, Profile data provided for edit: ${!!profileDataForEdit}`);
+      
+      if (profileDataForEdit && isStaging && mockRole === 'owner') {
+        // If profileDataForEdit is provided AND we are in staging mock owner mode, use it directly.
+        // This happens when UserProfilePage renders UserProfileSettings for a mocked owner view.
+        logger.log(`${LOG_TAG} Using provided profileDataForEdit in mock owner mode for user:`, profileDataForEdit.username);
+        setProfile(profileDataForEdit);
+        const loadedUsername = profileDataForEdit?.username || '';
+        setUsername(loadedUsername);
+        initialUsername.current = loadedUsername;
+        const loadedDisplayName = profileDataForEdit?.display_name || profileDataForEdit?.username || '';
+        setDisplayName(loadedDisplayName);
+        initialDisplayName.current = loadedDisplayName;
+        setRealName(profileDataForEdit?.real_name || '');
+        initialRealName.current = profileDataForEdit?.real_name || '';
+        setDescription(profileDataForEdit?.description || '');
+        initialDescription.current = profileDataForEdit?.description || '';
+        setLinks(profileDataForEdit?.links || []);
+        initialLinks.current = profileDataForEdit?.links || [];
+        setAvatarUrl(profileDataForEdit?.avatar_url || '');
+        initialAvatarUrl.current = profileDataForEdit?.avatar_url || '';
+        setBackgroundImageUrl(profileDataForEdit?.background_image_url || '');
+        initialBackgroundImageUrl.current = profileDataForEdit?.background_image_url || '';
+        setIsUsernameValid(true);
+        setIsLoading(false);
 
-          // Fetch HuggingFace API Key
+        // Fetch API key for the *actual* user ID of the profile being edited, NOT the marker ID.
+        if (profileDataForEdit.id) {
+          logger.log(`${LOG_TAG} Fetching API key for actual profile user ID:`, profileDataForEdit.id);
           const { data: apiKeyData, error: apiKeyFetchError } = await supabase
             .from('api_keys')
             .select('key_value')
-            .eq('user_id', user.id)
+            .eq('user_id', profileDataForEdit.id) // Use actual profile user ID
             .eq('service', 'huggingface')
             .single();
-
-          if (apiKeyFetchError && apiKeyFetchError.code !== 'PGRST116') { // PGRST116: no rows found
-            console.error('Error fetching API key:', apiKeyFetchError);
-            // Optionally set an error state here to display to the user
+          if (apiKeyFetchError && apiKeyFetchError.code !== 'PGRST116') {
+            console.error('Error fetching API key in mock edit mode:', apiKeyFetchError);
           }
           if (apiKeyData) {
             setHuggingFaceApiKey(apiKeyData.key_value);
             setInitialHuggingFaceApiKey(apiKeyData.key_value);
+          } else {
+            setHuggingFaceApiKey('');
+            setInitialHuggingFaceApiKey('');
           }
+        } else {
+            logger.warn(`${LOG_TAG} No ID found on profileDataForEdit to fetch API key.`);
+            setHuggingFaceApiKey('');
+            setInitialHuggingFaceApiKey('');
+        }
 
+      } else if (user) {
+        // Standard case: User is on their own profile page (not a mock view), or mock logic not active.
+        logger.log(`${LOG_TAG} Standard mode: Fetching profile for current authenticated user:`, user.id);
+        try {
+          setIsLoading(true);
+          setIsUsernameAvailable(null);
+          setUsernameCheckError(null);
+          const currentUserActualProfile = await getCurrentUserProfile(); // Fetches for user.id from useAuth()
+          // If user.id is the marker ID here, currentUserActualProfile will be null.
+          // This path should ideally only be taken for real self-edits.
+          if (currentUserActualProfile) {
+            logger.log(`${LOG_TAG} Successfully fetched current user's actual profile:`, currentUserActualProfile.username);
+            setProfile(currentUserActualProfile);
+            const loadedUsername = currentUserActualProfile?.username || '';
+            setUsername(loadedUsername);
+            initialUsername.current = loadedUsername;
+            const loadedDisplayName = currentUserActualProfile?.display_name || currentUserActualProfile?.username || '';
+            setDisplayName(loadedDisplayName);
+            initialDisplayName.current = loadedDisplayName;
+            setRealName(currentUserActualProfile?.real_name || '');
+            initialRealName.current = currentUserActualProfile?.real_name || '';
+            setDescription(currentUserActualProfile?.description || '');
+            initialDescription.current = currentUserActualProfile?.description || '';
+            setLinks(currentUserActualProfile?.links || []);
+            initialLinks.current = currentUserActualProfile?.links || [];
+            setAvatarUrl(currentUserActualProfile?.avatar_url || '');
+            initialAvatarUrl.current = currentUserActualProfile?.avatar_url || '';
+            setBackgroundImageUrl(currentUserActualProfile?.background_image_url || '');
+            initialBackgroundImageUrl.current = currentUserActualProfile?.background_image_url || '';
+            setIsUsernameValid(true);
+
+            logger.log(`${LOG_TAG} Fetching API key for actual authenticated user ID:`, user.id);
+            const { data: apiKeyData, error: apiKeyFetchError } = await supabase
+              .from('api_keys')
+              .select('key_value')
+              .eq('user_id', user.id) // Use current authenticated user.id
+              .eq('service', 'huggingface')
+              .single();
+            if (apiKeyFetchError && apiKeyFetchError.code !== 'PGRST116') {
+              console.error('Error fetching API key:', apiKeyFetchError);
+            }
+            if (apiKeyData) {
+              setHuggingFaceApiKey(apiKeyData.key_value);
+              setInitialHuggingFaceApiKey(apiKeyData.key_value);
+            } else {
+              setHuggingFaceApiKey('');
+              setInitialHuggingFaceApiKey('');
+            }
+          } else {
+            logger.warn(`${LOG_TAG} getCurrentUserProfile returned null/undefined for user:`, user.id, ". This might happen if it's a mocked user (e.g., owner marker) and profileDataForEdit was not supplied.");
+            setError('Could not load your profile data.');
+          }
         } catch (err) {
           console.error('Error loading profile:', err);
           setError('Failed to load profile information');
         } finally {
           setIsLoading(false);
         }
+      } else {
+        logger.warn(`${LOG_TAG} No user authenticated and no profileDataForEdit provided.`);
+        setIsLoading(false); 
+        setError('Not authenticated and no profile data to display.');
       }
     }
     
     loadProfile();
-  }, [user]);
+  }, [user, profileDataForEdit, isStaging, mockRole]);
 
   const debouncedCheckUsername = useCallback(
     debounce(async (nameToCheck: string) => {
@@ -643,47 +714,42 @@ export default function UserProfileSettings() {
   };
 
   const handleSaveApiKey = async () => {
-    if (!user) {
-      setApiKeyError("User not authenticated.");
-      toast({ title: "Error", description: "User not authenticated.", variant: "destructive" });
+    const userIdForApiKey = profile?.id;
+    if (!userIdForApiKey) {
+      setApiKeyError("Profile ID not available to save API key.");
+      toast({ title: "Error", description: "Profile ID missing.", variant: "destructive" });
       return;
     }
-    // Validate against the current input state `huggingFaceApiKey`
     if (!huggingFaceApiKey.trim()) {
       setApiKeyError("API Key cannot be empty.");
-      // toast({ title: "Validation Error", description: "API Key cannot be empty.", variant: "destructive" });
-      return; // Return early, error displayed in modal
+      return;
     }
 
     setIsSavingApiKey(true);
     setApiKeyError(null);
 
     try {
+      logger.log(`${LOG_TAG} Saving API key for user ID:`, userIdForApiKey);
       const { error } = await supabase
         .from('api_keys')
         .upsert(
           {
-            user_id: user.id,
+            user_id: userIdForApiKey,
             service: 'huggingface',
-            key_value: huggingFaceApiKey.trim(), // Save the current input value
+            key_value: huggingFaceApiKey.trim(),
             updated_at: new Date().toISOString(),
           },
           {
             onConflict: 'user_id,service',
           }
         );
-
-      if (error) {
-        throw error;
-      }
-
-      setInitialHuggingFaceApiKey(huggingFaceApiKey.trim()); // Update the initial saved key to the new value
+      if (error) throw error;
+      setInitialHuggingFaceApiKey(huggingFaceApiKey.trim());
       toast({ title: "Success", description: "HuggingFace API Key updated successfully." });
       setIsApiKeyModalOpen(false);
     } catch (err: any) {
       console.error('Error saving API key:', err);
       setApiKeyError(err.message || "Failed to save API Key.");
-      // toast({ title: "Error", description: err.message || "Failed to save API Key.", variant: "destructive" });
     } finally {
       setIsSavingApiKey(false);
     }
@@ -735,10 +801,10 @@ export default function UserProfileSettings() {
                     <Input
                       id="hf-api-key-input"
                       type="password"
-                      value={huggingFaceApiKey} // Bound to the current input state
+                      value={huggingFaceApiKey}
                       onChange={(e) => {
                         setHuggingFaceApiKey(e.target.value);
-                        if (apiKeyError) setApiKeyError(null); // Clear error on input change
+                        if (apiKeyError) setApiKeyError(null);
                       }}
                       placeholder="hf_YourAccessToken"
                       className="col-span-3"
@@ -929,10 +995,10 @@ export default function UserProfileSettings() {
               </Label>
               <Input
                 id="discord-username"
-                value={profile?.discord_username || 'N/A'} // Display fetched profile data
+                value={profile?.discord_username || 'N/A'}
                 readOnly
                 disabled
-                className="cursor-not-allowed opacity-70" // Add styling for disabled look
+                className="cursor-not-allowed opacity-70"
               />
             </div>
 

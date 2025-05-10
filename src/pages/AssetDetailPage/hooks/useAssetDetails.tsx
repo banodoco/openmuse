@@ -6,8 +6,10 @@ import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
 import { useAuth } from '@/hooks/useAuth';
 import { sortAssetPageVideos } from '@/lib/utils/videoUtils';
+import { useMockRoleContext } from '@/contexts/MockRoleContext';
 
 const logger = new Logger('useAssetDetails');
+const MOCK_OWNER_MARKER_USER_ID = '---MOCK_ASSET_OWNER_USER---';
 
 // Helper type guard for allowed model strings
 const isValidModel = (model: string | undefined): model is VideoMetadata['model'] => {
@@ -26,6 +28,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const [isLoadingCuratorProfile, setIsLoadingCuratorProfile] = useState(false);
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
   const { user, isAdmin, isLoading: isAuthLoading } = useAuth();
+  const { mockRole, mockOwnerId, isStaging } = useMockRoleContext();
 
   const initialFetchTriggered = useRef(false);
   const assetRef = useRef<string | undefined>(undefined);
@@ -491,26 +494,47 @@ export const useAssetDetails = (assetId: string | undefined) => {
 
   const combinedLoading = isLoading || (isAuthLoading && !dataFetchAttempted);
 
+  // Calculate isOwner based on actual user or mock owner context
+  const actualIsOwner = !!user && !!asset && asset.user_id === user.id;
+  const isMockingOwnerView = 
+    isStaging &&
+    mockRole === 'owner' && 
+    !!user && 
+    user.id === MOCK_OWNER_MARKER_USER_ID && 
+    !!asset && 
+    asset.id === mockOwnerId;
+  
+  const finalIsOwner = actualIsOwner || isMockingOwnerView;
+
+  if (isStaging && mockRole === 'owner') {
+    logger.log(`[useAssetDetails][MockOwnerDebug] 
+      Asset ID: ${asset?.id}, 
+      Asset User ID: ${asset?.user_id}, 
+      Current Auth User ID (from useAuth): ${user?.id}, 
+      Target mockOwnerId (from context): ${mockOwnerId}, 
+      MOCK_OWNER_MARKER_USER_ID: ${MOCK_OWNER_MARKER_USER_ID}, 
+      actualIsOwner: ${actualIsOwner}, 
+      isMockingOwnerView: ${isMockingOwnerView}, 
+      finalIsOwner: ${finalIsOwner}`);
+  }
+
   // --- Return values from the hook ---
   return {
     asset,
     videos,
-    isLoading: isLoading || isAuthLoading || isLoadingCuratorProfile, // Combine all loading states
-    creatorDisplayName: getCreatorName(), // Use the helper function
-    curatorProfile, // Return curator profile
-    isLoadingCuratorProfile, // Return curator loading state
+    isLoading: combinedLoading, // Use combinedLoading instead of duplicating logic
+    creatorDisplayName: getCreatorName(),
+    curatorProfile,
+    isLoadingCuratorProfile,
     currentStatus: asset?.user_status ?? null,
     isUpdatingAdminStatus,
-    refetchAssetDetails: fetchAssetDetails, // Function to refetch data
-    updateAdminStatus: updateAssetAdminStatus, // Export the actual function
-    updateUserStatus: updateAssetUserStatus, // Export the actual function
-    updatePrimaryVideo: updateLocalPrimaryMedia, // Export the actual function
-    deleteAsset: removeVideoLocally, // Export the actual function
+    refetchAssetDetails: fetchAssetDetails,
+    updateAdminStatus: updateAssetAdminStatus,
+    updateUserStatus: updateAssetUserStatus,
+    updatePrimaryVideo: updateLocalPrimaryMedia,
+    deleteAsset: removeVideoLocally,
     dataFetchAttempted,
-    isOwner: !!user && asset?.user_id === user.id, // Calculate ownership
-    isAdmin, // Return the isAdmin status from useAuth
-    // Return functions needed for local UI updates if necessary (Example)
-    // updateLocalVideoStatus: updateLocalVideoStatus, 
-    // removeVideoLocally: removeVideoLocally,
+    isOwner: finalIsOwner, // Use the new finalIsOwner
+    isAdmin, 
   };
 };

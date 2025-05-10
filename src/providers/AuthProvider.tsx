@@ -27,6 +27,7 @@ interface LeaderInfo {
 // --- MOCK DATA ---
 const MOCK_REGULAR_USER_ID = 'mock-user-regular-id';
 const MOCK_ADMIN_USER_ID = 'mock-user-admin-id';
+const MOCK_OWNER_MARKER_USER_ID = '---MOCK_ASSET_OWNER_USER---'; // Added marker ID
 
 const MOCK_REGULAR_USER: User = {
   id: MOCK_REGULAR_USER_ID,
@@ -782,8 +783,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   let contextSignOut = signOut;
 
   if (isStaging && mockRole) {
-    logger.log(`[AuthProvider][MockMode] Active. Role: ${mockRole}, OwnerID: ${mockOwnerId}`);
-    contextIsLoading = false; // Mock data is instantly available
+    logger.log(`[AuthProvider][MockMode] Active. Role: ${mockRole}, Target AssetID for Owner Mock: ${mockOwnerId}`);
+    contextIsLoading = false; 
 
     const mockSignIn = async (email?: string, password?: string) => {
       logger.warn(`[AuthProvider][MockMode] signIn called in mock mode. Operation skipped. Email: ${email}, Pass: ${password ? 'yes' : 'no'}`);
@@ -817,31 +818,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contextIsAdmin = true;
         break;
       case 'owner': 
-        if (mockOwnerId) {
-          const MOCK_OWNER_USER: User = {
-            id: mockOwnerId, // Use the ID from context
+        if (mockOwnerId) { // mockOwnerId here is the ID of the ASSET/PROFILE being viewed
+          const MOCK_VIEW_AS_OWNER_USER: User = {
+            id: MOCK_OWNER_MARKER_USER_ID, // Special marker ID
             app_metadata: { provider: 'email', providers: ['email'] },
-            user_metadata: { name: `Mock Owner (${mockOwnerId.substring(0,8)}...)`, email: `mockowner-${mockOwnerId}@example.com`, full_name: `Mock Owner FullName (${mockOwnerId.substring(0,8)}...)`, avatar_url: '' },
+            user_metadata: { name: `Mock Owner (Target: ${mockOwnerId.substring(0,8)}...)`, email: `mockowner-target-${mockOwnerId}@example.com`, full_name: `Mock Owner (Viewing ${mockOwnerId.substring(0,8)}...)`, avatar_url: '' },
             aud: 'authenticated',
             created_at: new Date().toISOString(),
-            email: `mockowner-${mockOwnerId}@example.com`,
+            email: `mockowner-target-${mockOwnerId}@example.com`,
             email_confirmed_at: new Date().toISOString(),
             phone: ''
           } as User;
-          const MOCK_SESSION_OWNER: Session = {
-            access_token: `mock-access-token-owner-${mockOwnerId}`,
-            refresh_token: `mock-refresh-token-owner-${mockOwnerId}`,
+          const MOCK_SESSION_VIEW_AS_OWNER: Session = {
+            access_token: `mock-access-token-view-as-owner-${mockOwnerId}`,
+            refresh_token: `mock-refresh-token-view-as-owner-${mockOwnerId}`,
             expires_in: 3600,
             token_type: 'bearer',
-            user: MOCK_OWNER_USER,
+            user: MOCK_VIEW_AS_OWNER_USER,
             expires_at: Math.floor(Date.now() / 1000) + 3600,
           };
-          contextUser = MOCK_OWNER_USER;
-          contextSession = MOCK_SESSION_OWNER;
-          contextIsAdmin = false; // Owners are not necessarily admins unless they also have admin role
+          contextUser = MOCK_VIEW_AS_OWNER_USER;
+          contextSession = MOCK_SESSION_VIEW_AS_OWNER;
+          contextIsAdmin = false; // Viewing as owner doesn't automatically grant admin rights
         } else {
-          // Fallback if owner role is set but no ID
-          logger.warn("[AuthProvider][MockMode] 'owner' role active but no mockOwnerId. Falling back to regular mock user.");
+          logger.warn("[AuthProvider][MockMode] 'owner' role active but no target mockOwnerId (asset/profile ID). Falling back to regular mock user.");
           contextUser = MOCK_REGULAR_USER;
           contextSession = MOCK_SESSION_REGULAR;
           contextIsAdmin = false;
@@ -849,7 +849,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         break;
       default:
         logger.warn(`[AuthProvider][MockMode] Unknown mock role: ${mockRole}. Using actual auth state.`);
-        // Revert to actual values if role is unrecognized or null (though null should mean mockRole is not active)
         contextUser = user;
         contextSession = session;
         contextIsAdmin = isAdmin;
@@ -858,7 +857,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         contextSignOut = signOut;
     }
   } else if (isStaging && !mockRole) {
-    // If staging but no mock role selected, ensure actual isLoading is used
     contextIsLoading = isLoading;
   }
   // --- End mock role logic ---
@@ -870,10 +868,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         user: contextUser,
         session: contextSession,
         isAdmin: contextIsAdmin,
-        isLoading: contextIsLoading, // Use the potentially overridden isLoading
+        isLoading: contextIsLoading, 
         isLeader,
-        signIn: contextSignIn, // Use the potentially overridden signIn
-        signOut: contextSignOut, // Use the potentially overridden signOut
+        signIn: contextSignIn, 
+        signOut: contextSignOut,
       }}
     >
       {children}
