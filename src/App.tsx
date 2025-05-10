@@ -10,6 +10,7 @@ import ErrorBoundary from './components/ErrorBoundary';
 import { LoraProvider } from './contexts/LoraContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { TooltipProvider } from '@/components/ui/tooltip';
+import RoleSwitcher from './components/common/RoleSwitcher';
 
 const HomePage = lazy(() => import('./pages/Index'));
 const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
@@ -54,7 +55,7 @@ const App: React.FC = () => {
 
   // Global Animation Restart on Page Show for Mobile
   useEffect(() => {
-    const handlePageShow = (event) => {
+    const handlePageShow = (event: PageTransitionEvent) => {
       console.log('pageshow event detected. Persisted:', event.persisted);
       if (event.persisted) {
         console.log('Page restored from bfcache, refreshing to restart videos and animations.');
@@ -112,6 +113,7 @@ const App: React.FC = () => {
                       />
                     </Routes>
                   </Suspense>
+                  <RoleSwitcher />
                 </Router>
               </div>
             </LoraProvider>

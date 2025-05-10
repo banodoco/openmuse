@@ -41,6 +41,16 @@ This document outlines the directory structure of the openmuse` project, providi
 ### SproutingCursorCanvas.tsx
 - Full-screen decorative canvas that renders sprouting cursor/branch effect across the entire app
 
+## Developer Tools / Staging Features
+
+### Role-Switching Mode (Staging/Development)
+- Allows developers to simulate viewing the application as different user types.
+- Activated when the Vite `MODE` is set to 'staging' (e.g., via `vite --mode staging`).
+- Provides a UI dropdown (`RoleSwitcher.tsx`) to select roles.
+- Roles include: Logged out, Logged in, Admin.
+- On profile or LoRA asset pages, an additional "View as Owner" option appears, simulating ownership of that specific item.
+- Core logic is managed by `MockRoleContext.tsx` and integrated into `AuthProvider.tsx`.
+
 ```
 .
 ├── .git/                   # Git version control directory
@@ -52,7 +62,7 @@ This document outlines the directory structure of the openmuse` project, providi
 ├── fetch_auth_files.py     # Python script potentially used for fetching authentication related files or setup
 ├── index.html              # Main HTML entry point for the Vite application
 ├── node_modules/           # Directory containing project dependencies installed by npm/yarn/bun (typically excluded)
-├── package.json            # Defines project metadata, dependencies, and scripts
+├── package.json            # Defines project metadata, dependencies, and scripts. `dev` script updated to run in 'staging' mode for role-switching.
 ├── package-lock.json       # Lockfile for npm, ensuring reproducible installs (may be redundant if using bun)
 ├── postcss.config.js       # Configuration file for PostCSS processor (used with Tailwind)
 ├── public/                 # Static assets served directly by the web server
@@ -68,6 +78,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   ├── components/         # Reusable React UI components
 │   │   ├── common/         # General-purpose shared components
 │   │   │   └── DummyCard.tsx # A placeholder or example card component
+│   │   │   └── RoleSwitcher.tsx # UI component for selecting mock user roles in staging/dev mode. Appears when `import.meta.env.MODE` is 'staging'.
 │   │   ├── lora/           # Components related to LoRA asset management/display
 │   │   │   ├── AddLoRAModal.tsx # Modal dialog for adding new LoRA assets
 │   │   │   ├── EditableLoraDescription.tsx # Component for editing LoRA descriptions
@@ -173,7 +184,8 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   └── UserProfilePage.tsx # Component for the user's profile page, allowing viewing and editing of profile information
 │   │   └── Added state management for LoRA upload modal and success handler to refetch assets after upload.
 │   ├── contexts/           # React Context definitions for global state management
-│   │   └── AuthContext.tsx # Context specifically for providing authentication state (user, session) and functions
+│   │   ├── AuthContext.tsx # Context specifically for providing authentication state (user, session) and functions
+│   │   └── MockRoleContext.tsx # Context for managing the currently selected mock role, owner ID for simulation, and staging status.
 │   ├── hooks/              # Custom React hooks for encapsulating reusable stateful logic
 │   │   ├── use-mobile.tsx  # Hook to detect if the application is being viewed on a mobile device
 │   │   ├── use-toast.ts    # Hook for programmatically triggering UI notifications (toasts) - likely related to `sonner` or `react-hot-toast` via shadcn/ui
@@ -263,7 +275,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── GenerationsPage.tsx # Component listing generation videos created by users
 │   │   └── LorasPage.tsx   # Component showing all LoRA assets
 │   ├── providers/          # React Context Provider components
-│   │   └── AuthProvider.tsx # Provider component supplying auth context (user, session, login/logout). Manages multi-tab state sync and leader election using localStorage (v1.5.0+). Gated API calls (signIn/signOut) to leader tab.
+│   │   └── AuthProvider.tsx # Provider component supplying auth context. Enhanced to provide mocked auth states (user, session, isAdmin, isLoading) and no-op auth functions when a mock role is active in staging mode.
 │   └── vite-env.d.ts       # TypeScript definition file for environment variables exposed by Vite
 ├── supabase/               # Configuration and assets related to the Supabase backend-as-a-service platform
 │   ├── config.toml         # Main configuration file for the Supabase project (used by Supabase CLI)

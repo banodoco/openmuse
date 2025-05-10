@@ -6,7 +6,8 @@ import { Logger } from '@/lib/logger';
 import { AuthContext } from '@/contexts/AuthContext';
 import { checkIsAdmin } from '@/lib/auth';
 import { userProfileCache } from '@/lib/auth/cache';
-import { v4 as uuidv4 } from 'uuid'; // Ensure installed: npm install uuid @types/uuid
+import { v4 as uuidv4 } from 'uuid';
+import { useMockRoleContext, MockRole } from '../contexts/MockRoleContext';
 
 // Use single optional tag parameter for Logger (expects 1-3 args). Combine tags into one.
 const logger = new Logger('AuthProvider', true, 'SessionPersist-Leader');
@@ -22,6 +23,52 @@ interface LeaderInfo {
   tabId: string;
   timestamp: number;
 }
+
+// --- MOCK DATA ---
+const MOCK_REGULAR_USER_ID = 'mock-user-regular-id';
+const MOCK_ADMIN_USER_ID = 'mock-user-admin-id';
+
+const MOCK_REGULAR_USER: User = {
+  id: MOCK_REGULAR_USER_ID,
+  app_metadata: { provider: 'email', providers: ['email'] },
+  user_metadata: { name: 'Mock User', email: 'mockuser@example.com', full_name: 'Mock User FullName', avatar_url: '' },
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+  email: 'mockuser@example.com',
+  // Add other fields if your app expects them, or ensure strict type checking is handled if they are optional
+  email_confirmed_at: new Date().toISOString(),
+  phone: ''
+} as User;
+
+const MOCK_ADMIN_USER: User = {
+  id: MOCK_ADMIN_USER_ID,
+  app_metadata: { provider: 'email', providers: ['email'] },
+  user_metadata: { name: 'Mock Admin', email: 'mockadmin@example.com', full_name: 'Mock Admin FullName', avatar_url: '' },
+  aud: 'authenticated',
+  created_at: new Date().toISOString(),
+  email: 'mockadmin@example.com',
+  email_confirmed_at: new Date().toISOString(),
+  phone: ''
+} as User;
+
+const MOCK_SESSION_REGULAR: Session = {
+  access_token: 'mock-access-token-regular',
+  refresh_token: 'mock-refresh-token-regular',
+  expires_in: 3600,
+  token_type: 'bearer',
+  user: MOCK_REGULAR_USER,
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+};
+
+const MOCK_SESSION_ADMIN: Session = {
+  access_token: 'mock-access-token-admin',
+  refresh_token: 'mock-refresh-token-admin',
+  expires_in: 3600,
+  token_type: 'bearer',
+  user: MOCK_ADMIN_USER,
+  expires_at: Math.floor(Date.now() / 1000) + 3600,
+};
+// --- END MOCK DATA ---
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const tabId = useRef<string>(uuidv4()); // Generate ID immediately
@@ -44,6 +91,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const initialCheckCompleted = useRef(false);
   const adminCheckInProgress = useRef(false);
   const sessionFallbackTimeout = useRef<NodeJS.Timeout | null>(null);
+
+  const { mockRole, isStaging, mockOwnerId } = useMockRoleContext(); // Added: Get mock context
 
   /* ------------------------------------------------------------------
      LocalStorage-based Leader Election (Sole Mechanism)
@@ -724,17 +773,107 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Log render cycle (uncomment for debugging)
   // logger.log(`[Render][v${PROVIDER_VERSION}][${tabId.current}] Rendering. State: isLoading=${isLoading}, user=${user?.id || 'null'}, session=${!!session}, isAdmin=${isAdmin}, isLeader=${isLeader}, initialCheckCompleted=${initialCheckCompleted.current}`);
 
+  // --- Determine context values based on mock role ---
+  let contextUser: User | null = user;
+  let contextSession: Session | null = session;
+  let contextIsAdmin: boolean = isAdmin;
+  let contextIsLoading: boolean = isLoading;
+  let contextSignIn = signIn; 
+  let contextSignOut = signOut;
+
+  if (isStaging && mockRole) {
+    logger.log(`[AuthProvider][MockMode] Active. Role: ${mockRole}, OwnerID: ${mockOwnerId}`);
+    contextIsLoading = false; // Mock data is instantly available
+
+    const mockSignIn = async (email?: string, password?: string) => {
+      logger.warn(`[AuthProvider][MockMode] signIn called in mock mode. Operation skipped. Email: ${email}, Pass: ${password ? 'yes' : 'no'}`);
+      toast.info('Sign-in is disabled in mock role mode.', { id: `mock-signin-${tabId.current}` });
+      return Promise.resolve(); 
+    };
+
+    const mockSignOut = async () => {
+      logger.warn('[AuthProvider][MockMode] signOut called in mock mode. Operation skipped.');
+      toast.info('Sign-out is disabled in mock role mode.', { id: `mock-signout-${tabId.current}` });
+      return Promise.resolve();
+    };
+    
+    contextSignIn = mockSignIn as any; 
+    contextSignOut = mockSignOut;
+
+    switch (mockRole) {
+      case 'logged-out':
+        contextUser = null;
+        contextSession = null;
+        contextIsAdmin = false;
+        break;
+      case 'logged-in':
+        contextUser = MOCK_REGULAR_USER;
+        contextSession = MOCK_SESSION_REGULAR;
+        contextIsAdmin = false;
+        break;
+      case 'admin':
+        contextUser = MOCK_ADMIN_USER;
+        contextSession = MOCK_SESSION_ADMIN;
+        contextIsAdmin = true;
+        break;
+      case 'owner': 
+        if (mockOwnerId) {
+          const MOCK_OWNER_USER: User = {
+            id: mockOwnerId, // Use the ID from context
+            app_metadata: { provider: 'email', providers: ['email'] },
+            user_metadata: { name: `Mock Owner (${mockOwnerId.substring(0,8)}...)`, email: `mockowner-${mockOwnerId}@example.com`, full_name: `Mock Owner FullName (${mockOwnerId.substring(0,8)}...)`, avatar_url: '' },
+            aud: 'authenticated',
+            created_at: new Date().toISOString(),
+            email: `mockowner-${mockOwnerId}@example.com`,
+            email_confirmed_at: new Date().toISOString(),
+            phone: ''
+          } as User;
+          const MOCK_SESSION_OWNER: Session = {
+            access_token: `mock-access-token-owner-${mockOwnerId}`,
+            refresh_token: `mock-refresh-token-owner-${mockOwnerId}`,
+            expires_in: 3600,
+            token_type: 'bearer',
+            user: MOCK_OWNER_USER,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+          };
+          contextUser = MOCK_OWNER_USER;
+          contextSession = MOCK_SESSION_OWNER;
+          contextIsAdmin = false; // Owners are not necessarily admins unless they also have admin role
+        } else {
+          // Fallback if owner role is set but no ID
+          logger.warn("[AuthProvider][MockMode] 'owner' role active but no mockOwnerId. Falling back to regular mock user.");
+          contextUser = MOCK_REGULAR_USER;
+          contextSession = MOCK_SESSION_REGULAR;
+          contextIsAdmin = false;
+        }
+        break;
+      default:
+        logger.warn(`[AuthProvider][MockMode] Unknown mock role: ${mockRole}. Using actual auth state.`);
+        // Revert to actual values if role is unrecognized or null (though null should mean mockRole is not active)
+        contextUser = user;
+        contextSession = session;
+        contextIsAdmin = isAdmin;
+        contextIsLoading = isLoading;
+        contextSignIn = signIn;
+        contextSignOut = signOut;
+    }
+  } else if (isStaging && !mockRole) {
+    // If staging but no mock role selected, ensure actual isLoading is used
+    contextIsLoading = isLoading;
+  }
+  // --- End mock role logic ---
+
   // Provide the context value
   return (
     <AuthContext.Provider
       value={{
-        user,
-        session,
-        isAdmin,
-        isLoading,
-        isLeader, // Expose leader status
-        signIn,
-        signOut
+        user: contextUser,
+        session: contextSession,
+        isAdmin: contextIsAdmin,
+        isLoading: contextIsLoading, // Use the potentially overridden isLoading
+        isLeader,
+        signIn: contextSignIn, // Use the potentially overridden signIn
+        signOut: contextSignOut, // Use the potentially overridden signOut
       }}
     >
       {children}

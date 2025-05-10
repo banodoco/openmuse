@@ -92,6 +92,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
   const isMobile = useIsMobile();
   const previewRef = useRef<HTMLDivElement>(null);
   useFadeInOnScroll(previewRef);
+  const [isCardHovering, setIsCardHovering] = useState(false);
   
   useEffect(() => {
     setCurrentStatus(userStatus);
@@ -294,7 +295,12 @@ const LoraCard: React.FC<LoraCardProps> = ({
   };
 
   return (
-    <Card onClick={handleView} className="relative overflow-hidden shadow-lg group transition-all duration-300 ease-in-out hover:shadow-xl border-transparent hover:border-primary/30 bg-card/70 backdrop-blur-sm">
+    <Card 
+      onClick={handleView} 
+      onMouseEnter={() => setIsCardHovering(true)}
+      onMouseLeave={() => setIsCardHovering(false)}
+      className="relative overflow-hidden shadow-lg group transition-all duration-300 ease-in-out hover:shadow-xl border-transparent hover:border-primary/30 bg-card/70 backdrop-blur-sm"
+    >
       <div 
         ref={previewRef}
         className="w-full overflow-hidden bg-muted relative"
@@ -314,6 +320,7 @@ const LoraCard: React.FC<LoraCardProps> = ({
                 thumbnailUrl={thumbnailUrl}
                 onLoadedData={handleVideoLoad}
                 onVisibilityChange={handleVisibilityChange}
+                isHovering={isCardHovering}
                 shouldBePlaying={shouldBePlaying}
                 onEnterPreloadArea={handleEnterPreloadArea}
               />

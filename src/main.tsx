@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { HelmetProvider } from 'react-helmet-async';
 import App from './App.tsx';
 import './index.css';
+import { MockRoleProvider } from './contexts/MockRoleContext.tsx';
 
 // Create a client
 const queryClient = new QueryClient();
@@ -21,7 +22,9 @@ const renderApp = () => {
     createRoot(rootElement).render(
       <HelmetProvider>
         <QueryClientProvider client={queryClient}>
-          <App />
+          <MockRoleProvider>
+            <App />
+          </MockRoleProvider>
         </QueryClientProvider>
       </HelmetProvider>
     );
