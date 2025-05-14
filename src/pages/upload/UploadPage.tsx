@@ -528,7 +528,6 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
                 toast.success(`LoRA file uploaded to ${repoInfo.url}`);
 
                 // === Step 3: Upload Example Videos to Hugging Face ===
-                const uploadedVideoHfPaths: { text: string, output: { url: string } }[] = [];
                 if (videos && videos.length > 0) {
                   setCurrentStepMessage('Uploading example media to Hugging Face...');
                   for (const videoItem of videos) {
@@ -786,6 +785,11 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         onSuccess();
       }
 
+      // Redirect to the new LoRA detail page if assetId is available
+      if (uploadMode === 'lora' && assetCreationResult && assetCreationResult.assetId) {
+        navigate(`/assets/loras/${assetCreationResult.assetId}`);
+      }
+
     } catch (error: any) {
       console.error('Error submitting videos:', error);
       toast.error(error.message || 'Failed to submit videos');
@@ -1024,6 +1028,9 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             </Button>
             {isSubmitting && currentStepMessage && (
               <p className="text-sm text-muted-foreground animate-pulse">{currentStepMessage}</p>
+            )}
+            {!isSubmitting && uploadMode === 'lora' && (
+              <p className="text-sm text-muted-foreground">You can edit all the details after upload.</p>
             )}
           </div>
         </form>

@@ -779,6 +779,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   externallyControlled={isMobile}
                   isHovering={isMobile}
                   lazyLoad={false}
+                  preventLoadingFlicker={false}
                   onLoadedMetadata={handleVideoMetadataLoaded}
                 />
 

@@ -23,6 +23,7 @@ import LoadingState from '@/components/LoadingState';
 const logger = new Logger('AssetDetailPage');
 
 function AssetDetailPage() {
+  logger.log('[LoraLoadSpeed] AssetDetailPage component rendering / re-rendering.');
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { user, isAdmin } = useAuth();
@@ -50,6 +51,7 @@ function AssetDetailPage() {
     isAdmin: isAdminUser
   } = useAssetDetails(id);
   
+  logger.log(`[LoraLoadSpeed] AssetDetailPage - useAssetDetails returned. isLoading: ${isLoading}, asset ID: ${asset?.id}, creatorDisplayName: ${creatorDisplayName}`);
   const isAuthorizedToEdit = isOwner || isAdminUser;
   
   const handleOpenLightbox = (video: VideoEntry) => {
@@ -366,6 +368,7 @@ function AssetDetailPage() {
   }, [videoParam, videos, currentVideo, initialVideoParamHandled, handleOpenLightbox]);
   
   if (isLoading) {
+    logger.log('[LoraLoadSpeed] AssetDetailPage render - isLoading is true. Rendering loading state.');
     return (
       <ErrorBoundary fallbackRender={({ error }) => {
         console.error("ErrorBoundary (Loading Asset): Caught error -", error);
@@ -386,6 +389,7 @@ function AssetDetailPage() {
   }
   
   if (!asset) {
+    logger.log('[LoraLoadSpeed] AssetDetailPage render - asset is null. Rendering no asset state.');
     return (
       <ErrorBoundary fallbackRender={({ error }) => {
         console.error("ErrorBoundary (Determining Asset): Caught error -", error);
@@ -405,6 +409,8 @@ function AssetDetailPage() {
     );
   }
 
+  logger.log(`[LoraLoadSpeed] AssetDetailPage render - Asset loaded: ${asset.id}. Rendering main content.`);
+  logger.log('[LoraLoadSpeed] AssetDetailPage - Preparing to render AssetVideoSection.');
   return (
     <ErrorBoundary fallbackRender={({ error }) => {
       console.error("ErrorBoundary (Main Render): Caught error -", error);

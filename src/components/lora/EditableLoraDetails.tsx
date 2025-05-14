@@ -1,12 +1,12 @@
 import * as React from "react";
-import { useState, useEffect, useImperativeHandle } from 'react';
+import { useState, useEffect, useImperativeHandle, useRef } from 'react';
 import { Button } from "@/components/ui/button";
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import TextareaAutosize from 'react-textarea-autosize';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { Pencil, Save, X, User as UserIcon } from "lucide-react";
+import { Pencil, Save, X, User as UserIcon, Bold, Italic, Link2 } from "lucide-react";
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
 import { LoraAsset, UserProfile } from '@/lib/types';
@@ -56,8 +56,12 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
   const [userProfile, setUserProfile] = useState<any>(null);
   const [availableModels, setAvailableModels] = useState<ModelData[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
-  // Helper function to determine if the current user owns the asset
+  // For Markdown Formatting Toolbar
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
+
   const isOwnedByCurrentUser = () => {
     return user && asset?.user_id === user.id;
   };
@@ -175,6 +179,8 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
 
   const handleCancel = () => {
     setIsEditing(false);
+    setFocusedField(null);
+    setSelectionRange(null); // Clear selection
   };
 
   const handleSave = async () => {
@@ -218,6 +224,8 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
       toast.error('Failed to update LoRA details');
     } finally {
       setIsSaving(false);
+      setFocusedField(null);
+      setSelectionRange(null); // Clear selection
     }
   };
 
@@ -228,14 +236,118 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
     }));
   };
 
+  const handleDescriptionSelect = () => {
+    if (descriptionTextareaRef.current) {
+      const textarea = descriptionTextareaRef.current;
+      const { selectionStart, selectionEnd } = textarea;
+
+      if (selectionStart !== selectionEnd) {
+        setSelectionRange({ start: selectionStart, end: selectionEnd });
+      } else {
+        setSelectionRange(null); // Clear selection if no actual range selected
+      }
+    }
+  };
+  
+  const handleDescriptionBlur = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    setTimeout(() => {
+      const activeEl = document.activeElement;
+      // If the new focused element is not the textarea itself and not part of the toolbar
+      if (activeEl !== descriptionTextareaRef.current && !activeEl?.closest('.markdown-toolbar')) {
+        if (focusedField === 'lora-description') {
+          setFocusedField(null);
+        }
+        // Do not clear selection range here, as user might be clicking toolbar.
+        // The enabled state of toolbar relies on focusedField and selectionRange.
+        // If focusedField is null, toolbar will be disabled anyway by the logic below.
+      }
+    }, 0); // Use a minimal timeout to allow the next element to gain focus
+  };
+
+  const applyMarkdownFormat = (type: 'bold' | 'italic' | 'link') => {
+    if (!descriptionTextareaRef.current || !selectionRange) return;
+
+    const textarea = descriptionTextareaRef.current;
+    const { start, end } = selectionRange;
+    const currentValue = details.description;
+    const selectedText = currentValue.substring(start, end);
+    let prefix = '';
+    let suffix = '';
+    let replacement = selectedText;
+
+    switch (type) {
+      case 'bold':
+        prefix = '**';
+        suffix = '**';
+        break;
+      case 'italic':
+        prefix = '*';
+        suffix = '*';
+        break;
+      case 'link':
+        const url = prompt("Enter URL:", "https://");
+        if (!url) return; // User cancelled or entered empty URL
+        prefix = '[';
+        suffix = `](${url})`;
+        break;
+    }
+    
+    replacement = prefix + selectedText + suffix;
+    const newValue = currentValue.substring(0, start) + replacement + currentValue.substring(end);
+    
+    updateField('description', newValue);
+    // setSelectionRange(null); // Clear selection after applying format. User might want to apply multiple.
+
+    setTimeout(() => {
+      if (descriptionTextareaRef.current) {
+        descriptionTextareaRef.current.focus();
+        const newCursorPos = start + replacement.length;
+        descriptionTextareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        // After re-focusing and setting cursor, re-check selection to update toolbar state.
+        // For now, selection is cleared by cursor move, which calls handleDescriptionSelect and nullifies range.
+        handleDescriptionSelect(); 
+      }
+    }, 0);
+    setFocusedField('lora-description'); 
+  };
+
+  interface MarkdownFormattingToolbarProps {
+    isEnabled: boolean;
+    descriptionText: string;
+  }
+
+  const MarkdownFormattingToolbar: React.FC<MarkdownFormattingToolbarProps> = ({ isEnabled, descriptionText }) => {
+    const effectiveIsEnabled = isEnabled && descriptionText.length > 0;
+    const title = effectiveIsEnabled ? "" : "Highlight text in description to enable formatting.";
+
+    return (
+      <div
+        className="markdown-toolbar absolute top-[-14px] right-1 z-10 bg-background border rounded-md shadow-lg p-1 flex space-x-1"
+        title={title}
+        onMouseDown={(e) => e.preventDefault()} // Prevent textarea blur when clicking toolbar buttons
+      >
+        <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={() => applyMarkdownFormat('bold')} disabled={!effectiveIsEnabled} title="Bold (Ctrl+B)">
+          <Bold className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={() => applyMarkdownFormat('italic')} disabled={!effectiveIsEnabled} title="Italic (Ctrl+I)">
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={() => applyMarkdownFormat('link')} disabled={!effectiveIsEnabled} title="Link (Ctrl+K)">
+          <Link2 className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  };
+
   // Expose the edit method to parent via ref
   useImperativeHandle(ref, () => ({
     startEdit: handleEdit
   }));
 
   if (isEditing) {
+    const isToolbarEnabled = focusedField === 'lora-description' && !!selectionRange && details.description.length > 0;
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 relative">
         <div className="space-y-4">
           <div>
             <Label htmlFor="lora-name" className="text-sm font-medium mb-1.5 block">
@@ -256,15 +368,51 @@ const EditableLoraDetails = React.forwardRef<EditableLoraDetailsHandle, Editable
             <Label htmlFor="lora-description" className="text-sm font-medium mb-1.5 block">
               LoRA Description
             </Label>
-            <TextareaAutosize
-              id="lora-description"
-              placeholder="Enter LoRA description"
-              value={details.description}
-              onChange={(e) => updateField('description', e.target.value)}
-              disabled={isSaving}
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-              minRows={3}
-            />
+            <div className="relative">
+              <MarkdownFormattingToolbar isEnabled={isToolbarEnabled} descriptionText={details.description} />
+              {focusedField === 'lora-description' ? (
+                <TextareaAutosize
+                  ref={descriptionTextareaRef}
+                  id="lora-description"
+                  placeholder="Enter LoRA description"
+                  value={details.description}
+                  onChange={(e) => {
+                    updateField('description', e.target.value);
+                    if (e.target.value === '') {
+                      setSelectionRange(null);
+                    }
+                  }}
+                  onFocus={() => {
+                      setFocusedField('lora-description');
+                      handleDescriptionSelect(); 
+                  }}
+                  onBlur={handleDescriptionBlur}
+                  onSelect={handleDescriptionSelect}
+                  disabled={isSaving}
+                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none pt-8"
+                  minRows={3}
+                />
+              ) : (
+                <div 
+                  className="prose prose-sm max-w-none dark:prose-invert break-words p-3 min-h-[80px] border border-input rounded-md cursor-text hover:bg-muted/50 w-full pt-8"
+                  onClick={() => setFocusedField('lora-description')}
+                >
+                  {details.description ? (
+                    <ReactMarkdown
+                      components={{
+                        a: ({ node, ...props }) => (
+                          <a {...props} target="_blank" rel="noopener noreferrer" />
+                        ),
+                      }}
+                    >
+                      {details.description}
+                    </ReactMarkdown>
+                  ) : (
+                    <p className="text-muted-foreground italic">Enter LoRA description</p>
+                  )}
+                </div>
+              )}
+            </div>
           </div>
 
           <div>

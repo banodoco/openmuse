@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import TextareaAutosize from 'react-textarea-autosize';
@@ -7,7 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useAuth } from '@/hooks/useAuth';
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Info, CheckSquare } from 'lucide-react';
+import { Info, CheckSquare, Bold, Italic, Link2 } from 'lucide-react';
 import { 
   Tooltip, 
   TooltipContent, 
@@ -16,6 +16,8 @@ import {
 } from "@/components/ui/tooltip";
 import { supabase } from '@/integrations/supabase/client';
 import { Checkbox } from "@/components/ui/checkbox";
+import { Button } from "@/components/ui/button";
+import ReactMarkdown from 'react-markdown';
 
 interface ModelData {
   id: string;
@@ -58,6 +60,11 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
   const [availableModels, setAvailableModels] = useState<ModelData[]>([]);
   const [isLoadingModels, setIsLoadingModels] = useState<boolean>(true);
   const [hasExistingApiKey, setHasExistingApiKey] = useState(false);
+  
+  // For Markdown Formatting Toolbar
+  const descriptionTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
+  const [selectionRange, setSelectionRange] = useState<{ start: number, end: number } | null>(null);
   
   // Preload the tooltip image
   useEffect(() => {
@@ -153,6 +160,104 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
   // The variant should only be auto-updated when the *model* changes.
   }, [loraDetails.model, availableModels, isLoadingModels, updateLoRADetails]);
   
+  const handleDescriptionSelect = () => {
+    if (descriptionTextareaRef.current) {
+      const textarea = descriptionTextareaRef.current;
+      const { selectionStart, selectionEnd } = textarea;
+
+      if (selectionStart !== selectionEnd) {
+        setSelectionRange({ start: selectionStart, end: selectionEnd });
+      } else {
+        setSelectionRange(null);
+      }
+    }
+  };
+  
+  const handleDescriptionBlur = (event: React.FocusEvent<HTMLTextAreaElement>) => {
+    setTimeout(() => {
+      const activeEl = document.activeElement;
+      if (activeEl !== descriptionTextareaRef.current && !activeEl?.closest('.markdown-toolbar-upload')) {
+        if (focusedField === 'uploadLoraDescription') {
+          setFocusedField(null);
+        }
+      }
+    }, 0);
+  };
+
+  const applyMarkdownFormat = (type: 'bold' | 'italic' | 'link') => {
+    if (!descriptionTextareaRef.current || !selectionRange) return;
+
+    const textarea = descriptionTextareaRef.current;
+    const { start, end } = selectionRange;
+    const currentValue = loraDetails.loraDescription;
+    const selectedText = currentValue.substring(start, end);
+    let prefix = '';
+    let suffix = '';
+    let replacement = selectedText;
+
+    switch (type) {
+      case 'bold':
+        prefix = '**';
+        suffix = '**';
+        break;
+      case 'italic':
+        prefix = '*';
+        suffix = '*';
+        break;
+      case 'link':
+        const url = prompt("Enter URL:", "https://");
+        if (!url) return;
+        prefix = '[';
+        suffix = `](${url})`;
+        break;
+    }
+    
+    replacement = prefix + selectedText + suffix;
+    const newValue = currentValue.substring(0, start) + replacement + currentValue.substring(end);
+    
+    updateLoRADetails('loraDescription', newValue);
+
+    setTimeout(() => {
+      if (descriptionTextareaRef.current) {
+        descriptionTextareaRef.current.focus();
+        const newCursorPos = start + replacement.length;
+        descriptionTextareaRef.current.setSelectionRange(newCursorPos, newCursorPos);
+        handleDescriptionSelect(); 
+      }
+    }, 0);
+    setFocusedField('uploadLoraDescription'); 
+  };
+
+  interface MarkdownFormattingToolbarProps {
+    isEnabled: boolean;
+    descriptionText: string;
+  }
+
+  const MarkdownFormattingToolbar: React.FC<MarkdownFormattingToolbarProps> = ({ isEnabled, descriptionText }) => {
+    const effectiveIsEnabled = isEnabled && descriptionText.length > 0;
+    const title = effectiveIsEnabled ? "" : "Highlight text in description to enable formatting.";
+
+    return (
+      <div
+        className="markdown-toolbar-upload absolute top-1 right-1 z-10 bg-background border rounded-md shadow-lg p-1 flex space-x-1"
+        title={title}
+        onMouseDown={(e) => e.preventDefault()}
+      >
+        <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={() => applyMarkdownFormat('bold')} disabled={!effectiveIsEnabled} title="Bold (Ctrl+B)">
+          <Bold className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={() => applyMarkdownFormat('italic')} disabled={!effectiveIsEnabled} title="Italic (Ctrl+I)">
+          <Italic className="h-4 w-4" />
+        </Button>
+        <Button variant="ghost" size="sm" className="p-1.5 h-auto" onClick={() => applyMarkdownFormat('link')} disabled={!effectiveIsEnabled} title="Link (Ctrl+K)">
+          <Link2 className="h-4 w-4" />
+        </Button>
+      </div>
+    );
+  };
+
+  const isToolbarEnabled = focusedField === 'uploadLoraDescription' && !!selectionRange && loraDetails.loraDescription.length > 0;
+  
   return (
     <Card>
       <CardContent className="pt-6">
@@ -179,15 +284,51 @@ const GlobalLoRADetailsForm: React.FC<GlobalLoRADetailsFormProps> = ({
                 LoRA Description
               </Label>
               <div className="flex flex-col sm:flex-row sm:items-start gap-4">
-                <TextareaAutosize
-                  id="lora-description"
-                  placeholder="Describe the LoRA, how to trigger it (e.g., trigger words, prompt structure), and any tips for best results."
-                  value={loraDetails.loraDescription}
-                  onChange={(e) => updateLoRADetails('loraDescription', e.target.value)}
-                  disabled={disabled}
-                  className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none"
-                  minRows={4}
-                />
+                <div className="relative w-full">
+                  <MarkdownFormattingToolbar isEnabled={isToolbarEnabled} descriptionText={loraDetails.loraDescription} />
+                  {focusedField === 'uploadLoraDescription' ? (
+                    <TextareaAutosize
+                      ref={descriptionTextareaRef}
+                      id="lora-description"
+                      placeholder="Describe the LoRA, how to trigger it (e.g., trigger words, prompt structure), and any tips for best results."
+                      value={loraDetails.loraDescription}
+                      onChange={(e) => {
+                        updateLoRADetails('loraDescription', e.target.value);
+                        if (e.target.value === '') {
+                          setSelectionRange(null);
+                        }
+                      }}
+                      onFocus={() => {
+                        setFocusedField('uploadLoraDescription');
+                        handleDescriptionSelect();
+                      }}
+                      onBlur={handleDescriptionBlur}
+                      onSelect={handleDescriptionSelect}
+                      disabled={disabled}
+                      className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 resize-none pt-8"
+                      minRows={4}
+                    />
+                  ) : (
+                    <div 
+                      className="prose prose-sm max-w-none dark:prose-invert break-words p-3 min-h-[120px] border border-input rounded-md cursor-text hover:bg-muted/50 w-full pt-8"
+                      onClick={() => setFocusedField('uploadLoraDescription')}
+                    >
+                      {loraDetails.loraDescription ? (
+                        <ReactMarkdown
+                          components={{
+                            a: ({ node, ...props }) => (
+                              <a {...props} target="_blank" rel="noopener noreferrer" />
+                            ),
+                          }}
+                        >
+                          {loraDetails.loraDescription}
+                        </ReactMarkdown>
+                      ) : (
+                        <p className="text-muted-foreground italic">Describe the LoRA, how to trigger it (e.g., trigger words, prompt structure), and any tips for best results.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
                 <div className="p-3 border rounded-md bg-muted/50 text-sm text-muted-foreground space-y-2 w-full sm:w-auto sm:min-w-[180px]">
                   <p className="font-medium">Remember to include:</p>
                   <div className="flex items-center gap-2">

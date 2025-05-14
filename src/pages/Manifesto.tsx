@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import Navigation, { Footer } from '@/components/Navigation';
 import { useIsMobile } from '@/hooks/use-mobile';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
-import SproutingCursorCanvas from '@/components/SproutingCursorCanvas';
+import SproutingCursorCanvas, { SproutingCanvasHandle } from '@/components/SproutingCursorCanvas';
 import { cn } from '@/lib/utils';
 
 const ManifestoPage: React.FC = () => {
@@ -14,6 +14,8 @@ const ManifestoPage: React.FC = () => {
   const lockAtEndRef = useRef(false);
   const lastScrollYRef = useRef(0);
   const [overlayVisible, setOverlayVisible] = useState(true);
+  const sproutingCanvasRef = useRef<SproutingCanvasHandle>(null);
+  const [isEmojiVisible, setIsEmojiVisible] = useState(true);
 
   // Apply fade-in effect to the prose and video container
   useFadeInOnScroll(proseRef);
@@ -124,6 +126,15 @@ const ManifestoPage: React.FC = () => {
       video.pause();
     }
   }, []); // Removed isMobile dependency
+
+  // Handle clicking the emoji in the title
+  const handleEmojiClick = useCallback((event: React.MouseEvent) => {
+    if (sproutingCanvasRef.current) {
+      sproutingCanvasRef.current.createBurst(event.clientX, event.clientY);
+      sproutingCanvasRef.current.activateCursorFollowing();
+    }
+    setIsEmojiVisible(false);
+  }, []);
 
   // Handle video ending naturally (while playing forward)
   const handleVideoEnded = useCallback(() => {
@@ -262,95 +273,135 @@ const ManifestoPage: React.FC = () => {
   }, [isMobile]);
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <div className="z-10 bg-[#FEFDF4]/30 backdrop-blur-sm">
-        <Navigation />
-      </div>
-      <SproutingCursorCanvas />
-      
-      <div className="flex-1 w-full">
-        <div className="max-w-screen-2xl mx-auto p-4">
+    <>
+      <style>
+        {`
+          @keyframes provocativeWiggle {
+            0%, 100% { transform: rotate(0deg); }
+            25% { transform: rotate(8deg); }
+            75% { transform: rotate(-8deg); }
+          }
 
-          <div 
-            ref={proseRef} 
-            className={cn(
-              "prose max-w-3xl mx-auto py-8",
-              "bg-[#FEFDF4]/30 p-6 rounded-lg",
-              "prose-feathered-backdrop"
-            )}
-          >
-            <h2 className="text-3xl font-bold mb-6 text-left">Let's Build a Beautiful Home for Open-Source AI Art</h2>
+          .sapling-emoji-interactive {
+            animation: provocativeWiggle 0.8s ease-in-out infinite;
+            display: inline-block; /* Ensures transform origin is respected */
+            transition: opacity 0.5s ease-out; /* Added for fade-out */
+          }
 
-            <p className="text-lg leading-relaxed mb-4">
-              With OpenMuse, we aim to cultivate a home for open-source AI art that showcases the creativity and excellence within our ecosystem.
-            </p>
+          /* Remove animation when not hovering if combined with fade out */
+          .sapling-emoji-interactive:not(:hover) {
+            animation: none;
+          }
 
-            <p className="text-lg leading-relaxed mb-4">
-              Thanks to curation by trusted community members, we believe that it can become a place that informs, inspires, and empowers people within and outside this ecosystem - somewhere you'd be proud to share with an AI-skeptic friend.
-            </p>
-
-            <p className="text-lg leading-relaxed mb-4">
-              It's built as an extension of the <a href="https://banodoco.ai" target="_blank" rel="noopener noreferrer" className="!underline">Banodoco</a> community - aiming to spread its vibrant ethos to the wider world.
-            </p>
-
-            <p className="text-lg leading-relaxed mb-4">
-              We believe that AI art shouldn't be dictated by fleeting hype and closed platforms - it should be driven by an open, constantly evolving interplay between art and the tools that enable it.
-            </p>
-
-            <p className="text-lg leading-relaxed mb-4">
-              To start, OpenMuse will focus only on Videos LoRAs and art created with them - but this is just the beginning.
-            </p>
-
-            <p className="text-lg leading-relaxed mb-4">
-              With your help, we can grow into a place we're all proud of: a platform that genuinely elevates the potential of the ecosystem.
-            </p>
-
-            <p className="text-lg leading-relaxed mb-4">
-              To make this happen, we need your help. If you'd like to support this effort, please consider training LoRAs or creating art with them, and sharing your work here to inspire and empower others.
-            </p>
-
-            <p className="text-lg leading-relaxed font-semibold mb-4">
-              Together, we can create something beautiful!
-            </p>
-
-            <p className="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-600">
-              Note: We will share <a href="https://banodoco.ai/pages/ownership.html" target="_blank" rel="noopener noreferrer" className="!underline">100% of the ownership</a> in our company with people who help us with this and <a href="https://banodoco.ai" target="_blank" rel="noopener noreferrer" className="!underline">our broader efforts</a>.
-            </p>
-          </div>
-
-          {/* Commenting out the video section
-          <div
-            ref={containerRef}
-            className="max-w-3xl mx-auto pb-8 flex justify-center items-center"
-          >
-            <div className="relative w-full max-w-3xl aspect-video overflow-hidden rounded-lg">
-              <video
-                ref={videoRef}
-                src="/the_creation.mp4"
-                muted
-                playsInline
-                preload="auto"
-                onPlay={() => setOverlayVisible(false)}
-                className="absolute top-0 left-0 w-full h-full object-cover"
-              />
-              <div
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  backgroundImage: "url('/first_frame.png')",
-                  backgroundSize: 'cover',
-                  backgroundPosition: 'center',
-                  transition: 'opacity 0.5s ease',
-                  opacity: overlayVisible ? 1 : 0
-                }}
-              />
-            </div>
-          </div>
-          */}
+          .emoji-fade-out {
+            opacity: 0;
+            pointer-events: none; /* Prevent interactions after fade */
+          }
+        `}
+      </style>
+      <div className="flex flex-col min-h-screen">
+        <div className="z-10 bg-[#FEFDF4]/30 backdrop-blur-sm">
+          <Navigation />
         </div>
+        <SproutingCursorCanvas ref={sproutingCanvasRef} />
+        
+        <div className="flex-1 w-full">
+          <div className="max-w-screen-2xl mx-auto p-4">
+
+            <div 
+              ref={proseRef} 
+              className={cn(
+                "prose max-w-3xl mx-auto py-8",
+                "bg-[#FEFDF4]/30 p-6 rounded-lg",
+                "prose-feathered-backdrop"
+              )}
+            >
+              <h2 className="text-3xl font-bold mb-6 text-left">
+                Let's Build a Beautiful Home for Open-Source AI Art
+                <span 
+                  onClick={handleEmojiClick} 
+                  style={{ cursor: 'pointer', marginLeft: '0.25em' }} 
+                  className={cn(
+                    "sapling-emoji-interactive",
+                    !isEmojiVisible && "emoji-fade-out"
+                  )}
+                  role="button" 
+                  aria-label="Trigger animation">
+                  🌱
+                </span>
+              </h2>
+
+              <p className="text-lg leading-relaxed mb-4">
+                With OpenMuse, we aim to cultivate a home for open-source AI art that showcases the creativity and excellence within our ecosystem.
+              </p>
+
+              <p className="text-lg leading-relaxed mb-4">
+                Thanks to curation by trusted community members, we believe that it can become a place that informs, inspires, and empowers people within and outside this ecosystem - somewhere you'd be proud to share with an AI-skeptic friend.
+              </p>
+
+              <p className="text-lg leading-relaxed mb-4">
+                It's built as an extension of the <a href="https://banodoco.ai" target="_blank" rel="noopener noreferrer" className="!underline">Banodoco</a> community - aiming to spread its vibrant ethos to the wider world.
+              </p>
+
+              <p className="text-lg leading-relaxed mb-4">
+                We believe that AI art shouldn't be dictated by fleeting hype and closed platforms - it should be driven by an open, constantly evolving interplay between art and the tools that enable it.
+              </p>
+
+              <p className="text-lg leading-relaxed mb-4">
+                To start, OpenMuse will focus only on Videos LoRAs and art created with them - but this is just the beginning.
+              </p>
+
+              <p className="text-lg leading-relaxed mb-4">
+                With your help, we can grow into a place we're all proud of: a platform that genuinely elevates the potential of the ecosystem.
+              </p>
+
+              <p className="text-lg leading-relaxed mb-4">
+                To make this happen, we need your help. If you'd like to support this effort, please consider training LoRAs or creating art with them, and sharing your work here to inspire and empower others.
+              </p>
+
+              <p className="text-lg leading-relaxed font-semibold mb-4">
+                Together, we can create something beautiful!
+              </p>
+
+              <p className="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-600">
+                Note: We will share <a href="https://banodoco.ai/pages/ownership.html" target="_blank" rel="noopener noreferrer" className="!underline">100% of the ownership</a> in our company with people who help us with this and <a href="https://banodoco.ai" target="_blank" rel="noopener noreferrer" className="!underline">our broader efforts</a>.
+              </p>
+            </div>
+
+            {/* Commenting out the video section
+            <div
+              ref={containerRef}
+              className="max-w-3xl mx-auto pb-8 flex justify-center items-center"
+            >
+              <div className="relative w-full max-w-3xl aspect-video overflow-hidden rounded-lg">
+                <video
+                  ref={videoRef}
+                  src="/the_creation.mp4"
+                  muted
+                  playsInline
+                  preload="auto"
+                  onPlay={() => setOverlayVisible(false)}
+                  className="absolute top-0 left-0 w-full h-full object-cover"
+                />
+                <div
+                  className="absolute inset-0 pointer-events-none"
+                  style={{
+                    backgroundImage: "url('/first_frame.png')",
+                    backgroundSize: 'cover',
+                    backgroundPosition: 'center',
+                    transition: 'opacity 0.5s ease',
+                    opacity: overlayVisible ? 1 : 0
+                  }}
+                />
+              </div>
+            </div>
+            */}
+          </div>
+        </div>
+        
+        <Footer />
       </div>
-      
-      <Footer />
-    </div>
+    </>
   );
 };
 
