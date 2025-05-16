@@ -186,7 +186,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
             .from('asset_media')
             .insert({
               asset_id: assetId,
-              media_id: mediaData.id
+              media_id: mediaData.id,
+              variant_details: entry.metadata.modelVariant
             });
             
           if (linkError) {
@@ -203,7 +204,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
           .from('asset_media')
           .insert({
             asset_id: assetId,
-            media_id: mediaData.id
+            media_id: mediaData.id,
+            variant_details: entry.metadata.modelVariant
           });
           
         if (linkError) {
@@ -314,7 +316,8 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
         .from('asset_media')
         .insert({
           asset_id: assetId,
-          media_id: mediaId
+          media_id: mediaId,
+          variant_details: modelVariant
         });
         
       if (linkError) {

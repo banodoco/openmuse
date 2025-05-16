@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, VideoEntry, VideoDisplayStatus, VideoMetadata, AdminStatus, UserAssetPreferenceStatus, UserProfile } from '@/lib/types';
+import { AnyAsset, VideoEntry, VideoDisplayStatus, VideoMetadata, AdminStatus, UserAssetPreferenceStatus, UserProfile, AssetType, LoraAsset, WorkflowAsset } from '@/lib/types';
 import { toast } from 'sonner';
 import { videoUrlService } from '@/lib/services/videoUrlService';
 import { Logger } from '@/lib/logger';
@@ -19,7 +19,7 @@ const isValidModel = (model: string | undefined): model is VideoMetadata['model'
 };
 
 export const useAssetDetails = (assetId: string | undefined) => {
-  const [asset, setAsset] = useState<LoraAsset | null>(null);
+  const [asset, setAsset] = useState<AnyAsset | null>(null);
   const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [dataFetchAttempted, setDataFetchAttempted] = useState(false);
@@ -128,24 +128,20 @@ export const useAssetDetails = (assetId: string | undefined) => {
       const validModel = isValidModel(assetData?.lora_base_model) ? assetData?.lora_base_model : undefined;
 
       if (assetData) {
-        const processedAsset: LoraAsset = {
+        const baseAssetFields: Partial<AnyAsset> = {
             id: assetData.id,
             name: assetData.name,
             description: assetData.description,
             creator: assetData.creator,
-            type: assetData.type,
+            type: assetData.type as AssetType,
             created_at: assetData.created_at,
             user_id: assetData.user_id,
             primary_media_id: assetData.primary_media_id,
-            admin_status: assetData.admin_status,
-            user_status: assetData.user_status,
-            lora_type: assetData.lora_type,
-            lora_base_model: assetData.lora_base_model,
-            model_variant: assetData.model_variant,
-            lora_link: assetData.lora_link,
-            download_link: assetData.download_link,
-            admin_reviewed: assetData.admin_reviewed,
+            admin_status: assetData.admin_status as AdminStatus | null,
+            user_status: assetData.user_status as UserAssetPreferenceStatus | null,
+            admin_reviewed: assetData.admin_reviewed ?? false,
             curator_id: assetData.curator_id,
+            download_link: assetData.download_link,
             primaryVideo: pVideo ? {
                 id: pVideo.id,
                 url: pVideo.url,
@@ -157,20 +153,40 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 user_status: (pVideo as any)?.user_status as VideoDisplayStatus || null,
                 admin_status: (pVideo as any)?.admin_status as AdminStatus || null,
                 metadata: {
-                    title: pVideo.title || '',
+                    title: pVideo.title || assetData.name || '',
                     placeholder_image: pVideo.placeholder_image || null,
-                    description: pVideo.description,
-                    classification: (pVideo as any)?.classification,
-                    loraName: assetData.name,
+                    description: pVideo.description || '',
+                    classification: (pVideo as any)?.classification || 'gen',
                     assetId: assetData.id,
-                    loraType: assetData.lora_type,
-                    model: validModel,
-                    modelVariant: assetData.model_variant
+                    ...(assetData.type === 'lora' && {
+                        loraName: assetData.name,
+                        loraType: assetData.lora_type,
+                        model: isValidModel(assetData.lora_base_model) ? assetData.lora_base_model : undefined,
+                        modelVariant: assetData.model_variant,
+                    })
                 }
             } : undefined
         };
         
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Setting asset state.`);
+        let processedAsset: AnyAsset | null = null;
+        if (assetData.type === 'lora') {
+            processedAsset = {
+                ...(baseAssetFields as LoraAsset),
+                type: 'lora',
+                lora_type: assetData.lora_type,
+                lora_base_model: assetData.lora_base_model,
+                model_variant: assetData.model_variant,
+                lora_link: assetData.lora_link,
+            } as LoraAsset;
+        } else if (assetData.type === 'workflow') {
+            processedAsset = {
+                ...(baseAssetFields as WorkflowAsset),
+                type: 'workflow',
+                // Explicitly map model fields for workflows from the shared DB columns
+                lora_base_model: assetData.lora_base_model || null,
+                model_variant: assetData.model_variant || null,
+            } as WorkflowAsset;
+        }
         setAsset(processedAsset);
 
         if (assetData.curator_id) {
@@ -222,6 +238,25 @@ export const useAssetDetails = (assetId: string | undefined) => {
               const assignedStatus = (item.status as VideoDisplayStatus) || 'Listed'; 
               logger.log(`[loraorderingbug] Processing Video ${media.id}: Assigned status '${assignedStatus}' (from asset_media.status: ${item.status}, is_primary: ${item.is_primary})`);
   
+              const videoMetadata: Partial<VideoMetadata> = {
+                  title: media.title || '',
+                  description: media.description || '',
+                  placeholder_image: media.placeholder_image || null,
+                  classification: media.classification || 'gen',
+                  assetId: item.asset_id,
+                  aspectRatio: (media.metadata as any)?.aspectRatio ?? null
+              };
+
+              if (processedAsset.type === 'lora') {
+                  const lora = processedAsset as LoraAsset;
+                  videoMetadata.loraName = lora.name;
+                  videoMetadata.loraDescription = lora.description;
+                  videoMetadata.loraType = lora.lora_type;
+                  videoMetadata.loraLink = lora.lora_link;
+                  videoMetadata.model = isValidModel(lora.lora_base_model) ? lora.lora_base_model : undefined;
+                  videoMetadata.modelVariant = lora.model_variant;
+              }
+
               return {
                 id: media.id,
                 url: videoUrl,
@@ -233,20 +268,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 assetMediaDisplayStatus: assignedStatus,
                 user_id: media.user_id,
                 user_status: (media.user_status as VideoDisplayStatus) || null,
-                metadata: {
-                  title: media.title || '',
-                  description: media.description || '',
-                  placeholder_image: media.placeholder_image || null,
-                  classification: media.classification,
-                  model: processedAsset.lora_base_model || media.type, 
-                  loraName: processedAsset.name,
-                  loraDescription: processedAsset.description,
-                  assetId: item.asset_id,
-                  loraType: processedAsset.lora_type,
-                  loraLink: processedAsset.lora_link,
-                  modelVariant: processedAsset.model_variant,
-                  aspectRatio: (media.metadata as any)?.aspectRatio ?? null
-                },
+                metadata: videoMetadata as VideoMetadata,
                 admin_status: media.admin_status as AdminStatus || null,
               };
             } catch (error) {
@@ -393,17 +415,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
   
   const updateAssetUserStatus = useCallback(async (newStatus: UserAssetPreferenceStatus) => {
     const isAuthorized = isAdmin || (!!user && user.id === asset?.user_id);
-    if (!isAuthorized) {
-        logger.warn('[updateAssetUserStatus] Unauthorized attempt.');
-        toast.error("You don't have permission.");
-        return;
-    }
-    if (!asset) {
-        logger.warn('[updateAssetUserStatus] Asset data not available.');
-        return;
-    }
+    if (!isAuthorized || !asset) { toast.error("Permission denied or asset not loaded."); return; }
     const optimisticPreviousStatus = asset.user_status;
-    setAsset(prev => prev ? { ...prev, user_status: newStatus } : null);
+    setAsset(prev => prev ? { ...prev, user_status: newStatus } as AnyAsset : null);
     try {
         logger.log(`[updateAssetUserStatus] Updating asset ${asset.id} user_status to ${newStatus}`);
         const { error } = await supabase
@@ -415,40 +429,19 @@ export const useAssetDetails = (assetId: string | undefined) => {
     } catch (error) {
         logger.error(`[updateAssetUserStatus] Error setting status to ${newStatus}:`, error);
         toast.error(`Failed to set status to ${newStatus}`);
-        setAsset(prev => prev ? { ...prev, user_status: optimisticPreviousStatus } : null);
+        setAsset(prev => prev ? { ...prev, user_status: optimisticPreviousStatus } as AnyAsset : null);
     }
   }, [asset, user, isAdmin]);
 
   const updateLocalVideoStatus = useCallback((videoId: string, newStatus: VideoDisplayStatus, type: 'assetMedia' | 'user') => {
-    setVideos(prevVideos => {
-      const primaryId = asset?.primary_media_id;
-      const updatedVideos = prevVideos.map(video => {
-        if (video.id === videoId) {
-          return {
-            ...video,
-            assetMediaDisplayStatus: type === 'assetMedia' ? newStatus : video.assetMediaDisplayStatus,
-            user_status: type === 'user' ? newStatus : video.user_status
-          };
-        }
-        return video;
-      });
-      const sortedVideos = sortAssetPageVideos(updatedVideos, primaryId);
-      return sortedVideos;
-    });
+    setVideos(prevVideos => sortAssetPageVideos(prevVideos.map(video => 
+        video.id === videoId ? { ...video, assetMediaDisplayStatus: type === 'assetMedia' ? newStatus : video.assetMediaDisplayStatus, user_status: type === 'user' ? newStatus : video.user_status } : video
+    ), asset?.primary_media_id));
   }, [asset?.primary_media_id]);
 
   const updateLocalPrimaryMedia = useCallback((newPrimaryMediaId: string | null) => {
-    setAsset(prevAsset => {
-      if (!prevAsset || prevAsset.primary_media_id === newPrimaryMediaId) return prevAsset;
-      return { ...prevAsset, primary_media_id: newPrimaryMediaId };
-    });
-    setVideos(prevVideos => {
-        const updatedVideos = prevVideos.map(v => ({
-            ...v,
-            is_primary: v.id === newPrimaryMediaId
-        }));
-        return sortAssetPageVideos(updatedVideos, newPrimaryMediaId);
-    });
+    setAsset(prevAsset => prevAsset && prevAsset.primary_media_id !== newPrimaryMediaId ? { ...prevAsset, primary_media_id: newPrimaryMediaId } as AnyAsset : prevAsset);
+    setVideos(prevVideos => sortAssetPageVideos(prevVideos.map(v => ({...v, is_primary: v.id === newPrimaryMediaId})), newPrimaryMediaId));
     logger.log(`[useAssetDetails] Primary media ID updated locally to ${newPrimaryMediaId}. Videos re-sorted.`);
   }, []);
   
@@ -458,18 +451,10 @@ export const useAssetDetails = (assetId: string | undefined) => {
   }, []);
 
   const updateAssetAdminStatus = useCallback(async (newStatus: AdminStatus) => {
-    if (!isAdmin) {
-        logger.warn('[updateAssetAdminStatus] Non-admin attempt.');
-        toast.error("Only admins can change this status.");
-        return;
-    }
-    if (!asset) {
-        logger.warn('[updateAssetAdminStatus] Asset data not available.');
-        return;
-    }
+    if (!isAdmin || !asset) { toast.error("Permission denied or asset not loaded."); return; }
     const optimisticPreviousStatus = asset.admin_status;
     setIsUpdatingAdminStatus(true);
-    setAsset(prev => prev ? { ...prev, admin_status: newStatus } : null);
+    setAsset(prev => prev ? { ...prev, admin_status: newStatus } as AnyAsset : null);
     try {
         logger.log(`[updateAssetAdminStatus] Updating asset ${asset.id} admin_status to ${newStatus}`);
         const { error } = await supabase
@@ -481,7 +466,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
     } catch (error) {
         logger.error(`[updateAssetAdminStatus] Error setting admin status to ${newStatus}:`, error);
         toast.error(`Failed to set admin status to ${newStatus}`);
-        setAsset(prev => prev ? { ...prev, admin_status: optimisticPreviousStatus } : null);
+        setAsset(prev => prev ? { ...prev, admin_status: optimisticPreviousStatus } as AnyAsset : null);
     } finally {
         setIsUpdatingAdminStatus(false);
     }

@@ -1,5 +1,3 @@
-import { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';
-
 export interface VideoMetadata {
   title: string;
   description: string;
@@ -30,6 +28,9 @@ export type AdminStatus = 'Listed' | 'Curated' | 'Featured' | 'Hidden' | 'Reject
 
 // Define the user-settable display statuses
 export type VideoDisplayStatus = 'Pinned' | 'Listed' | 'Hidden';
+
+// User preference for their own assets
+export type UserAssetPreferenceStatus = 'Pinned' | 'Listed' | 'Hidden';
 
 export interface VideoEntry {
   id: string;
@@ -81,41 +82,53 @@ export interface UserProfile {
   discord_connected?: boolean;
 }
 
-export interface LoraAsset {
+export type AssetType = 'lora' | 'workflow';
+
+export interface BaseAsset {
   id: string;
   name: string;
   description?: string | null;
-  creator?: string | null;
-  user_id?: string | null;
+  creator?: string | null; // Display name of the creator
+  user_id?: string | null; // UUID of the user who owns/uploaded this asset
+  curator_id?: string | null; // UUID of the user who curated this (if different from owner)
   created_at: string;
-  primary_media_id?: string | null;
-  primary_media_url?: string | null;
-  primary_media_thumbnail_url?: string | null;
-  admin_status?: string | null;
+  type: AssetType;
+  admin_status?: AdminStatus | null;
   user_status?: UserAssetPreferenceStatus | null;
+  admin_reviewed: boolean;
+  primary_media_id?: string | null;
+  download_link?: string | null;
+  primaryVideo?: VideoEntry; // For preview/display
+  videos?: VideoEntry[]; // Associated example/showcase videos
+}
+
+export interface LoraAsset extends BaseAsset {
+  type: 'lora';
   lora_type?: string | null;
   lora_base_model?: string | null;
   model_variant?: string | null;
-  lora_link?: string | null;
-  download_link?: string | null;
-  admin_reviewed: boolean;
-  type: 'lora';
-  curator_id?: string | null;
-  primaryVideo?: VideoEntry;
-  videos?: VideoEntry[];
-  user_preference_status?: UserAssetPreferenceStatus | null;
-  associatedThumbnails?: (string | null)[];
-  associatedMedia?: Array<{
-    id: string;
-    url?: string;
-    thumbnailUrl?: string;
-    title?: string;
-  }>;
+  lora_link?: string | null; // Link to original source if not uploaded directly (e.g. CivitAI, HuggingFace page)
+  // download_link is inherited from BaseAsset, can be direct model download if not using HF repo via lora_link
 }
 
-export interface LoraManagerProps {
-  loras: LoraAsset[];
+export interface WorkflowAsset extends BaseAsset {
+  type: 'workflow';
+  // download_link is inherited from BaseAsset and will point to the Supabase storage URL for the workflow file.
+  // Add optional model fields, assuming they might be stored in the same DB columns as LoRAs
+  lora_base_model?: string | null;
+  model_variant?: string | null;
+  // We might add workflow_format (e.g., "ComfyUI JSON", "InvokeAI YAML") later if needed.
+}
+
+export type AnyAsset = LoraAsset | WorkflowAsset;
+
+export interface AssetManagerProps {
+  assets: AnyAsset[];
   isLoading: boolean;
+  // Add other relevant props for managing assets, e.g., isAdmin, event handlers
+  // This replaces LoraManagerProps
+  // Props like onFilterTextChange, filterText, onRefreshData will be needed
+  // Props for admin actions like onAdminStatusChange
 }
 
 export interface VideoMetadataForm {
@@ -132,5 +145,3 @@ export interface VideoItem {
   metadata: VideoMetadataForm;
   associatedLoraIds?: string[];
 }
-
-export type { UserAssetPreferenceStatus } from '@/components/lora/LoraCard';

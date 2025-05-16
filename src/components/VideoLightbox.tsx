@@ -53,6 +53,7 @@ interface VideoLightboxProps {
   title?: string;
   description?: string;
   initialAssetId?: string;
+  initialVariantDetails?: string;
   creator?: string | null;
   thumbnailUrl?: string;
   creatorId?: string;
@@ -81,6 +82,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   title: initialTitle,
   description: initialDescription,
   initialAssetId,
+  initialVariantDetails,
   creator,
   thumbnailUrl: initialThumbnailUrl,
   creatorId,
@@ -109,6 +111,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [editableDescription, setEditableDescription] = useState(initialDescription || '');
   const [editableAssetId, setEditableAssetId] = useState(initialAssetId || '');
   const [editableClassification, setEditableClassification] = useState<'art' | 'gen'>(initialClassification);
+  const [editableVariantDetails, setEditableVariantDetails] = useState(initialVariantDetails || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isUpdatingAdminStatus, setIsUpdatingAdminStatus] = useState(false);
@@ -152,13 +155,21 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setEditableDescription(initialDescription || '');
     setEditableAssetId(initialAssetId || '');
     setEditableClassification(initialClassification);
+    setEditableVariantDetails(initialVariantDetails || '');
     setIsSelectingFrame(false);
     setVideoDuration(0);
     setSelectedTimestamp(0);
     setFramePreviewUrl(null);
     setHasCapturedNewFrame(false);
     setIsCapturingFrame(false);
-  }, [videoId, initialTitle, initialDescription, initialAssetId, initialClassification, initialThumbnailUrl]);
+    setIsDirty(false); // Reset dirty state on cancel
+    setShowReminder(false); // Hide reminder immediately
+    setIsReminderRendered(false); // Remove from DOM
+    if (reminderTimeoutRef.current) clearTimeout(reminderTimeoutRef.current);
+    if (lightboxVideoRef.current) {
+      lightboxVideoRef.current.currentTime = 0;
+    }
+  }, [videoId, initialTitle, initialDescription, initialAssetId, initialClassification, initialVariantDetails, initialThumbnailUrl]);
 
   useEffect(() => {
     if (loraFetchError) {
@@ -201,6 +212,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     setEditableDescription(initialDescription || '');
     setEditableAssetId(initialAssetId || '');
     setEditableClassification(initialClassification);
+    setEditableVariantDetails(initialVariantDetails || '');
     setIsSelectingFrame(false);
     setVideoDuration(0);
     setSelectedTimestamp(0);
@@ -214,7 +226,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     if (lightboxVideoRef.current) {
       lightboxVideoRef.current.currentTime = 0;
     }
-  }, [initialTitle, initialDescription, initialAssetId, initialClassification, lightboxVideoRef]);
+  }, [initialTitle, initialDescription, initialAssetId, initialClassification, initialVariantDetails, lightboxVideoRef]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -240,8 +252,9 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   useEffect(() => {
     if (isEditing) {
       setEditableClassification(initialClassification);
+      setEditableVariantDetails(initialVariantDetails || '');
     }
-  }, [isEditing, initialClassification]);
+  }, [isEditing, initialClassification, initialVariantDetails]);
 
   const handleToggleEdit = () => {
     if (!isEditing) {
@@ -249,6 +262,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       setEditableDescription(initialDescription || '');
       setEditableAssetId(initialAssetId || '');
       setEditableClassification(initialClassification);
+      setEditableVariantDetails(initialVariantDetails || '');
       setSelectedTimestamp(0);
       setFramePreviewUrl(null);
       setHasCapturedNewFrame(false);
@@ -468,12 +482,13 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
       // Step 4: Insert new association if a LoRA was selected
       if (newAssetId) {
-        console.log("Inserting new LoRA association:", { asset_id: newAssetId, media_id: videoId });
+        console.log("Inserting new LoRA association:", { asset_id: newAssetId, media_id: videoId, variant_details: editableVariantDetails });
         const { error: insertError } = await supabase
           .from('asset_media')
           .insert({
             asset_id: newAssetId,
-            media_id: videoId
+            media_id: videoId,
+            variant_details: editableVariantDetails
           });
 
         if (insertError) {
@@ -989,6 +1004,20 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                               <p className="text-sm text-destructive mt-1.5">Error loading LoRAs. Please try again later.</p>
                             )}
                           </div>
+
+                          {editableAssetId && ( // Show variant details input only if a LoRA is selected
+                            <div>
+                              <Label htmlFor="variantDetails" className="text-sm font-medium text-muted-foreground block mb-1.5">LoRA Variant Details</Label>
+                              <Textarea
+                                id="variantDetails"
+                                value={editableVariantDetails}
+                                onChange={(e) => setEditableVariantDetails(e.target.value)}
+                                placeholder="Enter variant details (e.g., version, specific settings)..."
+                                disabled={isSaving}
+                                rows={2}
+                              />
+                            </div>
+                          )}
                         </div>
 
                         {/* Right Column: Thumbnail Edit */}
@@ -1260,5 +1289,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     </AlertDialog>
   );
 };
+
+VideoLightbox.displayName = "VideoLightbox";
 
 export default VideoLightbox;

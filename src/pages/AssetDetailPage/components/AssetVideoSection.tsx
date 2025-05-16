@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
-import { VideoEntry, LoraAsset, VideoDisplayStatus } from '@/lib/types';
+import { VideoEntry, AnyAsset, VideoDisplayStatus, LoraAsset } from '@/lib/types';
 import { cn } from '@/lib/utils';
 import VideoGallerySection from '@/components/video/VideoGallerySection';
 import { useAuth } from '@/hooks/useAuth';
@@ -28,12 +28,8 @@ import { useIsMobile } from '@/hooks/use-mobile';
 
 const logger = new Logger('AssetVideoSection');
 
-const isVideoEntry = (item: VideoEntry): item is VideoEntry => {
-  return item && typeof item === 'object' && 'id' in item && 'url' in item;
-};
-
 interface AssetVideoSectionProps {
-  asset: LoraAsset | null;
+  asset: AnyAsset | null;
   videos: VideoEntry[];
   isAdmin: boolean;
   onOpenLightbox: (video: VideoEntry) => void;
@@ -62,7 +58,6 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const { user } = useAuth();
   const { pathname } = useLocation();
   const isMobile = useIsMobile();
-  const isLoraPage = pathname.includes('/assets/loras/');
   const [classification, setClassification] = useState<'all' | 'gen' | 'art'>('all');
   
   // Ref for scrolling to the top of the section when pagination changes
@@ -150,10 +145,13 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     }
   };
 
+  const assetTypeDisplay = asset?.type ? asset.type.charAt(0).toUpperCase() + asset.type.slice(1) : 'Asset';
+  const defaultUploadClassification = asset?.type === 'lora' && (asset as LoraAsset).lora_type === 'Style' ? 'art' : 'gen';
+
   return (
     <div className="md:col-span-2">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-muted-foreground">Videos made with this:</h2>
+        <h2 className="text-xl font-bold text-muted-foreground">Example Videos</h2>
         <Select 
           value={classification} 
           onValueChange={(value: string) => setClassification(value as 'all' | 'gen' | 'art')}
@@ -182,7 +180,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                 isMobile ? "h-9 rounded-md px-3" : "h-10 px-4 py-2"
               )}
             >
-              Upload videos made using this
+              Upload videos for this {assetTypeDisplay.toLowerCase()}
             </Button>
           </DialogTrigger>
           <DialogContent className="rounded-lg w-full max-w-6xl max-h-[90vh] overflow-y-auto pb-16 sm:pb-6">
@@ -192,7 +190,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
             <UploadPage 
               initialMode="media"
               forcedLoraId={asset?.id}
-              defaultClassification={asset?.lora_type === 'Style' ? 'art' : 'gen'}
+              defaultClassification={defaultUploadClassification}
               hideLayout={true}
               onSuccess={handleUploadSuccess}
             />
@@ -216,8 +214,8 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
           alwaysShowInfo={false}
           compact={true}
           emptyMessage={classification === 'all' 
-              ? "No videos have been associated with this LoRA yet." 
-              : `No ${classification === 'gen' ? 'generation' : 'art'} videos found for this LoRA.`}
+              ? `No videos have been associated with this ${assetTypeDisplay.toLowerCase()} yet.` 
+              : `No ${classification === 'gen' ? 'generation' : 'art'} videos found for this ${assetTypeDisplay.toLowerCase()}.`}
         />
       </div>
 
@@ -235,7 +233,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                   }
                 }}
                 aria-disabled={currentPage === 1}
-                className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
+                className={cn(currentPage === 1 && 'pointer-events-none opacity-50')}
               />
             </PaginationItem>
             {[...Array(totalPages)].map((_, i) => {
@@ -272,7 +270,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
                   }
                 }}
                 aria-disabled={currentPage === totalPages}
-                className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
+                className={cn(currentPage === totalPages && 'pointer-events-none opacity-50')}
               />
             </PaginationItem>
           </PaginationContent>

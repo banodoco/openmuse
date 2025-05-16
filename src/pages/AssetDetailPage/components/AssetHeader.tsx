@@ -1,27 +1,11 @@
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { ArrowLeft, Check, EyeOff, Trash } from 'lucide-react';
-import { LoraAsset } from '@/lib/types';
+import { ArrowLeft } from 'lucide-react';
+import { AnyAsset } from '@/lib/types';
 import { useNavigate } from 'react-router-dom';
-import { Logger } from '@/lib/logger';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-
-const logger = new Logger('AssetHeader');
 
 interface AssetHeaderProps {
-  asset: LoraAsset | null;
+  asset: AnyAsset | null;
   creatorName: string;
 }
 
@@ -33,15 +17,6 @@ const AssetHeader: React.FC<AssetHeaderProps> = ({
 
   const handleGoBack = () => {
     navigate(-1);
-  };
-  
-  const getStatusColor = (status?: string | null): string => {
-    switch (status) {
-      case 'Curated': return "bg-green-500 text-white";
-      case 'Listed': return "bg-blue-500 text-white";
-      case 'Rejected': return "bg-red-500 text-white";
-      default: return "bg-yellow-500 text-white";
-    }
   };
 
   return (
@@ -58,7 +33,12 @@ const AssetHeader: React.FC<AssetHeaderProps> = ({
             Back
           </Button>
           <div className="flex flex-col">
-             <h1 className="text-3xl font-bold">{asset?.name}</h1>
+             {asset?.type && (
+                <span className="text-xs text-muted-foreground uppercase tracking-wider">
+                    {asset.type}
+                </span>
+             )}
+             <h1 className="text-3xl font-bold">{asset?.name || 'Asset Details'}</h1>
           </div>
         </div>
       </div>

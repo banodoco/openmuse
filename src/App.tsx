@@ -21,6 +21,7 @@ const ManifestoPage = lazy(() => import('./pages/Manifesto'));
 const LorasPage = lazy(() => import('./pages/LorasPage'));
 const ArtPage = lazy(() => import('./pages/ArtPage'));
 const GenerationsPage = lazy(() => import('./pages/GenerationsPage'));
+const WorkflowsPage = lazy(() => import('./pages/WorkflowsPage'));
 
 const App: React.FC = () => {
   // Global Autoplay Unlock for Mobile
@@ -91,9 +92,10 @@ const App: React.FC = () => {
                       <Route path="/auth" element={<AuthPage />} />
                       <Route path="/auth/callback" element={<AuthCallback />} />
                       <Route path="/manifesto" element={<ManifestoPage />} />
-                      <Route path="/assets/:id" element={<AssetDetailPage />} />
                       <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
+                      <Route path="/assets/workflows/:id" element={<AssetDetailPage />} />
                       <Route path="/loras" element={<LorasPage />} />
+                      <Route path="/workflows" element={<WorkflowsPage />} />
                       <Route path="/art" element={<ArtPage />} />
                       <Route path="/generations" element={<GenerationsPage />} />
                       <Route path="/profile/:username" element={

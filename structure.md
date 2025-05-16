@@ -4,6 +4,28 @@ This document outlines the directory structure of the openmuse` project, providi
 
 ## Database Tables
 
+### assets (Updated)
+- Stores metadata for various asset types (LoRAs, Workflows, etc.).
+- Columns include:
+  - id (UUID, primary key)
+  - user_id (UUID, foreign key to auth.users)
+  - curator_id (UUID, foreign key to auth.users, optional)
+  - name (TEXT)
+  - description (TEXT)
+  - type (VARCHAR, e.g., 'lora', 'workflow')
+  - created_at (TIMESTAMPTZ)
+  - updated_at (TIMESTAMPTZ)
+  - admin_status (VARCHAR)
+  - user_status (VARCHAR) - User's preference for display (Pinned, Listed, Hidden)
+  - admin_reviewed (BOOLEAN)
+  - primary_media_id (UUID, foreign key to media table)
+  - download_link (TEXT, URL to the asset file, e.g., LoRA model or workflow file in Supabase Storage)
+  - lora_type (VARCHAR, LoRA specific)
+  - lora_base_model (VARCHAR, LoRA specific)
+  - model_variant (VARCHAR, LoRA specific)
+  - lora_link (TEXT, LoRA specific, e.g., CivitAI or HuggingFace page)
+- Row Level Security should be in place.
+
 ### api_keys
 - Stores user API keys securely
 - Columns:
@@ -15,6 +37,28 @@ This document outlines the directory structure of the openmuse` project, providi
   - updated_at (TIMESTAMPTZ)
 - Row Level Security enabled
 - Policies ensure users can only access their own API keys
+
+### media
+- Stores video and image metadata.
+- ... (columns as before) ...
+
+### asset_media
+- Links assets to media entries (e.g., example videos for a LoRA or Workflow).
+- ... (columns as before) ...
+
+## Supabase Storage Buckets (New Section)
+
+### videos
+- Stores uploaded video files.
+- Access policies managed via Supabase dashboard.
+
+### thumbnails
+- Stores generated video thumbnails.
+- Access policies managed via Supabase dashboard.
+
+### workflows
+- Stores uploaded workflow files (e.g., JSON, ZIP).
+- Access policies should allow authenticated users to upload and provide public/signed URLs for download.
 
 ## Edge Functions
 
@@ -79,16 +123,18 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── common/         # General-purpose shared components
 │   │   │   └── DummyCard.tsx # A placeholder or example card component
 │   │   │   └── RoleSwitcher.tsx # UI component for selecting mock user roles in staging/dev mode. Appears when `import.meta.env.MODE` is 'staging'.
-│   │   ├── lora/           # Components related to LoRA asset management/display
+│   │   ├── **asset/**      # **NEW/UPDATED: Components related to any asset type**
+│   │   │   ├── **AssetCard.tsx**       # **Card component to display any asset**
+│   │   │   ├── **AssetCreatorInfo.tsx**# **Displays creator info for an asset**
+│   │   │   ├── **EditableAssetDetails.tsx** # **Form for editing asset details**
+│   │   │   └── **AssetInfoCard.tsx** # **Card displaying detailed information about the asset**
+│   │   ├── lora/           # Components specifically for LoRA (some might be deprecated/merged into asset/)
 │   │   │   ├── AddLoRAModal.tsx # Modal dialog for adding new LoRA assets
-│   │   │   ├── EditableLoraDescription.tsx # Component for editing LoRA descriptions
-│   │   │   ├── EditableLoraDetails.tsx # Component for editing detailed LoRA information
+│   │   │   ├── EditableLoraDescription.tsx # Potentially merged into EditableAssetDetails
 │   │   │   ├── LoRAVideoUploader.tsx # Component specifically for uploading videos related to LoRA assets
-│   │   │   ├── LoraCard.tsx    # Card component to display LoRA asset information
-│   │   │   ├── LoraCardSkeleton.tsx # Skeleton loader for the LoRA card
-│   │   │   ├── LoraCreatorInfo.tsx # Component displaying information about the LoRA creator
+│   │   │   ├── LoraCardSkeleton.tsx # Could become AssetGallerySkeleton
 │   │   │   ├── LoraFilters.tsx # Components for filtering LoRA assets
-│   │   │   └── LoraList.tsx    # Component to display a list of LoRA assets
+│   │   │   └── LoraList.tsx    # Replaced by AssetManager using AssetCard
 │   │   ├── ui/             # Base UI components (likely from shadcn/ui library)
 │   │   │   ├── accordion.tsx # Accordion component
 │   │   │   ├── alert-dialog.tsx # Alert dialog component
@@ -141,7 +187,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   ├── use-toast.ts    # Hook for using the toast system (shadcn/ui specific)
 │   │   │   └── visually-hidden.tsx # Component for visually hiding elements accessibly
 │   │   ├── upload/         # Components specifically for the upload process
-│   │   │   ├── GlobalLoRADetailsForm.tsx # Form for LoRA details, possibly in a global context
+│   │   │   ├── GlobalLoRADetailsForm.tsx # Potentially replaced by AssetDetailsForm logic within UploadPage
 │   │   │   ├── LoraMultiSelectCombobox.tsx # Combobox for selecting multiple LoRAs
 │   │   │   ├── UploadContent.tsx # Main content area for the upload page/modal
 │   │   │   ├── VideoDropzone.tsx # Drag-and-drop area for uploading videos
@@ -181,8 +227,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── VideoPreview.tsx # Component for showing a preview of a video (potentially distinct from VideoCard)
 │   │   └── WebcamRecorder.tsx # Component for recording video directly from the user's webcam
 │   │   └── ErrorBoundary.tsx # Catches React errors in its child component tree and displays a fallback UI
-│   │   └── UserProfilePage.tsx # Component for the user's profile page, allowing viewing and editing of profile information
-│   │   └── Added state management for LoRA upload modal and success handler to refetch assets after upload.
+│   │   └── UserProfilePage.tsx # Updated to show LoRAs and Workflows
 │   ├── contexts/           # React Context definitions for global state management
 │   │   ├── AuthContext.tsx # Context specifically for providing authentication state (user, session) and functions
 │   │   └── MockRoleContext.tsx # Context for managing the currently selected mock role, owner ID for simulation, and staging status.
@@ -196,12 +241,14 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── useVideoLoader.ts # Hook for managing the loading state and data fetching for videos
 │   │   ├── useVideoManagement.tsx # Hook encapsulating logic for managing video assets (fetching, uploading, metadata, etc.)
 │   │   └── useVideoPlayback.ts # Hook for controlling video playback state (play, pause, seek)
+│   │   ├── **useAssetManagement.tsx** # **Generalized from useLoraManagement.tsx**
+│   │   └── **useAssetManagement.tsx** # **Generalized from useLoraManagement.tsx**
 │   ├── index.css           # Global CSS styles, likely includes Tailwind CSS base, components, and utilities directives
 │   ├── integrations/       # Code dedicated to integrating with external services
 │   │   └── supabase/       # Modules specifically for interacting with Supabase
 │   │       ├── client.ts       # Supabase client initialization and configuration
 │   │       ├── database.types.ts # TypeScript types generated from the Supabase database schema
-│   │       └── types.ts        # Additional Supabase-related type definitions
+│   │       └── types.ts        # Additional Supabase-related type definitions (Updated with AnyAsset, BaseAsset, WorkflowAsset)
 │   ├── lib/                # Utility functions, helper modules, and shared logic not tied to UI
 │   │   ├── auth/           # Utilities specifically related to authentication logic
 │   │   │   ├── authMethods.ts  # Functions for specific auth actions (e.g., login, logout, signup)
@@ -239,15 +286,15 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   └── utils.ts        # General utility functions, often includes things like `cn` for class name merging (Tailwind)
 │   ├── main.tsx            # Main entry point of the React application, responsible for rendering the root component (`App`) into the DOM
 │   ├── pages/              # Page-level components, typically corresponding to application routes
-│   │   ├── AssetDetailPage/ # Components specifically for the asset detail page route
+│   │   ├── AssetDetailPage/ # Updated to handle AnyAsset (LoRAs and Workflows)
 │   │   │   ├── components/   # Sub-components used only within the AssetDetailPage
-│   │   │   │   ├── AssetHeader.tsx # Header section for the asset detail page
-│   │   │   │   ├── AssetInfoCard.tsx # Card displaying detailed information about the asset
-│   │   │   │   └── AssetVideoSection.tsx # Section displaying videos related to the asset
+│   │   │   │   ├── AssetHeader.tsx # Updated for AnyAsset
+│   │   │   │   ├── AssetInfoCard.tsx # Updated for AnyAsset, conditional display
+│   │   │   │   └── AssetVideoSection.tsx # Updated for AnyAsset
 │   │   │   ├── hooks/        # Hooks used specifically by the AssetDetailPage
 │   │   │   │   ├── useAssetAdminActions.tsx # Hook for administrative actions on an asset
-│   │   │   │   └── useAssetDetails.tsx # Hook for fetching and managing asset details, including mapping video data like admin_status
-│   │   │   ├── AssetDetailPage.tsx # Main component for the asset detail page, handles lightbox state and updates
+│   │   │   │   └── useAssetDetails.tsx # Updated to fetch and return AnyAsset
+│   │   │   ├── AssetDetailPage.tsx # Updated to use AnyAsset
 │   │   │   └── index.tsx     # Barrel file exporting the AssetDetailPage component
 │   │   ├── VideoPage/      # Components specifically for the individual video page route
 │   │   │   ├── components/   # Sub-components used only within the VideoPage
@@ -258,22 +305,23 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   └── index.tsx     # Barrel file exporting the VideoPage component
 │   │   ├── upload/         # Components related to the file/video upload page route
 │   │   │   ├── components/   # Sub-components used only within the UploadPage
-│   │   │   │   ├── LoRADetailsForm.tsx # Reusable form for LoRA details within upload context
+│   │   │   │   ├── AssetDetailsForm.tsx # **NEW: Form for common asset details, conditional for LoRA/Workflow**
 │   │   │   │   ├── MultipleVideoUploader.tsx # Component for handling multiple video uploads simultaneously
 │   │   │   │   └── index.ts    # Barrel file exporting upload page components
-│   │   │   ├── UploadPage.tsx # Main component for the upload page
+│   │   │   ├── UploadPage.tsx # Updated to support 'workflow' upload mode
 │   │   │   └── index.ts      # Barrel file exporting the UploadPage component
 │   │   ├── Updated navigation logic to return to the previous location after successful submission.
 │   │   ├── Admin.tsx       # Component for the administrative dashboard page
 │   │   ├── Auth.tsx        # Component handling the user authentication flow (login/signup forms)
 │   │   ├── AuthCallback.tsx # Component that handles the redirect callback from an external OAuth provider (like Supabase Auth)
-│   │   ├── Index.tsx       # Component for the main landing page or home page of the application
+│   │   ├── Index.tsx       # Updated to display LoRAs and Workflows using AssetManager
 │   │   ├── Manifesto.tsx   # Component likely displaying a project manifesto, mission statement, or about text
 │   │   ├── NotFound.tsx    # Component displayed when a route is not found (404 page)
-│   │   ├── UserProfilePage.tsx # Component for the user's profile page, allowing viewing and editing of profile information
+│   │   ├── UserProfilePage.tsx # Updated to display LoRAs and Workflows using AssetManager
 │   │   ├── ArtPage.tsx     # Component for browsing curated art videos
 │   │   ├── GenerationsPage.tsx # Component listing generation videos created by users
-│   │   └── LorasPage.tsx   # Component showing all LoRA assets
+│   │   ├── LorasPage.tsx   # This page might become a more generic AssetsPage or have a sibling WorkflowsPage
+│   │   └── **WorkflowsPage.tsx (Potential New Page)** # Page for listing all workflows
 │   ├── providers/          # React Context Provider components
 │   │   └── AuthProvider.tsx # Provider component supplying auth context. Enhanced to provide mocked auth states (user, session, isAdmin, isLoading) and no-op auth functions when a mock role is active in staging mode.
 │   └── vite-env.d.ts       # TypeScript definition file for environment variables exposed by Vite
