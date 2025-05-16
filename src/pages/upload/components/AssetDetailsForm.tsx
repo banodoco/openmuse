@@ -607,18 +607,27 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({
       {/* Workflow Specific Fields */}
       {assetType === 'workflow' && (
         <div>
-          <Label htmlFor="workflow-file-input">Workflow File (.json, .zip, etc.)</Label>
+          <Label htmlFor="workflow-file-input">Workflow File</Label>
           <Input
             id="workflow-file-input"
             type="file"
-            onChange={handleFileChange} // Same handler, UploadPage distinguishes by uploadMode
+            onChange={handleFileChange}
             className="mt-1"
-            // Add specific accept types for workflows if known, e.g., ".json,.yaml,.zip"
+            accept=".json"
             disabled={disabled}
           />
-           <p className="text-xs text-muted-foreground mt-1">
-            Upload your workflow file (e.g., ComfyUI JSON, InvokeAI YAML, or a .zip archive).
-          </p>
+          <div className="flex mt-3">
+            <div className="text-xs text-muted-foreground">
+              <p>Upload your workflow file (.json format only).</p>
+              <div className="mt-4 p-3 border rounded-md bg-muted/50">
+                <h4 className="font-medium mb-2">In your workflow, please include:</h4>
+                <ul className="list-inside space-y-1">
+                  <li>i) Instructions on how to use if need be</li>
+                  <li>ii) Details on any files the user will need to download.</li>
+                </ul>
+              </div>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -406,9 +406,17 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         logger.log('Processing WORKFLOW submission...');
         if (!workflowFile) {
           toast.error('Please select a workflow file to upload.');
+                setIsSubmitting(false);
+                return; 
+              }
+        
+        // Validate that it's a JSON file
+        if (!workflowFile.name.toLowerCase().endsWith('.json')) {
+          toast.error('Only JSON files are supported for workflows.');
               setIsSubmitting(false);
               return;
             }
+            
         setCurrentStepMessage('Uploading workflow file...');
         const fileName = `${user.id}/${uuidv4()}-${workflowFile.name}`;
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -421,10 +429,10 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
         if (uploadError) {
           logger.error('Error uploading workflow file:', uploadError);
           toast.error(`Failed to upload workflow file: ${uploadError.message}`);
-          setIsSubmitting(false);
-          return;
-        }
-        
+              setIsSubmitting(false);
+              return;
+            }
+
         // Get public URL for the uploaded file
         const { data: publicUrlData } = supabase.storage
           .from('workflows')

@@ -140,14 +140,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
     if (asset.type === 'lora') {
       navigate(`/assets/loras/${asset.id}`);
     } else if (asset.type === 'workflow') {
-      // For workflows, direct download or navigate to a detail page?
-      // If detail page: navigate(`/assets/workflows/${asset.id}`);
-      // If direct download & download_link exists:
-      if ((asset as WorkflowAsset).download_link) {
-        window.open((asset as WorkflowAsset).download_link, '_blank');
-      } else {
-        navigate(`/assets/workflows/${asset.id}`); // Fallback to detail page
-      }
+      navigate(`/assets/workflows/${asset.id}`);
     } else {
       logger.warn('Unknown asset type for view action:', (asset as any).type);
     }
@@ -284,6 +277,30 @@ const AssetCard: React.FC<AssetCardProps> = ({
     return status1 === status2;
   };
 
+  const handleDownloadWorkflow = (e: React.MouseEvent, downloadUrl: string, fileName: string) => {
+    e.stopPropagation(); // Prevent card click
+    const forceDownload = async (url: string, filename: string) => {
+      try {
+        const response = await fetch(url);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+        
+        const downloadLink = document.createElement('a');
+        downloadLink.href = blobUrl;
+        downloadLink.download = filename;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+        URL.revokeObjectURL(blobUrl);
+      } catch (error) {
+        console.error('Download failed:', error);
+        toast.error('Failed to download workflow file');
+      }
+    };
+    
+    forceDownload(downloadUrl, fileName);
+  };
+
   // Explicit type narrowing for rendering
   let cardSpecificContent = null;
   if (asset.type === 'lora') {
@@ -312,14 +329,6 @@ const AssetCard: React.FC<AssetCardProps> = ({
     const workflowAsset = asset as WorkflowAsset;
     cardSpecificContent = (
       <>
-        {/* Top Left Workflow Badge */}
-        <div className="absolute top-3 left-3 z-10">
-          <div className={cn("transition-opacity duration-300", !isMobile && "opacity-0 group-hover:opacity-100")}>
-            <Badge variant="secondary" className="bg-purple-200 text-purple-800 backdrop-blur-sm shadow-md border border-white/20 text-xs px-1.5 py-0.5 h-auto">
-              Workflow
-            </Badge>
-          </div>
-        </div>
         {/* Workflow Type in CardContent (placeholder or specific if added to type) */}
         <Badge variant="secondary" className={cn("ml-2 text-xs px-2 py-0.5 h-5", "bg-sky-200 text-sky-800")}>Workflow</Badge>
       </>
@@ -365,10 +374,7 @@ const AssetCard: React.FC<AssetCardProps> = ({
                 !isMobile && "opacity-0 group-hover:opacity-100"
               )}>
                 <div className="bg-white/80 backdrop-blur-sm rounded-full p-1.5 shadow-md border border-white/20 group-hover:animate-subtle-pulse">
-                  {asset.type === 'workflow' && asset.download_link ? 
-                    <Download className="h-3 w-3 text-primary" /> : 
-                    <ArrowUpRight className="h-3 w-3 text-primary" />
-                  }
+                  <ArrowUpRight className="h-3 w-3 text-primary" />
                 </div>
               </div>
             </div>
@@ -389,29 +395,19 @@ const AssetCard: React.FC<AssetCardProps> = ({
                 </div>
               </div>
             )}
-             {asset.type === 'workflow' && (
-              <div className="absolute top-3 left-3 z-10">
-                <div className={cn(
-                  "transition-opacity duration-300",
-                  !isMobile && "opacity-0 group-hover:opacity-100"
-                )}>
-                  <Badge 
-                    variant="secondary" 
-                    className="bg-purple-200 text-purple-800 backdrop-blur-sm shadow-md border border-white/20 text-xs px-1.5 py-0.5 h-auto"
-                  >
-                    Workflow
-                  </Badge>
-                </div>
-              </div>
-            )}
           </>
         ) : (
           // Fallback for assets with no primary video (especially workflows)
           <div className="absolute inset-0 flex flex-col items-center justify-center p-4">
             {asset.type === 'workflow' && asset.download_link ? (
-              <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); window.open(asset.download_link!, '_blank');}} className="animate-fade-in">
-                <Download size={16} className="mr-2" /> Download Workflow
-              </Button>
+              <div className="flex flex-col gap-2">
+                <Button variant="outline" size="sm" onClick={(e) => { e.stopPropagation(); navigate(`/assets/workflows/${asset.id}`); }} className="animate-fade-in">
+                  <ArrowUpRight size={16} className="mr-2" /> View Workflow
+                </Button>
+                <Button variant="default" size="sm" onClick={(e) => handleDownloadWorkflow(e, asset.download_link!, asset.name ? `${asset.name}.json` : "workflow.json")} className="animate-fade-in">
+                  <Download size={16} className="mr-2" /> Download
+                </Button>
+              </div>
             ) : (
               <p className="text-muted-foreground text-sm animate-fade-in">No preview available</p>
             )}

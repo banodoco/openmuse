@@ -185,16 +185,41 @@ const AssetInfoCard = ({
               {/* Download Link Button - Common, but behavior differs */}
               {asset?.download_link && (
                 asset.type === 'workflow' ? (
-                  <a
-                    href={asset.download_link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    download
-                    className={cn(buttonVariants({ variant: 'default' }), "gap-2", (asset as LoraAsset).lora_link && asset.type === 'lora' ? "w-1/2" : "w-full")}
+                  <Button
+                    variant="default"
+                    onClick={() => {
+                      if (!asset.download_link) return;
+                      // Create a function to handle the download
+                      const forceDownload = async (url: string, filename: string) => {
+                        try {
+                          const response = await fetch(url);
+                          const blob = await response.blob();
+                          const blobUrl = URL.createObjectURL(blob);
+                          
+                          const downloadLink = document.createElement('a');
+                          downloadLink.href = blobUrl;
+                          downloadLink.download = filename;
+                          document.body.appendChild(downloadLink);
+                          downloadLink.click();
+                          document.body.removeChild(downloadLink);
+                          URL.revokeObjectURL(blobUrl);
+                        } catch (error) {
+                          console.error('Download failed:', error);
+                          toast.error('Failed to download workflow file');
+                        }
+                      };
+                      
+                      // Call the download function with appropriate filename
+                      forceDownload(
+                        asset.download_link, 
+                        asset.name ? `${asset.name}.json` : "workflow.json"
+                      );
+                    }}
+                    className={cn("gap-2", (asset as LoraAsset).lora_link && asset.type === 'lora' ? "w-1/2" : "w-full")}
                   >
                     <Download className="h-4 w-4" />
                     <span className="hidden xl:inline">Download Workflow</span>
-                  </a>
+                  </Button>
                 ) : (
                   <Button
                     variant="outline"
