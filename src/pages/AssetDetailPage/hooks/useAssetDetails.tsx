@@ -19,6 +19,7 @@ const isValidModel = (model: string | undefined): model is VideoMetadata['model'
 };
 
 export const useAssetDetails = (assetId: string | undefined) => {
+  logger.log(`[AssetLoadSpeed] useAssetDetails hook initialized for assetId: ${assetId}.`);
   const [asset, setAsset] = useState<AnyAsset | null>(null);
   const [videos, setVideos] = useState<VideoEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -33,15 +34,11 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const initialFetchTriggered = useRef(false);
   const assetRef = useRef<string | undefined>(undefined);
 
-  logger.log('[LoraLoadSpeed] useAssetDetails hook initialized.');
-  logger.log('[WorkflowVideoDebug] useAssetDetails hook initialized.');
-
   const fetchAssetDetails = useCallback(async (options?: { silent?: boolean }) => {
-    const fetchStartTime = performance.now();
-    logger.log(`[LoraLoadSpeed] fetchAssetDetails started for assetId: ${assetId}. Silent: ${options?.silent}`);
-    logger.log(`[WorkflowVideoDebug] fetchAssetDetails started for assetId: ${assetId}. Silent: ${options?.silent}`);
+    const fetchOverallStartTime = performance.now();
+    logger.log(`[AssetLoadSpeed] fetchAssetDetails START for assetId: ${assetId}. Silent: ${options?.silent}`);
     if (!assetId) {
-      logger.warn('[useAssetDetails] fetchAssetDetails called without assetId.');
+      logger.warn(`[AssetLoadSpeed] fetchAssetDetails ABORTED: No assetId provided.`);
       toast.error('No asset ID provided');
       if (!options?.silent) setIsLoading(false);
       setDataFetchAttempted(true);
@@ -50,13 +47,12 @@ export const useAssetDetails = (assetId: string | undefined) => {
       return;
     }
 
-    logger.log('[LoraLoadSpeed] [useAssetDetails] Starting fetchAssetDetails for ID:', assetId);
     if (!options?.silent) {
       setIsLoading(true);
     }
 
     try {
-      logger.log('[LoraLoadSpeed] [useAssetDetails] Fetching core asset details for ID:', assetId);
+      logger.log(`[AssetLoadSpeed] Fetching core asset details START for ID: ${assetId}`);
       const coreAssetFetchStart = performance.now();
       const { data: assetData, error: assetError } = await supabase
         .from('assets')
@@ -65,15 +61,14 @@ export const useAssetDetails = (assetId: string | undefined) => {
         .maybeSingle();
 
       if (assetError) {
-        logger.error('[LoraLoadSpeed] [useAssetDetails] Error fetching asset:', assetError);
+        logger.error(`[AssetLoadSpeed] Error fetching core asset details for ID: ${assetId}:`, assetError);
         throw assetError;
       }
-      logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched core asset details in ${performance.now() - coreAssetFetchStart}ms. Has data: ${!!assetData}`);
-      logger.log('[WorkflowVideoDebug] Fetched core asset data:', assetData);
+      logger.log(`[AssetLoadSpeed] Fetched core asset details END for ID: ${assetId} in ${performance.now() - coreAssetFetchStart}ms. Has data: ${!!assetData}`);
 
       let primaryVideoData: VideoEntry | null = null;
       if (assetData && assetData.primary_media_id) {
-        logger.log('[LoraLoadSpeed] [useAssetDetails] Fetching primary video details for media ID:', assetData.primary_media_id);
+        logger.log(`[AssetLoadSpeed] Fetching primary video details START for media ID: ${assetData.primary_media_id}`);
         const primaryVideoFetchStart = performance.now();
         const { data: pVideoData, error: pVideoError } = await supabase
           .from('media')
@@ -82,14 +77,14 @@ export const useAssetDetails = (assetId: string | undefined) => {
           .maybeSingle();
         
         if (pVideoError) {
-          logger.error('[LoraLoadSpeed] [useAssetDetails] Error fetching primary video:', pVideoError);
+          logger.error(`[AssetLoadSpeed] Error fetching primary video for media ID: ${assetData.primary_media_id}:`, pVideoError);
         } else {
           primaryVideoData = pVideoData as VideoEntry | null;
         }
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched primary video in ${performance.now() - primaryVideoFetchStart}ms. Has data: ${!!primaryVideoData}`);
+        logger.log(`[AssetLoadSpeed] Fetched primary video END for media ID: ${assetData.primary_media_id} in ${performance.now() - primaryVideoFetchStart}ms. Has data: ${!!primaryVideoData}`);
       }
 
-      logger.log('[LoraLoadSpeed] [useAssetDetails] Fetching asset_media joined data for ID:', assetId);
+      logger.log(`[AssetLoadSpeed] Fetching asset_media joined data START for ID: ${assetId}`);
       const assetMediaFetchStart = performance.now();
       const { data: assetMediaJoinData, error: assetMediaJoinError } = await supabase
         .from('asset_media')
@@ -102,26 +97,22 @@ export const useAssetDetails = (assetId: string | undefined) => {
         .eq('asset_id', assetId);
 
       if (assetMediaJoinError) {
-        logger.error('[LoraLoadSpeed] [useAssetDetails] Error fetching asset_media joined data:', assetMediaJoinError);
+        logger.error(`[AssetLoadSpeed] Error fetching asset_media joined data for ID: ${assetId}:`, assetMediaJoinError);
         throw assetMediaJoinError;
       }
-      logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched asset_media joined data in ${performance.now() - assetMediaFetchStart}ms. Count: ${assetMediaJoinData?.length || 0}`);
-      logger.log('[WorkflowVideoDebug] Fetched asset_media join data:', assetMediaJoinData);
+      logger.log(`[AssetLoadSpeed] Fetched asset_media joined data END for ID: ${assetId} in ${performance.now() - assetMediaFetchStart}ms. Count: ${assetMediaJoinData?.length || 0}`);
 
       if (!assetData) {
-        logger.warn('[LoraLoadSpeed] [useAssetDetails] No asset found with ID:', assetId);
+        logger.warn(`[AssetLoadSpeed] No asset found with ID: ${assetId}. Clearing asset, videos, curator.`);
         setAsset(null);
         setVideos([]);
         setCuratorProfile(null);
-      } else {
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched asset user_status: ${assetData.user_status}`);
       }
 
       const fetchedAssetMedia = assetMediaJoinData || [];
-      logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched ${fetchedAssetMedia.length} asset_media join records.`);
 
       const pVideo = primaryVideoData;
-      logger.log(`[VideoLightboxDebug] Processing asset: ${assetData?.id}, Fetched Primary Video Data (pVideo):`, {
+      logger.log(`[AssetLoadSpeed] [VideoLightboxDebug] Processing asset: ${assetData?.id}, Fetched Primary Video Data (pVideo):`, {
           exists: !!pVideo,
           id: pVideo?.id,
           url: pVideo?.url,
@@ -192,10 +183,9 @@ export const useAssetDetails = (assetId: string | undefined) => {
             } as WorkflowAsset;
         }
         setAsset(processedAsset);
-        logger.log('[WorkflowVideoDebug] Set processedAsset:', processedAsset);
 
         if (assetData.curator_id) {
-          logger.log(`[LoraLoadSpeed] [useAssetDetails] Found curator_id: ${assetData.curator_id}. Fetching curator profile.`);
+          logger.log(`[AssetLoadSpeed] Found curator_id: ${assetData.curator_id}. Fetching curator profile START.`);
           setIsLoadingCuratorProfile(true);
           const curatorFetchStart = performance.now();
           try {
@@ -206,44 +196,43 @@ export const useAssetDetails = (assetId: string | undefined) => {
               .maybeSingle();
 
             if (curatorError) {
-              logger.error('[LoraLoadSpeed] [useAssetDetails] Error fetching curator profile:', curatorError);
+              logger.error(`[AssetLoadSpeed] Error fetching curator profile for ID ${assetData.curator_id}:`, curatorError);
               setCuratorProfile(null);
             } else {
-              logger.log('[LoraLoadSpeed] [useAssetDetails] Successfully fetched curator profile:', curatorData);
               setCuratorProfile(curatorData as UserProfile | null);
             }
-            logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched curator profile in ${performance.now() - curatorFetchStart}ms.`);
+            logger.log(`[AssetLoadSpeed] Fetched curator profile END for ID ${assetData.curator_id} in ${performance.now() - curatorFetchStart}ms. Has data: ${!!curatorData}`);
           } catch (err) {
-            logger.error('[LoraLoadSpeed] [useAssetDetails] Exception fetching curator profile:', err);
+            logger.error(`[AssetLoadSpeed] Exception fetching curator profile for ID ${assetData.curator_id}:`, err);
             setCuratorProfile(null);
           } finally {
             setIsLoadingCuratorProfile(false);
           }
         } else {
-          logger.log('[LoraLoadSpeed] [useAssetDetails] No curator_id found for this asset.');
+          logger.log(`[AssetLoadSpeed] No curator_id found for this asset.`);
           setCuratorProfile(null);
           setIsLoadingCuratorProfile(false);
         }
 
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Starting video processing for ${fetchedAssetMedia.length} items.`);
+        logger.log(`[AssetLoadSpeed] Starting video processing for ${fetchedAssetMedia.length} items.`);
         const videoProcessingStart = performance.now();
         const convertedVideos: VideoEntry[] = await Promise.all(
           fetchedAssetMedia
             .filter(item => item.media) 
             .map(async (item: any) => {
             const media = item.media;
-            logger.log('[WorkflowVideoDebug] Processing media item for video list:', media, 'with asset type:', processedAsset?.type);
             try {
+              const videoUrlSignStart = performance.now();
               const videoUrl = media.url ? await videoUrlService.getVideoUrl(media.url) : null;
               if (!videoUrl) {
-                logger.warn(`[useAssetDetails] Could not get video URL for media ID: ${media.id}`);
+                logger.warn(`[AssetLoadSpeed] Could not get video URL for media ID: ${media.id}. Signing duration: ${performance.now() - videoUrlSignStart}ms (failed or no URL)`);
                 return null;
               }
+              logger.log(`[AssetLoadSpeed] Signed video URL for media ID: ${media.id} in ${performance.now() - videoUrlSignStart}ms.`);
               
               const isPrimary = item.is_primary === true; 
               const assignedStatus = (item.status as VideoDisplayStatus) || 'Listed'; 
-              logger.log(`[loraorderingbug] Processing Video ${media.id}: Assigned status '${assignedStatus}' (from asset_media.status: ${item.status}, is_primary: ${item.is_primary})`);
-  
+
               const videoMetadata: Partial<VideoMetadata> = {
                   title: media.title || '',
                   description: media.description || '',
@@ -278,65 +267,56 @@ export const useAssetDetails = (assetId: string | undefined) => {
                 admin_status: media.admin_status as AdminStatus || null,
               };
             } catch (error) {
-              logger.error(`[useAssetDetails] Error processing video ${media.id}:`, error);
+              logger.error(`[AssetLoadSpeed] Error processing video ${media.id} (incl. URL signing):`, error);
               return null;
             }
           })
         );
   
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Video processing (including URL signing) took ${performance.now() - videoProcessingStart}ms.`);
+        logger.log(`[AssetLoadSpeed] Video processing (including URL signing) END. Took ${performance.now() - videoProcessingStart}ms for ${fetchedAssetMedia.length} items.`);
         const validVideos = convertedVideos.filter(v => v !== null) as VideoEntry[];
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Processed ${validVideos.length} valid videos from join data.`);
-        logger.log('[WorkflowVideoDebug] Processed validVideos (count, data):', validVideos.length, validVideos);
-  
+        logger.log(`[AssetLoadSpeed] Processed ${validVideos.length} valid videos from join data.`);
+
         const isViewerAuthorized = isAdmin || (!!user && user.id === assetData?.user_id);
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Viewer authorization check: isAdmin=${isAdmin}, user.id=${user?.id}, asset.user_id=${assetData?.user_id}, isAuthorized=${isViewerAuthorized}`);
-  
+
         const filteredVideos = isViewerAuthorized
           ? validVideos
           : validVideos.filter(v => v.assetMediaDisplayStatus !== 'Hidden');
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Filtered videos count (Hidden removed for non-auth): ${filteredVideos.length}`);
+        logger.log(`[AssetLoadSpeed] Filtered videos count (Hidden removed for non-auth): ${filteredVideos.length}`);
   
         const sortedVideos = sortAssetPageVideos(filteredVideos, assetData?.primary_media_id);
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
+        logger.log(`[AssetLoadSpeed] Sorted videos count: ${sortedVideos.length}`);
   
-        logger.log('[LoraLoadSpeed] [loraorderingbug] Final sorted video IDs and statuses (before setting state):', sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus}, Primary: ${v.is_primary})`));
-        logger.log('[WorkflowVideoDebug] Sorted videos (count, data):', sortedVideos.length, sortedVideos);
-  
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] Setting videos state with ${sortedVideos.length} videos.`);
+        logger.log(`[AssetLoadSpeed] Setting videos state with ${sortedVideos.length} videos.`);
         setVideos(sortedVideos);
-        logger.log('[WorkflowVideoDebug] Final videos state set:', sortedVideos);
 
       } else {
-        logger.log('[LoraLoadSpeed] [useAssetDetails] Asset data was null, skipping video processing and state updates.');
-        logger.log('[WorkflowVideoDebug] Asset data was null, skipping video processing and state updates.');
+        logger.log('[AssetLoadSpeed] Asset data was null, skipping video processing and state updates.');
       }
 
     } catch (error) {
-      logger.error('[LoraLoadSpeed] [useAssetDetails] Error in fetchAssetDetails:', error);
-      logger.error('[WorkflowVideoDebug] Error in fetchAssetDetails:', error);
+      logger.error(`[AssetLoadSpeed] MAIN CATCH in fetchAssetDetails for ID ${assetId}:`, error);
       toast.error('Failed to load asset details');
       setAsset(null);
       setVideos([]);
       setCuratorProfile(null);
     } finally {
-      logger.log(`[LoraLoadSpeed] [useAssetDetails] fetchAssetDetails finally block executing. Current isLoading: ${isLoading}`);
       if (!options?.silent) {
         setIsLoading(false);
-        logger.log(`[LoraLoadSpeed] [useAssetDetails] setIsLoading(false) called. Silent: ${options?.silent}`);
+        logger.log(`[AssetLoadSpeed] setIsLoading(false) called. Silent: ${options?.silent}`);
       }
       setDataFetchAttempted(true);
-      logger.log(`[LoraLoadSpeed] fetchAssetDetails finished in ${performance.now() - fetchStartTime}ms for assetId: ${assetId}.`);
+      logger.log(`[AssetLoadSpeed] fetchAssetDetails FINISHED in ${performance.now() - fetchOverallStartTime}ms for assetId: ${assetId}.`);
     }
   }, [assetId, user, isAdmin]);
 
   useEffect(() => {
-    logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] assetId: ${assetId}, isAuthLoading: ${isAuthLoading}, initialFetchTriggered: ${initialFetchTriggered.current}, dataFetchAttempted: ${dataFetchAttempted}, current isLoading: ${isLoading}`);
+    logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] assetId: ${assetId}, isAuthLoading: ${isAuthLoading}, initialFetchTriggered: ${initialFetchTriggered.current}, dataFetchAttempted: ${dataFetchAttempted}, current isLoading: ${isLoading}`);
 
     const assetIdChanged = assetId !== assetRef.current;
 
     if (assetIdChanged) {
-        logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] Asset ID changed from ${assetRef.current} to ${assetId}. Resetting state and fetch trigger.`);
+        logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] Asset ID changed from ${assetRef.current} to ${assetId}. Resetting state and fetch trigger.`);
         assetRef.current = assetId;
         setAsset(null);
         setVideos([]);
@@ -347,29 +327,29 @@ export const useAssetDetails = (assetId: string | undefined) => {
     }
 
     if (assetId && !isAuthLoading && !initialFetchTriggered.current) {
-      logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] Conditions met. Calling fetchAssetDetails for ${assetId}.`);
+      logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] Conditions met. Calling fetchAssetDetails for ${assetId}.`);
       initialFetchTriggered.current = true;
       fetchAssetDetails();
     } else if (isAuthLoading) {
-       logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] Waiting for auth to load before fetching ${assetId}.`);
+       logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] Waiting for auth to load before fetching ${assetId}.`);
        if (!isLoading) setIsLoading(true);
     } else if (!assetId) {
-       logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] No assetId, clearing state and stopping loading.`);
+       logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] No assetId, clearing state and stopping loading.`);
        if (asset) setAsset(null);
        if (videos.length > 0) setVideos([]);
        if (creatorDisplayName) setCreatorDisplayName(null);
        if (isLoading) setIsLoading(false);
        if (dataFetchAttempted) setDataFetchAttempted(false);
        initialFetchTriggered.current = false;
-       logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] No assetId path, final isLoading: ${isLoading}, dataFetchAttempted: ${dataFetchAttempted}`);
+       logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] No assetId path, final isLoading: ${isLoading}, dataFetchAttempted: ${dataFetchAttempted}`);
     } else if (assetId && !isAuthLoading && initialFetchTriggered.current) {
-       logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] Auth ready, but fetch already triggered for ${assetId}. Current loading: ${isLoading}, Attempted: ${dataFetchAttempted}`);
+       logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] Auth ready, but fetch already triggered for ${assetId}. Current loading: ${isLoading}, Attempted: ${dataFetchAttempted}`);
        if (isLoading && dataFetchAttempted) {
-           logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] Fetch completed or failed, ensuring loading is false.`);
+           logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] Fetch completed or failed, ensuring loading is false.`);
            setIsLoading(false);
        }
     } else {
-        logger.log(`[LoraLoadSpeed] [useAssetDetails Effect Trigger] Unhandled state or condition. assetId=${assetId}, isAuthLoading=${isAuthLoading}, initialFetchTriggered=${initialFetchTriggered.current}`);
+        logger.log(`[AssetLoadSpeed] [Effect main fetch trigger] Unhandled state or condition. assetId=${assetId}, isAuthLoading=${isAuthLoading}, initialFetchTriggered=${initialFetchTriggered.current}`);
     }
   }, [assetId, isAuthLoading, fetchAssetDetails, isLoading, dataFetchAttempted]);
 
@@ -377,13 +357,13 @@ export const useAssetDetails = (assetId: string | undefined) => {
     const fetchCreatorProfile = async () => {
       if (!asset?.user_id) {
           if (creatorDisplayName !== null) {
-              logger.log(`[LoraLoadSpeed] [useAssetDetails CreatorProfile Effect] No asset.user_id, clearing creatorDisplayName.`);
+              logger.log(`[AssetLoadSpeed] [Effect CreatorProfile] No asset.user_id, clearing creatorDisplayName.`);
               setCreatorDisplayName(null);
           }
           return;
       }
 
-      logger.log(`[LoraLoadSpeed] [useAssetDetails CreatorProfile Effect] Fetching profile for creator ID: ${asset.user_id} with cache:no-store attempt.`);
+      logger.log(`[AssetLoadSpeed] [Effect CreatorProfile] Fetching profile START for creator ID: ${asset.user_id}.`);
       const creatorProfileFetchStart = performance.now();
       try {
           const { data: profile, error } = await supabase
@@ -396,25 +376,26 @@ export const useAssetDetails = (assetId: string | undefined) => {
               .maybeSingle();
 
           if (error) {
-              logger.error(`[LoraLoadSpeed] [useAssetDetails CreatorProfile Effect] Error fetching profile for ${asset.user_id}:`, error);
+              logger.error(`[AssetLoadSpeed] [Effect CreatorProfile] Error fetching profile for ${asset.user_id}:`, error);
               setCreatorDisplayName(null);
           } else if (profile) {
               setCreatorDisplayName(profile.display_name || profile.username);
           } else {
               setCreatorDisplayName(null);
           }
-          logger.log(`[LoraLoadSpeed] [useAssetDetails CreatorProfile Effect] Fetched creator profile in ${performance.now() - creatorProfileFetchStart}ms.`);
+          logger.log(`[AssetLoadSpeed] [Effect CreatorProfile] Fetched creator profile END for ${asset.user_id} in ${performance.now() - creatorProfileFetchStart}ms. Has data: ${!!profile}`);
       } catch (fetchError) {
-          logger.error(`[LoraLoadSpeed] [useAssetDetails CreatorProfile Effect] Exception during profile fetch for ${asset.user_id}:`, fetchError);
+          logger.error(`[AssetLoadSpeed] [Effect CreatorProfile] Exception during profile fetch for ${asset.user_id}:`, fetchError);
           setCreatorDisplayName(null);
       }
     };
 
     if (asset?.user_id) {
+      logger.log(`[AssetLoadSpeed] [Effect CreatorProfile] asset.user_id available (${asset.user_id}), calling fetchCreatorProfile.`);
       fetchCreatorProfile();
     } else {
       if (creatorDisplayName !== null) {
-        logger.log(`[LoraLoadSpeed] [useAssetDetails CreatorProfile Effect] asset.user_id is null, clearing creatorDisplayName.`);
+        logger.log(`[AssetLoadSpeed] [Effect CreatorProfile] asset.user_id is null/changed, clearing creatorDisplayName.`);
         setCreatorDisplayName(null);
       }
     }
@@ -494,7 +475,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
     asset.id === mockOwnerId;
   const finalIsOwner = actualIsOwner || isMockingOwnerView;
 
-  logger.log(`[LoraLoadSpeed] useAssetDetails hook returning. isLoading: ${isLoading}, isAuthLoading: ${isAuthLoading}, dataFetchAttempted: ${dataFetchAttempted}, combinedLoading: ${combinedLoading}, assetId: ${assetId}`);
+  logger.log(`[AssetLoadSpeed] useAssetDetails hook RETURNING. assetId: ${assetId}, isLoading (combined): ${combinedLoading}, asset set: ${!!asset}, videos: ${videos.length}`);
   if (isStaging && mockRole === 'owner') {
     logger.log(`[useAssetDetails][MockOwnerDebug] 
       Asset ID: ${asset?.id}, 

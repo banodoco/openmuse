@@ -44,6 +44,7 @@ interface VideoGallerySectionProps {
   onUpdateLocalVideoStatus?: (id: string, newStatus: VideoDisplayStatus) => void;
   compact?: boolean; // New prop to render section without default margins/header
   onUploadSuccess?: () => void; // Add optional callback for upload success
+  assetPrimaryMediaId?: string | null;
 }
 
 const logger = new Logger('VideoGallerySection');
@@ -74,6 +75,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
   onUpdateLocalVideoStatus,
   compact = false,
   onUploadSuccess,
+  assetPrimaryMediaId,
 }) => {
   const isMobile = useIsMobile();
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
@@ -145,6 +147,7 @@ const VideoGallerySection: React.FC<VideoGallerySectionProps> = ({
           onUpdateLocalVideoStatus={onUpdateLocalVideoStatus}
           alwaysShowInfo={alwaysShowInfo}
           forceCreatorHoverDesktop={forceCreatorHoverDesktop}
+          assetPrimaryMediaId={assetPrimaryMediaId}
         />
       )}
 

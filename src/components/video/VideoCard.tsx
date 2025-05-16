@@ -60,6 +60,7 @@ interface VideoCardProps {
   forceCreatorHoverDesktop?: boolean;
   compact?: boolean;
   onFormatUnsupportedOnMobile?: (videoId: string) => void;
+  assetPrimaryMediaId?: string | null;
 }
 
 const VideoCard: React.FC<VideoCardProps> = ({
@@ -82,6 +83,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   forceCreatorHoverDesktop = false,
   compact = false,
   onFormatUnsupportedOnMobile,
+  assetPrimaryMediaId,
 }) => {
   const location = useLocation();
   const { user } = useAuth();
@@ -117,6 +119,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const isProfilePage = pageContext === 'profile';
 
   const adminDropdownClickedRef = useRef(false);
+
+  // Determine if this video is the actual primary media
+  const isActuallyPrimary = assetPrimaryMediaId ? video.id === assetPrimaryMediaId : video.is_primary;
 
   // Add a log for hover states on re-render
   console.log(`[VideoCardHoverDebug ${video.id}] Render - localHovering: ${localHovering}, combinedHovering: ${isHovering || localHovering}`);
@@ -191,7 +196,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleSetPrimary = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (onSetPrimaryMedia && !video.is_primary) {
+    if (onSetPrimaryMedia && !isActuallyPrimary) {
       onSetPrimaryMedia(video.id);
     }
   };
@@ -577,13 +582,13 @@ const VideoCard: React.FC<VideoCardProps> = ({
                   className={cn(
                     "h-7 w-7 p-0 rounded-md shadow-sm",
                     "bg-black/50 hover:bg-black/70 text-white backdrop-blur-sm",
-                    video.is_primary && "text-yellow-400 hover:text-yellow-300"
+                    isActuallyPrimary && "text-yellow-400 hover:text-yellow-300"
                   )}
                   onClick={handleSetPrimary}
-                  title={video.is_primary ? "This is the primary media" : "Make primary video"}
-                  disabled={video.is_primary}
+                  title={isActuallyPrimary ? "This is the primary media" : "Make primary video"}
+                  disabled={isActuallyPrimary}
                 >
-                  <Star className={cn("h-4 w-4", video.is_primary && "fill-current text-yellow-400")} />
+                  <Star className={cn("h-4 w-4", isActuallyPrimary && "fill-current text-yellow-400")} />
                 </Button>
               )}
 

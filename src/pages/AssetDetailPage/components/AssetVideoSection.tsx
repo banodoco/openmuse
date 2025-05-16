@@ -221,6 +221,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
           emptyMessage={classification === 'all' 
               ? `No videos have been associated with this ${assetTypeDisplay.toLowerCase()} yet.` 
               : `No ${classification === 'gen' ? 'generation' : 'art'} videos found for this ${assetTypeDisplay.toLowerCase()}.`}
+          assetPrimaryMediaId={asset?.primary_media_id}
         />
       </div>
 

@@ -19,8 +19,12 @@ import LoadingState from '@/components/LoadingState';
 const logger = new Logger('AssetDetailPage');
 
 function AssetDetailPage() {
-  logger.log('[AssetLoadSpeed] AssetDetailPage component rendering / re-rendering.');
   const { id: routeAssetId } = useParams<{ id: string }>();
+
+  useEffect(() => {
+    logger.log(`[AssetLoadSpeed] AssetDetailPage MOUNTED for routeAssetId: ${routeAssetId}.`);
+  }, [routeAssetId]);
+
   const navigate = useNavigate();
   const { user, isAdmin: isGlobalAdmin } = useAuth();
   const [lightboxOpen, setLightboxOpen] = useState(false);
@@ -30,7 +34,18 @@ function AssetDetailPage() {
   
   const { asset, videos, isLoading, creatorDisplayName, curatorProfile, isLoadingCuratorProfile, isUpdatingAdminStatus, refetchAssetDetails, updateAdminStatus, updateUserStatus, updatePrimaryVideo, dataFetchAttempted, isOwner, isAdmin: isAdminViaHook } = useAssetDetails(routeAssetId);
   
-  logger.log(`[AssetLoadSpeed] AssetDetailPage - useAssetDetails returned. isLoading: ${isLoading}, asset ID: ${asset?.id}, asset type: ${asset?.type}`);
+  useEffect(() => {
+    logger.log(`[AssetLoadSpeed] AssetDetailPage - useAssetDetails initial state: isLoading: ${isLoading}, asset: ${asset ? asset.id : 'null'}, dataFetchAttempted: ${dataFetchAttempted}`);
+  }, []);
+
+  useEffect(() => {
+    if (!isLoading && dataFetchAttempted) {
+      logger.log(`[AssetLoadSpeed] AssetDetailPage - LOADING COMPLETE. Asset ID: ${asset?.id ?? 'N/A'}, Videos: ${videos.length}`);
+    } else if (isLoading) {
+      logger.log(`[AssetLoadSpeed] AssetDetailPage - STILL LOADING... isLoading: ${isLoading}, dataFetchAttempted: ${dataFetchAttempted}, assetId from hook: ${asset?.id ?? 'N/A'}`);
+    }
+  }, [isLoading, asset, videos, dataFetchAttempted]);
+
   const isAuthorizedToEdit = isOwner || isGlobalAdmin;
   
   const handleOpenLightbox = (video: VideoEntry) => {
@@ -140,12 +155,20 @@ function AssetDetailPage() {
   const handleSetPrimaryMedia = async (mediaId: string) => {
     if (!isAuthorizedToEdit || !asset) { toast.error("Permission denied or asset not loaded."); return; }
     try {
-      await supabase
+      const { error } = await supabase
         .from('assets')
         .update({ primary_media_id: mediaId })
         .eq('id', asset.id);
+
+      if (error) {
+        logger.error('Error setting primary video in Supabase:', error);
+        toast.error('Failed to set primary video in database');
+        return;
+      }
+
       updatePrimaryVideo(mediaId);
       toast.success('Primary video updated');
+      await refetchAssetDetails({ silent: true });
     } catch (error) {
       logger.error('Error setting primary video:', error);
       toast.error('Failed to set primary video');
@@ -204,7 +227,6 @@ function AssetDetailPage() {
   }, [videoParam, videos, initialVideoParamHandled, handleOpenLightbox]);
   
   if (isLoading) {
-    logger.log('[LoraLoadSpeed] AssetDetailPage render - isLoading is true. Rendering loading state.');
     return (
       <ErrorBoundary fallbackRender={({ error }) => {
         console.error("ErrorBoundary (Loading Asset): Caught error -", error);
@@ -225,7 +247,6 @@ function AssetDetailPage() {
   }
   
   if (!asset) {
-    logger.log('[LoraLoadSpeed] AssetDetailPage render - asset is null. Rendering no asset state.');
     return (
       <ErrorBoundary fallbackRender={({ error }) => {
         console.error("ErrorBoundary (Determining Asset): Caught error -", error);
@@ -245,8 +266,7 @@ function AssetDetailPage() {
     );
   }
 
-  logger.log(`[LoraLoadSpeed] AssetDetailPage render - Asset loaded: ${asset.id}. Rendering main content.`);
-  logger.log('[LoraLoadSpeed] AssetDetailPage - Preparing to render AssetVideoSection.');
+  logger.log(`[AssetLoadSpeed] AssetDetailPage - MAIN CONTENT RENDER. Asset: ${asset.id}, Type: ${asset.type}, Videos: ${videos.length}`);
   return (
     <ErrorBoundary fallbackRender={({ error }) => {
       console.error("ErrorBoundary (Main Render): Caught error -", error);

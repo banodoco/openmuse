@@ -42,6 +42,7 @@ interface VideoGridProps {
   onUpdateLocalVideoStatus?: (id: string, newStatus: string) => void;
   alwaysShowInfo?: boolean;
   forceCreatorHoverDesktop?: boolean;
+  assetPrimaryMediaId?: string | null;
 }
 
 const TABLET_BREAKPOINT = 1024; // px – treat widths below this as tablet (but above mobile)
@@ -66,6 +67,7 @@ export default function VideoGrid({
   onUpdateLocalVideoStatus,
   alwaysShowInfo = false,
   forceCreatorHoverDesktop = false,
+  assetPrimaryMediaId,
 }: VideoGridProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sentinelRef = useRef<HTMLDivElement>(null);
@@ -349,6 +351,7 @@ export default function VideoGrid({
                 alwaysShowInfo={alwaysShowInfo}
                 forceCreatorHoverDesktop={forceCreatorHoverDesktop}
                 onFormatUnsupportedOnMobile={handleFormatUnsupportedOnMobile}
+                assetPrimaryMediaId={assetPrimaryMediaId}
               />
             </motion.div>
           ))}
