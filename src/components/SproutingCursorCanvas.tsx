@@ -143,8 +143,8 @@ const SproutingCursorCanvas = forwardRef<SproutingCanvasHandle, {}>((props, ref)
 
     const resize = () => {
       ctx.setTransform(1, 0, 0, 1, 0, 0);
-      const newWidth = document.documentElement.scrollWidth;
-      const newHeight = document.documentElement.scrollHeight;
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
       canvas.width = newWidth * dpr;
       canvas.height = newHeight * dpr;
       canvas.style.width = `${newWidth}px`;

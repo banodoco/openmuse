@@ -34,10 +34,12 @@ export const useAssetDetails = (assetId: string | undefined) => {
   const assetRef = useRef<string | undefined>(undefined);
 
   logger.log('[LoraLoadSpeed] useAssetDetails hook initialized.');
+  logger.log('[WorkflowVideoDebug] useAssetDetails hook initialized.');
 
   const fetchAssetDetails = useCallback(async (options?: { silent?: boolean }) => {
     const fetchStartTime = performance.now();
     logger.log(`[LoraLoadSpeed] fetchAssetDetails started for assetId: ${assetId}. Silent: ${options?.silent}`);
+    logger.log(`[WorkflowVideoDebug] fetchAssetDetails started for assetId: ${assetId}. Silent: ${options?.silent}`);
     if (!assetId) {
       logger.warn('[useAssetDetails] fetchAssetDetails called without assetId.');
       toast.error('No asset ID provided');
@@ -67,6 +69,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         throw assetError;
       }
       logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched core asset details in ${performance.now() - coreAssetFetchStart}ms. Has data: ${!!assetData}`);
+      logger.log('[WorkflowVideoDebug] Fetched core asset data:', assetData);
 
       let primaryVideoData: VideoEntry | null = null;
       if (assetData && assetData.primary_media_id) {
@@ -103,6 +106,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         throw assetMediaJoinError;
       }
       logger.log(`[LoraLoadSpeed] [useAssetDetails] Fetched asset_media joined data in ${performance.now() - assetMediaFetchStart}ms. Count: ${assetMediaJoinData?.length || 0}`);
+      logger.log('[WorkflowVideoDebug] Fetched asset_media join data:', assetMediaJoinData);
 
       if (!assetData) {
         logger.warn('[LoraLoadSpeed] [useAssetDetails] No asset found with ID:', assetId);
@@ -188,6 +192,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
             } as WorkflowAsset;
         }
         setAsset(processedAsset);
+        logger.log('[WorkflowVideoDebug] Set processedAsset:', processedAsset);
 
         if (assetData.curator_id) {
           logger.log(`[LoraLoadSpeed] [useAssetDetails] Found curator_id: ${assetData.curator_id}. Fetching curator profile.`);
@@ -227,6 +232,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
             .filter(item => item.media) 
             .map(async (item: any) => {
             const media = item.media;
+            logger.log('[WorkflowVideoDebug] Processing media item for video list:', media, 'with asset type:', processedAsset?.type);
             try {
               const videoUrl = media.url ? await videoUrlService.getVideoUrl(media.url) : null;
               if (!videoUrl) {
@@ -281,6 +287,7 @@ export const useAssetDetails = (assetId: string | undefined) => {
         logger.log(`[LoraLoadSpeed] [useAssetDetails] Video processing (including URL signing) took ${performance.now() - videoProcessingStart}ms.`);
         const validVideos = convertedVideos.filter(v => v !== null) as VideoEntry[];
         logger.log(`[LoraLoadSpeed] [useAssetDetails] Processed ${validVideos.length} valid videos from join data.`);
+        logger.log('[WorkflowVideoDebug] Processed validVideos (count, data):', validVideos.length, validVideos);
   
         const isViewerAuthorized = isAdmin || (!!user && user.id === assetData?.user_id);
         logger.log(`[LoraLoadSpeed] [useAssetDetails] Viewer authorization check: isAdmin=${isAdmin}, user.id=${user?.id}, asset.user_id=${assetData?.user_id}, isAuthorized=${isViewerAuthorized}`);
@@ -294,16 +301,20 @@ export const useAssetDetails = (assetId: string | undefined) => {
         logger.log(`[LoraLoadSpeed] [useAssetDetails] Sorted videos count: ${sortedVideos.length}`);
   
         logger.log('[LoraLoadSpeed] [loraorderingbug] Final sorted video IDs and statuses (before setting state):', sortedVideos.map(v => `${v.id} (Status: ${v.assetMediaDisplayStatus}, Primary: ${v.is_primary})`));
+        logger.log('[WorkflowVideoDebug] Sorted videos (count, data):', sortedVideos.length, sortedVideos);
   
         logger.log(`[LoraLoadSpeed] [useAssetDetails] Setting videos state with ${sortedVideos.length} videos.`);
         setVideos(sortedVideos);
+        logger.log('[WorkflowVideoDebug] Final videos state set:', sortedVideos);
 
       } else {
         logger.log('[LoraLoadSpeed] [useAssetDetails] Asset data was null, skipping video processing and state updates.');
+        logger.log('[WorkflowVideoDebug] Asset data was null, skipping video processing and state updates.');
       }
 
     } catch (error) {
       logger.error('[LoraLoadSpeed] [useAssetDetails] Error in fetchAssetDetails:', error);
+      logger.error('[WorkflowVideoDebug] Error in fetchAssetDetails:', error);
       toast.error('Failed to load asset details');
       setAsset(null);
       setVideos([]);

@@ -55,6 +55,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   onStatusChange,
   refetchVideos
 }) => {
+  logger.log('[WorkflowVideoDebug] AssetVideoSection received props - Asset:', asset, 'Videos:', videos);
   const { user } = useAuth();
   const { pathname } = useLocation();
   const isMobile = useIsMobile();
@@ -82,6 +83,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
     const sorted = sortAssetPageVideos(filtered, asset?.primary_media_id);
     
     // logger.log(`Videos after sorting: ${sorted.length}`);
+    logger.log('[WorkflowVideoDebug] sortedAndFilteredVideos:', sorted);
     return sorted;
   }, [videos, classification, asset?.primary_media_id]);
 
@@ -94,6 +96,7 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
       // logger.log(`Non-authorized user, filtering out hidden videos`);
       const filtered = sortedAndFilteredVideos.filter(video => video.assetMediaDisplayStatus !== 'Hidden');
       // logger.log(`Filtered videos count: ${filtered.length}`);
+      logger.log('[WorkflowVideoDebug] videosToDisplay (after auth filter):', filtered);
       return filtered;
     }
   }, [sortedAndFilteredVideos, isAuthorized]);
@@ -105,7 +108,9 @@ const AssetVideoSection: React.FC<AssetVideoSectionProps> = ({
   const paginatedVideos = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
     // logger.log(`Paginating videos. Current page: ${currentPage}, Start index: ${start}, Total videos: ${videosToDisplay.length}`);
-    return videosToDisplay.slice(start, start + itemsPerPage);
+    const paged = videosToDisplay.slice(start, start + itemsPerPage);
+    logger.log('[WorkflowVideoDebug] paginatedVideos being passed to VideoGallerySection:', paged);
+    return paged;
   }, [videosToDisplay, currentPage, itemsPerPage]);
 
   // Reset page when the classification filter changes only

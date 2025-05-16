@@ -614,9 +614,7 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
             .insert({ 
               asset_id: assetId, 
               media_id: mediaId, 
-              status: 'Listed', 
-            // modelVariant might not be relevant for all asset types, make conditional or remove if not applicable
-            variant_details: assetType === 'lora' ? details.modelVariant : null 
+              status: 'Listed'
             });
 
           if (linkError) {

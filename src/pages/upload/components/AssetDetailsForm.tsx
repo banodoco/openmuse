@@ -607,24 +607,32 @@ const AssetDetailsForm: React.FC<AssetDetailsFormProps> = ({
       {/* Workflow Specific Fields */}
       {assetType === 'workflow' && (
         <div>
-          <Label htmlFor="workflow-file-input">Workflow File</Label>
-          <Input
-            id="workflow-file-input"
-            type="file"
-            onChange={handleFileChange}
-            className="mt-1"
-            accept=".json"
-            disabled={disabled}
-          />
-          <div className="flex mt-3">
-            <div className="text-xs text-muted-foreground">
-              <p>Upload your workflow file (.json format only).</p>
-              <div className="mt-4 p-3 border rounded-md bg-muted/50">
-                <h4 className="font-medium mb-2">In your workflow, please include:</h4>
-                <ul className="list-inside space-y-1">
-                  <li>i) Instructions on how to use if need be</li>
-                  <li>ii) Details on any files the user will need to download.</li>
-                </ul>
+          <div className="flex items-start gap-4">
+            <div className="flex-grow">
+              <Label htmlFor="workflow-file-input">Workflow File</Label>
+              <Input
+                id="workflow-file-input"
+                type="file"
+                onChange={handleFileChange}
+                className="mt-1"
+                accept=".json"
+                disabled={disabled}
+              />
+              <p className="text-xs text-muted-foreground mt-1">Upload your workflow file (.json format only).</p>
+            </div>
+            <div className="mt-1 pt-5 text-xs text-muted-foreground flex-shrink-0 w-1/3">
+              <div className="p-3 border rounded-md bg-muted/50">
+                <p className="font-medium mb-2">In your workflow, please include:</p>
+                <div className="space-y-2"> {/* Added space-y-2 for consistent item spacing */}
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Instructions on how to use (if needed)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <CheckSquare className="h-4 w-4 text-green-600 flex-shrink-0" />
+                    <span>Details on any required files/downloads</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
