@@ -58,6 +58,15 @@ export const uploadVideoToCloudflareStream = async (
   let cloudflareUid = '';
 
   try {
+    // Get Supabase session token
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+    if (sessionError || !session) {
+      logger.error('[VideoLoadSpeedIssue][CF-TUSv4] Error getting Supabase session or no session found.', sessionError);
+      throw new Error('Supabase session not found. Cannot authorize Edge Function call.');
+    }
+    const supabaseAccessToken = session.access_token;
+
     await new Promise<void>((resolve, reject) => {
       const tusClientMetadata: Record<string, string> = {
         filename: file.name,
@@ -76,6 +85,7 @@ export const uploadVideoToCloudflareStream = async (
         retryDelays: [0, 3000, 5000, 10000, 20000],
         metadata: tusClientMetadata, 
         headers: {
+          'Authorization': `Bearer ${supabaseAccessToken}`,
           ...(cfUploadMetadataHeader && { 'Upload-Metadata': cfUploadMetadataHeader }),
         },
         onSuccess: () => {
