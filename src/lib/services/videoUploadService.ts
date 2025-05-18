@@ -80,28 +80,52 @@ export const uploadVideoToCloudflareStream = async (
           name: videoMetadata.title || file.name,
       });
 
-      // --- Force direct headers for debugging 401 ---
-      const directHeaders: Record<string, string> = {};
-      if (!supabaseAccessToken) {
-        console.error('[VideoLoadSpeedIssue][CF-TUSv4][DirectHeadersAttempt] CRITICAL: supabaseAccessToken is NULL or empty BEFORE creating tus.Upload!');
-      } else {
-        directHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
-        console.log('[VideoLoadSpeedIssue][CF-TUSv4][DirectHeadersAttempt] Authorization header prepared:', `Bearer ${supabaseAccessToken.substring(0, 20)}...`); // Log a snippet
-      }
-      if (!cfUploadMetadataHeader) {
-        console.warn('[VideoLoadSpeedIssue][CF-TUSv4][DirectHeadersAttempt] cfUploadMetadataHeader is NULL or empty BEFORE creating tus.Upload!');
-      } else {
-        directHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
-        console.log('[VideoLoadSpeedIssue][CF-TUSv4][DirectHeadersAttempt] Upload-Metadata header prepared:', cfUploadMetadataHeader);
-      }
-      console.log('[VideoLoadSpeedIssue][CF-TUSv4][DirectHeadersAttempt] Headers to be used by tus.Upload:', JSON.stringify(directHeaders));
-      // --- End force direct headers ---
-
+      // Reverting to dynamic headers, keeping the console.log for verification
       const upload = new tus.Upload(file, {
         endpoint: tusClientEndpoint,
         retryDelays: [0, 3000, 5000, 10000, 20000],
         metadata: tusClientMetadata,
-        headers: directHeaders, // Using the directly prepared headers
+        headers: ((req: tus.HttpRequest) => {
+          const currentRequestUrl = req.getURL();
+          const dynamicHeaders: Record<string, string> = {};
+          const method = req.getMethod();
+
+          // Using console.log directly to ensure visibility for these critical debug messages
+          console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Headers function invoked.', {
+            currentRequestUrl,
+            tusClientEndpoint,
+            method,
+            supabaseAccessTokenExists: !!supabaseAccessToken,
+            cfUploadMetadataHeaderValue: cfUploadMetadataHeader
+          });
+
+          // For the initial POST to our Edge Function
+          if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Attempting to set headers for Edge Function POST.');
+            if (!supabaseAccessToken) {
+              console.error('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] CRITICAL: supabaseAccessToken is MISSING when it should be set for Edge Function call!');
+            } else {
+              dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
+              console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Authorization header PREPARED for Edge Fn.', { tokenLength: supabaseAccessToken.length });
+            }
+
+            if (!cfUploadMetadataHeader) {
+              console.warn('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] cfUploadMetadataHeader is MISSING or empty for Edge Function call.');
+            } else {
+              dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
+              console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Upload-Metadata header PREPARED for Edge Fn.', { metadataHeader: cfUploadMetadataHeader });
+            }
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Final dynamicHeaders for Edge Fn POST:', dynamicHeaders);
+          } else {
+            // For subsequent requests to Cloudflare TUS endpoint, do NOT add these headers.
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Request is NOT to Edge Function POST. No special headers added.', {
+              currentRequestUrl,
+              expectedEdgeFnUrl: tusClientEndpoint,
+              method
+            });
+          }
+          return dynamicHeaders;
+        }) as any, // Type assertion to satisfy TypeScript
         onSuccess: () => {
           logger.log('[VideoLoadSpeedIssue][CF-TUSv4] TUS Upload Successful (onSuccess callback)', { videoName: file.name });
           if (!cloudflareUid) {
