@@ -27,6 +27,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import LoraCreatorInfo from '../lora/LoraCreatorInfo';
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 import { useFadeInOnScroll } from '@/hooks/useFadeInOnScroll';
+import useDebouncedValue from '@/hooks/useDebouncedValue';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -112,9 +113,9 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [isChangingAdminStatus, setIsChangingAdminStatus] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [localHovering, setLocalHovering] = useState(false);
-  const [debouncedLocalHovering, setDebouncedLocalHovering] = useState(false);
-  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
+  const debouncedLocalHovering = useDebouncedValue(localHovering, 200);
+
   const combinedHovering = isHovering || debouncedLocalHovering;
   const isInViewport = useIntersectionObserver(previewRef, {
     rootMargin: '0px 0px 300px 0px',
@@ -152,30 +153,16 @@ const VideoCard: React.FC<VideoCardProps> = ({
   };
   
   const handleMouseEnter = () => {
-    console.log(`[VideoCardHoverDebug ${video.id}] MouseEnter`);
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    hoverTimeoutRef.current = setTimeout(() => {
-      setLocalHovering(true);
-      setDebouncedLocalHovering(true);
-    }, 200);
+    console.log(`[VideoCardHoverDebug ${video.id}] MouseEnter - setting localHovering true`);
+    setLocalHovering(true);
+    if (onHoverChange) onHoverChange(true);
   };
   
   const handleMouseLeave = () => {
-    console.log(`[VideoCardHoverDebug ${video.id}] MouseLeave`);
-    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
-    hoverTimeoutRef.current = setTimeout(() => {
-      setLocalHovering(false);
-      setDebouncedLocalHovering(false);
-    }, 200);
+    console.log(`[VideoCardHoverDebug ${video.id}] MouseLeave - setting localHovering false`);
+    setLocalHovering(false);
+    if (onHoverChange) onHoverChange(false);
   };
-  
-  useEffect(() => {
-    return () => {
-      if (hoverTimeoutRef.current) {
-        clearTimeout(hoverTimeoutRef.current);
-      }
-    };
-  }, []);
   
   const getCreatorName = () => {
     if (video.reviewer_name) {
