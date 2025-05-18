@@ -17,6 +17,7 @@ import { getVideoAspectRatio } from '@/lib/utils/videoDimensionUtils';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import HuggingFaceService, { type HuggingFaceRepoInfo } from '@/lib/services/huggingfaceService';
+import { isValidVideoUrl, isValidImageUrl } from '@/lib/utils/videoUtils';
 
 const logger = new Logger('Upload');
 
@@ -255,31 +256,45 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
           if (!video.url) continue;
           const videoName = video.metadata.title || `media entry ${i + 1}`;
           setCurrentStepMessage(`Saving ${videoName}...`);
+
+          // Sanitize and validate video URL
+          let sanitizedVideoUrl = sanitizeUrl(video.url);
+          if (!isValidVideoUrl(sanitizedVideoUrl)) {
+            logger.error(`Invalid video URL for video ${video.id} after sanitization:`, sanitizedVideoUrl);
+            sanitizedVideoUrl = null;
+          }
           
           let aspectRatio = 16 / 9;
           try {
-            aspectRatio = await getVideoAspectRatio(video.url);
+            aspectRatio = sanitizedVideoUrl ? await getVideoAspectRatio(sanitizedVideoUrl) : 16 / 9;
           } catch (ratioError) {
-            logger.error(`Error getting aspect ratio for video ${video.id} (URL: ${video.url}):`, ratioError);
+            logger.error(`Error getting aspect ratio for video ${video.id} (URL: ${sanitizedVideoUrl}):`, ratioError);
           }
 
           let thumbnailUrl: string | null = null;
           try {
-            thumbnailUrl = await thumbnailService.generateThumbnail(video.url);
+            thumbnailUrl = sanitizedVideoUrl ? await thumbnailService.generateThumbnail(sanitizedVideoUrl) : null;
           } catch (thumbError) {
-             logger.error(`Error generating thumbnail for video ${video.id} (URL: ${video.url}):`, thumbError);
+             logger.error(`Error generating thumbnail for video ${video.id} (URL: ${sanitizedVideoUrl}):`, thumbError);
+          }
+
+          // Sanitize and validate thumbnail URL if present
+          let sanitizedThumbnailUrl = sanitizeUrl(thumbnailUrl);
+          if (sanitizedThumbnailUrl && !isValidImageUrl(sanitizedThumbnailUrl)) {
+            logger.error(`Invalid thumbnail URL for video ${video.id} after sanitization:`, sanitizedThumbnailUrl);
+            sanitizedThumbnailUrl = null;
           }
 
           const { data: mediaData, error: mediaError } = await supabase
             .from('media')
             .insert({
               title: video.metadata.title || '',
-              url: video.url,
+              url: sanitizedVideoUrl,
               type: 'video',
               classification: video.metadata.classification || 'art',
               user_id: user?.id || null,
               metadata: { aspectRatio: aspectRatio },
-              placeholder_image: thumbnailUrl,
+              placeholder_image: sanitizedThumbnailUrl,
               admin_status: 'Listed',
               user_status: 'Listed'
             })
@@ -304,8 +319,8 @@ const UploadPage: React.FC<UploadPageProps> = ({ initialMode: initialModeProp, f
               setCurrentStepMessage(`Setting ${videoName} as primary media...`);
               await supabase.from('assets').update({ primary_media_id: mediaId }).eq('id', finalForcedLoraId);
             }
-              }
-            }
+          }
+        }
         toast.success('Media submitted successfully!');
         if (onSuccess) onSuccess();
       } catch (error: any) {
@@ -815,5 +830,14 @@ ${userDescription}
 ${openMuseLinkSection}
 `;
 };
+
+// Helper to sanitize URLs: trims whitespace and removes non-URL-safe characters
+function sanitizeUrl(url: string | null): string | null {
+  if (!url) return null;
+  let trimmed = url.trim();
+  // Remove any characters that are not URL-safe (basic)
+  trimmed = trimmed.replace(/[^a-zA-Z0-9-._~:/?#\[\]@!$&'()*+,;=%]/g, '');
+  return trimmed.length > 0 ? trimmed : null;
+}
 
 export default UploadPage;

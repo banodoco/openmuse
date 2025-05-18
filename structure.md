@@ -327,7 +327,12 @@ This document outlines the directory structure of the openmuse` project, providi
 │   └── vite-env.d.ts       # TypeScript definition file for environment variables exposed by Vite
 ├── supabase/               # Configuration and assets related to the Supabase backend-as-a-service platform
 │   ├── config.toml         # Main configuration file for the Supabase project (used by Supabase CLI)
+│   ├── import_map.json     # **NEW: Deno import map for resolving module paths in Edge Functions**
 │   ├── functions/          # Directory containing code for Supabase Edge Functions (serverless functions)
+│   │   ├── _shared/        # **NEW: Shared utility modules for Edge Functions**
+│   │   │   └── cors.ts     # **NEW: Shared CORS header configuration**
+│   │   ├── get-cloudflare-video-upload-url/ # **NEW: Edge Function for Cloudflare video uploads**
+│   │   │   └── index.ts    # **NEW: Entry point for the get-cloudflare-video-upload-url Edge Function**
 │   │   └── profile-og-image/ # Edge function specifically for generating OpenGraph images for profiles
 │   │       └── index.ts    # Entry point for the profile-og-image Edge Function
 │   └── migrations/         # Directory containing SQL files for database schema migrations managed by Supabase CLI

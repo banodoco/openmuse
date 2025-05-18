@@ -115,6 +115,45 @@ export const isValidVideoUrl = (url: string | null): boolean => {
 };
 
 /**
+ * Checks if an image source is likely to be a valid image URL (for thumbnails)
+ */
+export const isValidImageUrl = (url: string | null): boolean => {
+  if (!url) return false;
+
+  // Check if it's a URL (either http, https, or blob)
+  const isUrl = url.startsWith('http://') ||
+                url.startsWith('https://') ||
+                url.startsWith('blob:');
+
+  if (!isUrl) return false;
+
+  // For blob URLs, do a quick validity check
+  if (url.startsWith('blob:')) {
+    try {
+      const blobUrl = new URL(url);
+      if (blobUrl.origin !== window.location.origin) {
+        console.warn('Blob URL from different origin detected (image):', url);
+        return false;
+      }
+    } catch (e) {
+      console.warn('Invalid blob URL detected (image):', url);
+      return false;
+    }
+  }
+
+  // Simple extension check for common image formats
+  const hasImageExtension = /\.(jpg|jpeg|png|gif|webp|bmp|svg)($|\?)/i.test(url);
+  if (hasImageExtension) return true;
+
+  // If it's from common image hosts, it's likely valid
+  const isFromImageHost = url.includes('cloudflare.com') ||
+                         url.includes('supabase.co') ||
+                         url.includes('amazonaws.com');
+
+  return isFromImageHost;
+};
+
+/**
  * Tries to determine the format of a video from its URL
  */
 export const getVideoFormat = (url: string): string => {
