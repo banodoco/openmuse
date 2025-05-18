@@ -33,6 +33,7 @@ export const useHlsIntegration = ({
   componentId = 'video'
 }: UseHlsIntegrationProps) => {
   const hlsInstanceRef = useRef<Hls | null>(null);
+  const hasFallbackAppliedRef = useRef(false);
 
   // Small helper so we don't have to sprinkle optional chaining everywhere.
   const updateLoading = (state: boolean) => {
@@ -126,6 +127,57 @@ export const useHlsIntegration = ({
           return; // Allow internal retry loop.
         }
 
+        // ------------------------------------------------------------------
+        // Auto-fallback: If we hit a *fatal* fragment/manifest load error when
+        // streaming from Cloudflare Stream, attempt to switch to the MP4
+        // download rendition.  This avoids a hard failure when the HLS
+        // rendition is temporarily unavailable (or blocked by corporate
+        // proxies that don't allow playlist/TS traffic).
+        // ------------------------------------------------------------------
+        if (
+          !hasFallbackAppliedRef.current &&
+          data.fatal &&
+          (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR ||
+            data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR)
+        ) {
+          const originalUrl = src;
+          const cloudflareStreamMatch = originalUrl.match(
+            /^(https?:\/\/[^\/]+\/[0-9a-f]{32})\/manifest\/video\.m3u8([?#].*)?$/i
+          );
+
+          if (cloudflareStreamMatch) {
+            const base = cloudflareStreamMatch[1];
+            const mp4Url = `${base}/downloads/default.mp4`;
+
+            const videoElCurrent = videoRef.current;
+            if (videoElCurrent) {
+              console.warn(
+                `[${componentId}] HLS fatal error – switching to MP4 fallback: ${mp4Url}`
+              );
+
+              // Prevent repeated attempts
+              hasFallbackAppliedRef.current = true;
+
+              // Clean-up HLS instance before hand-off
+              if (hlsInstanceRef.current) {
+                hlsInstanceRef.current.destroy();
+                hlsInstanceRef.current = null;
+              }
+
+              // Swap source & play
+              videoElCurrent.src = mp4Url;
+              videoElCurrent.load();
+              videoElCurrent
+                .play()
+                .catch(() => {/* ignore – user gesture restrictions may apply */});
+
+              // Surface a non-fatal message so the UI can decide what to do
+              if (onError) onError('Switched to MP4 fallback due to HLS load error');
+              return; // We handled recovery – don't bubble further
+            }
+          }
+        }
+        
         // Buffer stalled errors are typically transient and recoverable –
         // avoid surfacing them to the UI as they tend to self-resolve.
         if (
