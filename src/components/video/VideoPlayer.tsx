@@ -481,7 +481,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
             videoEl.load(); 
         }
         const hlsConfig: Partial<HlsConfig> = { 
-          enableWorker: false,
+          enableWorker: true,
           lowLatencyMode: true,
           backBufferLength: 30,
           maxBufferHole: 0.8,
@@ -500,7 +500,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
         newHls.attachMedia(videoEl);
         newHls.on(HlsEvents.MEDIA_ATTACHED, () => {
           newHls.loadSource(src);
-          setVideoPlayerIsLoading(false); 
         });
         newHls.on(HlsEvents.ERROR, (_evt, data: ErrorData) => {
           setVideoPlayerIsLoading(false);

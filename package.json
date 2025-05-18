@@ -52,6 +52,7 @@
     "date-fns": "^3.6.0",
     "embla-carousel-react": "^8.3.0",
     "framer-motion": "^11.0.8",
+    "hls.js": "^1.6.2",
     "imagesloaded": "^5.0.0",
     "input-otp": "^1.2.4",
     "lucide-react": "^0.462.0",
@@ -75,7 +76,6 @@
     "tailwindcss-animate": "^1.0.7",
     "tus-js-client": "^4.3.1",
     "uuid": "^11.1.0",
-    "hls.js": "^1.5.7",
     "vaul": "^0.9.3",
     "zod": "^3.23.8"
   },
