@@ -82,16 +82,61 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   const [shouldPlay, setShouldPlay] = useState(false);
   const prevVideoLocationRef = useRef<string | null>(null);
   const [preloadTriggered, setPreloadTriggered] = useState(false);
+  // Track whether the component is unmounted so async callbacks can exit early
+  const unmountedRef = useRef(false);
 
-  // logger.log(`${logPrefix} Initial state: shouldLoadVideo=${shouldLoadVideo}, hasHovered=${hasHovered}, shouldPlay=${shouldPlay}`);
+  // Helper that centralises the common "should we start loading now?" check so we can
+  // reuse it in several effects/callbacks rather than duplicating the same logic.
+  const triggerLoadIfNeeded = useCallback(() => {
+    if (!shouldLoadVideo && !videoUrl && !error) {
+      setShouldLoadVideo(true);
+      setHasHovered(true); // Treat as an interaction so thumbnail/play-button logic works
+    }
+  }, [shouldLoadVideo, videoUrl, error]);
+
+  // Single async function that actually performs the URL resolution / fetch and
+  // updates component state. Keeping it in a useCallback means we have a single
+  // well-defined place that owns the side-effects, which simplifies the effects
+  // below and prevents duplicate calls.
+  const startVideoLoad = useCallback(async () => {
+    if (unmountedRef.current || !videoLocation) return;
+
+    const isNewVideo = prevVideoLocationRef.current !== videoLocation;
+    prevVideoLocationRef.current = videoLocation;
+
+    if (!isNewVideo && videoUrl) {
+      // We already have a URL for this location – nothing to do.
+      setIsLoadingVideoUrl(false);
+      return;
+    }
+
+    try {
+      setIsLoadingVideoUrl(true);
+      setIsVideoLoaded(false);
+      setError(null);
+
+      const resolvedUrl = videoLocation.startsWith('blob:')
+        ? videoLocation
+        : await videoUrlService.getVideoUrl(videoLocation, previewMode);
+
+      if (!resolvedUrl) throw new Error('Could not resolve video URL');
+
+      if (!unmountedRef.current) {
+        setVideoUrl(resolvedUrl);
+      }
+    } catch (err) {
+      if (!unmountedRef.current) {
+        const message = err instanceof Error ? err.message : String(err);
+        setError(`Failed to load video: ${message}`);
+        setErrorDetails(String(err));
+        setIsLoadingVideoUrl(false);
+      }
+    }
+  }, [videoLocation, previewMode]);
 
   const containerRef = useRef<HTMLDivElement>(null);
   const internalVideoRef = useRef<HTMLVideoElement>(null);
   const videoRef = externalVideoRef || internalVideoRef;
-  const isHoveringRef = useRef(isHoveringExternally || false); // Ref to track hover state
-  const unmountedRef = useRef(false);
-  
-  const isBlobUrl = videoLocation.startsWith('blob:');
 
   // Cleanup on unmount
   useEffect(() => {
@@ -104,27 +149,17 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Effect to sync external hover state and trigger video loading on hover
   useEffect(() => {
-    isHoveringRef.current = isHoveringExternally || false;
-    if (isHoveringExternally !== undefined && !unmountedRef.current) {
-      // logger.log(`${logPrefix} isHoveringExternally changed to ${isHoveringExternally}`);
-      setIsHovering(isHoveringExternally); // Update internal hover state for consistency
-      if (isHoveringExternally) {
-        // Trigger loading on hover start if not already loading/loaded
-        if (!shouldLoadVideo && !videoUrl && !error) {
-           // logger.log(`${logPrefix} Triggering load on external hover start`);
-           setShouldLoadVideo(true);
-           setHasHovered(true); // Mark as interacted
-        }
-      }
-      // NOTE: Play decision is handled in the dedicated effect below
+    if (isHoveringExternally !== undefined) {
+      setIsHovering(isHoveringExternally);
+
+      // If we just started hovering, ensure a load is triggered.
+      if (isHoveringExternally) triggerLoadIfNeeded();
     }
-  }, [isHoveringExternally, shouldLoadVideo, videoUrl, error]);
+    // NOTE: Play decision is handled in the dedicated effect below
+  }, [isHoveringExternally, triggerLoadIfNeeded]);
 
   // Effect to determine if the video should be playing based on props and state
   useEffect(() => {
-    if (unmountedRef.current) return;
-
-    // If we're on mobile and autoPlay is enabled, force playback immediately
     if (isMobile && autoPlay) {
       setShouldPlay(true);
       if (!shouldLoadVideo && !videoUrl && !error) {
@@ -156,7 +191,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Effect to handle initial mobile state + forcePreload
   useEffect(() => {
-    if (isMobile && forcePreload && !unmountedRef.current) {
+    if (isMobile && forcePreload) {
       // logger.log(`${logPrefix} Mobile + forcePreload: Setting shouldLoadVideo=true, hasHovered=true`);
       setShouldLoadVideo(true);
       setHasHovered(true);
@@ -165,7 +200,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
 
   // Handle manual hover events (only trigger load, play logic handled above)
   const handleManualHoverStart = () => {
-    if (isHoveringExternally === undefined && !unmountedRef.current) {
+    if (isHoveringExternally === undefined) {
       // logger.log(`${logPrefix} Manual hover start`);
       setIsHovering(true);
       // Trigger loading on hover if not already loading/loaded
@@ -178,7 +213,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   };
 
   const handleManualHoverEnd = () => {
-    if (isHoveringExternally === undefined && !unmountedRef.current) {
+    if (isHoveringExternally === undefined) {
       // logger.log(`${logPrefix} Manual hover end`);
       setIsHovering(false);
       // Play state will be updated by the dedicated effect based on isHovering=false
@@ -187,101 +222,24 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
   
   // Effect to fetch the video URL *only* when shouldLoadVideo is true
   useEffect(() => {
-    let isMounted = true;
-    
-    const loadVideo = async () => {
-      // logger.log(`${logPrefix} loadVideo called.`);
-      if (unmountedRef.current || !videoLocation) {
-        // logger.log(`${logPrefix} loadVideo aborted: unmounted or no videoLocation.`);
-        return;
-      }
-
-      const isNewVideo = prevVideoLocationRef.current !== videoLocation;
-      prevVideoLocationRef.current = videoLocation;
-
-      if (isNewVideo) {
-        // logger.log(`${logPrefix} Video location changed. Resetting states and loading new video.`);
-        setIsLoadingVideoUrl(true);
-        setIsVideoLoaded(false);
-        setError(null);
-      } else if (videoUrl) {
-        // logger.log(`${logPrefix} Video location unchanged and URL exists. Skipping load.`);
-        return;
-      }
-
-      // logger.log(`${logPrefix} Attempting to load video URL for:`, videoLocation.substring(0, 50) + '...');
-      
-      try {
-        let url;
-        // logger.log(`${logPrefix} Calling videoUrlService.getVideoUrl with location:`, videoLocation);
-        if (isBlobUrl) {
-          url = videoLocation;
-          // logger.log(`${logPrefix} Using blob URL directly:`, url.substring(0, 50) + '...');
-        } else {
-          url = await videoUrlService.getVideoUrl(videoLocation, previewMode);
-          // logger.log(`${logPrefix} Fetched video URL from service:`, url ? url.substring(0, 50) + '...' : 'null or undefined');
-        }
-        
-        if (!url) {
-          // logger.error(`${logPrefix} videoUrlService returned null or undefined for location:`, videoLocation);
-          throw new Error('Could not resolve video URL');
-        }
-        
-        if (isMounted && !unmountedRef.current) {
-          setVideoUrl(url);
-          // logger.log(`${logPrefix} videoUrl state successfully set.`);
-          // Loading state (isLoadingVideoUrl) will be set to false in handleVideoLoadedData
-        }
-      } catch (error) {
-        // logger.error(`${logPrefix} Error in loadVideo for location ${videoLocation}:`, error);
-        if (isMounted && !unmountedRef.current) {
-          setError(`Failed to load video: ${error instanceof Error ? error.message : String(error)}`);
-          setErrorDetails(String(error));
-          setIsLoadingVideoUrl(false); 
-        }
-      }
-    };
-    
     if (shouldLoadVideo && !videoUrl && videoLocation && !error) {
-      loadVideo();
+      startVideoLoad();
     } else if (videoUrl) {
       // If we already have the URL (e.g., from preload), ensure loading state is false
       setIsLoadingVideoUrl(false);
     }
-    
-    return () => {
-      isMounted = false;
-    };
-  }, [videoLocation, retryCount, previewMode, isBlobUrl, shouldLoadVideo, videoUrl, error]);
+  }, [videoLocation, retryCount, previewMode, shouldLoadVideo, videoUrl, error, startVideoLoad]);
 
   // Callback from VideoPlayer when entering/leaving the preload area
   const handleEnterPreloadArea = useCallback((isInPreloadArea: boolean) => {
-    if (isInPreloadArea && !preloadTriggered && !unmountedRef.current) {
+    if (isInPreloadArea && !preloadTriggered) {
       logger.log(`${logPrefix} Entered preload area. Triggering video load.`);
       setPreloadTriggered(true);
-      // Ensure video loading starts
-      if (!videoUrl && videoLocation && !error) {
-         const loadVideo = async () => {
-            if (unmountedRef.current || !videoLocation) return;
-            setIsLoadingVideoUrl(true);
-            setError(null);
-            try {
-                const url = isBlobUrl ? videoLocation : await videoUrlService.getVideoUrl(videoLocation, previewMode);
-                if (!url) throw new Error('Could not resolve video URL');
-                if (!unmountedRef.current) setVideoUrl(url);
-            } catch (err) {
-                if (!unmountedRef.current) {
-                    setError(`Failed to load video: ${err instanceof Error ? err.message : String(err)}`);
-                    setIsLoadingVideoUrl(false); 
-                }
-            }
-         };
-         loadVideo();
-      } // else: video is already loading or loaded, or has errored.
+      triggerLoadIfNeeded();
     }
     // We might want logic here if isInPreloadArea becomes false, e.g., cancel loading?
     // For now, just trigger load on first entry.
-  }, [preloadTriggered, videoUrl, videoLocation, isBlobUrl, previewMode, error]);
+  }, [preloadTriggered, videoUrl, videoLocation, error]);
 
   const handleVideoError = (message: string) => {
     if (!unmountedRef.current) {
