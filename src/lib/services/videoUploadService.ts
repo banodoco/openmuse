@@ -80,29 +80,47 @@ export const uploadVideoToCloudflareStream = async (
           name: videoMetadata.title || file.name,
       });
 
-      const staticHeaders: Record<string, string> = {
-        'X-Test-Header': 'MyTestValue123' // Added a test header
-      };
-
-      if (supabaseAccessToken) {
-        staticHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
-      } else {
-        // This console.error is critical for this test
-        console.error('[VideoLoadSpeedIssue][CF-TUSv4][STATIC-HEADER-DEBUG] Supabase Access Token is NULL or UNDEFINED right before preparing staticHeaders for TUS!');
-      }
-      if (cfUploadMetadataHeader) {
-        staticHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
-      }
-
-      // This console.error is critical for this test
-      console.error('[VideoLoadSpeedIssue][CF-TUSv4][STATIC-HEADER-DEBUG] USING STATIC HEADERS FOR TUS UPLOAD (DEBUGGING 401):', JSON.stringify(staticHeaders));
-      console.error('[VideoLoadSpeedIssue][CF-TUSv4][STATIC-HEADER-DEBUG] Supabase Access Token (first 30 chars):', supabaseAccessToken ? supabaseAccessToken.substring(0, 30) : 'TOKEN IS NULL/UNDEFINED');
+      // --- Reverting to dynamic headers function ---
+      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] Reverting to DYNAMIC headers function for TUS.");
+      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] Supabase Access Token available here:", supabaseAccessToken ? `${supabaseAccessToken.substring(0,20)}...` : "NULL/UNDEFINED");
+      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] CF Upload Metadata available here:", cfUploadMetadataHeader);
 
       const upload = new tus.Upload(file, {
         endpoint: tusClientEndpoint,
         retryDelays: [0, 3000, 5000, 10000, 20000],
         metadata: tusClientMetadata,
-        headers: staticHeaders, // Using static headers
+        headers: ((req: tus.HttpRequest) => {
+          const currentRequestUrl = req.getURL();
+          const dynamicHeaders: Record<string, string> = {};
+          const method = req.getMethod();
+
+          console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Invoked.', {
+            currentRequestUrl,
+            tusClientEndpoint,
+            method,
+            supabaseAccessTokenExists: !!supabaseAccessToken,
+            cfUploadMetadataHeaderValue: cfUploadMetadataHeader
+          });
+
+          if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] POST to Edge Fn. Adding Auth/Metadata.');
+            if (!supabaseAccessToken) {
+              console.error('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] CRITICAL: supabaseAccessToken is MISSING for Edge Fn POST!');
+            } else {
+              dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
+            }
+            if (!cfUploadMetadataHeader) {
+              console.warn('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] cfUploadMetadataHeader is MISSING for Edge Fn POST.');
+            } else {
+              dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
+            }
+            // Do NOT add X-Test-Header here unless specifically needed for this path
+          } else {
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] NOT POST to Edge Fn. No special headers added.', { url: currentRequestUrl, method });
+          }
+          console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Returning headers:', dynamicHeaders);
+          return dynamicHeaders;
+        }) as any, // Type assertion to satisfy TypeScript
         onSuccess: () => {
           logger.log('[VideoLoadSpeedIssue][CF-TUSv4] TUS Upload Successful (onSuccess callback)', { videoName: file.name });
           if (!cloudflareUid) {
