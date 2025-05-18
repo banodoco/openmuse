@@ -9,7 +9,7 @@ import LazyPosterImage from './LazyPosterImage';
 import { useVideoLoader } from '@/hooks/useVideoLoader';
 import { useVideoPlayback } from '@/hooks/useVideoPlayback';
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
-import Hls, { ErrorData, Events as HlsEvents, HlsConfig } from 'hls.js';
+import { useHlsIntegration } from '@/hooks/useHlsIntegration';
 
 const logger = new Logger('VideoPlayer');
 
@@ -173,7 +173,20 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 ) => {
   const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
   const localVideoRef = useRef<HTMLVideoElement>(null);
-  const hlsInstanceRef = useRef<Hls | null>(null);
+
+  // Local loading state – needs to exist *before* we invoke `useHlsIntegration`
+  const [videoPlayerIsLoading, setVideoPlayerIsLoading] = useState(true);
+
+  // ---------------------------------------------------------------------
+  // HLS integration (only initialised if `src` looks like an HLS manifest)
+  // ---------------------------------------------------------------------
+  const { hlsInstanceRef } = useHlsIntegration({
+    src,
+    videoRef: localVideoRef,
+    onError,
+    setLoading: setVideoPlayerIsLoading,
+    componentId,
+  });
 
   const setVideoRef = (node: HTMLVideoElement | null) => {
     localVideoRef.current = node;
@@ -194,7 +207,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
   const [retryAttempt, setRetryAttempt] = useState(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const [videoPlayerIsLoading, setVideoPlayerIsLoading] = useState(true);
 
   const {
     error: uVLError,
@@ -444,81 +456,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     if (ref && typeof ref === 'function') ref(null);
     else if (ref && typeof ref === 'object') (ref as React.MutableRefObject<HTMLVideoElement | null>).current = null;
   }, [ref]);
-
-  useEffect(() => {
-    const videoEl = localVideoRef.current;
-    const isHlsSrc = src && (src.endsWith('.m3u8') || src.includes('.m3u8?'));
-
-    if (!isHlsSrc) {
-      if (hlsInstanceRef.current) {
-        hlsInstanceRef.current.destroy();
-        hlsInstanceRef.current = null;
-      }
-      return;
-    }
-
-    if (!videoEl) return;
-
-    const nativeHlsSupport = videoEl.canPlayType('application/vnd.apple.mpegURL') || videoEl.canPlayType('application/x-mpegURL');
-    if (nativeHlsSupport) {
-      if (hlsInstanceRef.current) { hlsInstanceRef.current.destroy(); hlsInstanceRef.current = null; }
-      return; 
-    }
-
-    if (!Hls.isSupported()) {
-      if (onError) onError('Hls.js is not supported');
-      return;
-    }
-
-    if (hlsInstanceRef.current && hlsInstanceRef.current.url !== src) {
-      hlsInstanceRef.current.destroy();
-      hlsInstanceRef.current = null;
-    }
-    
-    if (!hlsInstanceRef.current) {
-        if (videoEl.getAttribute('src')) {
-            videoEl.removeAttribute('src');
-            videoEl.load(); 
-        }
-        const hlsConfig: Partial<HlsConfig> = { 
-          enableWorker: true,
-          lowLatencyMode: false,
-          backBufferLength: 30,
-          maxBufferHole: 0.8,
-          maxBufferLength: 40,
-          fragLoadingTimeOut: 30000,
-          manifestLoadingTimeOut: 20000,
-          liveDurationInfinity: true,
-          liveBackBufferLength: 30,
-          maxBufferSize: 30 * 1000 * 1000,
-          maxMaxBufferLength: 120,
-          highBufferWatchdogPeriod: 2,
-          nudgeMaxRetry: 5,
-        };
-        const newHls = new Hls(hlsConfig);
-        hlsInstanceRef.current = newHls;
-        newHls.attachMedia(videoEl);
-        newHls.on(HlsEvents.MEDIA_ATTACHED, () => {
-          newHls.loadSource(src);
-        });
-        newHls.on(HlsEvents.ERROR, (_evt, data: ErrorData) => {
-          setVideoPlayerIsLoading(false);
-          let message = `HLS: ${data.details || data.type}`;
-          if (data.fatal) message = `Fatal HLS: ${data.details || data.type}`;
-          
-          // Accessing frag properties requires checking if data.frag exists and is of the expected type
-          const frag = data.frag;
-          if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR && !data.fatal && frag && typeof (frag as any).maxRetry === 'number' && (frag as any).numRetry < (frag as any).maxRetry) {
-            return; 
-          }
-          if (onError) onError(message);
-          logger.error(`[${componentId}] HLS.js Error: ${message}`, data.error || '');
-        });
-        newHls.on(HlsEvents.MANIFEST_LOADED, () => setVideoPlayerIsLoading(false));
-        newHls.on(HlsEvents.LEVEL_LOADED, () => setVideoPlayerIsLoading(false));
-    } 
-    return () => {};
-  }, [src, onError, componentId]);
 
   return (
     <div 

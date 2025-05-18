@@ -273,6 +273,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── useVideoLoader.ts # Hook for managing the loading state and data fetching for videos
 │   │   ├── useVideoManagement.tsx # Hook encapsulating logic for managing video assets (fetching, uploading, metadata, etc.)
 │   │   └── useVideoPlayback.ts # Hook for controlling video playback state (play, pause, seek)
+│   │   ├── useHlsIntegration.ts # **NEW:** Encapsulates all Hls.js setup, teardown, and error handling logic for video playback
 │   │   ├── **useAssetManagement.tsx** # **Generalized from useLoraManagement.tsx**
 │   │   └── **useAssetManagement.tsx** # **Generalized from useLoraManagement.tsx**
 │   ├── index.css           # Global CSS styles, likely includes Tailwind CSS base, components, and utilities directives
