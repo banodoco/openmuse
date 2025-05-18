@@ -1,10 +1,10 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 // import { corsHeaders } from "../_shared/cors.ts"; // Removed import
 
-// CORS headers directly defined in the function
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*", // Or your specific frontend domain
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, upload-length, upload-metadata, tus-resumable",
+// CORS headers simplified for this debug step, ensure X-Test-Header is allowed if testing that.
+const corsHeadersForOptions = {
+  "Access-Control-Allow-Origin": "*", 
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type, upload-length, upload-metadata, tus-resumable, x-test-header", // Added x-test-header
   "Access-Control-Allow-Methods": "POST, OPTIONS",
   "Access-Control-Expose-Headers": "Location, Stream-Media-Id, Tus-Resumable, Tus-Version, Tus-Extension, Tus-Max-Size, Tus-Checksum-Algorithm, Upload-Offset, Upload-Length"
 };
@@ -12,120 +12,34 @@ const corsHeaders = {
 const CLOUDFLARE_API_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
 const CLOUDFLARE_ACCOUNT_ID = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
 
-console.log("[EdgeFunction-TUSProxy] Initializing. CF_ACCOUNT_ID provided:", !!CLOUDFLARE_ACCOUNT_ID, "CF_API_TOKEN provided:", !!CLOUDFLARE_API_TOKEN);
+console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Function Initializing.");
 
 serve(async (req) => {
-  // Log all incoming headers for debugging
   const incomingHeaders: Record<string, string> = {};
   for (const [key, value] of req.headers.entries()) {
-    incomingHeaders[key] = value;
+    incomingHeaders[key.toLowerCase()] = value; // Store keys as lowercase for easier access
   }
-  console.log("[EdgeFunction-TUSProxy][IncomingHeadersDebug] Received request with headers:", JSON.stringify(incomingHeaders));
-  console.log("[EdgeFunction-TUSProxy][IncomingHeadersDebug] Specifically, Authorization header is:", req.headers.get("Authorization"));
-  console.log("[EdgeFunction-TUSProxy][IncomingHeadersDebug] Specifically, X-Test-Header is:", req.headers.get("x-test-header")); // Headers are lowercased by fetch
 
-  console.log("[EdgeFunction-TUSProxy] Request received:", req.method, req.url);
+  console.log(`[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Request Method: ${req.method}, URL: ${req.url}`);
+  console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] ALL INCOMING HEADERS (keys lowercased):", JSON.stringify(incomingHeaders));
+  console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Raw req.headers.get('Authorization'):", req.headers.get("Authorization"));
+  console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Raw req.headers.get('x-test-header'):", req.headers.get("x-test-header"));
+  console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Manually checked incomingHeaders.authorization:", incomingHeaders["authorization"]);
+  console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Manually checked incomingHeaders.x-test-header:", incomingHeaders["x-test-header"]);
 
   if (req.method === "OPTIONS") {
-    console.log("[EdgeFunction-TUSProxy] Handling OPTIONS preflight.");
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Handling OPTIONS preflight.");
+    return new Response(null, { headers: corsHeadersForOptions, status: 204 });
   }
 
-  if (req.method !== "POST") {
-    console.warn("[EdgeFunction-TUSProxy] Method not allowed:", req.method);
-    return new Response(JSON.stringify({ error: "Method not allowed. Only POST is accepted for TUS creation." }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 405,
-    });
-  }
-
-  if (!CLOUDFLARE_API_TOKEN || !CLOUDFLARE_ACCOUNT_ID) {
-    console.error("[EdgeFunction-TUSProxy] Missing Cloudflare API token or Account ID.");
-    return new Response(JSON.stringify({ error: "Cloudflare configuration error." }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
-  }
-
-  const uploadLength = req.headers.get("Upload-Length");
-  const uploadMetadata = req.headers.get("Upload-Metadata");
-  const tusResumable = req.headers.get("Tus-Resumable");
-
-  if (!tusResumable || tusResumable !== "1.0.0") {
-    return new Response(JSON.stringify({ error: "Invalid Tus-Resumable header." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 412 });
-  }
-  if (!uploadLength) {
-    return new Response(JSON.stringify({ error: "Missing Upload-Length header." }), {
-        headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 });
-  }
-
-  console.log("[EdgeFunction-TUSProxy] Forwarding TUS creation request to Cloudflare with headers:", {
-    "Upload-Length": uploadLength,
-    "Upload-Metadata": uploadMetadata,
-    "Tus-Resumable": tusResumable
+  // For any non-OPTIONS request (e.g., POST), just return the headers received and a 200 OK.
+  // This bypasses all other logic to focus on what headers arrive.
+  console.log("[EdgeFunction-TUSProxy-SIMPLIFIED-DEBUG] Returning received headers for non-OPTIONS request.");
+  return new Response(JSON.stringify({ message: "Debug: Received headers", receivedHeaders: incomingHeaders }), {
+    headers: { 
+      "Content-Type": "application/json", 
+      "Access-Control-Allow-Origin": "*" // Basic CORS for the response
+    },
+    status: 200, // Respond with 200 OK to see if TUS client proceeds differently
   });
-
-  try {
-    const cfApiHeaders: HeadersInit = {
-      "Authorization": `Bearer ${CLOUDFLARE_API_TOKEN}`,
-      "Tus-Resumable": "1.0.0",
-      "Upload-Length": uploadLength,
-    };
-    if (uploadMetadata) {
-      cfApiHeaders["Upload-Metadata"] = uploadMetadata;
-    }
-
-    const cfResponse = await fetch(
-      `https://api.cloudflare.com/client/v4/accounts/${CLOUDFLARE_ACCOUNT_ID}/stream?direct_user=true`,
-      {
-        method: "POST",
-        headers: cfApiHeaders,
-        body: null,
-      }
-    );
-
-    console.log("[EdgeFunction-TUSProxy] Cloudflare API response status:", cfResponse.status);
-
-    if (cfResponse.status !== 201) {
-      const errorBody = await cfResponse.text();
-      console.error("[EdgeFunction-TUSProxy] Cloudflare API error:", cfResponse.status, errorBody);
-      return new Response(errorBody || JSON.stringify({ error: "Failed to create TUS upload at Cloudflare." }), {
-        headers: { ...corsHeaders, "Content-Type": cfResponse.headers.get("Content-Type") || "application/json" },
-        status: cfResponse.status,
-      });
-    }
-
-    const location = cfResponse.headers.get("Location");
-    const streamMediaId = cfResponse.headers.get("Stream-Media-Id");
-
-    if (!location) {
-      console.error("[EdgeFunction-TUSProxy] Cloudflare response missing Location header. Headers:", Object.fromEntries(cfResponse.headers.entries()));
-      throw new Error("Cloudflare TUS creation response missing Location header.");
-    }
-     if (!streamMediaId) {
-      console.warn("[EdgeFunction-TUSProxy] Cloudflare response missing Stream-Media-Id header. Will attempt to parse from Location. Location:", location);
-    }
-
-    console.log("[EdgeFunction-TUSProxy] Cloudflare TUS endpoint created. Location:", location, "Stream-Media-Id:", streamMediaId);
-    
-    const responseHeaders = new Headers(corsHeaders);
-    responseHeaders.set("Location", location);
-    if (streamMediaId) {
-        responseHeaders.set("Stream-Media-Id", streamMediaId);
-    }
-    responseHeaders.set("Tus-Resumable", "1.0.0");
-
-    return new Response(null, {
-      headers: responseHeaders,
-      status: 201,
-    });
-
-  } catch (error) {
-    console.error("[EdgeFunction-TUSProxy] Internal error:", error.message, error.stack);
-    return new Response(JSON.stringify({ error: "Internal server error proxying TUS request." }), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 500,
-    });
-  }
 }); 
