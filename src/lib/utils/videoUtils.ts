@@ -100,16 +100,24 @@ export const isValidVideoUrl = (url: string | null): boolean => {
     }
   }
   
-  // Simple extension check for common video formats
-  const hasVideoExtension = /\.(mp4|webm|ogg|mov|avi)($|\?)/i.test(url);
+  // Include HLS/DASH manifests (e.g., .m3u8, .mpd) and common video extensions
+  const hasVideoExtension = /\.(mp4|webm|ogg|mov|avi|m3u8|mpd)($|\?)/i.test(url);
   
   // If it has a video extension, it's likely valid
   if (hasVideoExtension) return true;
   
   // If it's from common video hosts, it's likely valid
-  const isFromVideoHost = url.includes('cloudflare.com') || 
-                         url.includes('supabase.co') || 
-                         url.includes('amazonaws.com');
+  const isFromVideoHost =
+    // Generic Cloudflare domain (e.g., cdn-cgi, videodelivery)
+    url.includes('cloudflare.com') ||
+    // Cloudflare Stream customer subdomains (customer-<id>.cloudflarestream.com)
+    url.includes('cloudflarestream.com') ||
+    // Older Cloudflare Stream domain
+    url.includes('videodelivery.net') ||
+    // Supabase Storage
+    url.includes('supabase.co') ||
+    // Amazon S3 / CloudFront
+    url.includes('amazonaws.com');
   
   return isFromVideoHost;
 };
@@ -169,6 +177,9 @@ export const getVideoFormat = (url: string): string => {
     if (['mp4', 'webm', 'ogg', 'mov', 'avi'].includes(ext)) {
       return ext.toUpperCase();
     }
+    if (ext === 'm3u8') {
+      return 'HLS';
+    }
   }
   
   // If URL contains hints about the format
@@ -178,10 +189,16 @@ export const getVideoFormat = (url: string): string => {
   if (url.includes('format=webm') || url.includes('content-type=video/webm')) {
     return 'WEBM';
   }
+  if (url.includes('.m3u8') || url.includes('format=m3u8') || url.includes('hls')) {
+    return 'HLS';
+  }
   
   // Default assumption for common hosts
   if (url.includes('supabase.co')) {
     return 'MP4'; // Supabase typically serves MP4
+  }
+  if (url.includes('cloudflarestream.com') || url.includes('videodelivery.net')) {
+    return 'HLS';
   }
   
   return 'Unknown';

@@ -9,6 +9,7 @@ import LazyPosterImage from './LazyPosterImage';
 import { useVideoLoader } from '@/hooks/useVideoLoader';
 import { useVideoPlayback } from '@/hooks/useVideoPlayback';
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
+import Hls from 'hls.js';
 
 const logger = new Logger('VideoPlayer');
 
@@ -657,6 +658,55 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       }
     };
   }, [ref]);
+
+  // ---------------------------------------------------
+  // HLS.js integration (Cloudflare Stream / .m3u8 playback)  
+  // ---------------------------------------------------
+  // localVideoRef must be declared before we use it in effects
+
+  useEffect(() => {
+    if (!src || !(src.endsWith('.m3u8') || src.includes('.m3u8?'))) return;
+
+    const videoEl = localVideoRef.current;
+    if (!videoEl) return;
+
+    const nativeSupport = videoEl.canPlayType('application/vnd.apple.mpegURL') || videoEl.canPlayType('application/x-mpegURL');
+    if (nativeSupport) return;
+
+    if (!Hls.isSupported()) {
+      logger.warn(`[${componentId}] Hls.js not supported in this browser, cannot play HLS stream.`);
+      return;
+    }
+
+    if (videoEl.getAttribute('src')) {
+      videoEl.removeAttribute('src');
+      try {
+        videoEl.load();
+      } catch (err) {
+        logger.warn(`[${componentId}] Error resetting video element before attaching Hls.js:`, err);
+      }
+    }
+
+    const hls = new Hls({ enableWorker: true, lowLatencyMode: true });
+
+    logger.log(`[${componentId}] Initialising Hls.js for src: ${src.substring(0, 60)}...`);
+
+    hls.attachMedia(videoEl);
+    hls.on(Hls.Events.MEDIA_ATTACHED, () => {
+      hls.loadSource(src);
+    });
+
+    hls.on(Hls.Events.ERROR, (_evt, data) => {
+      logger.error(`[${componentId}] Hls.js error:`, data);
+      if (data.fatal && onError) {
+        onError(`HLS playback error: ${data.details || data.type}`);
+      }
+    });
+
+    return () => {
+      hls.destroy();
+    };
+  }, [src, onError, componentId]);
 
   return (
     <div 

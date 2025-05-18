@@ -122,7 +122,12 @@ export const useVideoLoader = ({
       video.pause();
       try {
         video.preload = "auto";
-        video.src = src;
+        const isHlsStream = src.endsWith('.m3u8') || src.includes('.m3u8?');
+        const hasNativeHls = video.canPlayType('application/vnd.apple.mpegURL') || video.canPlayType('application/x-mpegURL');
+        if (!(isHlsStream && !hasNativeHls)) {
+          // Only assign directly if it's not a HLS stream without native support; hls.js will attach instead.
+          video.src = src;
+        }
         if (poster) {
           video.poster = poster;
         }
