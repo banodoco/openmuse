@@ -490,6 +490,10 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
           manifestLoadingTimeOut: 20000,
           liveDurationInfinity: true,
           liveBackBufferLength: 30,
+          maxBufferSize: 30 * 1000 * 1000,
+          maxMaxBufferLength: 120,
+          highBufferWatchdogPeriod: 2,
+          nudgeMaxRetry: 5,
         };
         const newHls = new Hls(hlsConfig);
         hlsInstanceRef.current = newHls;
