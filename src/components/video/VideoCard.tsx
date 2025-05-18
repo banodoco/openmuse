@@ -112,8 +112,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [isChangingAdminStatus, setIsChangingAdminStatus] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [localHovering, setLocalHovering] = useState(false);
+  const [debouncedLocalHovering, setDebouncedLocalHovering] = useState(false);
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const combinedHovering = isHovering || localHovering;
+  const combinedHovering = isHovering || debouncedLocalHovering;
   const isInViewport = useIntersectionObserver(previewRef, {
     rootMargin: '0px 0px 300px 0px',
     threshold: 0.05,
@@ -151,13 +153,29 @@ const VideoCard: React.FC<VideoCardProps> = ({
   
   const handleMouseEnter = () => {
     console.log(`[VideoCardHoverDebug ${video.id}] MouseEnter`);
-    setLocalHovering(true);
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setLocalHovering(true);
+      setDebouncedLocalHovering(true);
+    }, 200);
   };
   
   const handleMouseLeave = () => {
     console.log(`[VideoCardHoverDebug ${video.id}] MouseLeave`);
-    setLocalHovering(false);
+    if (hoverTimeoutRef.current) clearTimeout(hoverTimeoutRef.current);
+    hoverTimeoutRef.current = setTimeout(() => {
+      setLocalHovering(false);
+      setDebouncedLocalHovering(false);
+    }, 200);
   };
+  
+  useEffect(() => {
+    return () => {
+      if (hoverTimeoutRef.current) {
+        clearTimeout(hoverTimeoutRef.current);
+      }
+    };
+  }, []);
   
   const getCreatorName = () => {
     if (video.reviewer_name) {

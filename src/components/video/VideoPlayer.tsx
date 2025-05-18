@@ -482,7 +482,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
         }
         const hlsConfig: Partial<HlsConfig> = { 
           enableWorker: true,
-          lowLatencyMode: true,
+          lowLatencyMode: false,
           backBufferLength: 30,
           maxBufferHole: 0.8,
           maxBufferLength: 40,
