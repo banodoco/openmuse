@@ -1,5 +1,12 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { corsHeaders } from "shared/cors.ts";
+// import { corsHeaders } from "../_shared/cors.ts"; // Removed import
+
+// CORS headers directly defined in the function
+const corsHeaders = {
+  "Access-Control-Allow-Origin": "*", // Or your specific frontend domain
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS, PUT, DELETE",
+};
 
 const CLOUDFLARE_API_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
 const CLOUDFLARE_ACCOUNT_ID = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");

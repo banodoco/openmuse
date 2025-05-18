@@ -312,22 +312,12 @@ const GenerationsPage: React.FC = () => {
         <VideoLightbox
           isOpen={!!lightboxVideo}
           onClose={handleCloseLightbox}
-          videoId={lightboxVideo.id}
-          videoUrl={lightboxVideo.url}
-          title={lightboxVideo.metadata?.title}
-          description={lightboxVideo.metadata?.description}
+          video={lightboxVideo}
           initialAssetId={lightboxVideo.metadata?.assetId}
-          creator={lightboxVideo.metadata?.creatorName}
-          creatorId={lightboxVideo.user_id}
-          thumbnailUrl={lightboxVideo.metadata?.placeholder_image}
-          adminStatus={lightboxVideo.admin_status}
-          
-          // Use full list count for hasNext/hasPrev logic
           hasPrev={lightboxIndex > 0}
           onPrevVideo={handlePrevLightbox}
           hasNext={lightboxIndex !== -1 && lightboxIndex < genVideos.length - 1}
           onNextVideo={handleNextLightbox}
-          
           onAdminStatusChange={handleAdminStatusChange}
           onVideoUpdate={handleLightboxVideoUpdate}
           isAuthorized={!!user}

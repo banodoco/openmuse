@@ -584,19 +584,19 @@ export default function UserProfilePage() {
       )}
 
       {lightboxVideo && (
-        <VideoLightbox isOpen={!!lightboxVideo} onClose={handleCloseLightbox} videoUrl={lightboxVideo.url} videoId={lightboxVideo.id}
-          title={lightboxVideo.metadata?.title} description={lightboxVideo.metadata?.description}
+        <VideoLightbox 
+          isOpen={!!lightboxVideo} 
+          onClose={handleCloseLightbox} 
+          video={lightboxVideo}
           initialAssetId={lightboxVideo.associatedAssetId ?? undefined}
-          creatorId={lightboxVideo.user_id}
-          thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image}
           onVideoUpdate={() => { if (profile?.id) fetchUserVideosData(profile.id, user?.id, authIsAdminHook && !forceLoggedOutView, false); }}
-          isAuthorized={canEdit} currentStatus={lightboxVideo.user_status} onStatusChange={handleLightboxUserStatusChange}
-          adminStatus={lightboxVideo.admin_status} onAdminStatusChange={handleLightboxAdminStatusChange}
+          isAuthorized={canEdit} 
+          onStatusChange={handleLightboxUserStatusChange}
+          onAdminStatusChange={handleLightboxAdminStatusChange}
           hasPrev={currentLightboxIndex > 0}
           hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < fullVideoListForLightbox.length - 1}
           onPrevVideo={handlePrevLightboxVideo}
           onNextVideo={handleNextLightboxVideo}
-          classification={lightboxVideo.metadata?.classification}
           onDeleteVideo={deleteVideo}
         />
       )}

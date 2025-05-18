@@ -88,12 +88,15 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const location = useLocation();
   const { user } = useAuth();
   const isMobile = useIsMobile();
-  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(() =>
-    video.metadata?.placeholder_image ||
-    (video as any).placeholder_image ||
-    (video as any).thumbnailUrl ||
-    '/placeholder.svg',
-  );
+  const [thumbnailUrl, setThumbnailUrl] = useState<string | null>(() => {
+    if (video.storage_provider === 'cloudflare-stream' && video.cloudflare_thumbnail_url) {
+      return video.cloudflare_thumbnail_url;
+    }
+    return video.placeholder_image || // Use direct placeholder_image from VideoEntry first
+           video.metadata?.placeholder_image || 
+           (video as any).thumbnailUrl || // Legacy?
+           '/placeholder.svg';
+  });
   const previewRef = useRef<HTMLDivElement>(null);
   useFadeInOnScroll(previewRef);
   const [aspectRatio, setAspectRatio] = useState<number | null>(() => {
@@ -349,6 +352,10 @@ const VideoCard: React.FC<VideoCardProps> = ({
     return status1 === status2;
   };
 
+  const videoSourceUrl = video.storage_provider === 'cloudflare-stream' && video.cloudflare_playback_hls_url 
+    ? video.cloudflare_playback_hls_url 
+    : video.url;
+
   return (
     <div 
       className={cn(
@@ -385,7 +392,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
         <div className="absolute inset-0 w-full h-full">
           <VideoPreview
             key={`video-${video.id}`}
-            url={video.url}
+            url={videoSourceUrl}
             title={video.metadata?.title || `Video by ${getCreatorName()}`}
             creator={getCreatorName()}
             className="w-full h-full object-cover"

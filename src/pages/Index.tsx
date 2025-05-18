@@ -433,7 +433,20 @@ const Index: React.FC = () => {
       
       <Footer />
       {lightboxVideo && (
-        <VideoLightbox isOpen={!!lightboxVideo} onClose={handleCloseLightbox} videoUrl={lightboxVideo.url} videoId={lightboxVideo.id} title={lightboxVideo.metadata?.title} description={lightboxVideo.metadata?.description} initialAssetId={videoAssetMap[lightboxVideo.id]} thumbnailUrl={lightboxVideo.placeholder_image || lightboxVideo.metadata?.placeholder_image} creatorId={lightboxVideo.user_id} isAuthorized={isAdmin} adminStatus={lightboxVideo.admin_status} currentStatus={null} onStatusChange={() => Promise.resolve()} onAdminStatusChange={getLightboxAdminStatusChangeHandler(lightboxVideo.id)} onVideoUpdate={handleLightboxVideoUpdate} hasPrev={currentLightboxIndex > 0} hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < lightboxVideoList.length - 1} onPrevVideo={handlePrevLightboxVideo} onNextVideo={handleNextLightboxVideo} classification={lightboxVideo.metadata?.classification} />
+        <VideoLightbox 
+          isOpen={!!lightboxVideo} 
+          onClose={handleCloseLightbox} 
+          video={lightboxVideo}
+          initialAssetId={videoAssetMap[lightboxVideo.id]}
+          isAuthorized={isAdmin}
+          onStatusChange={undefined}
+          onAdminStatusChange={getLightboxAdminStatusChangeHandler(lightboxVideo.id)} 
+          onVideoUpdate={handleLightboxVideoUpdate} 
+          hasPrev={currentLightboxIndex > 0} 
+          hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < lightboxVideoList.length - 1} 
+          onPrevVideo={handlePrevLightboxVideo} 
+          onNextVideo={handleNextLightboxVideo}
+        />
       )}
     </div>
   );

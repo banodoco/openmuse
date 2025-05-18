@@ -326,29 +326,18 @@ function AssetDetailPage() {
             <VideoLightbox
               isOpen={lightboxOpen}
               onClose={handleCloseLightbox}
-              videoUrl={currentVideo.url}
-              videoId={currentVideo.id}
-              title={currentVideo.metadata?.title}
-              description={currentVideo.metadata?.description}
+              video={currentVideo}
               initialAssetId={currentVideo.associatedAssetId ?? undefined}
-              creator={currentVideo.metadata?.creatorName || currentVideo.user_id}
-              thumbnailUrl={currentVideo.metadata?.placeholder_image}
-              creatorId={currentVideo.user_id}
               onVideoUpdate={() => refetchAssetDetails({ silent: true })}
-              currentStatus={currentVideo.assetMediaDisplayStatus}
-              onStatusChange={async (newStatus) => {
-                if (currentVideo?.id) {
-                  await handleVideoAssetMediaStatusChange(currentVideo.id, newStatus);
-                }
+              onStatusChange={async (videoId, newStatus) => {
+                await handleVideoAssetMediaStatusChange(videoId, newStatus);
               }}
               isAuthorized={isAuthorizedToEdit}
-              adminStatus={currentVideo.admin_status}
-              onAdminStatusChange={(newStatus) => handleSetVideoAdminStatus(currentVideo.id, newStatus)}
+              onAdminStatusChange={(videoId, newStatus) => handleSetVideoAdminStatus(videoId, newStatus)}
               hasPrev={currentLightboxIndex > 0}
               hasNext={currentLightboxIndex !== -1 && currentLightboxIndex < videoList.length - 1}
               onPrevVideo={handlePrevLightboxVideo}
               onNextVideo={handleNextLightboxVideo}
-              classification={currentVideo.metadata?.classification}
             />
           )}
           

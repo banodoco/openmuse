@@ -21,7 +21,8 @@ const VideoPage: React.FC = () => {
   const [video, setVideo] = useState<VideoEntry | null>(null);
   const [relatedVideos, setRelatedVideos] = useState<VideoEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [videoUrl, setVideoUrl] = useState<string | null>(null);
+  const [displayVideoUrl, setDisplayVideoUrl] = useState<string | null>(null);
+  const [displayPosterUrl, setDisplayPosterUrl] = useState<string | null>(null);
   const [isRefreshingUrl, setIsRefreshingUrl] = useState(false);
 
   useEffect(() => {
@@ -44,28 +45,32 @@ const VideoPage: React.FC = () => {
         
         setVideo(videoData);
         
-        if (videoData.url) {
+        if (videoData.storage_provider === 'cloudflare-stream') {
+          setDisplayVideoUrl(videoData.cloudflare_playback_hls_url || null);
+          setDisplayPosterUrl(videoData.cloudflare_thumbnail_url || null);
+        } else if (videoData.url) {
+          setDisplayPosterUrl(videoData.placeholder_image || videoData.metadata?.placeholder_image || null);
           try {
-            console.log('Attempting to get permanent URL from database first');
+            console.log('Attempting to get permanent URL from database first for Supabase video');
             let permanentUrl = null;
-            
             if (videoData.url.startsWith('blob:')) {
-              console.log('Detected blob URL, attempting to get permanent URL from database');
               permanentUrl = await videoUrlService.lookupUrlFromDatabase(videoData.id);
             }
             
             if (permanentUrl) {
-              console.log('Found permanent URL:', permanentUrl.substring(0, 30) + '...');
-              setVideoUrl(permanentUrl);
+              setDisplayVideoUrl(permanentUrl);
             } else {
               const freshUrl = await videoUrlService.forceRefreshUrl(videoData.url);
-              setVideoUrl(freshUrl);
+              setDisplayVideoUrl(freshUrl);
             }
           } catch (urlError) {
-            console.error('Failed to refresh video URL:', urlError);
+            console.error('Failed to refresh Supabase video URL:', urlError);
             const standardUrl = await videoUrlService.getVideoUrl(videoData.url);
-            setVideoUrl(standardUrl);
+            setDisplayVideoUrl(standardUrl);
           }
+        } else {
+          setDisplayVideoUrl(null);
+          setDisplayPosterUrl(null);
         }
         
         let relatedData: VideoEntry[] = [];
@@ -99,37 +104,32 @@ const VideoPage: React.FC = () => {
     fetchVideo();
   }, [id, navigate]);
   
-  useEffect(() => {
-    if (video) {
-      const videoElement = document.getElementById('video-player') as HTMLVideoElement;
-      if (videoElement) {
-        videoElement.src = video.url;
-      }
-    }
-  }, [video]);
-  
   const handleRefreshUrl = async () => {
-    if (!video?.url) return;
+    if (!video) return;
     
     setIsRefreshingUrl(true);
     try {
-      console.log('Refreshing URL: Attempting to get permanent URL from database first');
-      let permanentUrl = null;
-      
-      try {
-        permanentUrl = await videoUrlService.lookupUrlFromDatabase(video.id);
-      } catch (err) {
-        console.log('Could not get permanent URL directly:', err);
-      }
-      
-      if (permanentUrl) {
-        console.log('Found permanent URL during refresh:', permanentUrl.substring(0, 30) + '...');
-        setVideoUrl(permanentUrl);
-        toast.success("Retrieved permanent video URL");
-      } else {
-        const freshUrl = await videoUrlService.forceRefreshUrl(video.url);
-        setVideoUrl(freshUrl);
-        toast.success("Video URL refreshed");
+      if (video.storage_provider === 'cloudflare-stream') {
+        setDisplayVideoUrl(video.cloudflare_playback_hls_url || null);
+        setDisplayPosterUrl(video.cloudflare_thumbnail_url || null);
+        toast.info("Cloudflare video URL re-applied.");
+      } else if (video.url) {
+        console.log('Refreshing Supabase URL: Attempting to get permanent URL from database first');
+        let permanentUrl = null;
+        try {
+          permanentUrl = await videoUrlService.lookupUrlFromDatabase(video.id);
+        } catch (err) {
+          console.log('Could not get permanent Supabase URL directly:', err);
+        }
+        
+        if (permanentUrl) {
+          setDisplayVideoUrl(permanentUrl);
+          toast.success("Retrieved permanent Supabase video URL");
+        } else {
+          const freshUrl = await videoUrlService.forceRefreshUrl(video.url);
+          setDisplayVideoUrl(freshUrl);
+          toast.success("Supabase video URL refreshed");
+        }
       }
     } catch (error) {
       console.error('Error refreshing URL:', error);
@@ -194,7 +194,8 @@ const VideoPage: React.FC = () => {
           <div className="lg:col-span-2">
             <VideoPlayerCard 
               video={video} 
-              videoUrl={videoUrl} 
+              videoUrl={displayVideoUrl} 
+              posterUrl={displayPosterUrl}
               onRefresh={handleRefreshUrl}
               isRefreshing={isRefreshingUrl}
             />

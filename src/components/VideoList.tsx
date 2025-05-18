@@ -285,102 +285,109 @@ const VideoList: React.FC<VideoListProps> = ({
       
       <ScrollArea className="h-[calc(100vh-220px)]">
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredVideos.map((video) => (
-            <Card key={video.id} className={cn(
-              "overflow-hidden transition-all h-full",
-              selectedVideos.includes(video.id) && "ring-2 ring-primary"
-            )}>
-              <div className="aspect-video w-full overflow-hidden">
-                {videoUrls[video.id] ? (
-                  <VideoPreview 
-                    url={videoUrls[video.id]} 
-                    className="w-full h-full object-cover"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted">
-                    <FileVideo className="h-8 w-8 text-muted-foreground" />
-                  </div>
-                )}
-              </div>
-              
-              <CardHeader className="pb-2 pt-3 px-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex-1 overflow-hidden flex items-center gap-2">
-                    {video.metadata?.isPrimary && (
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
-                    )}
-                    <CardTitle className="text-base truncate">
-                      {video.metadata?.title || 'Untitled'}
-                    </CardTitle>
-                  </div>
-                  {isAdmin && (
-                    <Checkbox
-                      checked={selectedVideos.includes(video.id)}
-                      onCheckedChange={() => toggleVideoSelection(video.id)}
-                      className="ml-2"
+          {filteredVideos.map((video) => {
+            const actualThumbnailUrl = video.storage_provider === 'cloudflare-stream' && video.cloudflare_thumbnail_url
+              ? video.cloudflare_thumbnail_url
+              : video.placeholder_image || video.metadata?.placeholder_image || '/placeholder.svg';
+
+            return (
+              <Card key={video.id} className={cn(
+                "overflow-hidden transition-all h-full",
+                selectedVideos.includes(video.id) && "ring-2 ring-primary"
+              )}>
+                <div className="aspect-video w-full overflow-hidden">
+                  {videoUrls[video.id] ? (
+                    <VideoPreview 
+                      url={videoUrls[video.id]} 
+                      thumbnailUrl={actualThumbnailUrl}
+                      className="w-full h-full object-cover"
                     />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center bg-muted">
+                      <FileVideo className="h-8 w-8 text-muted-foreground" />
+                    </div>
                   )}
                 </div>
-              </CardHeader>
-              
-              <CardContent className="px-4 py-2 text-xs">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <UserCircle size={16} className="text-muted-foreground" />
-                    <span className="text-xs text-muted-foreground">
-                      {video.user_id ? `User ${video.user_id.substring(0, 6)}...` : 'Unknown Creator'}
-                    </span>
-                  </div>
-                </div>
-              </CardContent>
-              
-              <CardFooter className="px-4 py-3 border-t flex justify-between mt-auto">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={() => navigate(`/videos/${video.id}`)}
-                  className="text-xs h-8"
-                >
-                  <Eye className="h-3 w-3 mr-1" /> View
-                </Button>
                 
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="sm" className="h-8">
-                      <MoreVertical className="h-3 w-3" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                    <DropdownMenuItem onClick={() => navigate(`/edit/${video.id}`)}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
+                <CardHeader className="pb-2 pt-3 px-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1 overflow-hidden flex items-center gap-2">
+                      {video.metadata?.isPrimary && (
+                        <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 flex-shrink-0" />
+                      )}
+                      <CardTitle className="text-base truncate">
+                        {video.metadata?.title || 'Untitled'}
+                      </CardTitle>
+                    </div>
                     {isAdmin && (
-                      <>
-                        <DropdownMenuItem onClick={() => onDelete(video.id)}>
-                          <Trash2 className="mr-2 h-4 w-4" />
-                          Delete
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        <DropdownMenuItem onClick={() => onApprove(video.id)}>
-                          Curate
-                        </DropdownMenuItem>
-                        {onList && (
-                          <DropdownMenuItem onClick={() => onList(video.id)}>
-                            List
-                          </DropdownMenuItem>
-                        )}
-                        <DropdownMenuItem onClick={() => onReject(video.id)}>
-                          Reject
-                        </DropdownMenuItem>
-                      </>
+                      <Checkbox
+                        checked={selectedVideos.includes(video.id)}
+                        onCheckedChange={() => toggleVideoSelection(video.id)}
+                        className="ml-2"
+                      />
                     )}
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </CardFooter>
-            </Card>
-          ))}
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="px-4 py-2 text-xs">
+                  <div className="space-y-1">
+                    <div className="flex items-center space-x-2">
+                      <UserCircle size={16} className="text-muted-foreground" />
+                      <span className="text-xs text-muted-foreground">
+                        {video.user_id ? `User ${video.user_id.substring(0, 6)}...` : 'Unknown Creator'}
+                      </span>
+                    </div>
+                  </div>
+                </CardContent>
+                
+                <CardFooter className="px-4 py-3 border-t flex justify-between mt-auto">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => navigate(`/videos/${video.id}`)}
+                    className="text-xs h-8"
+                  >
+                    <Eye className="h-3 w-3 mr-1" /> View
+                  </Button>
+                  
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm" className="h-8">
+                        <MoreVertical className="h-3 w-3" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                      <DropdownMenuItem onClick={() => navigate(`/edit/${video.id}`)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      {isAdmin && (
+                        <>
+                          <DropdownMenuItem onClick={() => onDelete(video.id)}>
+                            <Trash2 className="mr-2 h-4 w-4" />
+                            Delete
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem onClick={() => onApprove(video.id)}>
+                            Curate
+                          </DropdownMenuItem>
+                          {onList && (
+                            <DropdownMenuItem onClick={() => onList(video.id)}>
+                              List
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuItem onClick={() => onReject(video.id)}>
+                            Reject
+                          </DropdownMenuItem>
+                        </>
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </CardFooter>
+              </Card>
+            );
+          })}
           
           {filteredVideos.length === 0 && (
             <div className="col-span-full text-center py-8">

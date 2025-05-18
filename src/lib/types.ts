@@ -21,6 +21,8 @@ export interface VideoMetadata {
   trainingDataset?: string;
   aspectRatio?: number;
   associatedLoraIds?: string[];
+  // Optional metadata fields for Cloudflare integration
+  cloudflareUid?: string;
 }
 
 // Update AdminStatus to include 'Rejected'
@@ -34,21 +36,31 @@ export type UserAssetPreferenceStatus = 'Pinned' | 'Listed' | 'Hidden';
 
 export interface VideoEntry {
   id: string;
+  user_id: string;
+  title: string;
+  description: string;
+  type: string;
   url: string;
+  // New fields for Cloudflare Stream integration
+  cloudflare_stream_uid?: string;
+  cloudflare_thumbnail_url?: string;
+  cloudflare_playback_hls_url?: string;
+  cloudflare_playback_dash_url?: string;
+  storage_provider: 'cloudflare-stream' | string;
+  metadata?: any;
+  placeholder_image?: string;
+  classification?: string;
+  asset_id?: string;
+  // Additional fields such as created_at, updated_at can be added here if needed
   reviewer_name: string;
   skipped: boolean;
   created_at: string;
   admin_status?: AdminStatus | null;
   user_status?: VideoDisplayStatus | null;
   assetMediaDisplayStatus?: VideoDisplayStatus | null;
-  user_id?: string | null;
-  metadata?: VideoMetadata;
   associatedAssetId?: string | null;
-  placeholder_image?: string | null;
   is_primary?: boolean;
   thumbnailUrl?: string;
-  title?: string;
-  description?: string;
   admin_reviewed?: boolean;
 }
 

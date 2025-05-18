@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -12,6 +11,7 @@ import StorageVideoPlayer from '@/components/StorageVideoPlayer';
 interface VideoPlayerCardProps {
   video: VideoEntry | null;
   videoUrl: string | null;
+  posterUrl?: string | null;
   onRefresh: () => void;
   isRefreshing: boolean;
 }
@@ -19,6 +19,7 @@ interface VideoPlayerCardProps {
 const VideoPlayerCard: React.FC<VideoPlayerCardProps> = ({ 
   video, 
   videoUrl, 
+  posterUrl,
   onRefresh,
   isRefreshing
 }) => {
@@ -81,6 +82,7 @@ const VideoPlayerCard: React.FC<VideoPlayerCardProps> = ({
           {videoUrl ? (
             <VideoPlayer 
               src={videoUrl} 
+              poster={posterUrl || undefined}
               controls
               onLoadedData={handleVideoLoaded}
               onError={handleVideoError}

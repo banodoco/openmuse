@@ -133,9 +133,15 @@ const AssetCard: React.FC<AssetCardProps> = ({
   }
 
   // Now that asset is guaranteed to be non-null, we can destructure or use its properties.
-  const videoUrl = asset.primaryVideo?.url;
-  const thumbnailUrl = asset.primaryVideo?.metadata?.placeholder_image;
+  const primaryVideo = asset.primaryVideo;
+  const actualVideoUrl = primaryVideo?.storage_provider === 'cloudflare-stream' && primaryVideo.cloudflare_playback_hls_url
+    ? primaryVideo.cloudflare_playback_hls_url
+    : primaryVideo?.url;
   
+  const actualThumbnailUrl = primaryVideo?.storage_provider === 'cloudflare-stream' && primaryVideo.cloudflare_thumbnail_url
+    ? primaryVideo.cloudflare_thumbnail_url
+    : primaryVideo?.placeholder_image || primaryVideo?.metadata?.placeholder_image;
+
   const handleView = () => {
     if (asset.type === 'lora') {
       navigate(`/assets/loras/${asset.id}`);
@@ -350,15 +356,15 @@ const AssetCard: React.FC<AssetCardProps> = ({
           : { aspectRatio: '16 / 9' }
         }
       >
-        {videoUrl ? (
+        {actualVideoUrl ? (
           <>
             <div className="absolute inset-0">
               <VideoPreview 
-                url={videoUrl} 
+                url={actualVideoUrl}
                 className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300 ease-in-out" 
                 title={asset.name}
                 lazyLoad={false}
-                thumbnailUrl={thumbnailUrl}
+                thumbnailUrl={actualThumbnailUrl}
                 onLoadedData={handleVideoLoad}
                 onVisibilityChange={handleVisibilityChange}
                 isHovering={isCardHovering}

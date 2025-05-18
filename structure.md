@@ -40,7 +40,27 @@ This document outlines the directory structure of the openmuse` project, providi
 
 ### media
 - Stores video and image metadata.
-- ... (columns as before) ...
+- Columns include:
+  - id (UUID, primary key)
+  - user_id (UUID, foreign key to auth.users)
+  - title (TEXT)
+  - description (TEXT)
+  - type (VARCHAR, e.g., 'video', 'image')
+  - url (TEXT, original Supabase Storage URL or external link if applicable)
+  - created_at (TIMESTAMPTZ)
+  - updated_at (TIMESTAMPTZ)
+  - classification (VARCHAR, e.g., 'art', 'gen')
+  - metadata (JSONB, for additional metadata like aspect ratio, duration, etc.)
+  - placeholder_image (TEXT, URL to a placeholder or thumbnail, may be Supabase or Cloudflare)
+  - admin_status (VARCHAR)
+  - user_status (VARCHAR) - User's preference for display (Pinned, Listed, Hidden)
+  - assetMediaDisplayStatus (VARCHAR) - Display status in context of an asset
+  - storage_provider (VARCHAR) - Indicates storage location (e.g., 'supabase', 'cloudflare-stream')
+  - cloudflare_stream_uid (TEXT) - Cloudflare Stream video unique identifier
+  - cloudflare_thumbnail_url (TEXT) - Direct URL to Cloudflare-generated thumbnail
+  - cloudflare_playback_hls_url (TEXT) - HLS manifest URL from Cloudflare Stream
+  - cloudflare_playback_dash_url (TEXT) - DASH manifest URL from Cloudflare Stream
+- Row Level Security should be in place.
 
 ### asset_media
 - Links assets to media entries (e.g., example videos for a LoRA or Workflow).
@@ -49,11 +69,11 @@ This document outlines the directory structure of the openmuse` project, providi
 ## Supabase Storage Buckets (New Section)
 
 ### videos
-- Stores uploaded video files.
+- Stores uploaded video files (primarily for legacy videos; new uploads target Cloudflare Stream).
 - Access policies managed via Supabase dashboard.
 
 ### thumbnails
-- Stores generated video thumbnails.
+- Stores generated video thumbnails (primarily for legacy videos; new uploads use Cloudflare thumbnails).
 - Access policies managed via Supabase dashboard.
 
 ### workflows
@@ -68,6 +88,16 @@ This document outlines the directory structure of the openmuse` project, providi
 - Handles file uploads, README generation, and repository management
 - Requires authentication
 - Returns the URL of the uploaded LoRA file
+
+### get-cloudflare-video-upload-url
+- Handles generating a direct creator upload URL for Cloudflare Stream.
+- Uses Cloudflare API Token and Account ID.
+- Returns a one-time TUS upload URL and the video UID.
+- CORS headers are handled directly within the function.
+- Requires authentication.
+
+### profile-og-image
+- Edge function specifically for generating OpenGraph images for profiles
 
 ## Components Updates
 
@@ -267,8 +297,8 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   ├── assetService.ts # Service for managing general assets (CRUD operations)
 │   │   │   ├── thumbnailService.ts # Service specifically for handling video thumbnails
 │   │   │   ├── videoEntryService.ts # Service for managing video entry records in the database
-│   │   │   ├── videoUploadService.ts # Service handling the logic of video upload processing
-│   │   │   └── videoUrlService.ts # Service for generating or managing video URLs (e.g., signed URLs)
+│   │   │   ├── videoUploadService.ts # Service handling video uploads (now primarily to Cloudflare Stream, with legacy Supabase Storage upload deprecated)
+│   │   │   └── videoUrlService.ts # Service for generating or managing video URLs (e.g., signed URLs for Supabase)
 │   │   ├── utils/          # General, reusable utility functions
 │   │   │   ├── videoPreviewUtils.ts # Utilities specifically for video previews
 │   │   │   └── videoUtils.ts   # General utility functions related to video processing or manipulation
@@ -281,8 +311,8 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   ├── storage.ts      # General storage utility functions (could encompass local storage, session storage, or remote storage)
 │   │   ├── supabase.ts     # Supabase client instance initialization
 │   │   ├── supabaseDB.ts   # Supabase database specific helper functions or constants
-│   │   ├── supabaseStorage.ts # Supabase Storage specific helper functions (upload, download, get URL)
-│   │   ├── types.ts        # Shared TypeScript type definitions used across the application
+│   │   ├── supabaseStorage.ts # Supabase Storage specific helper functions (upload, download, get URL) - Usage may decrease with Cloudflare Stream.
+│   │   ├── types.ts        # Shared TypeScript type definitions used across the application (Updated with Cloudflare fields in VideoEntry/VideoMetadata)
 │   │   └── utils.ts        # General utility functions, often includes things like `cn` for class name merging (Tailwind)
 │   ├── main.tsx            # Main entry point of the React application, responsible for rendering the root component (`App`) into the DOM
 │   ├── pages/              # Page-level components, typically corresponding to application routes

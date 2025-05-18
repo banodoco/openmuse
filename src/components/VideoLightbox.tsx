@@ -29,7 +29,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { cn } from '@/lib/utils';
-import { VideoDisplayStatus, AdminStatus } from '@/lib/types';
+import { VideoDisplayStatus, AdminStatus, VideoEntry } from '@/lib/types';
 import VideoStatusControls from '@/components/video/VideoStatusControls';
 import { useAuth } from '@/hooks/useAuth';
 import { 
@@ -48,55 +48,34 @@ import { Camera } from 'lucide-react';
 interface VideoLightboxProps {
   isOpen: boolean;
   onClose: () => void;
-  videoUrl: string;
-  videoId: string;
-  title?: string;
-  description?: string;
+  video: VideoEntry | null;
   initialAssetId?: string;
   initialVariantDetails?: string;
-  creator?: string | null;
-  thumbnailUrl?: string;
-  creatorId?: string;
   onVideoUpdate?: () => Promise<void> | void;
   isAuthorized?: boolean;
-  currentStatus?: VideoDisplayStatus | null;
-  onStatusChange?: (newStatus: VideoDisplayStatus) => Promise<void>;
-  adminStatus?: AdminStatus | null;
-  onAdminStatusChange?: (newStatus: AdminStatus) => Promise<void>;
-  /** If true, shows a button to navigate to the previous video and fires the callback when clicked */
+  onStatusChange?: (videoId: string, newStatus: VideoDisplayStatus) => Promise<void>;
+  onAdminStatusChange?: (videoId: string, newStatus: AdminStatus) => Promise<void>;
   hasPrev?: boolean;
   onPrevVideo?: () => void;
-  /** If true, shows a button to navigate to the next video and fires the callback when clicked */
   hasNext?: boolean;
   onNextVideo?: () => void;
-  classification?: 'art' | 'gen';
-  /** Callback function to handle video deletion. If provided, a delete button will be shown if authorized. */
   onDeleteVideo?: (videoId: string) => Promise<void>;
 }
 
 const VideoLightbox: React.FC<VideoLightboxProps> = ({
   isOpen,
   onClose,
-  videoUrl,
-  videoId,
-  title: initialTitle,
-  description: initialDescription,
+  video,
   initialAssetId,
   initialVariantDetails,
-  creator,
-  thumbnailUrl: initialThumbnailUrl,
-  creatorId,
   onVideoUpdate,
   isAuthorized = false,
-  currentStatus = null,
   onStatusChange,
-  adminStatus = null,
   onAdminStatusChange,
   hasPrev,
   onPrevVideo,
   hasNext,
   onNextVideo,
-  classification: initialClassification = 'gen',
   onDeleteVideo
 }): React.ReactElement => {
   const { user, isAdmin } = useAuth();
@@ -107,10 +86,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const isMobile = useIsMobile();
 
   const [isEditing, setIsEditing] = useState(false);
-  const [editableTitle, setEditableTitle] = useState(initialTitle || '');
-  const [editableDescription, setEditableDescription] = useState(initialDescription || '');
+  const [editableTitle, setEditableTitle] = useState(video?.title || '');
+  const [editableDescription, setEditableDescription] = useState(video?.description || '');
   const [editableAssetId, setEditableAssetId] = useState(initialAssetId || '');
-  const [editableClassification, setEditableClassification] = useState<'art' | 'gen'>(initialClassification);
+  const [editableClassification, setEditableClassification] = useState<'art' | 'gen'>(video?.classification === 'art' || video?.classification === 'gen' ? video.classification : video?.metadata?.classification === 'art' || video?.metadata?.classification === 'gen' ? video.metadata.classification : 'gen');
   const [editableVariantDetails, setEditableVariantDetails] = useState(initialVariantDetails || '');
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -133,7 +112,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const [isCapturingFrame, setIsCapturingFrame] = useState(false);
   const [hasCapturedNewFrame, setHasCapturedNewFrame] = useState(false);
 
-  const canEdit = isAdmin || (user?.id && user.id === creatorId);
+  const canEdit = isAdmin || (user?.id && user.id === video?.user_id);
 
   const adminStatusIcons: Record<AdminStatus, React.ElementType> = {
     Listed: List,
@@ -150,9 +129,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const scrubVideoRef = useRef<HTMLVideoElement>(null);
 
+  const initialClassification = (video?.classification === 'art' || video?.classification === 'gen' ? video.classification : video?.metadata?.classification === 'art' || video?.metadata?.classification === 'gen' ? video.metadata.classification : 'gen') as 'art' | 'gen';
+  const currentStatus = video?.user_status || video?.assetMediaDisplayStatus || null; // Adjust based on context if needed
+
   useEffect(() => {
-    setEditableTitle(initialTitle || '');
-    setEditableDescription(initialDescription || '');
+    setEditableTitle(video?.title || '');
+    setEditableDescription(video?.description || '');
     setEditableAssetId(initialAssetId || '');
     setEditableClassification(initialClassification);
     setEditableVariantDetails(initialVariantDetails || '');
@@ -169,7 +151,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     if (lightboxVideoRef.current) {
       lightboxVideoRef.current.currentTime = 0;
     }
-  }, [videoId, initialTitle, initialDescription, initialAssetId, initialClassification, initialVariantDetails, initialThumbnailUrl]);
+  }, [video, isOpen, initialAssetId, initialVariantDetails]);
 
   useEffect(() => {
     if (loraFetchError) {
@@ -189,10 +171,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     if (!isOpen) return;
     setSearchParams(prev => {
       const p = new URLSearchParams(prev);
-      p.set('video', videoId);
+      p.set('video', video?.id || '');
       return p;
     }, { replace: true });
-  }, [videoId, isOpen, setSearchParams]);
+  }, [video?.id, isOpen, setSearchParams]);
 
   // 2. When the lightbox is closed/unmounted → remove the param once.
   useEffect(() => {
@@ -208,8 +190,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   const handleCancelEdit = useCallback(() => {
     setIsEditing(false);
-    setEditableTitle(initialTitle || '');
-    setEditableDescription(initialDescription || '');
+    setEditableTitle(video?.title || '');
+    setEditableDescription(video?.description || '');
     setEditableAssetId(initialAssetId || '');
     setEditableClassification(initialClassification);
     setEditableVariantDetails(initialVariantDetails || '');
@@ -226,7 +208,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     if (lightboxVideoRef.current) {
       lightboxVideoRef.current.currentTime = 0;
     }
-  }, [initialTitle, initialDescription, initialAssetId, initialClassification, initialVariantDetails, lightboxVideoRef]);
+  }, [video?.title, video?.description, initialAssetId, initialClassification, initialVariantDetails, lightboxVideoRef]);
 
   useEffect(() => {
     const handleEsc = (e: KeyboardEvent) => {
@@ -258,8 +240,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   const handleToggleEdit = () => {
     if (!isEditing) {
-      setEditableTitle(initialTitle || '');
-      setEditableDescription(initialDescription || '');
+      setEditableTitle(video?.title || '');
+      setEditableDescription(video?.description || '');
       setEditableAssetId(initialAssetId || '');
       setEditableClassification(initialClassification);
       setEditableVariantDetails(initialVariantDetails || '');
@@ -413,7 +395,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   }, [captureFrame]); // Remove dependencies on isEditing, selectedTimestamp, isCapturingFrame as capture is now triggered by scrubVideoRef's seeked event
 
   const handleSaveEdit = async () => {
-    if (!canEdit || !videoId) return;
+    if (!canEdit || !video?.id) return;
     setIsSaving(true);
 
     const newAssetId = editableAssetId === "" ? null : editableAssetId;
@@ -457,7 +439,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       const { error: mediaUpdateError } = await supabase
         .from('media')
         .update(mediaUpdatePayload)
-        .eq('id', videoId);
+        .eq('id', video.id);
 
       if (mediaUpdateError) {
         console.error("[SaveEdit] Media update error:", mediaUpdateError);
@@ -467,11 +449,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
 
       // Step 3: Delete existing associations in asset_media for this video
-      console.log("Deleting existing LoRA associations for media_id:", videoId);
+      console.log("Deleting existing LoRA associations for media_id:", video.id);
       const { error: deleteError } = await supabase
         .from('asset_media')
         .delete()
-        .eq('media_id', videoId);
+        .eq('media_id', video.id);
 
       if (deleteError) {
         console.error("LoRA association deletion error:", deleteError);
@@ -482,12 +464,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
       // Step 4: Insert new association if a LoRA was selected
       if (newAssetId) {
-        console.log("Inserting new LoRA association:", { asset_id: newAssetId, media_id: videoId, variant_details: editableVariantDetails });
+        console.log("Inserting new LoRA association:", { asset_id: newAssetId, media_id: video.id, variant_details: editableVariantDetails });
         const { error: insertError } = await supabase
           .from('asset_media')
           .insert({
             asset_id: newAssetId,
-            media_id: videoId,
+            media_id: video.id,
             variant_details: editableVariantDetails
           });
 
@@ -548,16 +530,16 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
     }
   };
 
-  const displayTitle = isEditing ? '' : (initialTitle || '');
+  const displayTitle = isEditing ? '' : (video?.title || '');
 
   const loraDisplayText = initialAssetId
     ? availableLoras.find(l => l.id === initialAssetId)?.name ?? initialAssetId
     : null;
 
   const handleStatusInternal = async (newStatus: VideoDisplayStatus) => {
-    if (onStatusChange) {
+    if (onStatusChange && video?.id) {
       try {
-        await onStatusChange(newStatus);
+        await onStatusChange(video.id, newStatus);
         // Parent component is responsible for toast messages on success/local update
       } catch (error) {
         console.error("Error handling status change in lightbox:", error);
@@ -569,10 +551,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
   };
 
   const handleAdminStatusInternal = async (newStatus: AdminStatus) => {
-    if (onAdminStatusChange && isAdmin) {
+    if (onAdminStatusChange && isAdmin && video?.id) {
       setIsUpdatingAdminStatus(true);
       try {
-        await onAdminStatusChange(newStatus);
+        await onAdminStatusChange(video.id, newStatus);
         // Parent should handle toast/state update
       } catch (error) {
         console.error("Error handling admin status change in lightbox:", error);
@@ -599,7 +581,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
   // --- New handler for saving only the thumbnail frame ---
   const handleUpdateThumbnailFrame = async () => {
-    if (!hasCapturedNewFrame || !framePreviewUrl || !videoId) {
+    if (!hasCapturedNewFrame || !framePreviewUrl || !video?.id) {
       toast({ title: "Cannot Update", description: "No new frame has been selected.", variant: "default" });
       return;
     }
@@ -618,12 +600,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
 
       // 2. Create a File object
       const fileExt = blob.type.split('/')[1] || 'jpg';
-      const uniqueFileName = `frame_${Date.now()}_${videoId}.${fileExt}`;
+      const uniqueFileName = `frame_${Date.now()}_${video.id}.${fileExt}`;
       const thumbnailFile = new File([blob], uniqueFileName, { type: blob.type });
       console.log(`[SaveThumbnail] Created File object: ${thumbnailFile.name}, Size: ${thumbnailFile.size}`);
 
       // 3. Upload the thumbnail file
-      const filePath = `public/${videoId}/${thumbnailFile.name}`;
+      const filePath = `public/${video.id}/${thumbnailFile.name}`;
       console.log("[SaveThumbnail] Uploading to:", filePath);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
@@ -656,11 +638,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
       console.log("[SaveThumbnail] New thumbnail URL:", newThumbnailUrl);
 
       // 5. Update media table
-      console.log("[SaveThumbnail] Updating media table placeholder_image for video:", videoId);
+      console.log("[SaveThumbnail] Updating media table placeholder_image for video:", video.id);
       const { error: mediaUpdateError } = await supabase
         .from('media')
         .update({ placeholder_image: newThumbnailUrl })
-        .eq('id', videoId);
+        .eq('id', video.id);
 
       if (mediaUpdateError) {
         console.error("[SaveThumbnail] Media update error:", mediaUpdateError);
@@ -764,11 +746,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
           >
             <DialogHeader className="p-4 border-b">
               <DialogTitle>
-                {isEditing ? 'Edit Video Details' : initialTitle || 'Video'}
+                {isEditing ? 'Edit Video Details' : video?.title || 'Video'}
               </DialogTitle>
               <VisuallyHidden>
                 <DialogDescription>
-                  {isEditing ? editableDescription : initialDescription || 'Video details and controls.'}
+                  {isEditing ? editableDescription : video?.description || 'Video details and controls.'}
                 </DialogDescription>
               </VisuallyHidden>
             </DialogHeader>
@@ -784,8 +766,12 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               )}>
                 <VideoPlayer
                   ref={lightboxVideoRef}
-                  src={videoUrl}
-                  poster={initialThumbnailUrl}
+                  src={video?.storage_provider === 'cloudflare-stream' && video.cloudflare_playback_hls_url
+                    ? video.cloudflare_playback_hls_url
+                    : video?.url || ''}
+                  poster={video?.storage_provider === 'cloudflare-stream' && video.cloudflare_thumbnail_url
+                    ? video.cloudflare_thumbnail_url
+                    : video?.placeholder_image || video?.metadata?.placeholder_image || undefined}
                   className="absolute inset-0 w-full h-full object-contain"
                   controls
                   autoPlay={true}
@@ -824,7 +810,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   </Button>
                 )}
 
-                {isAuthorized && currentStatus && onStatusChange && (
+                {isAuthorized && video?.user_status && onStatusChange && (
                   <div
                     className="absolute top-2 left-2 z-50"
                     onClick={(e) => {
@@ -834,7 +820,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                     style={{ pointerEvents: 'all' }}
                   >
                     <VideoStatusControls
-                      status={currentStatus}
+                      status={video.user_status}
                       onStatusChange={handleStatusInternal}
                       className=""
                     />
@@ -854,7 +840,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                     <div className="flex gap-1">
                       {(['Hidden', 'Listed', 'Curated', 'Featured'] as AdminStatus[]).map(status => {
                         const Icon = adminStatusIcons[status];
-                        const isActive = adminStatus === status;
+                        const isActive = video?.admin_status === status;
                         return (
                           <Tooltip key={status}>
                             <TooltipTrigger asChild>
@@ -927,7 +913,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
               >
                 {isEditing ? (() => {
                     const selectValue = editableAssetId || "";
-                    const currentPreviewSrc = framePreviewUrl || initialThumbnailUrl || '';
+                    const currentPreviewSrc = framePreviewUrl || video?.placeholder_image || '';
                     return (
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                         {/* Left Column: Text fields & Select */}
@@ -959,7 +945,14 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                             <Label className="text-sm font-medium text-muted-foreground block mb-1.5">Classification</Label>
                             <RadioGroup
                               value={editableClassification}
-                              onValueChange={(value) => setEditableClassification(value as 'art' | 'gen')}
+                              onValueChange={(value) => {
+                                if (value === 'art' || value === 'gen') {
+                                  setEditableClassification(value);
+                                } else {
+                                  // Fallback or error, though ideally value is always 'art' or 'gen' from RadioGroupItem
+                                  setEditableClassification('gen'); 
+                                }
+                              }}
                               className="flex gap-4"
                               disabled={isSaving}
                             >
@@ -1025,8 +1018,8 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                            <Label className="text-sm font-medium text-muted-foreground block">Thumbnail Frame</Label>
                            <div className="aspect-video w-full bg-muted rounded overflow-hidden mb-2 relative group">
                              <img
-                               key={framePreviewUrl || initialThumbnailUrl || 'empty'}
-                               src={framePreviewUrl || initialThumbnailUrl || ''}
+                               key={framePreviewUrl || video?.placeholder_image || 'empty'}
+                               src={framePreviewUrl || video?.placeholder_image || ''}
                                alt="Thumbnail preview"
                                className={cn(
                                   "w-full h-full object-contain transition-opacity duration-200",
@@ -1035,7 +1028,7 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                onError={(e) => { e.currentTarget.style.opacity = '0'; }}
                                onLoad={(e) => { e.currentTarget.style.opacity = '1'; }}
                              />
-                             {!framePreviewUrl && !initialThumbnailUrl && !isCapturingFrame && (
+                             {!framePreviewUrl && !video?.placeholder_image && !isCapturingFrame && (
                                 <div className="absolute inset-0 flex items-center justify-center bg-muted/50">
                                    <span className="text-xs text-muted-foreground">No Thumbnail</span>
                                  </div>
@@ -1175,10 +1168,10 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                                        <AlertDialogAction
                                          onClick={async (e) => {
                                            e.preventDefault();
-                                           if (!onDeleteVideo) return;
+                                           if (!onDeleteVideo || !video?.id) return;
                                            setIsDeleting(true);
                                            try {
-                                             await onDeleteVideo(videoId);
+                                             await onDeleteVideo(video.id);
                                              toast({ title: "Video deleted successfully." });
                                              onClose();
                                            } catch (error: any) {
@@ -1207,17 +1200,17 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                            </div>
                          )}
                        </div>
-                       {creatorId && (
+                       {video?.user_id && (
                          <div className="mt-1.5">
                            <LoraCreatorInfo 
-                             asset={{ user_id: creatorId } as any} 
+                             asset={{ user_id: video.user_id } as any} 
                              avatarSize="h-5 w-5"
                              textSize="text-sm" 
                            />
                          </div>
                        )}
-                       {initialDescription && (
-                           <p className="text-sm mt-2 whitespace-pre-wrap">{initialDescription}</p>
+                       {video?.description && (
+                           <p className="text-sm mt-2 whitespace-pre-wrap">{video.description}</p>
                        )}
                        {initialAssetId && (() => {
                          const loraName = availableLoras.find(l => l.id === initialAssetId)?.name;
@@ -1248,11 +1241,11 @@ const VideoLightbox: React.FC<VideoLightboxProps> = ({
                   )}
 
                 {/* Hidden video element for scrubbing/frame capture */}
-                {isEditing && videoUrl && (
+                {isEditing && video?.url && (
                   <>
                     <video
                       ref={scrubVideoRef}
-                      src={videoUrl}
+                      src={video.url}
                       muted
                       playsInline
                       preload="auto" // Preload for seeking
