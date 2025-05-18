@@ -88,14 +88,24 @@ export const uploadVideoToCloudflareStream = async (
           const currentRequestUrl = req.getURL();
           const dynamicHeaders: Record<string, string> = {};
 
+          logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Headers function invoked.', {
+            currentRequestUrl,
+            tusClientEndpoint,
+            method: req.getMethod(),
+            hasSupabaseToken: !!supabaseAccessToken,
+            cfUploadMetadataHeaderProvided: !!cfUploadMetadataHeader
+          });
+
           // Only add Supabase Auth and Cloudflare Upload-Metadata for the initial POST to our Edge Function
           if (currentRequestUrl === tusClientEndpoint) {
+            logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Condition met: currentRequestUrl === tusClientEndpoint. Preparing headers for Edge Function.');
             dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
             if (cfUploadMetadataHeader) {
               dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
             }
-            logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Adding Auth & Upload-Metadata for Edge Fn request', { url: currentRequestUrl });
+            logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Adding Auth & Upload-Metadata for Edge Fn request', { url: currentRequestUrl, preparedHeaders: dynamicHeaders });
           } else {
+            logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Condition NOT met: currentRequestUrl !== tusClientEndpoint. Not adding special headers for direct CF TUS request.', { url: currentRequestUrl, tusClientEndpoint });
             // For direct TUS uploads to Cloudflare, do not send these headers.
             // Cloudflare does not expect/allow Authorization on its TUS endpoint.
             // Upload-Metadata is only for the initial API call handled by our Edge Function.
