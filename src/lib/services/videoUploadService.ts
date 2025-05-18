@@ -58,7 +58,6 @@ export const uploadVideoToCloudflareStream = async (
   let cloudflareUid = '';
 
   try {
-    // Get Supabase session token
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError || !session) {
@@ -79,9 +78,10 @@ export const uploadVideoToCloudflareStream = async (
       const cfUploadMetadataHeader = createCloudflareUploadMetadataHeaderValue({
           name: videoMetadata.title || file.name,
       });
-
-      // --- Reverting to dynamic headers function ---
-      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] Reverting to DYNAMIC headers function for TUS.");
+      
+      // Ensure X-Test-Header is NOT part of this unless specifically needed for this final version.
+      // It was for debugging the static header path.
+      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] USING DYNAMIC headers function for TUS.");
       console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] Supabase Access Token available here:", supabaseAccessToken ? `${supabaseAccessToken.substring(0,20)}...` : "NULL/UNDEFINED");
       console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] CF Upload Metadata available here:", cfUploadMetadataHeader);
 
@@ -98,29 +98,28 @@ export const uploadVideoToCloudflareStream = async (
             currentRequestUrl,
             tusClientEndpoint,
             method,
-            supabaseAccessTokenExists: !!supabaseAccessToken,
-            cfUploadMetadataHeaderValue: cfUploadMetadataHeader
+            supabaseAccessTokenExists: !!supabaseAccessToken, // Check existence from outer scope
+            cfUploadMetadataHeaderValue: cfUploadMetadataHeader // Check existence from outer scope
           });
 
           if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
             console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] POST to Edge Fn. Adding Auth/Metadata.');
-            if (!supabaseAccessToken) {
+            if (!supabaseAccessToken) { // Check token from outer scope
               console.error('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] CRITICAL: supabaseAccessToken is MISSING for Edge Fn POST!');
             } else {
               dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
             }
-            if (!cfUploadMetadataHeader) {
+            if (!cfUploadMetadataHeader) { // Check metadata from outer scope
               console.warn('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] cfUploadMetadataHeader is MISSING for Edge Fn POST.');
             } else {
               dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
             }
-            // Do NOT add X-Test-Header here unless specifically needed for this path
           } else {
             console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] NOT POST to Edge Fn. No special headers added.', { url: currentRequestUrl, method });
           }
           console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Returning headers:', dynamicHeaders);
           return dynamicHeaders;
-        }) as any, // Type assertion to satisfy TypeScript
+        }) as any, 
         onSuccess: () => {
           logger.log('[VideoLoadSpeedIssue][CF-TUSv4] TUS Upload Successful (onSuccess callback)', { videoName: file.name });
           if (!cloudflareUid) {
@@ -167,7 +166,7 @@ export const uploadVideoToCloudflareStream = async (
         }
       });
 
-      logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Starting TUS upload to Edge Function proxy.');
+      console.log('[VideoLoadSpeedIssue][CF-TUSv4] Starting TUS upload (with dynamic headers) to Edge Function proxy.');
       upload.start();
     });
 
@@ -219,7 +218,7 @@ export const uploadVideoToCloudflareStream = async (
     return insertedMedia as VideoEntry;
 
   } catch (error: any) {
-    logger.error('[VideoLoadSpeedIssue][CF-TUSv4] Error in uploadVideoToCloudflareStream:', { videoName: file.name, errorMessage: error.message, stack: error.stack });
+    logger.error('[VideoLoadSpeedIssue][CF-TUSv4] Error in uploadVideoToCloudflareStream (outer try-catch):', { videoName: file.name, errorMessage: error.message, stack: error.stack });
     throw error; 
   }
 };
