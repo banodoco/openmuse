@@ -90,35 +90,50 @@ export const uploadVideoToCloudflareStream = async (
         retryDelays: [0, 3000, 5000, 10000, 20000],
         metadata: tusClientMetadata,
         headers: ((req: tus.HttpRequest) => {
-          const currentRequestUrl = req.getURL();
-          const dynamicHeaders: Record<string, string> = {};
-          const method = req.getMethod();
+          console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] ENTERED. Attempting to get URL/Method.'); // Ensure this is the very first line
+          try {
+            const currentRequestUrl = req.getURL();
+            const method = req.getMethod();
+            const dynamicHeaders: Record<string, string> = {};
 
-          console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Invoked.', {
-            currentRequestUrl,
-            tusClientEndpoint,
-            method,
-            supabaseAccessTokenExists: !!supabaseAccessToken, // Check existence from outer scope
-            cfUploadMetadataHeaderValue: cfUploadMetadataHeader // Check existence from outer scope
-          });
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Invoked successfully. Processing...', {
+              currentRequestUrl,
+              tusClientEndpoint, // Log the endpoint we are comparing against
+              method,
+              supabaseAccessTokenExists: !!supabaseAccessToken, // Check existence from outer scope
+              cfUploadMetadataHeaderValue: cfUploadMetadataHeader // Check existence from outer scope
+            });
 
-          if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
-            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] POST to Edge Fn. Adding Auth/Metadata.');
-            if (!supabaseAccessToken) { // Check token from outer scope
-              console.error('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] CRITICAL: supabaseAccessToken is MISSING for Edge Fn POST!');
+            if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
+              console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Condition MET: POST to Edge Fn. Adding Auth/Metadata.');
+              if (!supabaseAccessToken) { // Check token from outer scope
+                console.error('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] CRITICAL: supabaseAccessToken is MISSING for Edge Fn POST!');
+                // Potentially, you could throw an error here or handle it,
+                // but for now, logging is key.
+              } else {
+                dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
+              }
+              if (!cfUploadMetadataHeader) { // Check metadata from outer scope
+                console.warn('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] cfUploadMetadataHeader is MISSING for Edge Fn POST.');
+              } else {
+                dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
+              }
             } else {
-              dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
+              console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Condition NOT MET or different request. No special headers added.', { 
+                url: currentRequestUrl, 
+                expectedUrl: tusClientEndpoint,
+                method,
+                isPost: method === 'POST',
+                isTargetEndpoint: currentRequestUrl === tusClientEndpoint
+              });
             }
-            if (!cfUploadMetadataHeader) { // Check metadata from outer scope
-              console.warn('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] cfUploadMetadataHeader is MISSING for Edge Fn POST.');
-            } else {
-              dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
-            }
-          } else {
-            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] NOT POST to Edge Fn. No special headers added.', { url: currentRequestUrl, method });
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Returning headers:', JSON.stringify(dynamicHeaders));
+            return dynamicHeaders;
+          } catch (e: any) {
+            console.error('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] CRITICAL ERROR INSIDE HEADERS FUNCTION:', e.message, e.stack, e);
+            // Return empty headers or default headers if an error occurs
+            return {}; 
           }
-          console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Returning headers:', dynamicHeaders);
-          return dynamicHeaders;
         }) as any, 
         onSuccess: () => {
           logger.log('[VideoLoadSpeedIssue][CF-TUSv4] TUS Upload Successful (onSuccess callback)', { videoName: file.name });
