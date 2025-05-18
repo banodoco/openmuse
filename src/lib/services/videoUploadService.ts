@@ -14,6 +14,22 @@ const generateMediaId = (): string => {
   return uuidv4();
 };
 
+// Helper to create Upload-Metadata string for TUS
+// See: https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#upload-metadata-header-syntax
+const createCloudflareUploadMetadataHeaderValue = (metadata: { 
+  name?: string, 
+  requiresSignedURLs?: boolean, 
+  expiry?: string /* ISO 8601 */, 
+  maxDurationSeconds?: number 
+}): string => {
+  const parts: string[] = [];
+  if (metadata.name) parts.push(`name ${btoa(unescape(encodeURIComponent(metadata.name)))}`);
+  if (metadata.requiresSignedURLs) parts.push(`requiresignedurls`);
+  if (metadata.expiry) parts.push(`expiry ${btoa(unescape(encodeURIComponent(metadata.expiry)))}`);
+  if (metadata.maxDurationSeconds) parts.push(`maxDurationSeconds ${btoa(unescape(encodeURIComponent(String(metadata.maxDurationSeconds))))}`);
+  return parts.join(',');
+};
+
 // --- New Primary Function for Cloudflare Stream Video Upload ---
 export const uploadVideoToCloudflareStream = async (
   file: File,
@@ -22,47 +38,71 @@ export const uploadVideoToCloudflareStream = async (
   assetId?: string,
   onProgress?: (bytesUploaded: number, bytesTotal: number) => void
 ): Promise<VideoEntry> => {
-  logger.log('[VideoLoadSpeedIssue] Starting Cloudflare Stream video upload', { videoName: file.name, userId, assetId });
+  logger.log('[VideoLoadSpeedIssue][CF-TUSv3] Starting Cloudflare Stream TUS upload', { videoName: file.name, userId, assetId });
 
-  if (!CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) { // Simplified check
-    logger.error('[VideoLoadSpeedIssue] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN is not configured. This should be a hardcoded value.');
+  if (!CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) {
+    logger.error('[VideoLoadSpeedIssue][CF-TUSv3] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN is not configured.');
     throw new Error('Cloudflare Stream customer subdomain is not configured.');
   }
 
+  // Construct the Edge Function URL reliably
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.REACT_APP_SUPABASE_URL || process.env.VITE_SUPABASE_URL;
+  if (!supabaseUrl) {
+      logger.error('[VideoLoadSpeedIssue][CF-TUSv3] Supabase project URL environment variable (e.g., NEXT_PUBLIC_SUPABASE_URL) not found.');
+      throw new Error("Supabase project URL not configured for Edge Function endpoint.");
+  }
+  // Ensure SUPABASE_URL does not end with a slash before appending /functions/v1
+  const functionsBasePath = `${supabaseUrl.replace(/\/$/, '')}/functions/v1`;
+  const tusClientEndpoint = `${functionsBasePath}/get-cloudflare-video-upload-url`;
+  
+  logger.log('[VideoLoadSpeedIssue][CF-TUSv3] TUS client endpoint set to Edge Function:', tusClientEndpoint);
+
+  let cloudflareUid = '';
+
   try {
-    logger.log('[VideoLoadSpeedIssue] Invoking get-cloudflare-video-upload-url Edge Function');
-    const { data: edgeFunctionResponse, error: edgeFunctionError } = await supabase.functions.invoke(
-      'get-cloudflare-video-upload-url',
-      { body: { } }
-    );
-
-    if (edgeFunctionError) {
-      logger.error('[VideoLoadSpeedIssue] Error invoking Edge Function:', edgeFunctionError);
-      throw new Error(`Failed to get Cloudflare upload URL: ${edgeFunctionError.message}`);
-    }
-
-    if (!edgeFunctionResponse?.uploadURL || !edgeFunctionResponse?.uid) {
-      logger.error('[VideoLoadSpeedIssue] Edge function response missing uploadURL or uid:', edgeFunctionResponse);
-      throw new Error('Invalid response from Cloudflare URL generation function.');
-    }
-    
-    const tusUploadUrl = edgeFunctionResponse.uploadURL;
-    let cloudflareUid = edgeFunctionResponse.uid;
-    logger.log('[VideoLoadSpeedIssue] Received TUS Upload URL and UID', { tusUploadUrl, cloudflareUid });
-
     await new Promise<void>((resolve, reject) => {
-      const tusMetadata: tus.UploadOptions['metadata'] = {
+      const tusClientMetadata: Record<string, string> = {
         filename: file.name,
         filetype: file.type,
-        name: videoMetadata.title || file.name,
       };
+      if (videoMetadata.title) {
+        tusClientMetadata.name = videoMetadata.title;
+      }
+
+      const cfUploadMetadataHeader = createCloudflareUploadMetadataHeaderValue({
+          name: videoMetadata.title || file.name,
+      });
 
       const upload = new tus.Upload(file, {
-        endpoint: tusUploadUrl,
+        endpoint: tusClientEndpoint,
         retryDelays: [0, 3000, 5000, 10000, 20000],
-        metadata: tusMetadata,
+        metadata: tusClientMetadata, 
+        headers: {
+          ...(cfUploadMetadataHeader && { 'Upload-Metadata': cfUploadMetadataHeader }),
+        },
+        onSuccess: () => {
+          logger.log('[VideoLoadSpeedIssue][CF-TUSv3] TUS Upload Successful (onSuccess callback)', { videoName: file.name });
+          if (!cloudflareUid) {
+            const finalUploadUrl = upload.url; 
+            if (finalUploadUrl) {
+              const parts = finalUploadUrl.split('/');
+              const potentialUid = parts[parts.length -1].split('?')[0]; 
+              if (potentialUid && potentialUid.length > 20) { 
+                 cloudflareUid = potentialUid;
+                 logger.warn(`[VideoLoadSpeedIssue][CF-TUSv3] UID extracted from final TUS URL (Location header): ${cloudflareUid}. Prefer Stream-Media-Id.`);
+              }
+            }
+            if (!cloudflareUid) {
+                logger.error("[VideoLoadSpeedIssue][CF-TUSv3] Cloudflare UID could not be determined after upload (onSuccess).");
+                reject(new Error("Cloudflare UID could not be determined after upload."));
+                return;
+            }
+          }
+          logger.log('[VideoLoadSpeedIssue][CF-TUSv3] UID confirmed for DB save (onSuccess): ', cloudflareUid);
+          resolve();
+        },
         onError: (error) => {
-          logger.error('[VideoLoadSpeedIssue] TUS Upload Error:', error);
+          logger.error('[VideoLoadSpeedIssue][CF-TUSv3] TUS Upload Error:', error);
           reject(new Error(`TUS upload failed: ${error.message}`));
         },
         onProgress: (bytesUploaded, bytesTotal) => {
@@ -70,12 +110,23 @@ export const uploadVideoToCloudflareStream = async (
             onProgress(bytesUploaded, bytesTotal);
           }
         },
-        onSuccess: () => {
-          logger.log('[VideoLoadSpeedIssue] TUS Upload Successful', { videoName: file.name, cloudflareUid });
-          resolve();
-        },
+        onAfterResponse: (req, res) => {
+            const mediaIdHeader = res.getHeader('Stream-Media-Id');
+            if (mediaIdHeader) {
+                cloudflareUid = mediaIdHeader;
+                logger.log(`[VideoLoadSpeedIssue][CF-TUSv3] Stream-Media-Id (UID) from Edge Function response: ${cloudflareUid}`);
+            }
+            const locationHeader = res.getHeader('Location');
+            if(locationHeader){
+                logger.log(`[VideoLoadSpeedIssue][CF-TUSv3] Actual Cloudflare TUS endpoint (Location) from Edge Function: ${locationHeader}`);
+            }
+            if (req.getMethod() === 'POST' && !mediaIdHeader && !locationHeader){
+                logger.warn('[VideoLoadSpeedIssue][CF-TUSv3] POST to Edge Fn: Missing Stream-Media-Id or Location in response headers from Edge Fn.');
+            }
+        }
       });
-      logger.log('[VideoLoadSpeedIssue] Starting TUS upload process...', { videoName: file.name });
+
+      logger.log('[VideoLoadSpeedIssue][CF-TUSv3] Starting TUS upload to Edge Function proxy.');
       upload.start();
     });
 
@@ -107,7 +158,7 @@ export const uploadVideoToCloudflareStream = async (
       asset_id: assetId,
     };
     
-    logger.log('[VideoLoadSpeedIssue] Attempting to insert new media entry.', newMediaEntryPayload);
+    logger.log('[VideoLoadSpeedIssue][CF-TUSv3] Attempting to insert new media entry post-TUS.', newMediaEntryPayload);
     const { data: insertedMedia, error: insertError } = await supabase
       .from('media')
       .insert(newMediaEntryPayload)
@@ -115,19 +166,19 @@ export const uploadVideoToCloudflareStream = async (
       .single();
 
     if (insertError) {
-      logger.error('[VideoLoadSpeedIssue] Error inserting media entry:', insertError);
+      logger.error('[VideoLoadSpeedIssue][CF-TUSv3] Error inserting media entry:', insertError);
       throw new Error(`Failed to create media entry: ${insertError.message}`);
     }
     if (!insertedMedia) {
-        logger.error('[VideoLoadSpeedIssue] No data returned after inserting media entry.');
+        logger.error('[VideoLoadSpeedIssue][CF-TUSv3] No data returned after inserting media entry.');
         throw new Error('Failed to create media entry: no data returned.');
     }
     
-    logger.log('[VideoLoadSpeedIssue] Successfully inserted media entry.', { mediaId: (insertedMedia as any).id, cloudflareUid });
+    logger.log('[VideoLoadSpeedIssue][CF-TUSv3] Successfully inserted media entry.', { mediaId: (insertedMedia as any).id, cloudflareUid });
     return insertedMedia as VideoEntry;
 
   } catch (error: any) {
-    logger.error('[VideoLoadSpeedIssue] Error in uploadVideoToCloudflareStream:', { videoName: file.name, errorMessage: error.message, stack: error.stack });
+    logger.error('[VideoLoadSpeedIssue][CF-TUSv3] Error in uploadVideoToCloudflareStream:', { videoName: file.name, errorMessage: error.message, stack: error.stack });
     throw error; 
   }
 };
@@ -144,7 +195,7 @@ export const uploadMultipleVideosToCloudflare = async (
   assetId?: string,
   onProgress?: (videoName: string, bytesUploaded: number, bytesTotal: number, videoIndex: number, totalVideos: number) => void
 ): Promise<UploadOperationResult[]> => {
-  logger.log('[VideoLoadSpeedIssue] Starting multiple video uploads to Cloudflare Stream.', { count: videos.length, userId, assetId });
+  logger.log('[VideoLoadSpeedIssue][CF-TUSv3] Starting multiple video uploads to Cloudflare Stream (via TUS proxy).', { count: videos.length, userId, assetId });
   const results: UploadOperationResult[] = [];
   let completedCount = 0;
 
@@ -152,7 +203,7 @@ export const uploadMultipleVideosToCloudflare = async (
     const videoItem = videos[i];
     const videoTitle = videoItem.metadata.title || videoItem.file.name;
     try {
-      logger.log(`[VideoLoadSpeedIssue] Uploading video ${i + 1} of ${videos.length}: ${videoTitle}`);
+      logger.log(`[VideoLoadSpeedIssue][CF-TUSv3] Uploading video ${i + 1} of ${videos.length}: ${videoTitle}`);
       const resultEntry = await uploadVideoToCloudflareStream(
         videoItem.file,
         userId,
@@ -166,13 +217,13 @@ export const uploadMultipleVideosToCloudflare = async (
       );
       results.push({ status: 'success', entry: resultEntry, title: videoTitle });
       completedCount++;
-      logger.log(`[VideoLoadSpeedIssue] Successfully uploaded video ${i + 1} of ${videos.length}: ${videoTitle}`);
+      logger.log(`[VideoLoadSpeedIssue][CF-TUSv3] Successfully uploaded video ${i + 1} of ${videos.length}: ${videoTitle}`);
     } catch (error: any) {
-      logger.error(`[VideoLoadSpeedIssue] Error uploading video ${videoTitle} (${i + 1} of ${videos.length}):`, error.message);
+      logger.error(`[VideoLoadSpeedIssue][CF-TUSv3] Error uploading video ${videoTitle} (${i + 1} of ${videos.length}):`, error.message);
       results.push({ status: 'error', error: error.message, title: videoTitle });
     }
   }
-  logger.log(`[VideoLoadSpeedIssue] Multiple video upload process completed. ${completedCount}/${videos.length} succeeded.`);
+  logger.log(`[VideoLoadSpeedIssue][CF-TUSv3] Multiple video TUS upload process completed. ${completedCount}/${videos.length} succeeded.`);
   return results;
 };
 
@@ -184,8 +235,8 @@ export const uploadVideoToStorage = async (
   _userId: string,
   _assetId?: string
 ): Promise<{ videoPath: string; thumbnailPath: string }> => {
-  logger.warn('[VideoLoadSpeedIssue] uploadVideoToStorage is deprecated.');
-  throw new Error("uploadVideoToStorage is deprecated. New video uploads should use Cloudflare Stream.");
+  logger.warn('[VideoLoadSpeedIssue] uploadVideoToStorage is deprecated and should not be called for new uploads.');
+  throw new Error("uploadVideoToStorage is deprecated. New video uploads should use Cloudflare Stream via TUS.");
 };
 
 export const createMediaFromVideo = async (
@@ -194,9 +245,9 @@ export const createMediaFromVideo = async (
   userId: string,
   assetId?: string
 ): Promise<VideoEntry> => {
-  logger.warn('[VideoLoadSpeedIssue] createMediaFromVideo for CF. Review if still needed.');
-  if (!CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) { // Simplified check
-     logger.error('[VideoLoadSpeedIssue] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN is not configured. This should be a hardcoded value.');
+  logger.warn('[VideoLoadSpeedIssue][CF-TUSv3] createMediaFromVideo for CF. Review if still needed or if TUS flow covers all direct CF UID cases.');
+  if (!CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) {
+     logger.error('[VideoLoadSpeedIssue][CF-TUSv3] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN is not configured.');
      throw new Error('Cloudflare Stream customer subdomain not configured.');
   }
 
@@ -236,16 +287,16 @@ export const createMediaFromVideo = async (
       .single();
 
     if (error) {
-      logger.error('[VideoLoadSpeedIssue] Error creating media entry (from existing CF UID):', error);
+      logger.error('[VideoLoadSpeedIssue][CF-TUSv3] Error creating media entry (from existing CF UID):', error);
       throw new Error(`Failed to create media entry: ${error.message}`);
     }
     if (!data) {
       throw new Error("No data returned when creating media entry (from existing CF UID).");
     }
-    logger.log('[VideoLoadSpeedIssue] Media entry created from existing CF UID', { mediaId: (data as any).id, cloudflareStreamUid });
+    logger.log('[VideoLoadSpeedIssue][CF-TUSv3] Media entry created from existing CF UID', { mediaId: (data as any).id, cloudflareStreamUid });
     return data as VideoEntry;
   } catch (error: any) {
-    logger.error('[VideoLoadSpeedIssue] Error in createMediaFromVideo (for CF):', error);
+    logger.error('[VideoLoadSpeedIssue][CF-TUSv3] Error in createMediaFromVideo (for CF):', error);
     throw new Error(`Failed to create media entry: ${error.message}`);
   }
 };
@@ -257,9 +308,9 @@ export const createMediaFromExistingVideo = async (
   assetId?: string,
   knownCloudflareStreamUid?: string // Allow passing UID if already known
 ): Promise<VideoEntry | null> => {
-  logger.warn('[VideoLoadSpeedIssue] createMediaFromExistingVideo for CF. Review if still needed.');
+  logger.warn('[VideoLoadSpeedIssue][CF-TUSv3] createMediaFromExistingVideo for CF. Review if needed.');
   if (!videoUrl) {
-    logger.error('[VideoLoadSpeedIssue] Video URL is required.');
+    logger.error('[VideoLoadSpeedIssue] Video URL is required for createMediaFromExistingVideo.');
     return null;
   }
   
@@ -272,7 +323,7 @@ export const createMediaFromExistingVideo = async (
   if (!CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) { // Simplified check
     logger.error('[VideoLoadSpeedIssue] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN not configured. Cannot derive Cloudflare info for existing video.');
   } else {
-    const streamUrlPattern = new RegExp(`https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}\\.cloudflarestream\\.com/([a-f0-9]+)/`);
+    const streamUrlPattern = new RegExp(`https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}\.cloudflarestream\.com/([a-f0-9]+)/`);
     const match = videoUrl.match(streamUrlPattern);
     if (match && match[1]) {
       cfUid = match[1]; 
@@ -323,16 +374,16 @@ export const createMediaFromExistingVideo = async (
       .single();
 
     if (error) {
-      logger.error('[VideoLoadSpeedIssue] Error creating media entry from existing video (adapted):', error);
+      logger.error('[VideoLoadSpeedIssue][CF-TUSv3] Error creating media entry from existing video (adapted):', error);
       throw new Error(`Failed to create media entry from existing video: ${error.message}`);
     }
     if (!data) {
       throw new Error("No data returned when creating media entry from existing video (adapted).");
     }
-    logger.log('[VideoLoadSpeedIssue] Media entry created from existing video URL (adapted)', { mediaId: (data as any).id, videoUrl, cfUid });
+    logger.log('[VideoLoadSpeedIssue][CF-TUSv3] Media entry created from existing video URL (adapted)', { mediaId: (data as any).id, videoUrl, cfUid });
     return data as VideoEntry;
   } catch (error: any) {
-    logger.error('[VideoLoadSpeedIssue] Error in createMediaFromExistingVideo (adapted):', error);
+    logger.error('[VideoLoadSpeedIssue][CF-TUSv3] Error in createMediaFromExistingVideo (adapted):', error);
     throw new Error(`Failed to create media entry from existing video: ${error.message}`);
   }
 };
@@ -346,7 +397,7 @@ export const uploadMultipleVideosToSupabase = async (
   assetId?: string,
   onProgress?: (videoName: string, bytesUploaded: number, bytesTotal: number, videoIndex: number, totalVideos: number) => void
 ): Promise<UploadOperationResult[]> => {
-  logger.warn('[VideoLoadSpeedIssue] uploadMultipleVideosToSupabase is an alias for uploadMultipleVideosToCloudflare.');
+  logger.warn('[VideoLoadSpeedIssue][CF-TUSv3] uploadMultipleVideosToSupabase is an alias for uploadMultipleVideosToCloudflare.');
   return uploadMultipleVideosToCloudflare(videos, userId, assetId, onProgress);
 };
 
