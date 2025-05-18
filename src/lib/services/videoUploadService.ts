@@ -38,161 +38,159 @@ export const uploadVideoToCloudflareStream = async (
   assetId?: string,
   onProgress?: (bytesUploaded: number, bytesTotal: number) => void
 ): Promise<VideoEntry> => {
-  logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Starting Cloudflare Stream TUS upload', { videoName: file.name, userId, assetId });
+  logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Starting Cloudflare Stream upload', { videoName: file.name, userId, assetId });
 
   if (!CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) {
-    logger.error('[VideoLoadSpeedIssue][CF-TUSv4] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN is not configured.');
+    logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN is not configured.');
     throw new Error('Cloudflare Stream customer subdomain is not configured.');
   }
 
   if (!SUPABASE_URL) {
-      logger.error('[VideoLoadSpeedIssue][CF-TUSv4] Imported SUPABASE_URL is not available.');
+      logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Imported SUPABASE_URL is not available.');
       throw new Error("Supabase project URL not configured for Edge Function endpoint (imported).");
   }
   
   const functionsBasePath = `${SUPABASE_URL.replace(/\/$/, '')}/functions/v1`;
-  const tusClientEndpoint = `${functionsBasePath}/get-cloudflare-video-upload-url`;
+  const edgeFunctionUrl = `${functionsBasePath}/get-cloudflare-video-upload-url`;
   
-  logger.log('[VideoLoadSpeedIssue][CF-TUSv4] TUS client endpoint set to Edge Function:', tusClientEndpoint);
+  logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Edge Function URL for creating TUS upload:', edgeFunctionUrl);
 
-  let cloudflareUid = '';
+  let obtainedCloudflareUid = '';
+  let actualCloudflareTusUrl = '';
 
   try {
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
     if (sessionError || !session) {
-      logger.error('[VideoLoadSpeedIssue][CF-TUSv4] Error getting Supabase session or no session found.', sessionError);
+      logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Error getting Supabase session or no session found.', sessionError);
       throw new Error('Supabase session not found. Cannot authorize Edge Function call.');
     }
     const supabaseAccessToken = session.access_token;
 
+    const cfUploadMetadataHeader = createCloudflareUploadMetadataHeaderValue({
+        name: videoMetadata.title || file.name,
+    });
+
+    // Step 1: Directly call the Edge Function to get the Cloudflare TUS URL
+    logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Attempting direct POST to Edge Function.', { edgeFunctionUrl });
+    const directFetchHeaders: Record<string, string> = {
+      'Authorization': `Bearer ${supabaseAccessToken}`,
+      'Tus-Resumable': '1.0.0',
+      'Upload-Length': file.size.toString(),
+      // 'Content-Type': 'application/offset+octet-stream', // Not needed for creation POST which has no body
+    };
+    if (cfUploadMetadataHeader) {
+      directFetchHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
+    }
+    
+    console.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Headers for direct POST to Edge Fn:', JSON.stringify(directFetchHeaders).replace(supabaseAccessToken, 'REDACTED_TOKEN'));
+
+
+    const edgeFnResponse = await fetch(edgeFunctionUrl, {
+      method: 'POST',
+      headers: new Headers(directFetchHeaders), // Use Headers constructor
+      body: null, // No body for the initial POST to Cloudflare via our Edge Function
+    });
+
+    logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Edge Function direct POST response status:', edgeFnResponse.status);
+    
+    if (!edgeFnResponse.ok || edgeFnResponse.status !== 201) { // Cloudflare returns 201 on success
+      const errorBody = await edgeFnResponse.text();
+      logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Error response from Edge Function direct POST.', {
+        status: edgeFnResponse.status,
+        statusText: edgeFnResponse.statusText,
+        body: errorBody,
+        headers: Object.fromEntries(edgeFnResponse.headers.entries())
+      });
+      throw new Error(`Failed to create TUS upload via Edge Function: ${edgeFnResponse.status} ${edgeFnResponse.statusText}. ${errorBody}`);
+    }
+
+    actualCloudflareTusUrl = edgeFnResponse.headers.get('Location') || '';
+    obtainedCloudflareUid = edgeFnResponse.headers.get('Stream-Media-Id') || '';
+
+    if (!actualCloudflareTusUrl) {
+      logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] CRITICAL: Edge function response missing Location header.', { headers: Object.fromEntries(edgeFnResponse.headers.entries()) });
+      throw new Error('Edge function did not return a TUS upload location.');
+    }
+    if (!obtainedCloudflareUid) {
+      // Try to extract from Location if Stream-Media-Id is missing (fallback)
+      const parts = actualCloudflareTusUrl.split('/');
+      const potentialUid = parts[parts.length -1].split('?')[0];
+      if (potentialUid && potentialUid.length > 20) { // Basic sanity check for a UID-like string
+         obtainedCloudflareUid = potentialUid;
+         logger.warn(`[VideoLoadSpeedIssue][CF-DirectFetch-v1] Stream-Media-Id missing, UID extracted from Location header: ${obtainedCloudflareUid}`);
+      } else {
+        logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] CRITICAL: Edge function response missing Stream-Media-Id and could not parse from Location.', { location: actualCloudflareTusUrl, headers: Object.fromEntries(edgeFnResponse.headers.entries()) });
+        throw new Error('Edge function did not return Stream-Media-Id and it could not be parsed from Location.');
+      }
+    }
+    
+    logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Successfully obtained Cloudflare TUS URL and UID.', { actualCloudflareTusUrl, obtainedCloudflareUid });
+
+    // Step 2: Use tus-js-client to upload the file to the obtained actualCloudflareTusUrl
     await new Promise<void>((resolve, reject) => {
-      const tusClientMetadata: Record<string, string> = {
+      const tusClientMetadata: Record<string, string> = { // tus-js-client still uses metadata for its own purposes, even if not sent in initial POST
         filename: file.name,
         filetype: file.type,
       };
       if (videoMetadata.title) {
-        tusClientMetadata.name = videoMetadata.title;
+        tusClientMetadata.name = videoMetadata.title; // Corresponds to 'name' in Upload-Metadata
       }
-
-      const cfUploadMetadataHeader = createCloudflareUploadMetadataHeaderValue({
-          name: videoMetadata.title || file.name,
-      });
       
-      // Ensure X-Test-Header is NOT part of this unless specifically needed for this final version.
-      // It was for debugging the static header path.
-      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] USING DYNAMIC headers function for TUS.");
-      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] Supabase Access Token available here:", supabaseAccessToken ? `${supabaseAccessToken.substring(0,20)}...` : "NULL/UNDEFINED");
-      console.log("[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeaders] CF Upload Metadata available here:", cfUploadMetadataHeader);
+      console.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Initializing tus.Upload with uploadUrl:', actualCloudflareTusUrl);
 
       const upload = new tus.Upload(file, {
-        endpoint: tusClientEndpoint,
+        uploadUrl: actualCloudflareTusUrl, // Key change: Use uploadUrl
+        endpoint: undefined, // Key change: Set endpoint to null/undefined as we're using uploadUrl
         retryDelays: [0, 3000, 5000, 10000, 20000],
-        metadata: tusClientMetadata,
-        headers: ((req: tus.HttpRequest) => {
-          console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] ENTERED. Attempting to get URL/Method.'); // Ensure this is the very first line
-          try {
-            const currentRequestUrl = req.getURL();
-            const method = req.getMethod();
-            const dynamicHeaders: Record<string, string> = {};
-
-            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Invoked successfully. Processing...', {
-              currentRequestUrl,
-              tusClientEndpoint, // Log the endpoint we are comparing against
-              method,
-              supabaseAccessTokenExists: !!supabaseAccessToken, // Check existence from outer scope
-              cfUploadMetadataHeaderValue: cfUploadMetadataHeader // Check existence from outer scope
-            });
-
-            if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
-              console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Condition MET: POST to Edge Fn. Adding Auth/Metadata.');
-              if (!supabaseAccessToken) { // Check token from outer scope
-                console.error('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] CRITICAL: supabaseAccessToken is MISSING for Edge Fn POST!');
-                // Potentially, you could throw an error here or handle it,
-                // but for now, logging is key.
-              } else {
-                dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
-              }
-              if (!cfUploadMetadataHeader) { // Check metadata from outer scope
-                console.warn('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] cfUploadMetadataHeader is MISSING for Edge Fn POST.');
-              } else {
-                dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
-              }
-            } else {
-              console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Condition NOT MET or different request. No special headers added.', { 
-                url: currentRequestUrl, 
-                expectedUrl: tusClientEndpoint,
-                method,
-                isPost: method === 'POST',
-                isTargetEndpoint: currentRequestUrl === tusClientEndpoint
-              });
-            }
-            console.log('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] Returning headers:', JSON.stringify(dynamicHeaders));
-            return dynamicHeaders;
-          } catch (e: any) {
-            console.error('[VideoLoadSpeedIssue][CF-TUSv4][DynamicHeadersFn] CRITICAL ERROR INSIDE HEADERS FUNCTION:', e.message, e.stack, e);
-            // Return empty headers or default headers if an error occurs
-            return {}; 
-          }
-        }) as any, 
+        metadata: tusClientMetadata, 
+        headers: {}, // Key change: No special headers needed for Cloudflare TUS PATCH requests
         onSuccess: () => {
-          logger.log('[VideoLoadSpeedIssue][CF-TUSv4] TUS Upload Successful (onSuccess callback)', { videoName: file.name });
-          if (!cloudflareUid) {
-            const finalUploadUrl = upload.url; 
-            if (finalUploadUrl) {
-              const parts = finalUploadUrl.split('/');
-              const potentialUid = parts[parts.length -1].split('?')[0]; 
-              if (potentialUid && potentialUid.length > 20) { 
-                 cloudflareUid = potentialUid;
-                 logger.warn(`[VideoLoadSpeedIssue][CF-TUSv4] UID extracted from final TUS URL (Location header): ${cloudflareUid}. Prefer Stream-Media-Id.`);
-              }
-            }
-            if (!cloudflareUid) {
-                logger.error("[VideoLoadSpeedIssue][CF-TUSv4] Cloudflare UID could not be determined after upload (onSuccess).");
-                reject(new Error("Cloudflare UID could not be determined after upload."));
-                return;
-            }
-          }
-          logger.log('[VideoLoadSpeedIssue][CF-TUSv4] UID confirmed for DB save (onSuccess): ', cloudflareUid);
+          logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] TUS Upload to Cloudflare Direct URL Successful (onSuccess callback)', { videoName: file.name, obtainedCloudflareUid });
+          // UID is already obtainedCloudflareUid
           resolve();
         },
         onError: (error) => {
-          logger.error('[VideoLoadSpeedIssue][CF-TUSv4] TUS Upload Error:', error);
-          reject(new Error(`TUS upload failed: ${error.message}`));
+          logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] TUS Upload to Cloudflare Direct URL Error:', error);
+          let detailedErrorMessage = `TUS upload to ${actualCloudflareTusUrl} failed: ${error.message}`;
+          const originalRequest = (error as tus.DetailedError).originalRequest;
+          const originalResponse = (error as tus.DetailedError).originalResponse;
+          if (originalRequest && originalResponse) {
+            detailedErrorMessage += ` | Method: ${originalRequest.getMethod()}, URL: ${originalRequest.getURL()}, Status: ${originalResponse.getStatus()}, Body: ${originalResponse.getBody()}`;
+          }
+          logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] TUS Error Details:', {
+             errorMessage: error.message,
+             originalRequestMethod: originalRequest?.getMethod(),
+             originalRequestUrl: originalRequest?.getURL(),
+             originalResponseStatus: originalResponse?.getStatus(),
+             originalResponseBody: originalResponse?.getBody(),
+             isDetailedError: error instanceof tus.DetailedError
+          });
+
+          reject(new Error(detailedErrorMessage));
         },
         onProgress: (bytesUploaded, bytesTotal) => {
           if (onProgress) {
             onProgress(bytesUploaded, bytesTotal);
           }
         },
-        onAfterResponse: (req, res) => {
-            const mediaIdHeader = res.getHeader('Stream-Media-Id');
-            if (mediaIdHeader) {
-                cloudflareUid = mediaIdHeader;
-                logger.log(`[VideoLoadSpeedIssue][CF-TUSv4] Stream-Media-Id (UID) from Edge Function response: ${cloudflareUid}`);
-            }
-            const locationHeader = res.getHeader('Location');
-            if(locationHeader){
-                logger.log(`[VideoLoadSpeedIssue][CF-TUSv4] Actual Cloudflare TUS endpoint (Location) from Edge Function: ${locationHeader}`);
-            }
-            if (req.getMethod() === 'POST' && !mediaIdHeader && !locationHeader){
-                logger.warn('[VideoLoadSpeedIssue][CF-TUSv4] POST to Edge Fn: Missing Stream-Media-Id or Location in response headers from Edge Fn.');
-            }
-        }
+        // onAfterResponse is no longer needed to extract Location or Stream-Media-Id
+        // as we get them from the initial direct fetch.
       });
 
-      console.log('[VideoLoadSpeedIssue][CF-TUSv4] Starting TUS upload (with dynamic headers) to Edge Function proxy.');
+      logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Starting TUS upload directly to Cloudflare URL.');
       upload.start();
     });
 
     const mediaId = generateMediaId();
-    const cfThumbnail = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cloudflareUid}/thumbnails/thumbnail.jpg`;
-    const cfHlsPlaybackUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cloudflareUid}/manifest/video.m3u8`;
-    const cfDashPlaybackUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cloudflareUid}/manifest/video.mpd`;
+    // Use the already obtained obtainedCloudflareUid
+    const cfThumbnail = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${obtainedCloudflareUid}/thumbnails/thumbnail.jpg`;
+    const cfHlsPlaybackUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${obtainedCloudflareUid}/manifest/video.m3u8`;
+    const cfDashPlaybackUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${obtainedCloudflareUid}/manifest/video.mpd`;
 
     const fullMetadataForDb = {
       ...videoMetadata,
-      cloudflareUid: cloudflareUid, 
+      cloudflareUid: obtainedCloudflareUid, 
     };
 
     const newMediaEntryPayload: any = { 
@@ -202,7 +200,7 @@ export const uploadVideoToCloudflareStream = async (
       description: videoMetadata.description || '',
       type: 'video',
       url: cfHlsPlaybackUrl,
-      cloudflare_stream_uid: cloudflareUid,
+      cloudflare_stream_uid: obtainedCloudflareUid,
       cloudflare_thumbnail_url: cfThumbnail,
       cloudflare_playback_hls_url: cfHlsPlaybackUrl,
       cloudflare_playback_dash_url: cfDashPlaybackUrl,
@@ -213,7 +211,7 @@ export const uploadVideoToCloudflareStream = async (
       asset_id: assetId,
     };
     
-    logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Attempting to insert new media entry post-TUS.', newMediaEntryPayload);
+    logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Attempting to insert new media entry post-TUS.', newMediaEntryPayload);
     const { data: insertedMedia, error: insertError } = await supabase
       .from('media')
       .insert(newMediaEntryPayload)
@@ -221,19 +219,19 @@ export const uploadVideoToCloudflareStream = async (
       .single();
 
     if (insertError) {
-      logger.error('[VideoLoadSpeedIssue][CF-TUSv4] Error inserting media entry:', insertError);
+      logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Error inserting media entry:', insertError);
       throw new Error(`Failed to create media entry: ${insertError.message}`);
     }
     if (!insertedMedia) {
-        logger.error('[VideoLoadSpeedIssue][CF-TUSv4] No data returned after inserting media entry.');
+        logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] No data returned after inserting media entry.');
         throw new Error('Failed to create media entry: no data returned.');
     }
     
-    logger.log('[VideoLoadSpeedIssue][CF-TUSv4] Successfully inserted media entry.', { mediaId: (insertedMedia as any).id, cloudflareUid });
+    logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Successfully inserted media entry.', { mediaId: (insertedMedia as any).id, cloudflareUid: obtainedCloudflareUid });
     return insertedMedia as VideoEntry;
 
   } catch (error: any) {
-    logger.error('[VideoLoadSpeedIssue][CF-TUSv4] Error in uploadVideoToCloudflareStream (outer try-catch):', { videoName: file.name, errorMessage: error.message, stack: error.stack });
+    logger.error('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Error in uploadVideoToCloudflareStream (outer try-catch):', { videoName: file.name, errorMessage: error.message, stack: error.stack });
     throw error; 
   }
 };
