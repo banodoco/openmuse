@@ -15,6 +15,15 @@ const CLOUDFLARE_ACCOUNT_ID = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
 console.log("[EdgeFunction-TUSProxy] Initializing. CF_ACCOUNT_ID provided:", !!CLOUDFLARE_ACCOUNT_ID, "CF_API_TOKEN provided:", !!CLOUDFLARE_API_TOKEN);
 
 serve(async (req) => {
+  // Log all incoming headers for debugging
+  const incomingHeaders: Record<string, string> = {};
+  for (const [key, value] of req.headers.entries()) {
+    incomingHeaders[key] = value;
+  }
+  console.log("[EdgeFunction-TUSProxy][IncomingHeadersDebug] Received request with headers:", JSON.stringify(incomingHeaders));
+  console.log("[EdgeFunction-TUSProxy][IncomingHeadersDebug] Specifically, Authorization header is:", req.headers.get("Authorization"));
+  console.log("[EdgeFunction-TUSProxy][IncomingHeadersDebug] Specifically, X-Test-Header is:", req.headers.get("x-test-header")); // Headers are lowercased by fetch
+
   console.log("[EdgeFunction-TUSProxy] Request received:", req.method, req.url);
 
   if (req.method === "OPTIONS") {

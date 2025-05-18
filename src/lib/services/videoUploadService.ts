@@ -80,52 +80,29 @@ export const uploadVideoToCloudflareStream = async (
           name: videoMetadata.title || file.name,
       });
 
-      // Reverting to dynamic headers, keeping the console.log for verification
+      const staticHeaders: Record<string, string> = {
+        'X-Test-Header': 'MyTestValue123' // Added a test header
+      };
+
+      if (supabaseAccessToken) {
+        staticHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
+      } else {
+        // This console.error is critical for this test
+        console.error('[VideoLoadSpeedIssue][CF-TUSv4][STATIC-HEADER-DEBUG] Supabase Access Token is NULL or UNDEFINED right before preparing staticHeaders for TUS!');
+      }
+      if (cfUploadMetadataHeader) {
+        staticHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
+      }
+
+      // This console.error is critical for this test
+      console.error('[VideoLoadSpeedIssue][CF-TUSv4][STATIC-HEADER-DEBUG] USING STATIC HEADERS FOR TUS UPLOAD (DEBUGGING 401):', JSON.stringify(staticHeaders));
+      console.error('[VideoLoadSpeedIssue][CF-TUSv4][STATIC-HEADER-DEBUG] Supabase Access Token (first 30 chars):', supabaseAccessToken ? supabaseAccessToken.substring(0, 30) : 'TOKEN IS NULL/UNDEFINED');
+
       const upload = new tus.Upload(file, {
         endpoint: tusClientEndpoint,
         retryDelays: [0, 3000, 5000, 10000, 20000],
         metadata: tusClientMetadata,
-        headers: ((req: tus.HttpRequest) => {
-          const currentRequestUrl = req.getURL();
-          const dynamicHeaders: Record<string, string> = {};
-          const method = req.getMethod();
-
-          // Using console.log directly to ensure visibility for these critical debug messages
-          console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Headers function invoked.', {
-            currentRequestUrl,
-            tusClientEndpoint,
-            method,
-            supabaseAccessTokenExists: !!supabaseAccessToken,
-            cfUploadMetadataHeaderValue: cfUploadMetadataHeader
-          });
-
-          // For the initial POST to our Edge Function
-          if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
-            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Attempting to set headers for Edge Function POST.');
-            if (!supabaseAccessToken) {
-              console.error('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] CRITICAL: supabaseAccessToken is MISSING when it should be set for Edge Function call!');
-            } else {
-              dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
-              console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Authorization header PREPARED for Edge Fn.', { tokenLength: supabaseAccessToken.length });
-            }
-
-            if (!cfUploadMetadataHeader) {
-              console.warn('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] cfUploadMetadataHeader is MISSING or empty for Edge Function call.');
-            } else {
-              dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
-              console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Upload-Metadata header PREPARED for Edge Fn.', { metadataHeader: cfUploadMetadataHeader });
-            }
-            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Final dynamicHeaders for Edge Fn POST:', dynamicHeaders);
-          } else {
-            // For subsequent requests to Cloudflare TUS endpoint, do NOT add these headers.
-            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Request is NOT to Edge Function POST. No special headers added.', {
-              currentRequestUrl,
-              expectedEdgeFnUrl: tusClientEndpoint,
-              method
-            });
-          }
-          return dynamicHeaders;
-        }) as any, // Type assertion to satisfy TypeScript
+        headers: staticHeaders, // Using static headers
         onSuccess: () => {
           logger.log('[VideoLoadSpeedIssue][CF-TUSv4] TUS Upload Successful (onSuccess callback)', { videoName: file.name });
           if (!cloudflareUid) {
