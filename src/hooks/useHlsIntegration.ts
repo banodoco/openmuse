@@ -126,6 +126,17 @@ export const useHlsIntegration = ({
           return; // Allow internal retry loop.
         }
 
+        // Buffer stalled errors are typically transient and recoverable –
+        // avoid surfacing them to the UI as they tend to self-resolve.
+        if (
+          data.details === Hls.ErrorDetails.BUFFER_STALLED_ERROR &&
+          !data.fatal
+        ) {
+          // Optionally indicate loading state so the caller can show a spinner.
+          updateLoading(true);
+          return;
+        }
+
         if (onError) onError(message);
         // eslint-disable-next-line no-console – dev utility.
         console.error(`[${componentId}] HLS.js Error:`, message, data.error || '');
