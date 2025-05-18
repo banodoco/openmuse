@@ -89,33 +89,34 @@ export const uploadVideoToCloudflareStream = async (
           const dynamicHeaders: Record<string, string> = {};
           const method = req.getMethod();
 
-          logger.log('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] Headers function invoked.', {
+          // Using console.log directly to ensure visibility for these critical debug messages
+          console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Headers function invoked.', {
             currentRequestUrl,
             tusClientEndpoint,
             method,
             supabaseAccessTokenExists: !!supabaseAccessToken,
-            cfUploadMetadataHeaderValue: cfUploadMetadataHeader 
+            cfUploadMetadataHeaderValue: cfUploadMetadataHeader
           });
 
           // For the initial POST to our Edge Function
           if (method === 'POST' && currentRequestUrl === tusClientEndpoint) {
-            logger.log('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] Attempting to set headers for Edge Function POST.');
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Attempting to set headers for Edge Function POST.');
             if (!supabaseAccessToken) {
-              logger.error('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] CRITICAL: supabaseAccessToken is MISSING when it should be set for Edge Function call!');
+              console.error('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] CRITICAL: supabaseAccessToken is MISSING when it should be set for Edge Function call!');
             } else {
               dynamicHeaders['Authorization'] = `Bearer ${supabaseAccessToken}`;
-              logger.log('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] Authorization header PREPARED.', { tokenLength: supabaseAccessToken.length });
+              console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Authorization header PREPARED.', { tokenLength: supabaseAccessToken.length });
             }
 
             if (!cfUploadMetadataHeader) {
-              logger.warn('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] cfUploadMetadataHeader is MISSING or empty for Edge Function call.');
+              console.warn('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] cfUploadMetadataHeader is MISSING or empty for Edge Function call.');
             } else {
               dynamicHeaders['Upload-Metadata'] = cfUploadMetadataHeader;
-              logger.log('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] Upload-Metadata header PREPARED.', { metadataHeader: cfUploadMetadataHeader });
+              console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Upload-Metadata header PREPARED.', { metadataHeader: cfUploadMetadataHeader });
             }
-            logger.log('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] Final dynamicHeaders for Edge Fn POST:', dynamicHeaders);
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Final dynamicHeaders for Edge Fn POST:', dynamicHeaders);
           } else {
-            logger.log('[VideoLoadSpeedIssue][CF-TUSv4][DebugHeaders] Not a POST to Edge Function or URL mismatch. No special headers added.', {
+            console.log('[VideoLoadSpeedIssue][CF-TUSv4][ConsoleLogDebug] Not a POST to Edge Function or URL mismatch. No special headers added.', {
               currentRequestUrl,
               tusClientEndpoint,
               method
