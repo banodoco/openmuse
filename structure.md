@@ -46,16 +46,16 @@ This document outlines the directory structure of the openmuse` project, providi
   - title (TEXT)
   - description (TEXT)
   - type (VARCHAR, e.g., 'video', 'image')
-  - url (TEXT, original Supabase Storage URL or external link if applicable)
+  - url (TEXT, original Supabase Storage URL or external link if applicable; for Cloudflare, this might store the HLS URL as a primary playback URL)
   - created_at (TIMESTAMPTZ)
   - updated_at (TIMESTAMPTZ)
   - classification (VARCHAR, e.g., 'art', 'gen')
   - metadata (JSONB, for additional metadata like aspect ratio, duration, etc.)
-  - placeholder_image (TEXT, URL to a placeholder or thumbnail, may be Supabase or Cloudflare)
+  - placeholder_image (TEXT, URL to a placeholder or thumbnail, may be Supabase or Cloudflare-derived)
   - admin_status (VARCHAR)
   - user_status (VARCHAR) - User's preference for display (Pinned, Listed, Hidden)
   - assetMediaDisplayStatus (VARCHAR) - Display status in context of an asset
-  - storage_provider (VARCHAR) - Indicates storage location (e.g., 'supabase', 'cloudflare-stream')
+  - storage_provider (VARCHAR) - Indicates storage location (e.g., 'supabase', 'cloudflare-stream', 'other')
   - cloudflare_stream_uid (TEXT) - Cloudflare Stream video unique identifier
   - cloudflare_thumbnail_url (TEXT) - Direct URL to Cloudflare-generated thumbnail
   - cloudflare_playback_hls_url (TEXT) - HLS manifest URL from Cloudflare Stream
@@ -73,7 +73,7 @@ This document outlines the directory structure of the openmuse` project, providi
 - Access policies managed via Supabase dashboard.
 
 ### thumbnails
-- Stores generated video thumbnails (primarily for legacy videos; new uploads use Cloudflare thumbnails).
+- Stores generated video thumbnails (primarily for legacy videos; new uploads use Cloudflare-generated thumbnails).
 - Access policies managed via Supabase dashboard.
 
 ### workflows
@@ -91,8 +91,9 @@ This document outlines the directory structure of the openmuse` project, providi
 
 ### get-cloudflare-video-upload-url
 - Handles generating a direct creator upload URL for Cloudflare Stream.
-- Uses Cloudflare API Token and Account ID.
-- Returns a one-time TUS upload URL and the video UID.
+- Invoked by the client-side `videoUploadService.ts`.
+- Uses Cloudflare API Token and Account ID (environment variables).
+- Calls Cloudflare API to create a video object and returns a one-time TUS upload URL and the video UID.
 - CORS headers are handled directly within the function.
 - Requires authentication.
 
@@ -297,7 +298,7 @@ This document outlines the directory structure of the openmuse` project, providi
 │   │   │   ├── assetService.ts # Service for managing general assets (CRUD operations)
 │   │   │   ├── thumbnailService.ts # Service specifically for handling video thumbnails
 │   │   │   ├── videoEntryService.ts # Service for managing video entry records in the database
-│   │   │   ├── videoUploadService.ts # Service handling video uploads (now primarily to Cloudflare Stream, with legacy Supabase Storage upload deprecated)
+│   │   │   ├── videoUploadService.ts # **Manages video upload process. For new uploads, orchestrates calls to the `get-cloudflare-video-upload-url` Edge Function and uses `tus-js-client` to upload directly to Cloudflare Stream. Handles creation of `media` table entries with Cloudflare-specific URLs and UIDs.**
 │   │   │   └── videoUrlService.ts # Service for generating or managing video URLs (e.g., signed URLs for Supabase)
 │   │   ├── utils/          # General, reusable utility functions
 │   │   │   ├── videoPreviewUtils.ts # Utilities specifically for video previews
