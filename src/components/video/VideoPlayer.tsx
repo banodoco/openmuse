@@ -266,19 +266,23 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   }, [externallyControlled, isHovering, isMobile, playAttempted, uVLIsLoading, componentId]);
   
   useEffect(() => {
-    if (isMobile && poster) {
-      setPosterLoaded(true);
-      return;
-    }
     if (poster) {
+      setPosterLoaded(false);
       const img = new Image();
-      img.onload = () => { if (!unmountedRef.current) setPosterLoaded(true); };
-      img.onerror = () => { if (!unmountedRef.current) setPosterLoaded(true); };
+      img.onload = () => {
+        if (!unmountedRef.current) setPosterLoaded(true);
+      };
+      img.onerror = () => {
+        if (!unmountedRef.current) {
+          setPosterLoaded(true);
+          logger.warn(`[${componentId}] Poster image failed to load: ${poster}`);
+        }
+      };
       img.src = poster;
     } else {
       setPosterLoaded(false);
     }
-  }, [poster, isMobile]);
+  }, [poster, componentId]);
   
   const loadFullVideo = useCallback(() => {
     if (!hasInteracted && !unmountedRef.current) setHasInteracted(true);
@@ -503,7 +507,12 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       )}
       
       <VideoOverlay isMobile={isMobile && !externallyControlled} poster={poster} posterLoaded={posterLoaded} />
-      <LazyPosterImage poster={poster} lazyLoad={lazyLoad} hasInteracted={hasInteracted || externallyControlled} isMobile={isMobile && !externallyControlled}/>
+      <LazyPosterImage
+        poster={poster}
+        lazyLoad={poster ? false : lazyLoad}
+        hasInteracted={hasInteracted || externallyControlled}
+        isMobile={isMobile && !externallyControlled}
+      />
       
       <video
         ref={setVideoRef}
