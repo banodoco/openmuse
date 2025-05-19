@@ -26,6 +26,7 @@ interface VideoItem {
     creator: 'self' | 'someone_else';
     creatorName: string;
     isPrimary?: boolean;
+    aspectRatio?: number;
   };
   id: string;
 }
@@ -63,6 +64,40 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     defaultClassification
   });
   
+  const getVideoAspectRatio = (file: File): Promise<number | undefined> => {
+    return new Promise((resolve) => {
+      if (!file || !file.type.startsWith('video/')) {
+        logger.warn('[VideoLoadSpeedIssue] getVideoAspectRatio: Not a video file or file is null', { fileName: file?.name, fileType: file?.type });
+        resolve(undefined);
+        return;
+      }
+      const videoElement = document.createElement('video');
+      videoElement.preload = 'metadata';
+      const objectUrl = URL.createObjectURL(file);
+      videoElement.src = objectUrl;
+
+      videoElement.onloadedmetadata = () => {
+        const aspectRatio = videoElement.videoWidth / videoElement.videoHeight;
+        URL.revokeObjectURL(objectUrl);
+        videoElement.remove();
+        if (isFinite(aspectRatio)) {
+          logger.log('[VideoLoadSpeedIssue] Aspect ratio calculated:', { fileName: file.name, aspectRatio });
+          resolve(aspectRatio);
+        } else {
+          logger.warn('[VideoLoadSpeedIssue] Could not determine aspect ratio (NaN or Infinity)', { fileName: file.name, width: videoElement.videoWidth, height: videoElement.videoHeight });
+          resolve(undefined);
+        }
+      };
+
+      videoElement.onerror = (e) => {
+        logger.error('[VideoLoadSpeedIssue] Error loading video metadata to get aspect ratio', { fileName: file.name, error: e });
+        URL.revokeObjectURL(objectUrl);
+        videoElement.remove();
+        resolve(undefined);
+      };
+    });
+  };
+
   const createEmptyVideoItem = (): VideoItem => ({
     file: null,
     url: null,
@@ -77,7 +112,7 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     id: uuidv4()
   });
   
-  const handleFileDrop = (acceptedFiles: File[]) => {
+  const handleFileDrop = async (acceptedFiles: File[]) => {
     if (disabled) return;
     
     if (acceptedFiles.length > 0) {
@@ -92,8 +127,10 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
         return;
       }
       
-      const newVideos = videoFiles.map((file, index) => {
+      const newVideosPromises = videoFiles.map(async (file, index) => {
         const isFirst = videos.length === 0 && index === 0;
+        const aspectRatio = await getVideoAspectRatio(file);
+        logger.log('[VideoLoadSpeedIssue] Aspect ratio for dropped file:', { fileName: file.name, aspectRatio });
         
         return {
           file,
@@ -104,17 +141,19 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
             classification: defaultClassification,
             creator: 'self',
             creatorName: '',
-            isPrimary: isFirst
+            isPrimary: isFirst,
+            aspectRatio: aspectRatio,
           },
           id: uuidv4()
         } as VideoItem;
       });
       
-      setVideos(prev => [...prev, ...newVideos]);
+      const newVideos = await Promise.all(newVideosPromises);
+      setVideos(prev => [...prev, ...newVideos.filter(v => v !== null)]);
     }
   };
   
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (disabled || !event.target.files || event.target.files.length === 0) return;
     
     const file = event.target.files[0];
@@ -128,6 +167,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
     }
     
     const isFirst = videos.length === 0;
+    const aspectRatio = await getVideoAspectRatio(file);
+    logger.log('[VideoLoadSpeedIssue] Aspect ratio for selected file:', { fileName: file.name, aspectRatio });
     
     setVideos(prev => [
       ...prev,
@@ -140,7 +181,8 @@ const MultipleVideoUploader: React.FC<MultipleVideoUploaderProps> = ({
           classification: defaultClassification,
           creator: 'self',
           creatorName: '',
-          isPrimary: isFirst
+          isPrimary: isFirst,
+          aspectRatio: aspectRatio,
         },
         id: uuidv4()
       }

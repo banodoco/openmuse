@@ -372,7 +372,9 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const effectivePreventLoadingFlicker = isMobile ? false : preventLoadingFlicker;
   const showLoadingIndicator = (uVLIsLoading || videoPlayerIsLoading) && (!effectivePreventLoadingFlicker || !poster) && !uVLError;
 
-  const effectivePreload = showFirstFrameAsPoster ? 'metadata' : (preloadProp || 'auto');
+  const isFirefox = typeof navigator !== 'undefined' && /Firefox/.test(navigator.userAgent);
+  const isHls = src.endsWith('.m3u8') || src.includes('.m3u8?');
+  const effectivePreload = (showFirstFrameAsPoster || (isFirefox && isHls)) ? 'metadata' : (preloadProp || 'auto');
   const effectiveAutoPlay = autoPlay;
 
   const handleLoadedDataInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event> | Event) => {

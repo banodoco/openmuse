@@ -17,12 +17,14 @@ const generateMediaId = (): string => {
 // Helper to create Upload-Metadata string for TUS
 // See: https://developers.cloudflare.com/stream/uploading-videos/direct-creator-uploads/#upload-metadata-header-syntax
 const createCloudflareUploadMetadataHeaderValue = (metadata: { 
-  name?: string, 
+  name?: string, // This name is for Cloudflare's system, can use filename as fallback
   requiresSignedURLs?: boolean, 
   expiry?: string /* ISO 8601 */, 
   maxDurationSeconds?: number 
 }): string => {
   const parts: string[] = [];
+  // For Cloudflare's 'name' metadata, it's okay to use a fallback if title is empty.
+  // This doesn't affect our database 'title'.
   if (metadata.name) parts.push(`name ${btoa(unescape(encodeURIComponent(metadata.name)))}`);
   if (metadata.requiresSignedURLs) parts.push(`requiresignedurls`);
   if (metadata.expiry) parts.push(`expiry ${btoa(unescape(encodeURIComponent(metadata.expiry)))}`);
@@ -68,7 +70,7 @@ export const uploadVideoToCloudflareStream = async (
     const supabaseAccessToken = session.access_token;
 
     const cfUploadMetadataHeader = createCloudflareUploadMetadataHeaderValue({
-        name: videoMetadata.title || file.name,
+        name: videoMetadata.title || file.name, // Keep file.name fallback for CF's internal 'name' metadata
     });
 
     // Step 1: Directly call the Edge Function to get the Cloudflare TUS URL
@@ -196,8 +198,8 @@ export const uploadVideoToCloudflareStream = async (
     const newMediaEntryPayload: any = { 
       id: mediaId,
       user_id: userId,
-      title: videoMetadata.title || file.name,
-      description: videoMetadata.description || '',
+      title: videoMetadata.title || '', // Use videoMetadata.title, fallback to empty string
+      description: videoMetadata.description || '', // Use videoMetadata.description, fallback to empty string
       type: 'video',
       url: cfHlsPlaybackUrl,
       cloudflare_stream_uid: obtainedCloudflareUid,
@@ -209,6 +211,8 @@ export const uploadVideoToCloudflareStream = async (
       placeholder_image: cfThumbnail,
       classification: videoMetadata.classification || 'gen',
       asset_id: assetId,
+      user_status: 'Listed', // Added default user_status
+      admin_status: 'Listed', // Added default admin_status
     };
     
     logger.log('[VideoLoadSpeedIssue][CF-DirectFetch-v1] Attempting to insert new media entry post-TUS.', newMediaEntryPayload);
@@ -317,8 +321,8 @@ export const createMediaFromVideo = async (
   const newMediaEntryPayload: any = { 
     id: mediaId,
     user_id: userId,
-    title: videoMetadata.title,
-    description: videoMetadata.description || '',
+    title: videoMetadata.title || '', // Use videoMetadata.title, fallback to empty string
+    description: videoMetadata.description || '', // Use videoMetadata.description, fallback to empty string
     type: 'video',
     url: cfHlsPlaybackUrl,
     cloudflare_stream_uid: cloudflareStreamUid,
@@ -330,6 +334,8 @@ export const createMediaFromVideo = async (
     placeholder_image: cfThumbnail,
     classification: videoMetadata.classification || 'gen',
     asset_id: assetId,
+    user_status: 'Listed', // Added default user_status
+    admin_status: 'Listed', // Added default admin_status
   };
 
   try {
@@ -369,57 +375,61 @@ export const createMediaFromExistingVideo = async (
   
   let cfUid = knownCloudflareStreamUid;
   let cfThumbnail = videoMetadata.placeholder_image;
-  let cfHlsUrl = '';
-  let cfDashUrl = '';
-  let storageProvider: any = 'other'; // Changed from VideoEntry['storage_provider'] to any temporarily
+  let cfHlsPlaybackUrl = videoUrl; // Default to provided URL
+  let cfDashPlaybackUrl = ''; // Will be constructed if it's a CF UID
 
-  if (!CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) { // Simplified check
-    logger.error('[VideoLoadSpeedIssue] CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN not configured. Cannot derive Cloudflare info for existing video.');
-  } else {
-    const streamUrlPattern = new RegExp(`https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}\.cloudflarestream\.com/([a-f0-9]+)/`);
-    const match = videoUrl.match(streamUrlPattern);
+  // Extract UID if it's a Cloudflare Stream URL
+  if (!cfUid) {
+    const streamRegex = /cloudflarestream\.com\/([a-f0-9]+)\//;
+    const match = videoUrl.match(streamRegex);
     if (match && match[1]) {
-      cfUid = match[1]; 
+      cfUid = match[1];
+      logger.log(`[VideoLoadSpeedIssue] Extracted CF UID ${cfUid} from URL ${videoUrl}`);
     }
   }
   
-  if (cfUid && CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN) { // Simplified check
-    storageProvider = 'cloudflare-stream';
-    if (!cfThumbnail) cfThumbnail = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cfUid}/thumbnails/thumbnail.jpg`;
-    cfHlsUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cfUid}/manifest/video.m3u8`;
-    cfDashUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cfUid}/manifest/video.mpd`;
+  // If we have a UID, construct standard URLs
+  if (cfUid) {
+    cfThumbnail = cfThumbnail || `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cfUid}/thumbnails/thumbnail.jpg`;
+    cfHlsPlaybackUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cfUid}/manifest/video.m3u8`;
+    cfDashPlaybackUrl = `https://${CLOUDFLARE_STREAM_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${cfUid}/manifest/video.mpd`;
   } else {
-      // Fallback for non-Cloudflare URLs or if subdomain isn't properly set up for parsing
-      if (videoUrl.endsWith('.m3u8')) cfHlsUrl = videoUrl;
-      if (videoUrl.endsWith('.mpd')) cfDashUrl = videoUrl;
+    logger.warn(`[VideoLoadSpeedIssue] Could not determine Cloudflare UID for URL: ${videoUrl}. Playback URLs might be incorrect if not already manifest URLs.`);
+    // If not a CF UID, placeholder_image should ideally be provided in videoMetadata
+    // and url assumed to be the direct HLS/DASH manifest.
+    // For simplicity, if not a CF UID, we assume the passed 'videoUrl' is the HLS manifest.
+    // DASH URL might not be available or easily derivable.
   }
-
 
   const mediaId = generateMediaId();
   const fullMetadataForDb = {
     ...videoMetadata,
-    ...(cfUid && { cloudflareUid: cfUid }),
+    ...(cfUid && { cloudflareUid: cfUid }), // Add cloudflareUid only if determined
+    original_url_provided: videoUrl, // Keep a record of the originally provided URL
   };
 
-  const newMediaEntryPayload: any = { 
+  const newMediaEntryPayload: any = {
     id: mediaId,
     user_id: userId,
-    title: videoMetadata.title,
-    description: videoMetadata.description || '',
+    title: videoMetadata.title || '', // Use videoMetadata.title, fallback to empty string
+    description: videoMetadata.description || '', // Use videoMetadata.description, fallback to empty string
     type: 'video',
-    url: cfHlsUrl || videoUrl, // Prioritize HLS, fallback to original if no HLS
+    url: cfHlsPlaybackUrl, 
+    ...(cfUid && { cloudflare_stream_uid: cfUid }),
+    ...(cfThumbnail && { cloudflare_thumbnail_url: cfThumbnail }),
+    cloudflare_playback_hls_url: cfHlsPlaybackUrl,
+    ...(cfDashPlaybackUrl && { cloudflare_playback_dash_url: cfDashPlaybackUrl }),
+    storage_provider: cfUid ? 'cloudflare-stream' : 'external-link', // Mark as external if no UID
     metadata: fullMetadataForDb,
-    placeholder_image: cfThumbnail || videoMetadata.placeholder_image, 
+    placeholder_image: cfThumbnail || videoUrl, // Fallback placeholder to videoUrl if no thumbnail
     classification: videoMetadata.classification || 'gen',
     asset_id: assetId,
-    storage_provider: storageProvider,
-    ...(cfUid && { cloudflare_stream_uid: cfUid }),
-    ...(cfThumbnail && { cloudflare_thumbnail_url: cfThumbnail }), // Only add if we have a value
-    ...(cfHlsUrl && { cloudflare_playback_hls_url: cfHlsUrl }),
-    ...(cfDashUrl && { cloudflare_playback_dash_url: cfDashUrl }),
+    user_status: 'Listed', // Added default user_status
+    admin_status: 'Listed', // Added default admin_status
   };
 
   try {
+    logger.log('[VideoLoadSpeedIssue] Attempting to insert media entry from existing video.', newMediaEntryPayload);
     const { data, error } = await supabase
       .from('media')
       .insert(newMediaEntryPayload)
