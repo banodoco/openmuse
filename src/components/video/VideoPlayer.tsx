@@ -448,6 +448,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     let errorDetails = videoElement.error?.message || 'No additional details from video element.';
     let isDecodeError = false;
     let isAbortError = false;
+    let isSrcNotSupportedError = false;
 
     if (videoElement.error) {
       switch (videoElement.error.code) {
@@ -464,6 +465,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
           break;
         case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
           errorMessage = 'The video could not be loaded, either because the server or network failed or because the format is not supported.';
+          isSrcNotSupportedError = true;
           break;
         default:
           errorMessage = `An unexpected error occurred with the video (Code: ${videoElement.error.code})`;
@@ -472,9 +474,10 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
     logger.error(`[VideoMobileError][${componentId}] Video Element Error:`, { message: errorMessage, details: errorDetails, originalEvent: event });
 
-    // If a decoding error or an abort error occurs, try to recover automatically.
-    if ((isDecodeError || isAbortError) && retryAttempt < RETRY_DELAYS_MS.length) {
-      logger.warn(`[VideoMobileError][${componentId}] Attempting automatic recovery from ${isDecodeError ? 'decoding' : 'abort'} error (retry ${retryAttempt + 1}).`);
+    // If a decoding, abort, or src_not_supported error occurs, try to recover automatically.
+    if ((isDecodeError || isAbortError || isSrcNotSupportedError) && retryAttempt < RETRY_DELAYS_MS.length) {
+      let errorType = isDecodeError ? 'decoding' : isAbortError ? 'abort' : 'source not supported';
+      logger.warn(`[VideoMobileError][${componentId}] Attempting automatic recovery from ${errorType} error (retry ${retryAttempt + 1}).`);
       actualPerformReset();
       return; // Skip propagating the error – we'll retry instead.
     }
