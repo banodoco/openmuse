@@ -458,6 +458,11 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
           break;
         case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
           errorMessage = 'The video could not be loaded, either because the server or network failed or because the format is not supported.';
+          // Check if the source was HLS when this error occurred
+          if (videoElement.src && (videoElement.src.endsWith('.m3u8') || videoElement.src.includes('.m3u8?'))) {
+            logger.warn(`[VideoMobileError][${componentId}] SRC_NOT_SUPPORTED error occurred for an HLS source: ${videoElement.src}. This might indicate a native HLS playback failure.`);
+            errorMessage = 'HLS playback error: The video format may not be supported natively by your browser for this specific stream.'; // More specific message for this case
+          }
           break;
         default:
           errorMessage = `An unexpected error occurred with the video (Code: ${videoElement.error.code})`;

@@ -191,6 +191,8 @@ const Index: React.FC = () => {
   useEffect(() => {
     setLoraDisplayPage(1);
     setWorkflowDisplayPage(1);
+    setArtPage(1);
+    setGenerationPage(1);
   }, [currentApprovalFilter]);
 
   const displayVideos = React.useMemo(() => {
