@@ -114,6 +114,27 @@ export const useHlsIntegration = ({
         let message = `HLS: ${data.details || data.type}`;
         if (data.fatal) message = `Fatal HLS: ${data.details || data.type}`;
 
+        // Enhanced logging for fragLoadError
+        if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || data.type === Hls.ErrorTypes.NETWORK_ERROR) {
+          console.error(
+            `[${componentId}] HLS.js Network/Fragment Error:`,
+            {
+              message: message,
+              isFatal: data.fatal,
+              details: data.details,
+              type: data.type,
+              error: data.error,
+              fragUrl: data.frag?.url,
+              fragRetries: data.frag ? `${(data.frag as any).numRetry} / ${(data.frag as any).maxRetry}` : 'N/A',
+              responseCode: data.response?.code, // HTTP status code if available
+              rawErrorData: data // Log the whole data object for full context
+            }
+          );
+        } else {
+          // Standard logging for other HLS errors
+          console.error(`[${componentId}] HLS.js Error:`, message, data.error || data, '(Full data object logged)');
+        }
+
         // Fragment load errors may self-recover – suppress until retries exhausted.
         const frag = data.frag;
         // `any` to safely access non-standard props added by Hls.js internally.
@@ -141,6 +162,7 @@ export const useHlsIntegration = ({
             data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR)
         ) {
           const originalUrl = src;
+          console.log(`[${componentId}] Attempting Cloudflare MP4 fallback due to fatal error: ${message}`); // Log fallback attempt
           const cloudflareStreamMatch = originalUrl.match(
             /^(https?:\/\/[^\/]+\/[0-9a-f]{32})\/manifest\/video\.m3u8([?#].*)?$/i
           );
@@ -235,7 +257,7 @@ export const useHlsIntegration = ({
 
         if (onError) onError(message);
         // eslint-disable-next-line no-console – dev utility.
-        console.error(`[${componentId}] HLS.js Error:`, message, data.error || '');
+        // console.error(`[${componentId}] HLS.js Error:`, message, data.error || ''); // Original concise log, now part of detailed log
       });
 
       hls.on(HlsEvents.MANIFEST_LOADED, () => updateLoading(false));
