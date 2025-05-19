@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo, forwardRef } 
 import { cn } from '@/lib/utils';
 import { Logger } from '@/lib/logger';
 import { Play } from 'lucide-react';
+import Hls from 'hls.js';
 import VideoError from './VideoError';
 import VideoLoader from './VideoLoader';
 import VideoOverlay from './VideoOverlay';
@@ -173,40 +174,13 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 ) => {
   const componentId = useRef(`video_player_${Math.random().toString(36).substring(2, 9)}`).current;
   const localVideoRef = useRef<HTMLVideoElement>(null);
-
-  // Local loading state – needs to exist *before* we invoke `useHlsIntegration`
   const [videoPlayerIsLoading, setVideoPlayerIsLoading] = useState(true);
 
-  // ---------------------------------------------------------------------
-  // HLS integration (only initialised if `src` looks like an HLS manifest)
-  // ---------------------------------------------------------------------
-  const { hlsInstanceRef } = useHlsIntegration({
-    src,
-    videoRef: localVideoRef,
-    onError,
-    setLoading: setVideoPlayerIsLoading,
-    componentId,
-  });
-
-  const setVideoRef = (node: HTMLVideoElement | null) => {
-    localVideoRef.current = node;
-    if (ref) {
-      if (typeof ref === 'function') ref(node);
-      else (ref as React.MutableRefObject<HTMLVideoElement | null>).current = node;
-    }
-  };
-
-  const internalContainerRef = useRef<HTMLDivElement>(null);
-  const containerRef = externalContainerRef || internalContainerRef;
-  const [hasInteracted, setHasInteracted] = useState(false);
-  const [isInternallyHovering, setIsInternallyHovering] = useState(false);
-  const [posterLoaded, setPosterLoaded] = useState(false);
-  const [forcedPlay, setForcedPlay] = useState(false);
-  const unmountedRef = useRef(false);
-  const [initialFrameLoaded, setInitialFrameLoaded] = useState(false);
-  const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
+  // States and callbacks that might be used by error handlers or reset logic
   const [retryAttempt, setRetryAttempt] = useState(0);
   const retryTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const unmountedRef = useRef(false);
+  const [isInternallyHovering, setIsInternallyHovering] = useState(false);
 
   const {
     error: uVLError,
@@ -228,7 +202,120 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     isHovering: externallyControlled ? isHovering : isInternallyHovering,
     isMobile
   });
+
+  const clearRetryTimeout = useCallback(() => {
+    if (retryTimeoutRef.current) { clearTimeout(retryTimeoutRef.current); retryTimeoutRef.current = null; }
+  }, []);
+
+  // Forward declaration for HLS error handler via ref
+  const handleHlsErrorRef = useRef<((hlsMessage: string | null) => void) | null>(null);
+
+  // HLS Integration - gets a wrapper for onError
+  const { hlsInstanceRef } = useHlsIntegration({
+    src,
+    videoRef: localVideoRef,
+    onError: (message) => handleHlsErrorRef.current?.(message),
+    setLoading: setVideoPlayerIsLoading,
+    componentId,
+  });
+
+  // Definition of actualPerformReset
+  const actualPerformReset = useCallback(() => {
+    const video = localVideoRef.current;
+    if (!video || unmountedRef.current) return;
+
+    logger.warn(`[${componentId}] Performing actual video reset. Attempt: ${retryAttempt + 1}.`);
+    setVideoPlayerIsLoading(true);
+
+    if (hlsInstanceRef.current) {
+      logger.log(`[${componentId}] Resetting with HLS. Destroying & relying on HLS useEffect to re-init.`);
+      hlsInstanceRef.current.destroy();
+      hlsInstanceRef.current = null;
+      if (onError) onError(null);
+      uVLHandleRetry();
+    } else {
+      logger.log(`[${componentId}] Standard video reset.`);
+      const currentTime = video.currentTime;
+      const currentSrc = src;
+      if (video.currentSrc !== currentSrc && !(currentSrc.endsWith('.m3u8') || currentSrc.includes('.m3u8?'))) {
+        video.src = currentSrc;
+      }
+      video.load();
+      video.play().then(() => {
+        if (!unmountedRef.current && localVideoRef.current) {
+          if (localVideoRef.current.currentTime === 0 && currentTime > 0) localVideoRef.current.currentTime = currentTime;
+          setRetryAttempt(0);
+          clearRetryTimeout();
+          setVideoPlayerIsLoading(false);
+        }
+      }).catch(err => {
+        if (!unmountedRef.current) {
+          logger.error(`[${componentId}] Error playing after standard reset (Attempt ${retryAttempt + 1}):`, err);
+          if (onError) onError(err.message || 'Error playing after reset');
+          setRetryAttempt(prev => prev + 1);
+          setVideoPlayerIsLoading(false);
+        }
+      });
+    }
+  }, [src, retryAttempt, clearRetryTimeout, uVLHandleRetry, onError, componentId, hlsInstanceRef]);
+
+  // Definition of the actual HLS error handler callback
+  const handleHlsErrorCallback = useCallback((hlsMessage: string | null) => {
+    if (hlsMessage) {
+      logger.error(`[${componentId}] VideoPlayer received HLS error via ref: ${hlsMessage}`);
+      if (hlsMessage.includes("Fatal HLS:")) {
+        if (retryAttempt < RETRY_DELAYS_MS.length) {
+          logger.warn(`[${componentId}] Fatal HLS error detected (\"${hlsMessage}\"). Triggering VideoPlayer reset. Attempt: ${retryAttempt + 1}`);
+          actualPerformReset();
+        } else {
+          logger.error(`[${componentId}] Max retry attempts reached for HLS error: \"${hlsMessage}\". Propagating to parent.`);
+          if (onError) {
+            onError(hlsMessage);
+          }
+        }
+      } else {
+        if (onError) {
+          onError(hlsMessage);
+        }
+      }
+    } else {
+      if (onError) {
+        onError(null);
+      }
+    }
+  }, [onError, actualPerformReset, componentId, retryAttempt]);
+
+  // Assign the callback to the ref in an effect
+  useEffect(() => {
+    handleHlsErrorRef.current = handleHlsErrorCallback;
+  }, [handleHlsErrorCallback]);
   
+  useEffect(() => {
+    return () => {
+      unmountedRef.current = true;
+      if (hlsInstanceRef.current) {
+        hlsInstanceRef.current.destroy();
+        hlsInstanceRef.current = null;
+      }
+    };
+  }, []);
+
+  const setVideoRef = (node: HTMLVideoElement | null) => {
+    localVideoRef.current = node;
+    if (ref) {
+      if (typeof ref === 'function') ref(node);
+      else (ref as React.MutableRefObject<HTMLVideoElement | null>).current = node;
+    }
+  };
+
+  const internalContainerRef = useRef<HTMLDivElement>(null);
+  const containerRef = externalContainerRef || internalContainerRef;
+  const [hasInteracted, setHasInteracted] = useState(false);
+  const [posterLoaded, setPosterLoaded] = useState(false);
+  const [forcedPlay, setForcedPlay] = useState(false);
+  const [initialFrameLoaded, setInitialFrameLoaded] = useState(false);
+  const [hasPlayedOnce, setHasPlayedOnce] = useState(false);
+
   useEffect(() => {
     if (triggerPlay && localVideoRef?.current?.paused && !unmountedRef.current) {
       localVideoRef.current.play().catch(err => logger.error(`[${componentId}] Error via triggerPlay:`, err));
@@ -247,23 +334,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     forcedPlay,
     componentId
   });
-  
-  useEffect(() => {
-    return () => {
-      unmountedRef.current = true;
-      if (hlsInstanceRef.current) {
-        hlsInstanceRef.current.destroy();
-        hlsInstanceRef.current = null;
-      }
-    };
-  }, []);
-  
-  useEffect(() => {
-    if (externallyControlled && isHovering && isMobile && !playAttempted && !uVLIsLoading && localVideoRef.current && !unmountedRef.current) {
-      setForcedPlay(true);
-      localVideoRef.current.play().catch(err => logger.error('Failed to force play mobile lightbox:', err));
-    }
-  }, [externallyControlled, isHovering, isMobile, playAttempted, uVLIsLoading, componentId]);
   
   useEffect(() => {
     if (poster) {
@@ -331,49 +401,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const preloadObserverOptions = useMemo(() => ({ rootMargin: preloadMargin, threshold: 0 }), [preloadMargin]);
   const isInPreloadArea = useIntersectionObserver(containerRef, preloadObserverOptions);
   useEffect(() => { if (onEnterPreloadArea && !unmountedRef.current) onEnterPreloadArea(isInPreloadArea); }, [isInPreloadArea, onEnterPreloadArea]);
-
-  const clearRetryTimeout = useCallback(() => {
-    if (retryTimeoutRef.current) { clearTimeout(retryTimeoutRef.current); retryTimeoutRef.current = null; }
-  }, []);
-
-  const actualPerformReset = useCallback(() => {
-    const video = localVideoRef.current;
-    if (!video || unmountedRef.current) return;
-
-    logger.warn(`[${componentId}] Performing actual video reset. Attempt: ${retryAttempt + 1}.`);
-    setVideoPlayerIsLoading(true);
-
-    if (hlsInstanceRef.current) {
-      logger.log(`[${componentId}] Resetting with HLS. Destroying & relying on HLS useEffect to re-init.`);
-      hlsInstanceRef.current.destroy();
-      hlsInstanceRef.current = null;
-      if (onError) onError(null);
-      uVLHandleRetry(); 
-    } else {
-      logger.log(`[${componentId}] Standard video reset.`);
-    const currentTime = video.currentTime;
-      const currentSrc = src;
-      if (video.currentSrc !== currentSrc && !(currentSrc.endsWith('.m3u8') || currentSrc.includes('.m3u8?'))) {
-         video.src = currentSrc;
-      }
-      video.load();
-    video.play().then(() => {
-        if (!unmountedRef.current && localVideoRef.current) {
-          if (localVideoRef.current.currentTime === 0 && currentTime > 0) localVideoRef.current.currentTime = currentTime;
-          setRetryAttempt(0); 
-          clearRetryTimeout(); 
-          setVideoPlayerIsLoading(false);
-        }
-    }).catch(err => {
-        if (!unmountedRef.current) {
-          logger.error(`[${componentId}] Error playing after standard reset (Attempt ${retryAttempt + 1}):`, err);
-          if (onError) onError(err.message || 'Error playing after reset');
-          setRetryAttempt(prev => prev + 1);
-          setVideoPlayerIsLoading(false);
-        }
-      });
-    }
-  }, [src, retryAttempt, clearRetryTimeout, uVLHandleRetry, onError, componentId]);
 
   const scheduleNextVideoRetry = useCallback(() => {
     clearRetryTimeout();
