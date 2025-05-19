@@ -343,7 +343,7 @@ const StorageVideoPlayer: React.FC<StorageVideoPlayerProps> = memo(({
         {showThumbnail && (
            <img 
              src={thumbnailUrl} 
-             alt="Video thumbnail" 
+             alt={isVideoLoaded ? "Video thumbnail" : ""} 
              className={cn(
                "absolute inset-0 w-full h-full object-cover transition-opacity duration-300 z-10 pointer-events-none",
                isVideoLoaded ? "opacity-0" : "opacity-100"

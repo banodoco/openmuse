@@ -12,6 +12,9 @@ const corsHeaders = {
 const CLOUDFLARE_API_TOKEN = Deno.env.get("CLOUDFLARE_API_TOKEN");
 const CLOUDFLARE_ACCOUNT_ID = Deno.env.get("CLOUDFLARE_ACCOUNT_ID");
 
+
+// --- END ADDED LOG ---
+
 console.log("[EdgeFn-CF-TUSURL-v2] Initializing. CF_ACCOUNT_ID provided:", !!CLOUDFLARE_ACCOUNT_ID, "CF_API_TOKEN provided:", !!CLOUDFLARE_API_TOKEN);
 
 serve(async (req) => {
