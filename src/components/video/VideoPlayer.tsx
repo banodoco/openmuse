@@ -273,7 +273,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     if (poster) {
       const img = new Image();
       img.onload = () => { if (!unmountedRef.current) setPosterLoaded(true); };
-      img.onerror = () => { if (!unmountedRef.current) setPosterLoaded(false); };
+      img.onerror = () => { if (!unmountedRef.current) setPosterLoaded(true); };
       img.src = poster;
     } else {
       setPosterLoaded(false);
@@ -323,24 +323,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     }
     if (onLoadedMetadata) onLoadedMetadata(e);
   };
-
-  const handleVideoElementError = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event>) => {
-    if (unmountedRef.current) return;
-    setVideoPlayerIsLoading(false);
-      const videoElement = event.currentTarget;
-    let errorMessage = 'Unknown video error';
-      if (videoElement.error) {
-        switch (videoElement.error.code) {
-        case MediaError.MEDIA_ERR_ABORTED: errorMessage = 'Playback aborted.'; break;
-        case MediaError.MEDIA_ERR_NETWORK: errorMessage = 'Network error.'; break;
-        case MediaError.MEDIA_ERR_DECODE: errorMessage = 'Decoding error.'; break;
-        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED: errorMessage = 'Source not supported.'; break;
-        default: errorMessage = `Error: ${videoElement.error.message} (Code: ${videoElement.error.code})`;
-      }
-    }
-    logger.error(`[${componentId}] Video Element Error:`, errorMessage, event);
-    if (onError) onError(errorMessage);
-  }, [onError, componentId]);
 
   const preloadObserverOptions = useMemo(() => ({ rootMargin: preloadMargin, threshold: 0 }), [preloadMargin]);
   const isInPreloadArea = useIntersectionObserver(containerRef, preloadObserverOptions);
@@ -406,6 +388,50 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       }
     }, delay);
   }, [retryAttempt, uVLError, clearRetryTimeout, actualPerformReset, componentId]);
+
+  // ---------------------------------------------------------------------------
+  // Error handler – attempt automatic recovery on decode errors
+  // ---------------------------------------------------------------------------
+  const handleVideoElementError = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    if (unmountedRef.current) return;
+
+    const videoElement = event.currentTarget;
+    let errorMessage = 'Unknown video error';
+    let isDecodeError = false;
+
+    if (videoElement.error) {
+      switch (videoElement.error.code) {
+        case MediaError.MEDIA_ERR_ABORTED:
+          errorMessage = 'Playback aborted.';
+          break;
+        case MediaError.MEDIA_ERR_NETWORK:
+          errorMessage = 'Network error.';
+          break;
+        case MediaError.MEDIA_ERR_DECODE:
+          errorMessage = 'Decoding error.';
+          isDecodeError = true;
+          break;
+        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+          errorMessage = 'Source not supported.';
+          break;
+        default:
+          errorMessage = `Error: ${videoElement.error.message} (Code: ${videoElement.error.code})`;
+      }
+    }
+
+    logger.error(`[${componentId}] Video Element Error:`, errorMessage, event);
+
+    // If a decoding error occurs, try to recover automatically instead of surfacing the error.
+    if (isDecodeError && retryAttempt < RETRY_DELAYS_MS.length) {
+      logger.warn(`[${componentId}] Attempting automatic recovery from decoding error (retry ${retryAttempt + 1}).`);
+      actualPerformReset();
+      return; // Skip propagating the error – we'll retry instead.
+    }
+
+    // For non-recoverable errors, surface them to any parent handler.
+    setVideoPlayerIsLoading(false);
+    if (onError) onError(errorMessage);
+  }, [onError, componentId, actualPerformReset, retryAttempt]);
 
   useEffect(() => {
     const video = localVideoRef.current;
@@ -484,7 +510,14 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
         className={cn(
           "w-full h-full object-cover rounded-md transition-opacity duration-300",
           className,
-           (effectivePreventLoadingFlicker && (!posterLoaded && !initialFrameLoaded && !uVLError && (uVLIsLoading || videoPlayerIsLoading))) ? 'opacity-0' : 'opacity-100'
+           (
+            effectivePreventLoadingFlicker &&
+            poster &&
+            !posterLoaded &&
+            !initialFrameLoaded &&
+            !uVLError &&
+            (uVLIsLoading || videoPlayerIsLoading)
+          ) ? 'opacity-0' : 'opacity-100'
         )}
         autoPlay={effectiveAutoPlay}
         muted={muted}

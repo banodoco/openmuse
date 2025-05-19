@@ -147,34 +147,62 @@ export const useHlsIntegration = ({
 
           if (cloudflareStreamMatch) {
             const base = cloudflareStreamMatch[1];
-            const mp4Url = `${base}/downloads/default.mp4`;
-
-            const videoElCurrent = videoRef.current;
-            if (videoElCurrent) {
-              console.warn(
-                `[${componentId}] HLS fatal error – switching to MP4 fallback: ${mp4Url}`
-              );
-
-              // Prevent repeated attempts
-              hasFallbackAppliedRef.current = true;
-
-              // Clean-up HLS instance before hand-off
-              if (hlsInstanceRef.current) {
-                hlsInstanceRef.current.destroy();
-                hlsInstanceRef.current = null;
+            // Try both possible MP4 URLs that Cloudflare Stream might use
+            const possibleMp4Urls = [
+              `${base}/downloads/default.mp4`, // Downloads enabled
+              `${base}/manifest/video.mp4`     // Direct MP4 stream
+            ];
+            
+            const tryNextMp4Url = async (urls: string[], index = 0) => {
+              if (index >= urls.length) {
+                // All URLs failed, surface original error
+                if (onError) onError(message);
+                console.error(`[${componentId}] All MP4 fallbacks failed, original error:`, message);
+                return;
               }
 
-              // Swap source & play
-              videoElCurrent.src = mp4Url;
-              videoElCurrent.load();
-              videoElCurrent
-                .play()
-                .catch(() => {/* ignore – user gesture restrictions may apply */});
+              const mp4Url = urls[index];
+              console.warn(`[${componentId}] Trying MP4 fallback (${index + 1}/${urls.length}): ${mp4Url}`);
 
-              // Surface a non-fatal message so the UI can decide what to do
-              if (onError) onError('Switched to MP4 fallback due to HLS load error');
-              return; // We handled recovery – don't bubble further
-            }
+              const videoElCurrent = videoRef.current;
+              if (videoElCurrent) {
+                // Prevent repeated attempts
+                hasFallbackAppliedRef.current = true;
+
+                // Clean-up HLS instance before hand-off
+                if (hlsInstanceRef.current) {
+                  hlsInstanceRef.current.destroy();
+                  hlsInstanceRef.current = null;
+                }
+
+                // Swap source & play
+                videoElCurrent.src = mp4Url;
+                videoElCurrent.load();
+               
+               // Try to play and handle failures
+               videoElCurrent.play()
+                 .then(() => {
+                   console.log(`[${componentId}] Successfully switched to MP4 fallback`);
+                   if (onError) onError('Switched to MP4 fallback due to HLS load error');
+                 })
+                 .catch((err) => {
+                   console.warn(`[${componentId}] MP4 fallback failed:`, err);
+                   // Try next URL in sequence
+                   tryNextMp4Url(urls, index + 1);
+                 });
+
+                // Add error handler to try next URL if load fails
+                const handleError = () => {
+                  videoElCurrent?.removeEventListener('error', handleError);
+                  tryNextMp4Url(urls, index + 1);
+                };
+                videoElCurrent?.addEventListener('error', handleError);
+              }
+            };
+
+            // Start trying MP4 URLs
+            tryNextMp4Url(possibleMp4Urls);
+            return; // We're handling recovery
           }
         }
         
@@ -187,6 +215,22 @@ export const useHlsIntegration = ({
           // Optionally indicate loading state so the caller can show a spinner.
           updateLoading(true);
           return;
+        }
+
+        // --------------------------------------------------------------
+        // Media decode errors (common on Firefox with certain H.264
+        // profiles) are often recoverable by asking Hls.js to detach and
+        // re-attach the media element.  Attempt a single recovery pass
+        // before surfacing the error to the UI.
+        // --------------------------------------------------------------
+        if (data.fatal && data.type === Hls.ErrorTypes.MEDIA_ERROR) {
+          console.warn(`[${componentId}] Fatal media decode error – attempting Hls.js recovery`);
+          try {
+            hls.recoverMediaError();
+            return; // Recovery attempt made, do not surface to UI yet
+          } catch (recoveryErr) {
+            console.error(`[${componentId}] Media error recovery failed:`, recoveryErr);
+          }
         }
 
         if (onError) onError(message);
