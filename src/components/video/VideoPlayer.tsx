@@ -268,24 +268,28 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     if (unmountedRef.current) return;
     if (hlsMessage) {
       logger.error(`[VideoMobileError][${componentId}] VideoPlayer received HLS error: ${hlsMessage}`);
-      if (hlsMessage.includes("Fatal HLS:")) {
+      
+      const isFatalHlsError = hlsMessage.includes("Fatal HLS:");
+      const isHlsNotSupportedError = hlsMessage === 'Hls.js is not supported in this browser';
+
+      if (isFatalHlsError || isHlsNotSupportedError) {
         if (retryAttempt < RETRY_DELAYS_MS.length) {
-          logger.warn(`[VideoMobileError][${componentId}] Fatal HLS error detected (\"${hlsMessage}\"). Triggering VideoPlayer reset. Attempt: ${retryAttempt + 1}`);
+          logger.warn(`[VideoMobileError][${componentId}] Specific HLS error detected ("${hlsMessage}") requiring retry. Triggering VideoPlayer reset. Attempt: ${retryAttempt + 1}`);
           actualPerformReset();
         } else {
-          logger.error(`[VideoMobileError][${componentId}] Max retry attempts reached for HLS error: \"${hlsMessage}\". Propagating to parent.`);
+          logger.error(`[VideoMobileError][${componentId}] Max retry attempts reached for HLS error: "${hlsMessage}". Propagating to parent.`);
           if (onError) {
             onError(hlsMessage);
           } else {
-            logger.warn(`[VideoMobileError][${componentId}] No onError prop, HLS error \"${hlsMessage}\" might not be displayed if uVLError is not also set.`);
+            logger.warn(`[VideoMobileError][${componentId}] No onError prop, HLS error "${hlsMessage}" might not be displayed if uVLError is not also set.`);
           }
         }
       } else {
-        logger.log(`[VideoMobileError][${componentId}] Non-fatal HLS error: \"${hlsMessage}\". Propagating to parent.`);
+        logger.log(`[VideoMobileError][${componentId}] Non-fatal/non-specific HLS error: "${hlsMessage}". Propagating to parent.`);
         if (onError) {
           onError(hlsMessage);
         } else {
-          logger.warn(`[VideoMobileError][${componentId}] No onError prop, HLS error \"${hlsMessage}\" might not be displayed if uVLError is not also set.`);
+          logger.warn(`[VideoMobileError][${componentId}] No onError prop, HLS error "${hlsMessage}" might not be displayed if uVLError is not also set.`);
         }
       }
     } else {
@@ -443,11 +447,13 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     let errorMessage = 'Unknown video error';
     let errorDetails = videoElement.error?.message || 'No additional details from video element.';
     let isDecodeError = false;
+    let isAbortError = false;
 
     if (videoElement.error) {
       switch (videoElement.error.code) {
         case MediaError.MEDIA_ERR_ABORTED:
           errorMessage = 'Playback aborted by user or script.';
+          isAbortError = true;
           break;
         case MediaError.MEDIA_ERR_NETWORK:
           errorMessage = 'A network error caused the video download to fail part-way.';
@@ -458,11 +464,6 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
           break;
         case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
           errorMessage = 'The video could not be loaded, either because the server or network failed or because the format is not supported.';
-          // Check if the source was HLS when this error occurred
-          if (videoElement.src && (videoElement.src.endsWith('.m3u8') || videoElement.src.includes('.m3u8?'))) {
-            logger.warn(`[VideoMobileError][${componentId}] SRC_NOT_SUPPORTED error occurred for an HLS source: ${videoElement.src}. This might indicate a native HLS playback failure.`);
-            errorMessage = 'HLS playback error: The video format may not be supported natively by your browser for this specific stream.'; // More specific message for this case
-          }
           break;
         default:
           errorMessage = `An unexpected error occurred with the video (Code: ${videoElement.error.code})`;
@@ -471,9 +472,9 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
     logger.error(`[VideoMobileError][${componentId}] Video Element Error:`, { message: errorMessage, details: errorDetails, originalEvent: event });
 
-    // If a decoding error occurs, try to recover automatically instead of surfacing the error.
-    if (isDecodeError && retryAttempt < RETRY_DELAYS_MS.length) {
-      logger.warn(`[VideoMobileError][${componentId}] Attempting automatic recovery from decoding error (retry ${retryAttempt + 1}).`);
+    // If a decoding error or an abort error occurs, try to recover automatically.
+    if ((isDecodeError || isAbortError) && retryAttempt < RETRY_DELAYS_MS.length) {
+      logger.warn(`[VideoMobileError][${componentId}] Attempting automatic recovery from ${isDecodeError ? 'decoding' : 'abort'} error (retry ${retryAttempt + 1}).`);
       actualPerformReset();
       return; // Skip propagating the error – we'll retry instead.
     }

@@ -1,8 +1,5 @@
 import { useEffect, useRef, type RefObject } from 'react';
 import Hls, { ErrorData, Events as HlsEvents, HlsConfig } from 'hls.js';
-import { Logger } from '@/lib/logger';
-
-const logger = new Logger('useHlsIntegration');
 
 interface UseHlsIntegrationProps {
   src: string;
@@ -64,21 +61,16 @@ export const useHlsIntegration = ({
       videoEl.canPlayType('application/vnd.apple.mpegURL') ||
       videoEl.canPlayType('application/x-mpegURL');
 
-    logger.log(`[VideoMobileError][${componentId}] Native HLS support check: ${nativeSupport}`);
-
     if (nativeSupport) {
       if (hlsInstanceRef.current) {
         hlsInstanceRef.current.destroy();
         hlsInstanceRef.current = null;
       }
-      logger.log(`[VideoMobileError][${componentId}] HLS Native support detected. Skipping Hls.js instantiation.`);
       return;
     }
 
     // 3. If Hls.js itself is not supported we surface the error.
-    const hlsJsIsSupported = Hls.isSupported();
-    logger.log(`[VideoMobileError][${componentId}] Hls.isSupported() check: ${hlsJsIsSupported}`);
-    if (!hlsJsIsSupported) {
+    if (!Hls.isSupported()) {
       if (onError) onError('Hls.js is not supported in this browser');
       return;
     }
