@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Logger } from '@/lib/logger';
 import { AlertCircle, RefreshCw, AlertTriangle, ExternalLink, Database } from 'lucide-react';
@@ -20,9 +19,11 @@ const VideoError: React.FC<VideoErrorProps> = ({
   onRetry,
   videoSource
 }) => {
-  logger.error(`Displaying video error: ${error}`);
+  logger.error(`[VideoMobileError] Displaying video error: ${error}`, { videoSource });
   if (errorDetails) {
-    logger.error(`Error details: ${errorDetails}`);
+    logger.error(`[VideoMobileError] Error details: ${errorDetails}`, { videoSource });
+  } else {
+    logger.warn(`[VideoMobileError] No errorDetails provided for error: ${error}`, { videoSource });
   }
   
   // Log URL for debugging
@@ -35,6 +36,25 @@ const VideoError: React.FC<VideoErrorProps> = ({
   const isBlobError = videoSource?.startsWith('blob:') && error.includes('Invalid video source');
   const detectedFormat = videoSource ? getVideoFormat(videoSource) : 'Unknown';
 
+  let displayTitle = "Video Playback Error"; // Default title
+  const lowerError = error.toLowerCase();
+
+  if (isBlobError) {
+    displayTitle = "Preview Unavailable";
+  } else if (isFormatError) {
+    displayTitle = "Format Unsupported";
+  } else if (lowerError.includes("network")) {
+    displayTitle = "Network Issue";
+  } else if (lowerError.includes("decode") || lowerError.includes("corruption")) {
+    displayTitle = "Playback Issue";
+  } else if (lowerError.includes("aborted")) {
+    displayTitle = "Playback Aborted";
+  } else if (lowerError.includes("source") || lowerError.includes("invalid url") || lowerError.includes("cannot be played")) {
+    displayTitle = "Video Source Issue";
+  } else if (lowerError.includes("hls")) {
+    displayTitle = "Streaming Error";
+  }
+
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/20">
       <div className="text-destructive text-center p-4 bg-white/95 rounded-lg shadow-lg max-w-[90%]">
@@ -46,7 +66,7 @@ const VideoError: React.FC<VideoErrorProps> = ({
           <AlertCircle className="h-6 w-6 mx-auto text-destructive mb-2" />
         )}
         
-        <p className="font-medium">Error loading video</p>
+        <p className="font-medium">{displayTitle}</p>
         <p className="text-xs text-muted-foreground mt-1 mb-2 break-words">{error}</p>
         
         {isBlobError && (

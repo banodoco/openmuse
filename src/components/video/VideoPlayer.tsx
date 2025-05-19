@@ -224,17 +224,17 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     const video = localVideoRef.current;
     if (!video || unmountedRef.current) return;
 
-    logger.warn(`[${componentId}] Performing actual video reset. Attempt: ${retryAttempt + 1}.`);
+    logger.warn(`[VideoMobileError][${componentId}] Performing actual video reset. Attempt: ${retryAttempt + 1}.`);
     setVideoPlayerIsLoading(true);
 
     if (hlsInstanceRef.current) {
-      logger.log(`[${componentId}] Resetting with HLS. Destroying & relying on HLS useEffect to re-init.`);
+      logger.log(`[VideoMobileError][${componentId}] Resetting with HLS. Destroying & relying on HLS useEffect to re-init.`);
       hlsInstanceRef.current.destroy();
       hlsInstanceRef.current = null;
       if (onError) onError(null);
       uVLHandleRetry();
     } else {
-      logger.log(`[${componentId}] Standard video reset.`);
+      logger.log(`[VideoMobileError][${componentId}] Standard video reset.`);
       const currentTime = video.currentTime;
       const currentSrc = src;
       if (video.currentSrc !== currentSrc && !(currentSrc.endsWith('.m3u8') || currentSrc.includes('.m3u8?'))) {
@@ -247,11 +247,15 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
           setRetryAttempt(0);
           clearRetryTimeout();
           setVideoPlayerIsLoading(false);
+          logger.log(`[VideoMobileError][${componentId}] Standard video reset successful.`);
         }
       }).catch(err => {
         if (!unmountedRef.current) {
-          logger.error(`[${componentId}] Error playing after standard reset (Attempt ${retryAttempt + 1}):`, err);
-          if (onError) onError(err.message || 'Error playing after reset');
+          logger.error(`[VideoMobileError][${componentId}] Error playing after standard reset (Attempt ${retryAttempt + 1}):`, err);
+          if (onError) {
+            logger.log(`[VideoMobileError][${componentId}] Propagating error to parent after standard reset failure.`);
+            onError(err.message || 'Error playing after reset');
+          }
           setRetryAttempt(prev => prev + 1);
           setVideoPlayerIsLoading(false);
         }
@@ -261,24 +265,31 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   // Definition of the actual HLS error handler callback
   const handleHlsErrorCallback = useCallback((hlsMessage: string | null) => {
+    if (unmountedRef.current) return;
     if (hlsMessage) {
-      logger.error(`[${componentId}] VideoPlayer received HLS error via ref: ${hlsMessage}`);
+      logger.error(`[VideoMobileError][${componentId}] VideoPlayer received HLS error: ${hlsMessage}`);
       if (hlsMessage.includes("Fatal HLS:")) {
         if (retryAttempt < RETRY_DELAYS_MS.length) {
-          logger.warn(`[${componentId}] Fatal HLS error detected (\"${hlsMessage}\"). Triggering VideoPlayer reset. Attempt: ${retryAttempt + 1}`);
+          logger.warn(`[VideoMobileError][${componentId}] Fatal HLS error detected (\"${hlsMessage}\"). Triggering VideoPlayer reset. Attempt: ${retryAttempt + 1}`);
           actualPerformReset();
         } else {
-          logger.error(`[${componentId}] Max retry attempts reached for HLS error: \"${hlsMessage}\". Propagating to parent.`);
+          logger.error(`[VideoMobileError][${componentId}] Max retry attempts reached for HLS error: \"${hlsMessage}\". Propagating to parent.`);
           if (onError) {
             onError(hlsMessage);
+          } else {
+            logger.warn(`[VideoMobileError][${componentId}] No onError prop, HLS error \"${hlsMessage}\" might not be displayed if uVLError is not also set.`);
           }
         }
       } else {
+        logger.log(`[VideoMobileError][${componentId}] Non-fatal HLS error: \"${hlsMessage}\". Propagating to parent.`);
         if (onError) {
           onError(hlsMessage);
+        } else {
+          logger.warn(`[VideoMobileError][${componentId}] No onError prop, HLS error \"${hlsMessage}\" might not be displayed if uVLError is not also set.`);
         }
       }
     } else {
+      logger.log(`[VideoMobileError][${componentId}] HLS error callback with null message. Clearing error with parent.`);
       if (onError) {
         onError(null);
       }
@@ -430,40 +441,47 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
     const videoElement = event.currentTarget;
     let errorMessage = 'Unknown video error';
+    let errorDetails = videoElement.error?.message || 'No additional details from video element.';
     let isDecodeError = false;
 
     if (videoElement.error) {
       switch (videoElement.error.code) {
         case MediaError.MEDIA_ERR_ABORTED:
-          errorMessage = 'Playback aborted.';
+          errorMessage = 'Playback aborted by user or script.';
           break;
         case MediaError.MEDIA_ERR_NETWORK:
-          errorMessage = 'Network error.';
+          errorMessage = 'A network error caused the video download to fail part-way.';
           break;
         case MediaError.MEDIA_ERR_DECODE:
-          errorMessage = 'Decoding error.';
+          errorMessage = 'The video playback was aborted due to a corruption problem or because the video used features your browser did not support.';
           isDecodeError = true;
           break;
         case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-          errorMessage = 'Source not supported.';
+          errorMessage = 'The video could not be loaded, either because the server or network failed or because the format is not supported.';
           break;
         default:
-          errorMessage = `Error: ${videoElement.error.message} (Code: ${videoElement.error.code})`;
+          errorMessage = `An unexpected error occurred with the video (Code: ${videoElement.error.code})`;
       }
     }
 
-    logger.error(`[${componentId}] Video Element Error:`, errorMessage, event);
+    logger.error(`[VideoMobileError][${componentId}] Video Element Error:`, { message: errorMessage, details: errorDetails, originalEvent: event });
 
     // If a decoding error occurs, try to recover automatically instead of surfacing the error.
     if (isDecodeError && retryAttempt < RETRY_DELAYS_MS.length) {
-      logger.warn(`[${componentId}] Attempting automatic recovery from decoding error (retry ${retryAttempt + 1}).`);
+      logger.warn(`[VideoMobileError][${componentId}] Attempting automatic recovery from decoding error (retry ${retryAttempt + 1}).`);
       actualPerformReset();
       return; // Skip propagating the error – we'll retry instead.
     }
 
     // For non-recoverable errors, surface them to any parent handler.
     setVideoPlayerIsLoading(false);
-    if (onError) onError(errorMessage);
+    if (onError) {
+      logger.log(`[VideoMobileError][${componentId}] Propagating video element error to parent: ${errorMessage}`);
+      onError(errorMessage); // Consider passing errorDetails here too if the parent can use it
+    } else {
+      // This case should be handled by uVLError from useVideoLoader if it also catches this error
+      logger.warn(`[VideoMobileError][${componentId}] No onError prop for video element error: ${errorMessage}. Relies on uVLError.`);
+    }
   }, [onError, componentId, actualPerformReset, retryAttempt]);
 
   useEffect(() => {
@@ -523,17 +541,24 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
       data-is-mobile={isMobile ? "true" : "false"}
+      data-component-id={componentId}
     >
       {showLoadingIndicator && <VideoLoader posterImage={poster} />}
       
-      {uVLError && !onError && ( 
-        <VideoError 
-          error={uVLError} 
-          errorDetails={uVLErrorDetails || undefined} 
-          onRetry={uVLHandleRetry}
-          videoSource={src}
-        />
-      )}
+      {uVLError && !onError && 
+        (() => {
+          // Log when VideoPlayer is handling its own error display
+          logger.log(`[VideoMobileError][${componentId}] VideoPlayer rendering internal VideoError due to uVLError: ${uVLError}. Details: ${uVLErrorDetails}`);
+          return (
+            <VideoError 
+              error={uVLError} 
+              errorDetails={uVLErrorDetails || undefined} 
+              onRetry={uVLHandleRetry}
+              videoSource={src}
+            />
+          );
+        })()
+      }
       
       <VideoOverlay isMobile={isMobile && !externallyControlled} poster={poster} posterLoaded={posterLoaded} />
       <LazyPosterImage

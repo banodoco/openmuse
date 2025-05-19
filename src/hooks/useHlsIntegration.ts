@@ -117,7 +117,7 @@ export const useHlsIntegration = ({
         // Enhanced logging for fragLoadError
         if (data.details === Hls.ErrorDetails.FRAG_LOAD_ERROR || data.type === Hls.ErrorTypes.NETWORK_ERROR) {
           console.error(
-            `[${componentId}] HLS.js Network/Fragment Error:`,
+            `[VideoMobileError][${componentId}] HLS.js Network/Fragment Error:`,
             {
               message: message,
               isFatal: data.fatal,
@@ -132,7 +132,7 @@ export const useHlsIntegration = ({
           );
         } else {
           // Standard logging for other HLS errors
-          console.error(`[${componentId}] HLS.js Error:`, message, data.error || data, '(Full data object logged)');
+          console.error(`[VideoMobileError][${componentId}] HLS.js Error:`, message, data.error || data, '(Full data object logged)');
         }
 
         // Fragment load errors may self-recover – suppress until retries exhausted.
@@ -162,7 +162,7 @@ export const useHlsIntegration = ({
             data.details === Hls.ErrorDetails.MANIFEST_LOAD_ERROR)
         ) {
           const originalUrl = src;
-          console.log(`[${componentId}] Attempting Cloudflare MP4 fallback due to fatal error: ${message}`); // Log fallback attempt
+          console.log(`[VideoMobileError][${componentId}] Attempting Cloudflare MP4 fallback due to fatal error: ${message}`); // Log fallback attempt
           const cloudflareStreamMatch = originalUrl.match(
             /^(https?:\/\/[^\/]+\/[0-9a-f]{32})\/manifest\/video\.m3u8([?#].*)?$/i
           );
@@ -179,12 +179,12 @@ export const useHlsIntegration = ({
               if (index >= urls.length) {
                 // All URLs failed, surface original error
                 if (onError) onError(message);
-                console.error(`[${componentId}] All MP4 fallbacks failed, original error:`, message);
+                console.error(`[VideoMobileError][${componentId}] All MP4 fallbacks failed, original error:`, message);
                 return;
               }
 
               const mp4Url = urls[index];
-              console.warn(`[${componentId}] Trying MP4 fallback (${index + 1}/${urls.length}): ${mp4Url}`);
+              console.warn(`[VideoMobileError][${componentId}] Trying MP4 fallback (${index + 1}/${urls.length}): ${mp4Url}`);
 
               const videoElCurrent = videoRef.current;
               if (videoElCurrent) {
@@ -204,11 +204,11 @@ export const useHlsIntegration = ({
                // Try to play and handle failures
                videoElCurrent.play()
                  .then(() => {
-                   console.log(`[${componentId}] Successfully switched to MP4 fallback`);
+                   console.log(`[VideoMobileError][${componentId}] Successfully switched to MP4 fallback`);
                    if (onError) onError('Switched to MP4 fallback due to HLS load error');
                  })
                  .catch((err) => {
-                   console.warn(`[${componentId}] MP4 fallback failed:`, err);
+                   console.warn(`[VideoMobileError][${componentId}] MP4 fallback failed:`, err);
                    // Try next URL in sequence
                    tryNextMp4Url(urls, index + 1);
                  });
@@ -246,12 +246,12 @@ export const useHlsIntegration = ({
         // before surfacing the error to the UI.
         // --------------------------------------------------------------
         if (data.fatal && data.type === Hls.ErrorTypes.MEDIA_ERROR) {
-          console.warn(`[${componentId}] Fatal media decode error – attempting Hls.js recovery`);
+          console.warn(`[VideoMobileError][${componentId}] Fatal media decode error – attempting Hls.js recovery`);
           try {
             hls.recoverMediaError();
             return; // Recovery attempt made, do not surface to UI yet
           } catch (recoveryErr) {
-            console.error(`[${componentId}] Media error recovery failed:`, recoveryErr);
+            console.error(`[VideoMobileError][${componentId}] Media error recovery failed:`, recoveryErr);
           }
         }
 

@@ -174,11 +174,11 @@ export const useVideoLoader = ({
       const currentVideoElement = videoRef?.current;
       const eventComponentId = currentVideoElement?.id || 'unknown_video_id_event';
       if (!currentVideoElement || (prevSrcRef.current !== currentVideoElement.src && !(isBlobUrl && currentVideoElement.src?.startsWith('blob:')))) {
-        logger.warn(`[VideoHoverPlayDebug] [${eventComponentId}] handleError called for old src ('${prevSrcRef.current?.substring(0,15)}') or missing video. Current video src: '${currentVideoElement?.src?.substring(0,15)}'. Ignoring.`);
+        logger.warn(`[VideoMobileError][VideoHoverPlayDebug][${eventComponentId}] handleError called for old src ('${prevSrcRef.current?.substring(0,15)}') or missing video. Current video src: '${currentVideoElement?.src?.substring(0,15)}'. Ignoring.`);
         return;
       }
       if (unmountedRef.current) {
-        logger.log(`[VideoHoverPlayDebug] [${eventComponentId}] handleError: Component unmounted. Ignoring. src: ${currentVideoElement.src?.substring(0,30)}`);
+        logger.log(`[VideoMobileError][VideoHoverPlayDebug][${eventComponentId}] handleError: Component unmounted. Ignoring. src: ${currentVideoElement.src?.substring(0,30)}`);
         return;
       }
 
@@ -186,7 +186,7 @@ export const useVideoLoader = ({
       const format = getVideoFormat(currentVideoElement.src);
       
       if (isBlobUrl) {
-        logger.error(`[VideoHoverPlayDebug] [${eventComponentId}] Blob URL error for ${currentVideoElement.src?.substring(0, 30)}: ${message}`);
+        logger.error(`[VideoMobileError][VideoHoverPlayDebug][${eventComponentId}] Blob URL error for ${currentVideoElement.src?.substring(0, 30)}: ${message}`);
         setError('The temporary preview cannot be played');
         setErrorDetails('This may be due to the blob URL being created in a different browser context or session');
         setIsLoading(false);
@@ -194,8 +194,8 @@ export const useVideoLoader = ({
         return;
       }
       
-      logger.error(`[VideoHoverPlayDebug] [${eventComponentId}] Video error event for ${currentVideoElement.src?.substring(0, 30)}: ${message}`);
-      logger.error(`[VideoHoverPlayDebug] [${eventComponentId}] Video error details: ${details}, Detected format: ${format}`);
+      logger.error(`[VideoMobileError][VideoHoverPlayDebug][${eventComponentId}] Video error event for ${currentVideoElement.src?.substring(0, 30)}: ${message}`);
+      logger.error(`[VideoMobileError][VideoHoverPlayDebug][${eventComponentId}] Video error details: ${details}, Detected format: ${format}, Raw video error object:`, currentVideoElement.error);
       
       setError(message);
       setErrorDetails(details + ` Detected format: ${format}`);
@@ -228,7 +228,7 @@ export const useVideoLoader = ({
     if (!video) return;
     const currentComponentId = video?.id || 'unknown_video_id_retry';
     
-    logger.log(`[VideoHoverPlayDebug] [${currentComponentId}] Retrying video load for: ${src.substring(0, 30)}`);
+    logger.log(`[VideoMobileError][VideoHoverPlayDebug][${currentComponentId}] Retrying video load for: ${src.substring(0, 30)}`);
     setError(null);
     setErrorDetails('');
     setIsLoading(true);
@@ -239,12 +239,12 @@ export const useVideoLoader = ({
     // More robust retry: ensure src is reset if it's already the same, so 'load()' is effective
     const currentSrc = video.currentSrc;
     if (video.src === src && currentSrc === src && !isLoading) {
-      logger.log(`[VideoHoverPlayDebug] [${currentComponentId}] Retry: src is same and not loading, forcing re-assign and load.`);
+      logger.log(`[VideoMobileError][VideoHoverPlayDebug][${currentComponentId}] Retry: src is same and not loading, forcing re-assign and load.`);
       video.src = ''; // Force change
       video.src = src;
     }
     video.load();
-    logger.log(`[VideoHoverPlayDebug] [${currentComponentId}] video.load() called on retry.`);
+    logger.log(`[VideoMobileError][VideoHoverPlayDebug][${currentComponentId}] video.load() called on retry.`);
   };
 
   return {
