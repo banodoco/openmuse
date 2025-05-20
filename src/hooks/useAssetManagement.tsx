@@ -25,38 +25,37 @@ export const useAssetManagement = (filters: AssetFilters) => { // Renamed hook
 
   const [assets, setAssets] = useState<AnyAsset[]>([]); // Renamed state
   const [totalCount, setTotalCount] = useState(0);
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(true); // Initialize to true
   const { user, isLoading: isAuthLoading } = useAuth();
   const isMounted = useRef(true);
-  const fetchInProgress = useRef(false);
-  const [hasReceivedDefinedUserId, setHasReceivedDefinedUserId] = useState(Boolean(userId)); // New state
+  // fetchInProgress is removed as its previous usage caused issues.
+  // We'll use fetchIdRef to ensure only the latest request updates state.
+  const fetchIdRef = useRef(0);
 
   const loadAssetsPage = useCallback(async () => { // Renamed function
-    logger.log(`[loadAssetsPage] Attempting load. Filters: assetType=${assetType}, model=${modelFilter}, approval=${approvalFilter}, page=${page}, pageSize=${pageSize}, userId=${userId}`);
+    const currentFetchId = ++fetchIdRef.current; // Increment and capture for this specific fetch attempt
+    logger.log(`[loadAssetsPage] Called. currentFetchId=${currentFetchId}. Filters: assetType=${assetType}, model=${modelFilter}, approval=${approvalFilter}, page=${page}, pageSize=${pageSize}, userId=${userId}`);
 
-    if (!isMounted.current) {
-      logger.log("[loadAssetsPage] Skip: Unmounted");
-      return;
-    }
-    if (fetchInProgress.current) {
-      logger.log("[loadAssetsPage] Skip: Fetch in progress");
-      return;
-    }
-
-    fetchInProgress.current = true;
-    setIsLoading(true);
-    logger.log('[loadAssetsPage] Set isLoading=true, fetchInProgress=true');
+    // setIsLoading(true) will be handled by the callers (useEffect/refetchAssets) to reflect intent.
+    // If isLoading is not already true, this specific call can set it.
+    // This ensures that if multiple calls are queued, isLoading remains true until the latest one settles.
+    // However, it's cleaner if the trigger (useEffect/refetch) sets it. For now, let's ensure it's true here if not already.
+    // if (!isLoading) setIsLoading(true); // Re-evaluating this, better to let callers manage setIsLoading(true)
 
     let lastError: any = null;
 
     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
       if (!isMounted.current) {
-        logger.log(`[loadAssetsPage] Abort attempt ${attempt}: Unmounted`);
-        fetchInProgress.current = false;
+        logger.log(`[loadAssetsPage] Abort attempt ${attempt} (fetchId ${currentFetchId}): Unmounted`);
+        return;
+      }
+      // Check if this fetch is still the latest one desired before starting an attempt
+      if (currentFetchId !== fetchIdRef.current) {
+        logger.log(`[loadAssetsPage] Stale fetch (fetchId ${currentFetchId}, current is ${fetchIdRef.current}) detected before attempt ${attempt}. Aborting.`);
         return;
       }
 
-      logger.log(`[loadAssetsPage] Starting attempt ${attempt}/${MAX_RETRIES}...`);
+      logger.log(`[loadAssetsPage] Starting attempt ${attempt}/${MAX_RETRIES} for fetchId ${currentFetchId}...`);
 
       try {
         const attemptStart = performance.now();
@@ -67,7 +66,9 @@ export const useAssetManagement = (filters: AssetFilters) => { // Renamed hook
         // User ID Filter (applied first if present)
         if (userId) {
           query = query.eq('user_id', userId);
-          logger.log(`[loadAssetsPage] Applied userId filter: ${userId}`);
+          logger.log(`[loadAssetsPage] (fetchId ${currentFetchId}) Applied userId filter: ${userId}`);
+        } else {
+          logger.warn(`[loadAssetsPage] (fetchId ${currentFetchId}) No userId provided. Query will not filter by user.`);
         }
 
         // Asset Type Filter
@@ -123,26 +124,29 @@ export const useAssetManagement = (filters: AssetFilters) => { // Renamed hook
         const { data: fetchedData, error, count } = await query;
 
         if (error && (error as any).code === 'PGRST103') {
-          logger.warn(`[loadAssetsPage] Requested page is out of range (PGRST103).`);
-          if (isMounted.current) {
+          logger.warn(`[loadAssetsPage] (fetchId ${currentFetchId}) Requested page is out of range (PGRST103).`);
+          if (isMounted.current && currentFetchId === fetchIdRef.current) {
             setAssets([]);
             setTotalCount(count ?? 0);
             setIsLoading(false);
-            fetchInProgress.current = false;
           }
           return;
         }
 
         if (!isMounted.current) {
-          logger.log(`[loadAssetsPage] Abort query fetch (attempt ${attempt}): Unmounted`);
-          fetchInProgress.current = false;
+          logger.log(`[loadAssetsPage] Abort query fetch (fetchId ${currentFetchId}, attempt ${attempt}): Unmounted`);
           return;
         }
+        // Check again if this fetch is stale after the await
+        if (currentFetchId !== fetchIdRef.current) {
+            logger.log(`[loadAssetsPage] Stale fetch (fetchId ${currentFetchId}, current is ${fetchIdRef.current}) detected after query. Aborting state update.`);
+            return;
+        }
         if (error) {
-          logger.error(`[loadAssetsPage] Attempt ${attempt} - Supabase query error:`, error);
+          logger.error(`[loadAssetsPage] (fetchId ${currentFetchId}) Attempt ${attempt} - Supabase query error:`, error);
           throw error;
         }
-        logger.log(`[loadAssetsPage] Attempt ${attempt} - Fetched ${fetchedData?.length || 0} assets (page data), total potential count: ${count}`);
+        logger.log(`[loadAssetsPage] (fetchId ${currentFetchId}) Attempt ${attempt} - Fetched ${fetchedData?.length || 0} assets (page data), total potential count: ${count}`);
 
         const userIds = fetchedData?.filter(asset => asset.user_id).map(asset => asset.user_id) || [];
         const uniqueUserIds = [...new Set(userIds)].filter(Boolean) as string[];
@@ -155,12 +159,16 @@ export const useAssetManagement = (filters: AssetFilters) => { // Renamed hook
             .in('id', uniqueUserIds);
 
           if (!isMounted.current) {
-            logger.log(`[loadAssetsPage] Abort profile fetch (attempt ${attempt}): Unmounted`);
-            fetchInProgress.current = false;
+            logger.log(`[loadAssetsPage] Abort profile fetch (fetchId ${currentFetchId}, attempt ${attempt}): Unmounted`);
+            return;
+          }
+          // Check again for staleness
+          if (currentFetchId !== fetchIdRef.current) {
+            logger.log(`[loadAssetsPage] Stale fetch (fetchId ${currentFetchId}, current is ${fetchIdRef.current}) detected after profile fetch. Aborting state update.`);
             return;
           }
           if (profilesError) {
-            logger.error("[loadAssetsPage] Error fetching user profiles:", profilesError);
+            logger.error(`[loadAssetsPage] (fetchId ${currentFetchId}) Error fetching user profiles:`, profilesError);
           } else if (profiles) {
             userProfiles = profiles.reduce((acc, profile) => {
               acc[profile.id] = profile.display_name || profile.username || '';
@@ -259,97 +267,78 @@ export const useAssetManagement = (filters: AssetFilters) => { // Renamed hook
         }
 
         const attemptDuration = (performance.now() - attemptStart).toFixed(2);
-        logger.log(`[loadAssetsPage] Attempt ${attempt} completed in ${attemptDuration} ms`);
-        logger.log(`[loadAssetsPage] Attempt ${attempt} successful. Page count: ${processedAssets.length}, Total count: ${count}`);
-        if (isMounted.current) {
+        logger.log(`[loadAssetsPage] (fetchId ${currentFetchId}) Attempt ${attempt} completed in ${attemptDuration} ms`);
+        
+        if (isMounted.current && currentFetchId === fetchIdRef.current) {
+          logger.log(`[loadAssetsPage] fetchId ${currentFetchId} is current. Setting state.`);
           setAssets(processedAssets);
           setTotalCount(count ?? 0);
-          setIsLoading(false);
-          fetchInProgress.current = false;
-          logger.log('[loadAssetsPage] Set state: assets, totalCount, isLoading=false, fetchInProgress=false');
+          setIsLoading(false); // Set loading false only when the LATEST request completes successfully.
         } else {
-          logger.log('[loadAssetsPage] Success, but unmounted before state update.');
-          fetchInProgress.current = false;
+          logger.log(`[loadAssetsPage] fetchId ${currentFetchId} is STALE (current is ${fetchIdRef.current}) after success. Not setting state.`);
         }
         return;
 
       } catch (error) {
         lastError = error;
-        logger.error(`[loadAssetsPage] Attempt ${attempt}/${MAX_RETRIES} failed:`, error);
+        logger.error(`[loadAssetsPage] (fetchId ${currentFetchId}) Attempt ${attempt}/${MAX_RETRIES} failed:`, error);
         if (attempt < MAX_RETRIES) {
+          // Check for staleness before scheduling a retry
+          if (currentFetchId !== fetchIdRef.current) {
+            logger.log(`[loadAssetsPage] Stale fetch (fetchId ${currentFetchId}, current is ${fetchIdRef.current}) detected before retry. Aborting retry.`);
+            return;
+          }
           const delay = INITIAL_DELAY_MS * attempt;
-          logger.log(`[loadAssetsPage] Retrying in ${delay / 1000}s...`);
+          logger.log(`[loadAssetsPage] (fetchId ${currentFetchId}) Retrying in ${delay / 1000}s...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         } else {
-          logger.error(`[loadAssetsPage] Max retries (${MAX_RETRIES}) reached. Last error:`, lastError);
-          if (isMounted.current) {
+          logger.error(`[loadAssetsPage] (fetchId ${currentFetchId}) Max retries (${MAX_RETRIES}) reached. Last error:`, lastError);
+          if (isMounted.current && currentFetchId === fetchIdRef.current) {
               toast.error(`Failed to load ${assetType || 'assets'} for ${userId || 'all users'}. Please refresh.`, { duration: 10000 });
-              setIsLoading(false);
+              setIsLoading(false); // Set loading false only if this LATEST request failed completely.
+              setAssets([]); // Clear assets on final failure of the latest request
               setTotalCount(0);
-              fetchInProgress.current = false;
-              logger.log('[loadAssetsPage] Set state after max retries: isLoading=false, totalCount, fetchInProgress=false');
           } else {
-               logger.log(`[loadAssetsPage] Max retries reached, but unmounted.`);
-               fetchInProgress.current = false;
+               logger.log(`[loadAssetsPage] Max retries reached for STALE fetchId ${currentFetchId} (current is ${fetchIdRef.current}). Not updating state.`);
           }
-          break;
+          break; // Break from retry loop
         }
       }
     } 
-
-    if (isMounted.current && isLoading) {
-      logger.warn("[loadAssetsPage] Loop finished, forcing isLoading=false as a safeguard.");
-      setIsLoading(false);
-      fetchInProgress.current = false;
-    }
-  }, [assetType, modelFilter, approvalFilter, page, pageSize, userId]);
+    // If loop finishes due to max retries and it was for a stale fetch, isLoading might be incorrect.
+    // Ensure isLoading is false if no up-to-date fetch completed.
+    // This is tricky; the setIsLoading(false) should only be tied to the lifecycle of the *latest* fetchId.
+    // The `setIsLoading(false)` in the try and catch (conditional on fetchId) should handle this.
+  }, [assetType, modelFilter, approvalFilter, page, pageSize, userId, isMounted, setAssets, setTotalCount, setIsLoading, logger]); // Added stable setters, logger, isMounted
 
   useEffect(() => {
     isMounted.current = true;
     return () => {
       isMounted.current = false;
+      // Optionally, increment fetchIdRef here to invalidate any ongoing fetches upon unmount
+      // fetchIdRef.current++; 
     };
   }, []);
 
   useEffect(() => {
-    // New logic to manage hasReceivedDefinedUserId
-    if (userId && !hasReceivedDefinedUserId) {
-        setHasReceivedDefinedUserId(true);
-    }
-
-    if (fetchInProgress.current) {
-        logger.log("[useEffect loadAssetsPage] Skip: Fetch in progress");
-        return;
-    }
-
-    // If the intention is to filter by a user (i.e., `filters.userId` was part of the hook's setup),
-    // but we don't have a userId YET, and we've NEVER received one for this hook instance, then don't auto-load.
-    // The explicit refetch from the calling component (like UserProfilePage) will trigger the load once userId is available.
-    if (filters.hasOwnProperty('userId') && !userId && !hasReceivedDefinedUserId) {
-        logger.log("[useEffect loadAssetsPage] Skipping initial automatic fetch: userId is expected but currently undefined, and has never been defined for this hook instance.");
-        // Set isLoading to false if we skip the fetch, to avoid indefinite loading spinners.
-        // The calling component (e.g., UserProfilePage) might manage its own loading state based on profile loading.
-        if (isLoading) setIsLoading(false);
-        return;
-    }
-
-    logger.log(`[useEffect loadAssetsPage] Proceeding to load. userId: ${userId}, hasOwnProperty: ${filters.hasOwnProperty('userId')}, hasReceivedDefinedUserId: ${hasReceivedDefinedUserId}`);
+    // When filters change, we want to initiate a new fetch.
+    // Set loading to true to indicate a new fetch cycle is starting.
+    logger.log(`[useEffect] Filters changed. Triggering loadAssetsPage. userId=${userId}, assetType=${assetType}`);
+    setIsLoading(true); // Indicate that a new fetch process is starting due to filter change.
     loadAssetsPage();
-
-  }, [userId, assetType, modelFilter, approvalFilter, page, pageSize, loadAssetsPage, filters, hasReceivedDefinedUserId, isLoading]); // Added filters, hasReceivedDefinedUserId, and isLoading to dependency array
+    // loadAssetsPage itself will get the latest filters due to its useCallback dependencies.
+  }, [userId, assetType, modelFilter, approvalFilter, page, pageSize, loadAssetsPage]); // loadAssetsPage is a dep so this runs when filters change
 
   const refetchAssets = useCallback(async () => { // Renamed function
     logger.log('[refetchAssets] Attempting explicit refetch...');
-    if (isMounted.current && !fetchInProgress.current) {
-      logger.log("[refetchAssets] Conditions met, calling loadAssetsPage");
+    if (isMounted.current) {
+      logger.log("[refetchAssets] Conditions met, setting isLoading=true and calling loadAssetsPage");
+      setIsLoading(true); // Indicate that a refetch process is starting.
       await loadAssetsPage();
     } else {
-      logger.log(`[refetchAssets] Skipping: isMounted=${isMounted.current}, fetchInProgress=${fetchInProgress.current}`);
-      if (fetchInProgress.current) {
-        toast.info("Data is already being loaded.", { duration: 3000 });
-      }
+      logger.log(`[refetchAssets] Skipping: isMounted=${isMounted.current}`);
     }
-  }, [loadAssetsPage]);
+  }, [loadAssetsPage, isMounted, setIsLoading]); // Added setIsLoading, isMounted
 
   const setAssetAdminStatus = useCallback(async (assetId: string, status: AdminStatus): Promise<void> => { // Renamed function
     logger.log(`[setAssetAdminStatus] Setting status for asset ${assetId} to ${status}`);

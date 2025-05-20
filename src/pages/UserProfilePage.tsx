@@ -145,7 +145,15 @@ export default function UserProfilePage() {
   const [isGenerationUploadModalOpen, setIsGenerationUploadModalOpen] = useState(false);
   
   const profileUserId = profile?.id;
+  logger.log('[UserProfileAssetsDebug] profileUserId evaluated to:', profileUserId, 'Profile object:', profile);
 
+  useEffect(() => {
+    if (profileUserId) {
+      logger.log('[UserProfileAssetsDebug] Fetched profile user ID:', profileUserId);
+    }
+  }, [profileUserId]);
+
+  logger.log('[UserProfileAssetsDebug] About to call useAssetManagement for LORAs with userId:', profileUserId);
   const { 
     assets: userLoras, 
     isLoading: isLoadingLoras, 
@@ -160,6 +168,19 @@ export default function UserProfilePage() {
     userId: profileUserId,
   });
 
+  useEffect(() => {
+    if (userLoras) {
+      logger.log('[UserProfileAssetsDebug] Raw userLoras received:', userLoras);
+      if (userLoras.length > 0) {
+        logger.log(
+          '[UserProfileAssetsDebug] Detailed userLoras check. Expected profileUserId:', profileUserId,
+          'First LoRA user_id:', userLoras[0]?.user_id,
+          'All Loras (id, user_id, name):', userLoras.map((lora: AnyAsset) => ({ id: lora.id, user_id: lora.user_id, name: lora.name }))
+        );
+      }
+    }
+  }, [userLoras, profileUserId]);
+
   const { 
     assets: userWorkflows, 
     isLoading: isLoadingWorkflows, 
@@ -173,6 +194,19 @@ export default function UserProfilePage() {
     pageSize: PROFILE_ASSET_ITEMS_PER_PAGE,
     userId: profileUserId,
   });
+
+  useEffect(() => {
+    if (userWorkflows) {
+      logger.log('[UserProfileAssetsDebug] Raw userWorkflows received:', userWorkflows);
+      if (userWorkflows.length > 0) {
+        logger.log(
+          '[UserProfileAssetsDebug] Detailed userWorkflows check. Expected profileUserId:', profileUserId,
+          'First Workflow user_id:', userWorkflows[0]?.user_id,
+          'All Workflows (id, user_id, name):', userWorkflows.map((wf: AnyAsset) => ({ id: wf.id, user_id: wf.user_id, name: wf.name }))
+        );
+      }
+    }
+  }, [userWorkflows, profileUserId]);
 
   const totalLorasOnProfile = userLoras?.length || 0;
   const totalWorkflowsOnProfile = userWorkflows?.length || 0;
@@ -243,6 +277,7 @@ export default function UserProfilePage() {
         if (!unmountedRef.current) {
           setProfile(profileData);
             const fetchedUserId = profileData.id;
+            logger.log('[UserProfileAssetsDebug] Fetched profile user ID:', fetchedUserId);
             const actualIsOwner = user?.id === fetchedUserId;
             const isMockOwner = isStaging && mockRole === 'owner' && user?.id === MOCK_OWNER_MARKER_USER_ID && profileData.username === mockOwnerIdentifierFromContext;
             const finalIsOwner = actualIsOwner || isMockOwner;
@@ -250,7 +285,9 @@ export default function UserProfilePage() {
             setCanEdit(finalIsOwner || (authIsAdminHook && !forcePublic));
             fetchUserVideosData(fetchedUserId, user?.id, authIsAdminHook && !forcePublic, true);
             if(fetchedUserId) {
+                logger.log('[UserProfileAssetsDebug] Calling refetchUserLoras for userId:', fetchedUserId);
                 refetchUserLoras();
+                logger.log('[UserProfileAssetsDebug] Calling refetchUserWorkflows for userId:', fetchedUserId);
                 refetchUserWorkflows();
             }
         }
