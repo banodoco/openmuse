@@ -11,8 +11,10 @@ import { useVideoLoader } from '@/hooks/useVideoLoader';
 import { useVideoPlayback } from '@/hooks/useVideoPlayback';
 import { useIntersectionObserver } from '@/hooks/useIntersectionObserver';
 import { useHlsIntegration } from '@/hooks/useHlsIntegration';
+import { useVideoPlaybackManager } from '@/contexts/VideoPlaybackContext';
 
 const logger = new Logger('VideoPlayer');
+const videoPlayerLogger = (id: string, ...args: any[]) => console.log(`[VideoPlayer:${id}]`, ...args);
 
 // ---------------------------------------------------------------------------
 // Network‑aware timeout helper
@@ -182,6 +184,9 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const unmountedRef = useRef(false);
   const [isInternallyHovering, setIsInternallyHovering] = useState(false);
 
+  const { registerMobileVideo, unregisterMobileVideo, updateVideoPreference } = useVideoPlaybackManager();
+  const videoId = componentId; // Use componentId as videoId for the context
+
   const {
     error: uVLError,
     isLoading: uVLIsLoading,
@@ -306,6 +311,8 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   }, [handleHlsErrorCallback]);
   
   useEffect(() => {
+    // Store ref value for cleanup because localVideoRef.current might be null by then
+    const videoElementForCleanup = localVideoRef.current;
     return () => {
       unmountedRef.current = true;
       if (hlsInstanceRef.current) {
@@ -313,7 +320,8 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
         hlsInstanceRef.current = null;
       }
     };
-  }, []);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hlsInstanceRef]);
 
   const setVideoRef = (node: HTMLVideoElement | null) => {
     localVideoRef.current = node;
@@ -333,9 +341,14 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   useEffect(() => {
     if (triggerPlay && localVideoRef?.current?.paused && !unmountedRef.current) {
-      localVideoRef.current.play().catch(err => logger.error(`[${componentId}] Error via triggerPlay:`, err));
+      const video = localVideoRef.current;
+      if (isMobile && video) {
+        logger.log(`[MobileVideoPlay][${componentId}] Setting active via triggerPlay`);
+        registerMobileVideo(videoId, video, true);
+      }
+      video.play().catch(err => logger.error(`[${componentId}] Error via triggerPlay:`, err));
     }
-  }, [triggerPlay, componentId]);
+  }, [triggerPlay, componentId, isMobile, registerMobileVideo]);
   
   useVideoPlayback({
     videoRef: localVideoRef,
@@ -378,11 +391,22 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
 
   const handleVideoClick = useCallback((event: React.MouseEvent<HTMLVideoElement>) => {
     if (onClick) onClick(event);
-    else if (!controls && !isMobile && localVideoRef.current) {
-      localVideoRef.current.paused ? localVideoRef.current.play().catch(logger.error) : localVideoRef.current.pause();
+    else if (!controls && localVideoRef.current) {
+      const video = localVideoRef.current;
+      if (isMobile) {
+        if (video.paused) {
+          videoPlayerLogger(videoId, 'Video clicked (paused), updating preference to true.');
+          updateVideoPreference(videoId, true);
+        } else {
+          videoPlayerLogger(videoId, 'Video clicked (playing), updating preference to false.');
+          updateVideoPreference(videoId, false);
+        }
+      } else {
+        video.paused ? video.play().catch(logger.error) : video.pause();
+      }
     }
     if (!hasInteracted) setHasInteracted(true);
-  }, [onClick, controls, isMobile, hasInteracted, componentId]);
+  }, [onClick, controls, isMobile, hasInteracted, componentId, videoId, updateVideoPreference]);
 
   const effectivePreventLoadingFlicker = isMobile ? false : preventLoadingFlicker;
   const showLoadingIndicator = (uVLIsLoading || videoPlayerIsLoading) && (!effectivePreventLoadingFlicker || !poster) && !uVLError;
@@ -390,7 +414,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const isFirefox = typeof navigator !== 'undefined' && /Firefox/.test(navigator.userAgent);
   const isHls = src.endsWith('.m3u8') || src.includes('.m3u8?');
   const effectivePreload = (showFirstFrameAsPoster || (isFirefox && isHls)) ? 'metadata' : (preloadProp || 'auto');
-  const effectiveAutoPlay = autoPlay;
+  const effectiveAutoPlay = !isMobile && autoPlay;
 
   const handleLoadedDataInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement, Event> | Event) => {
     if (localVideoRef.current && showFirstFrameAsPoster && !initialFrameLoaded) {
@@ -504,24 +528,30 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   }, [isIntersecting, isMobile, hasPlayedOnce, uVLError, playAttempted, scheduleNextVideoRetry, clearRetryTimeout, componentId]);
 
   const handlePlayInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
+    if (isMobile && !unmountedRef.current) {
+      videoPlayerLogger(videoId, 'onPlay event, updating preference to true.');
+      updateVideoPreference(videoId, true);
+    }
     setHasPlayedOnce(true);
     setRetryAttempt(0);
     clearRetryTimeout();
     if (onPlayProp) onPlayProp(event);
-  }, [onPlayProp, clearRetryTimeout, componentId]);
+  }, [onPlayProp, clearRetryTimeout, componentId, isMobile, updateVideoPreference, videoId]);
 
   const handlePauseInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     const video = localVideoRef.current;
     if (video && (video.ended || !isIntersecting || !isMobile)) clearRetryTimeout();
-    if (onPause) onPause(event);
-    if (isMobile && isIntersecting && video && !video.ended && !unmountedRef.current) {
-      setTimeout(() => {
-        if (localVideoRef.current?.paused && isIntersecting && !localVideoRef.current.ended && !unmountedRef.current) {
-          localVideoRef.current.play().catch(logger.error);
-        }
-      }, 200);
+    
+    if (isMobile && !unmountedRef.current && video) {
+      if (!(video.ended && loop)) {
+        videoPlayerLogger(videoId, 'onPause event, updating preference to false (unless ended and looping).');
+        updateVideoPreference(videoId, false);
+      }
     }
-  }, [onPause, clearRetryTimeout, isMobile, isIntersecting, componentId]);
+
+    if (onPause) onPause(event);
+
+  }, [onPause, clearRetryTimeout, isMobile, isIntersecting, componentId, updateVideoPreference, videoId, loop]);
 
   const handleWaitingInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     scheduleNextVideoRetry(); 
@@ -531,12 +561,23 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   const handleEndedInternal = useCallback((event: React.SyntheticEvent<HTMLVideoElement>) => {
     if (onEnded) onEnded(event);
     if (!localVideoRef.current || unmountedRef.current) return;
-    const shouldManuallyLoop = loop || (isMobile && isIntersecting);
-    if (shouldManuallyLoop) {
-        localVideoRef.current.currentTime = 0;
-      localVideoRef.current.play().catch(logger.error);
+    const video = localVideoRef.current;
+
+    if (loop) {
+      if (isMobile) {
+        videoPlayerLogger(videoId, 'Video ended, loop=true. Resetting time and updating preference to play.');
+        if (video) video.currentTime = 0;
+        updateVideoPreference(videoId, true);
+      } else {
+        videoPlayerLogger(videoId, 'Video ended, loop=true on non-mobile. Playing directly.');
+        if (video) video.currentTime = 0;
+        video?.play().catch(logger.error);
+      }
+    } else if (isMobile) {
+      videoPlayerLogger(videoId, 'Video ended, loop=false. Updating preference to not play.');
+      updateVideoPreference(videoId, false);
     }
-  }, [onEnded, loop, isMobile, isIntersecting, componentId]);
+  }, [onEnded, loop, isMobile, componentId, videoId, updateVideoPreference]);
 
   useEffect(() => () => {
     if (ref && typeof ref === 'function') ref(null);
@@ -593,7 +634,7 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
         )}
         autoPlay={effectiveAutoPlay}
         muted={muted}
-        loop={loop}
+        loop={!isMobile && loop}
         controls={controls}
         playsInline={playsInline}
         poster={poster}

@@ -47,7 +47,7 @@ const VideoError: React.FC<VideoErrorProps> = ({
     displayTitle = "Network Issue";
   } else if (lowerError.includes("decode") || lowerError.includes("corruption")) {
     displayTitle = "Playback Issue";
-  } else if (lowerError.includes("aborted")) {
+  } else if (lowerError === "the operation was aborted." || lowerError.includes("aborted")) {
     displayTitle = "Playback Aborted";
   } else if (lowerError.includes("source") || lowerError.includes("invalid url") || lowerError.includes("cannot be played")) {
     displayTitle = "Video Source Issue";

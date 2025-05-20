@@ -11,6 +11,7 @@ import { LoraProvider } from './contexts/LoraContext';
 import { HelmetProvider } from 'react-helmet-async';
 import { TooltipProvider } from '@/components/ui/tooltip';
 import RoleSwitcher from './components/common/RoleSwitcher';
+import { VideoPlaybackProvider } from './contexts/VideoPlaybackContext';
 
 const HomePage = lazy(() => import('./pages/Index'));
 const UploadPage = lazy(() => import('./pages/upload/UploadPage'));
@@ -84,40 +85,42 @@ const App: React.FC = () => {
         <TooltipProvider>
           <AuthProvider>
             <LoraProvider>
-              <div id="app-container" className="min-h-screen bg-gradient-to-br from-[#FEFDF4] via-[#FEFDF4] to-[#C3C6AD]">
-                <Router>
-                  <Suspense fallback={<LoadingState />}>
-                    <Routes>
-                      <Route path="/" element={<HomePage />} />
-                      <Route path="/auth" element={<AuthPage />} />
-                      <Route path="/auth/callback" element={<AuthCallback />} />
-                      <Route path="/manifesto" element={<ManifestoPage />} />
-                      <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
-                      <Route path="/assets/workflows/:id" element={<AssetDetailPage />} />
-                      <Route path="/loras" element={<LorasPage />} />
-                      <Route path="/workflows" element={<WorkflowsPage />} />
-                      <Route path="/art" element={<ArtPage />} />
-                      <Route path="/generations" element={<GenerationsPage />} />
-                      <Route path="/profile/:username" element={
-                        <ErrorBoundary fallback={<p>Error loading profile page.</p>}>
-                          <UserProfilePage />
-                        </ErrorBoundary>
-                      } />
-                      <Route path="/upload" element={<UploadPage />} />
+              <VideoPlaybackProvider>
+                <div id="app-container" className="min-h-screen bg-gradient-to-br from-[#FEFDF4] via-[#FEFDF4] to-[#C3C6AD]">
+                  <Router>
+                    <Suspense fallback={<LoadingState />}>
+                      <Routes>
+                        <Route path="/" element={<HomePage />} />
+                        <Route path="/auth" element={<AuthPage />} />
+                        <Route path="/auth/callback" element={<AuthCallback />} />
+                        <Route path="/manifesto" element={<ManifestoPage />} />
+                        <Route path="/assets/loras/:id" element={<AssetDetailPage />} />
+                        <Route path="/assets/workflows/:id" element={<AssetDetailPage />} />
+                        <Route path="/loras" element={<LorasPage />} />
+                        <Route path="/workflows" element={<WorkflowsPage />} />
+                        <Route path="/art" element={<ArtPage />} />
+                        <Route path="/generations" element={<GenerationsPage />} />
+                        <Route path="/profile/:username" element={
+                          <ErrorBoundary fallback={<p>Error loading profile page.</p>}>
+                            <UserProfilePage />
+                          </ErrorBoundary>
+                        } />
+                        <Route path="/upload" element={<UploadPage />} />
 
-                      <Route 
-                        path="/admin"
-                        element={
-                          <RequireAuth requireAdmin={true}>
-                            <AdminPage />
-                          </RequireAuth>
-                        }
-                      />
-                    </Routes>
-                  </Suspense>
-                  <RoleSwitcher />
-                </Router>
-              </div>
+                        <Route 
+                          path="/admin"
+                          element={
+                            <RequireAuth requireAdmin={true}>
+                              <AdminPage />
+                            </RequireAuth>
+                          }
+                        />
+                      </Routes>
+                    </Suspense>
+                    <RoleSwitcher />
+                  </Router>
+                </div>
+              </VideoPlaybackProvider>
             </LoraProvider>
           </AuthProvider>
           <Toaster />

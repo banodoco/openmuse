@@ -311,7 +311,7 @@ const Index: React.FC = () => {
           <div ref={heroRef} className="pt-2 pb-0 mb-4">
             <PageHeader 
               title="Curated resources, art & workflows for open video models"
-              description="A collection of LoRAs, Workflows, and art for open video models like LTXV, Stable Video Diffusion, and Hunyuan."
+              description="A collection of LoRAs, Workflows, and art for open video models like Wan, LTXV, and HunyuanVideo."
             />
           </div>
 
