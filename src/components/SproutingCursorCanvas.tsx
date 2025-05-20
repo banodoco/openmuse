@@ -114,8 +114,8 @@ const SproutingCursorCanvas = forwardRef<SproutingCanvasHandle, {}>((props, ref)
 
   useImperativeHandle(ref, () => ({
     createBurst: (clientX: number, clientY: number) => {
-      const x = clientX + window.scrollX;
-      const y = clientY + window.scrollY;
+      const x = clientX;
+      const y = clientY;
       const burstCount = 18 + Math.floor(Math.random() * 9);
       for (let i = 0; i < burstCount; i++) {
         sproutsRef.current.push(new Sprout(x / ZOOM_FACTOR, y / ZOOM_FACTOR, '#8c5a2a'));
@@ -181,13 +181,13 @@ const SproutingCursorCanvas = forwardRef<SproutingCanvasHandle, {}>((props, ref)
         return;
       }
 
-      const currentX = e.clientX + window.scrollX;
-      const currentY = e.clientY + window.scrollY;
+      const currentX = e.clientX;
+      const currentY = e.clientY;
 
       addBranchPointInternal(currentX / ZOOM_FACTOR, currentY / ZOOM_FACTOR);
       
-      const prevLogicX = mouseRef.current.x !== null ? mouseRef.current.x - window.scrollX : e.clientX;
-      const prevLogicY = mouseRef.current.y !== null ? mouseRef.current.y - window.scrollY : e.clientY;
+      const prevLogicX = mouseRef.current.x !== null ? mouseRef.current.x : e.clientX;
+      const prevLogicY = mouseRef.current.y !== null ? mouseRef.current.y : e.clientY;
 
       mouseRef.current.prevX = mouseRef.current.x;
       mouseRef.current.prevY = mouseRef.current.y;
@@ -259,7 +259,7 @@ const SproutingCursorCanvas = forwardRef<SproutingCanvasHandle, {}>((props, ref)
     <canvas
       ref={canvasRef}
       style={{
-        position: 'absolute',
+        position: 'fixed',
         top: 0,
         left: 0,
         pointerEvents: 'none',
