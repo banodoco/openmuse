@@ -29,6 +29,7 @@ export const useAssetManagement = (filters: AssetFilters) => { // Renamed hook
   const { user, isLoading: isAuthLoading } = useAuth();
   const isMounted = useRef(true);
   const fetchInProgress = useRef(false);
+  const [hasReceivedDefinedUserId, setHasReceivedDefinedUserId] = useState(Boolean(userId)); // New state
 
   const loadAssetsPage = useCallback(async () => { // Renamed function
     logger.log(`[loadAssetsPage] Attempting load. Filters: assetType=${assetType}, model=${modelFilter}, approval=${approvalFilter}, page=${page}, pageSize=${pageSize}, userId=${userId}`);
@@ -311,10 +312,31 @@ export const useAssetManagement = (filters: AssetFilters) => { // Renamed hook
   }, []);
 
   useEffect(() => {
-    if (!fetchInProgress.current) {
-      loadAssetsPage();
+    // New logic to manage hasReceivedDefinedUserId
+    if (userId && !hasReceivedDefinedUserId) {
+        setHasReceivedDefinedUserId(true);
     }
-  }, [userId, assetType, modelFilter, approvalFilter, page, pageSize, loadAssetsPage]);
+
+    if (fetchInProgress.current) {
+        logger.log("[useEffect loadAssetsPage] Skip: Fetch in progress");
+        return;
+    }
+
+    // If the intention is to filter by a user (i.e., `filters.userId` was part of the hook's setup),
+    // but we don't have a userId YET, and we've NEVER received one for this hook instance, then don't auto-load.
+    // The explicit refetch from the calling component (like UserProfilePage) will trigger the load once userId is available.
+    if (filters.hasOwnProperty('userId') && !userId && !hasReceivedDefinedUserId) {
+        logger.log("[useEffect loadAssetsPage] Skipping initial automatic fetch: userId is expected but currently undefined, and has never been defined for this hook instance.");
+        // Set isLoading to false if we skip the fetch, to avoid indefinite loading spinners.
+        // The calling component (e.g., UserProfilePage) might manage its own loading state based on profile loading.
+        if (isLoading) setIsLoading(false);
+        return;
+    }
+
+    logger.log(`[useEffect loadAssetsPage] Proceeding to load. userId: ${userId}, hasOwnProperty: ${filters.hasOwnProperty('userId')}, hasReceivedDefinedUserId: ${hasReceivedDefinedUserId}`);
+    loadAssetsPage();
+
+  }, [userId, assetType, modelFilter, approvalFilter, page, pageSize, loadAssetsPage, filters, hasReceivedDefinedUserId, isLoading]); // Added filters, hasReceivedDefinedUserId, and isLoading to dependency array
 
   const refetchAssets = useCallback(async () => { // Renamed function
     logger.log('[refetchAssets] Attempting explicit refetch...');

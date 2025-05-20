@@ -230,33 +230,45 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
     if (!video || unmountedRef.current) return;
 
     logger.warn(`[VideoMobileError][${componentId}] Performing actual video reset. Attempt: ${retryAttempt + 1}.`);
+    videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Entering actualPerformReset. Retry attempt: ${retryAttempt + 1}`);
     setVideoPlayerIsLoading(true);
 
     if (hlsInstanceRef.current) {
       logger.log(`[VideoMobileError][${componentId}] Resetting with HLS. Destroying & relying on HLS useEffect to re-init.`);
+      videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] HLS instance present. Destroying HLS for reset.`);
       hlsInstanceRef.current.destroy();
       hlsInstanceRef.current = null;
       if (onError) onError(null);
-      uVLHandleRetry();
+      uVLHandleRetry(); // This might re-trigger HLS setup via useHlsIntegration's useEffect on src
+      videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] HLS reset initiated. uVLHandleRetry called.`);
     } else {
       logger.log(`[VideoMobileError][${componentId}] Standard video reset.`);
+      videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Standard video reset. Current src: ${video.currentSrc}, target src prop: ${src}`);
       const currentTime = video.currentTime;
-      const currentSrc = src;
+      const currentSrc = src; // src prop
       if (video.currentSrc !== currentSrc && !(currentSrc.endsWith('.m3u8') || currentSrc.includes('.m3u8?'))) {
+        videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Setting video.src to: ${currentSrc}`);
         video.src = currentSrc;
       }
+      videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Calling video.load()`);
       video.load();
+      videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Calling video.play()`);
       video.play().then(() => {
         if (!unmountedRef.current && localVideoRef.current) {
-          if (localVideoRef.current.currentTime === 0 && currentTime > 0) localVideoRef.current.currentTime = currentTime;
+          if (localVideoRef.current.currentTime === 0 && currentTime > 0) {
+            videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Play successful, restoring currentTime to ${currentTime}`);
+            localVideoRef.current.currentTime = currentTime;
+          }
           setRetryAttempt(0);
           clearRetryTimeout();
           setVideoPlayerIsLoading(false);
           logger.log(`[VideoMobileError][${componentId}] Standard video reset successful.`);
+          videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Standard video reset play successful.`);
         }
       }).catch(err => {
         if (!unmountedRef.current) {
           logger.error(`[VideoMobileError][${componentId}] Error playing after standard reset (Attempt ${retryAttempt + 1}):`, err);
+          videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] Error playing after standard reset (Attempt ${retryAttempt + 1}):`, err.name, err.message);
           if (onError) {
             logger.log(`[VideoMobileError][${componentId}] Propagating error to parent after standard reset failure.`);
             onError(err.message || 'Error playing after reset');
@@ -342,11 +354,16 @@ const VideoPlayer = forwardRef<HTMLVideoElement, VideoPlayerProps>((
   useEffect(() => {
     if (triggerPlay && localVideoRef?.current?.paused && !unmountedRef.current) {
       const video = localVideoRef.current;
+      videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] triggerPlay useEffect. triggerPlay=${triggerPlay}, video.paused=${video?.paused}`);
       if (isMobile && video) {
         logger.log(`[MobileVideoPlay][${componentId}] Setting active via triggerPlay`);
         registerMobileVideo(videoId, video, true);
       }
-      video.play().catch(err => logger.error(`[${componentId}] Error via triggerPlay:`, err));
+      videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] triggerPlay: Calling video.play()`);
+      video.play().catch(err => {
+        logger.error(`[${componentId}] Error via triggerPlay:`, err);
+        videoPlayerLogger(componentId, `[VideoPlayInterruptDebug] triggerPlay: Error calling video.play():`, err.name, err.message);
+      });
     }
   }, [triggerPlay, componentId, isMobile, registerMobileVideo]);
   
