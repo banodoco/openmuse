@@ -189,7 +189,7 @@ export const updateUserProfile = async (updates: Partial<UserProfile>): Promise<
 // REVISED: Function to merge a preexisting profile based on discord user ID or username
 export async function mergeProfileIfExists(supabaseClient: any, authUserId: string, identifiers: { discordUsername?: string, discordUserId?: string }) {
   const { discordUsername, discordUserId } = identifiers;
-  let profileData = null;
+  let profileDataFromOldId = null; // Renamed to clarify it's the profile linked to the old ID
   let queryError = null;
 
   logger.log(`Attempting merge for user ${authUserId} with identifiers:`, identifiers);
@@ -201,77 +201,102 @@ export async function mergeProfileIfExists(supabaseClient: any, authUserId: stri
       .from('profiles')
       .select('*')
       .eq('discord_user_id', discordUserId)
+      .neq('id', authUserId) // Ensure we don't match the user's own current profile
       .single();
     
-    // Ignore 'not found' error (PGRST116), store others
-    if (error && error.code !== 'PGRST116') {
+    if (error && error.code !== 'PGRST116') { // Ignore 'not found' error
       logger.error(`Error querying by discord_user_id: ${discordUserId}`, error);
       queryError = error;
     } else if (data) {
-      logger.log(`Found profile by discord_user_id: ${data.id}`);
-      profileData = data;
+      logger.log(`Found potential pre-existing profile (ID: ${data.id}) by discord_user_id`);
+      profileDataFromOldId = data;
     } else {
       logger.log(`No unclaimed profile found for discord_user_id: ${discordUserId}`);
     }
   }
 
   // 2. If not found by ID and no error occurred, try by Discord Username
-  if (!profileData && !queryError && discordUsername) {
+  if (!profileDataFromOldId && !queryError && discordUsername) {
     logger.log(`Searching for unclaimed profile with username (Discord username): ${discordUsername}`);
     const { data, error } = await supabaseClient
       .from('profiles')
       .select('*')
       .eq('username', discordUsername)
+      .neq('id', authUserId) // Ensure we don't match the user's own current profile
       .single();
 
-    // Ignore 'not found' error (PGRST116), store others
-    if (error && error.code !== 'PGRST116') {
+    if (error && error.code !== 'PGRST116') { // Ignore 'not found' error
       logger.error(`Error querying by username: ${discordUsername}`, error);
       queryError = error;
     } else if (data) {
-      logger.log(`Found profile by username: ${data.id}`);
-      profileData = data;
+      logger.log(`Found potential pre-existing profile (ID: ${data.id}) by username`);
+      profileDataFromOldId = data;
     } else {
         logger.log(`No unclaimed profile found for username: ${discordUsername}`);
     }
   }
 
-  // Handle any query errors that occurred
   if (queryError) {
     logger.error('Error occurred during profile search, cannot merge.', queryError);
     return null;
   }
 
-  // 3. If a profile was found by either method, update its ID to claim it
-  if (profileData) {
-    logger.log(`Found pre-existing profile (ID: ${profileData.id}) matching Discord identifiers, attempting ID update.`);
-    const updatePayload = {
-      id: authUserId, // Update the profile's ID to the authenticated user's ID
-      // Optionally update other fields if needed, but keep it simple for now
-      // discord_user_id: discordUserId || profileData.discord_user_id,
-      // discord_username: discordUsername || profileData.discord_username
-    };
+  // 3. If a potentially mergeable profile was found (and it's not the authUser's current profile)
+  if (profileDataFromOldId && profileDataFromOldId.id !== authUserId) {
+    const oldUserId = profileDataFromOldId.id;
+    logger.log(`Pre-existing profile (ID: ${oldUserId}) found, attempting to merge data with primary user ID: ${authUserId}.`);
 
-    const { error: updateError } = await supabaseClient
-      .from('profiles')
-      .update(updatePayload)
-      .eq('id', profileData.id); // Target the original ID for the update
+    try {
+      const { data: rpcData, error: rpcError } = await supabaseClient.rpc('merge_user_data', {
+        old_user_id: oldUserId,
+        new_user_id: authUserId,
+      });
 
-    if (updateError) {
-      logger.error(`Error updating profile ID ${profileData.id} to ${authUserId}:`, updateError);
-      return null; // Failed to update/claim
+      if (rpcError) {
+        logger.error(`Error calling merge_user_data RPC for old_user_id ${oldUserId} and new_user_id ${authUserId}:`, rpcError);
+        // Optionally, inform the user that the merge couldn't complete fully.
+        toast({
+          title: "Merge Incomplete",
+          description: "Could not fully consolidate account data. Some older data might not be linked.",
+          variant: "default"
+        });
+        return null; // Failed to merge
+      }
+
+      logger.log(`Successfully called merge_user_data RPC. Old profile ${oldUserId} merged into ${authUserId}. RPC response:`, rpcData);
+      
+      // Clear caches for both old and new user IDs as their data has changed.
+      userProfileCache.delete(authUserId);
+      userProfileCache.delete(oldUserId);
+
+      // After merge, we should return the current, authoritative profile for authUserId.
+      // The RPC function could return the updated new_user_id profile, or we can re-fetch.
+      // For simplicity, let's assume the RPC handles attribute merging and we just need to ensure the current user's view is fresh.
+      // The getCurrentUserProfile function will fetch the latest if cache is cleared.
+      // Or, if rpcData contains the merged profile for new_user_id:
+      if (rpcData && typeof rpcData === 'object' && rpcData.id === authUserId) {
+        userProfileCache.set(authUserId, {profile: rpcData as UserProfile, timestamp: Date.now()});
+        return rpcData as UserProfile;
+      }
+      // Fallback to fetching the updated profile if RPC doesn't return it directly in expected format.
+      const updatedProfile = await getCurrentUserProfile(); // Relies on cache being cleared
+      return updatedProfile;
+
+    } catch (e) {
+      logger.error(`Exception during merge_user_data RPC call or subsequent profile fetch:`, e);
+      return null;
     }
-
-    logger.log(`Successfully updated profile ID: ${profileData.id} to ${authUserId}`);
-    userProfileCache.delete(authUserId); 
-    if (profileData.id !== authUserId) {
-       userProfileCache.delete(profileData.id);
-    }
-    // Return the conceptually updated profile data
-    return { ...profileData, ...updatePayload }; 
   }
 
-  // No unclaimed profile found matching the criteria
-  logger.log('No matching unclaimed profile found for merge.');
-  return null;
+  if (profileDataFromOldId && profileDataFromOldId.id === authUserId) {
+    logger.log(`Profile found (${profileDataFromOldId.id}) already matches authUserId (${authUserId}). No merge needed, but ensuring Discord data is up-to-date.`);
+    // If the found profile is already the user's own, but we have new Discord identifiers,
+    // we might want to update the existing profile's discord_user_id and discord_username.
+    // This is typically handled by the AuthProvider sync logic upon login.
+    // For now, mergeProfileIfExists focuses on merging distinct user ID records.
+  }
+
+  // No unclaimed profile found matching the criteria, or no merge was performed.
+  logger.log('No merge operation performed.');
+  return null; // Or return current user's profile if already fetched and no merge attempt was made.
 }

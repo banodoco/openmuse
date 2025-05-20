@@ -37,6 +37,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
+import { useMockRoleContext } from '@/contexts/MockRoleContext';
 
 const logger = new Logger('VideoCard');
 
@@ -113,6 +114,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const [isChangingAdminStatus, setIsChangingAdminStatus] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const [localHovering, setLocalHovering] = useState(false);
+  const [hideCard, setHideCard] = useState(false);
   
   const debouncedLocalHovering = useDebouncedValue(localHovering, 200);
 
@@ -264,6 +266,16 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const currentRelevantStatus = isProfilePage ? video.user_status : video.assetMediaDisplayStatus;
 
   const handleVideoPlayerError = useCallback((message: string) => {
+    if (!hideCard && message && message.toLowerCase().includes('play() request was interrupted')) {
+      logger.warn(`[VideoCard] Hiding video ${video.id} due to play() interruption error.`);
+      setHideCard(true);
+      return;
+    }
+    if (!hideCard && message && message.toLowerCase().includes('play request was interrupted')) {
+      logger.warn(`[VideoCard] Hiding video ${video.id} due to play request interruption error.`);
+      setHideCard(true);
+      return;
+    }
     logger.log(`[VideoCard] VideoPlayer reported error for video ${video.id}: ${message}`);
     if (
       isMobile &&
@@ -273,7 +285,7 @@ const VideoCard: React.FC<VideoCardProps> = ({
       logger.log(`[VideoCard] Unsupported format for video ${video.id} on mobile. Calling onFormatUnsupportedOnMobile.`);
       onFormatUnsupportedOnMobile(video.id);
     }
-  }, [isMobile, onFormatUnsupportedOnMobile, video.id]);
+  }, [isMobile, onFormatUnsupportedOnMobile, video.id, hideCard, setHideCard]);
 
   const [creatorProfile, setCreatorProfile] = useState<{ avatar_url: string | null; display_name: string | null; username: string | null } | null>(null);
 
@@ -360,6 +372,35 @@ const VideoCard: React.FC<VideoCardProps> = ({
   const videoSourceUrl = video.storage_provider === 'cloudflare-stream' && video.cloudflare_playback_hls_url 
     ? video.cloudflare_playback_hls_url 
     : video.url;
+
+  const { mockRole } = useMockRoleContext();
+
+  if (hideCard) {
+    const isOwnerView = mockRole === 'owner';
+    if (isAdmin || isOwnerView || (user && video.user_id === user.id)) {
+      return (
+        <div 
+          className={cn(
+            "relative group overflow-hidden rounded-lg",
+            "bg-yellow-100 border border-yellow-400 text-yellow-700",
+            "transition-all duration-300 ease-in-out"
+          )}
+        >
+          <div 
+            className="w-full bg-transparent relative max-h-none"
+            style={aspectRatio ? { paddingBottom: `${(1 / aspectRatio) * 100}%` } : { aspectRatio: '16 / 9' }}
+          >
+            <div className="absolute inset-0 flex items-center justify-center p-4 text-center">
+              <p className="text-sm">
+                Item hidden due to broken format. This is not shown to others.
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+    return null;
+  }
 
   return (
     <div 

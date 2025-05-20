@@ -820,7 +820,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       case 'owner': 
         if (mockOwnerId) { // mockOwnerId here is the ID of the ASSET/PROFILE being viewed
           const MOCK_VIEW_AS_OWNER_USER: User = {
-            id: MOCK_OWNER_MARKER_USER_ID, // Special marker ID
+            id: mockOwnerId, // UPDATED: Use the actual mockOwnerId (asset's user_id)
             app_metadata: { provider: 'email', providers: ['email'] },
             user_metadata: { name: `Mock Owner (Target: ${mockOwnerId.substring(0,8)}...)`, email: `mockowner-target-${mockOwnerId}@example.com`, full_name: `Mock Owner (Viewing ${mockOwnerId.substring(0,8)}...)`, avatar_url: '' },
             aud: 'authenticated',
