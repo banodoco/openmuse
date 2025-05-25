@@ -104,6 +104,10 @@ const UploadContent: React.FC<UploadContentProps> = ({
     const db = await databaseSwitcher.getDatabase();
     const result = await db.addEntry({
       url: videoUrl,
+      title: title,
+      description: description,
+      type: 'video',
+      storage_provider: 'supabase',
       reviewer_name: creatorName || 'Unknown',
       skipped: false,
       user_id: user.id,

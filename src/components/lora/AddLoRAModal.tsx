@@ -1,9 +1,10 @@
+
 import React, { useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Plus } from 'lucide-react';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
-import { LoRADetailsForm } from '@/pages/upload/components';
+import GlobalLoRADetailsForm from '@/components/upload/GlobalLoRADetailsForm';
 import { useIsMobile } from '@/hooks/use-mobile';
 
 interface AddLoRAModalProps {
@@ -15,23 +16,32 @@ const AddLoRAModal: React.FC<AddLoRAModalProps> = ({ userId, triggerButtonClassN
   const [open, setOpen] = useState(false);
   const isMobile = useIsMobile();
   
-  // Initial LoRA details state
+  // Initial LoRA details state with all required properties
   const [loraDetails, setLoraDetails] = useState({
     loraName: '',
     loraDescription: '',
     creator: 'self' as 'self' | 'someone_else',
     creatorName: '',
-    model: 'wan' as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff',
+    model: '',
     modelVariant: '',
     loraType: 'Concept' as 'Concept' | 'Motion Style' | 'Specific Movement' | 'Aesthetic Style' | 'Control' | 'Other',
+    loraStorageMethod: 'link' as 'upload' | 'link',
     loraLink: '',
+    huggingFaceApiKey: '',
+    loraDirectDownloadLink: '',
+    saveApiKey: false,
   });
 
-  const updateLoRADetails = (field: keyof typeof loraDetails, value: string) => {
+  const updateLoRADetails = (field: keyof typeof loraDetails, value: string | boolean) => {
     setLoraDetails(prev => ({
       ...prev,
       [field]: value
     }));
+  };
+
+  const handleLoraFileSelect = (file: File | null) => {
+    // Handle LoRA file selection
+    console.log('LoRA file selected:', file);
   };
 
   const handleClose = () => {
@@ -52,9 +62,10 @@ const AddLoRAModal: React.FC<AddLoRAModalProps> = ({ userId, triggerButtonClassN
             <SheetTitle>Add New LoRA</SheetTitle>
           </SheetHeader>
           <div className="mt-6">
-            <LoRADetailsForm 
+            <GlobalLoRADetailsForm 
               loraDetails={loraDetails}
               updateLoRADetails={updateLoRADetails}
+              onLoraFileSelect={handleLoraFileSelect}
             />
             <div className="mt-4 flex justify-end">
               <Button variant="outline" onClick={handleClose} className="mr-2">Cancel</Button>
@@ -82,9 +93,10 @@ const AddLoRAModal: React.FC<AddLoRAModalProps> = ({ userId, triggerButtonClassN
           <DialogTitle>Add New LoRA</DialogTitle>
         </DialogHeader>
         <div className="mt-6">
-          <LoRADetailsForm 
+          <GlobalLoRADetailsForm 
             loraDetails={loraDetails}
             updateLoRADetails={updateLoRADetails}
+            onLoraFileSelect={handleLoraFileSelect}
           />
           <div className="mt-4 flex justify-end">
             <Button variant="outline" onClick={handleClose} className="mr-2">Cancel</Button>

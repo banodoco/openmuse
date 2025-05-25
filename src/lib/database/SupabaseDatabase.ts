@@ -56,6 +56,10 @@ export class SupabaseDatabase extends BaseDatabase {
         return {
           id: media.id,
           url: media.url,
+          title: media.title || '',
+          description: media.description || '',
+          type: media.type || 'video',
+          storage_provider: media.storage_provider || 'supabase',
           reviewer_name: media.creator || 'Unknown',
           skipped: false,
           created_at: media.created_at,
@@ -114,7 +118,8 @@ export class SupabaseDatabase extends BaseDatabase {
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .update({
-          title: update.metadata?.title,
+          title: update.title || update.metadata?.title,
+          description: update.description || update.metadata?.description,
           classification: update.metadata?.classification,
           admin_status: update.admin_status
         })
@@ -146,6 +151,10 @@ export class SupabaseDatabase extends BaseDatabase {
       const updatedEntry: VideoEntry = {
         id: mediaData.id,
         url: mediaData.url,
+        title: mediaData.title || '',
+        description: mediaData.description || '',
+        type: mediaData.type || 'video',
+        storage_provider: mediaData.storage_provider || 'supabase',
         reviewer_name: mediaData.creator || 'Unknown',
         skipped: update.skipped || false,
         created_at: mediaData.created_at,

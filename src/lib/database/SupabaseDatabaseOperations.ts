@@ -133,9 +133,11 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
       const { data: mediaData, error: mediaError } = await supabase
         .from('media')
         .insert({
-          title: entry.metadata?.title || 'Untitled',
+          title: entry.title || entry.metadata?.title || 'Untitled',
+          description: entry.description || entry.metadata?.description || '',
           url: entry.url,
-          type: 'video',
+          type: entry.type || 'video',
+          storage_provider: entry.storage_provider || 'supabase',
           classification: entry.metadata?.classification || 'art',
           user_id: entry.user_id || this.currentUserId,
           admin_status: 'Listed',
@@ -240,6 +242,10 @@ export class SupabaseDatabaseOperations extends SupabaseDatabase {
       const finalEntry: VideoEntry = {
         id: mediaData.id,
         url: mediaData.url,
+        title: mediaData.title || '',
+        description: mediaData.description || '',
+        type: mediaData.type || 'video',
+        storage_provider: mediaData.storage_provider || 'supabase',
         reviewer_name: entry.reviewer_name,
         skipped: entry.skipped || false,
         created_at: mediaData.created_at,
