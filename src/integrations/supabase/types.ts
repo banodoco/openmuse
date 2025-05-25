@@ -9,6 +9,33 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      api_keys: {
+        Row: {
+          created_at: string | null
+          id: string
+          key_value: string
+          service: string
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          key_value: string
+          service: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          key_value?: string
+          service?: string
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       asset_media: {
         Row: {
           asset_id: string
@@ -57,7 +84,9 @@ export type Database = {
           admin_status: string | null
           created_at: string
           creator: string | null
+          curator_id: string | null
           description: string | null
+          download_link: string | null
           id: string
           lora_base_model: string | null
           lora_link: string | null
@@ -74,7 +103,9 @@ export type Database = {
           admin_status?: string | null
           created_at?: string
           creator?: string | null
+          curator_id?: string | null
           description?: string | null
+          download_link?: string | null
           id?: string
           lora_base_model?: string | null
           lora_link?: string | null
@@ -91,7 +122,9 @@ export type Database = {
           admin_status?: string | null
           created_at?: string
           creator?: string | null
+          curator_id?: string | null
           description?: string | null
+          download_link?: string | null
           id?: string
           lora_base_model?: string | null
           lora_link?: string | null
@@ -117,14 +150,22 @@ export type Database = {
         Row: {
           admin_reviewed: boolean
           admin_status: string | null
+          backup_thumbnail_url: string | null
+          backup_url: string | null
           classification: string | null
+          cloudflare_playback_dash_url: string | null
+          cloudflare_playback_hls_url: string | null
+          cloudflare_stream_uid: string | null
+          cloudflare_thumbnail_url: string | null
           created_at: string
           description: string | null
           id: string
           metadata: Json | null
           placeholder_image: string | null
+          storage_provider: string | null
           title: string | null
           type: string
+          updated_at: string | null
           url: string
           user_id: string | null
           user_status: string | null
@@ -132,14 +173,22 @@ export type Database = {
         Insert: {
           admin_reviewed?: boolean
           admin_status?: string | null
+          backup_thumbnail_url?: string | null
+          backup_url?: string | null
           classification?: string | null
+          cloudflare_playback_dash_url?: string | null
+          cloudflare_playback_hls_url?: string | null
+          cloudflare_stream_uid?: string | null
+          cloudflare_thumbnail_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
           metadata?: Json | null
           placeholder_image?: string | null
+          storage_provider?: string | null
           title?: string | null
           type: string
+          updated_at?: string | null
           url: string
           user_id?: string | null
           user_status?: string | null
@@ -147,17 +196,58 @@ export type Database = {
         Update: {
           admin_reviewed?: boolean
           admin_status?: string | null
+          backup_thumbnail_url?: string | null
+          backup_url?: string | null
           classification?: string | null
+          cloudflare_playback_dash_url?: string | null
+          cloudflare_playback_hls_url?: string | null
+          cloudflare_stream_uid?: string | null
+          cloudflare_thumbnail_url?: string | null
           created_at?: string
           description?: string | null
           id?: string
           metadata?: Json | null
           placeholder_image?: string | null
+          storage_provider?: string | null
           title?: string | null
           type?: string
+          updated_at?: string | null
           url?: string
           user_id?: string | null
           user_status?: string | null
+        }
+        Relationships: []
+      }
+      models: {
+        Row: {
+          created_at: string
+          default_variant: string | null
+          display_name: string
+          id: string
+          internal_identifier: string
+          is_active: boolean
+          sort_order: number | null
+          variants: Json
+        }
+        Insert: {
+          created_at?: string
+          default_variant?: string | null
+          display_name: string
+          id?: string
+          internal_identifier: string
+          is_active?: boolean
+          sort_order?: number | null
+          variants?: Json
+        }
+        Update: {
+          created_at?: string
+          default_variant?: string | null
+          display_name?: string
+          id?: string
+          internal_identifier?: string
+          is_active?: boolean
+          sort_order?: number | null
+          variants?: Json
         }
         Relationships: []
       }
@@ -175,7 +265,6 @@ export type Database = {
           links: string[] | null
           real_name: string | null
           username: string
-          video_upload_consent: boolean | null
         }
         Insert: {
           avatar_url?: string | null
@@ -190,7 +279,6 @@ export type Database = {
           links?: string[] | null
           real_name?: string | null
           username: string
-          video_upload_consent?: boolean | null
         }
         Update: {
           avatar_url?: string | null
@@ -205,7 +293,6 @@ export type Database = {
           links?: string[] | null
           real_name?: string | null
           username?: string
-          video_upload_consent?: boolean | null
         }
         Relationships: []
       }
@@ -252,6 +339,10 @@ export type Database = {
       }
       has_role: {
         Args: { user_id: string; role: string }
+        Returns: boolean
+      }
+      is_current_user_admin: {
+        Args: Record<PropertyKey, never>
         Returns: boolean
       }
       set_primary_media: {
