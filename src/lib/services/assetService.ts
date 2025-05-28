@@ -1,7 +1,144 @@
-import { supabase } from '../supabase';
-import { LoraAsset, AdminStatus } from '../types';
-import { Logger } from '../logger';
-import { checkIsAdmin } from '../auth';
+import { supabase } from '@/integrations/supabase/client';
+import { LoraAsset, VideoEntry } from '@/lib/types';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('AssetService');
+
+export const fetchAssets = async (): Promise<LoraAsset[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('assets')
+      .select(`
+        *,
+        primary_media:media!assets_primary_media_id_fkey(
+          id,
+          url,
+          title,
+          description,
+          type,
+          storage_provider,
+          placeholder_image,
+          created_at,
+          admin_status,
+          user_status,
+          user_id
+        )
+      `)
+      .eq('type', 'lora')
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    if (!data) return [];
+
+    return data.map(asset => ({
+      id: asset.id,
+      name: asset.name,
+      description: asset.description,
+      creator: asset.creator,
+      type: asset.type as 'lora',
+      created_at: asset.created_at,
+      user_id: asset.user_id,
+      primary_media_id: asset.primary_media_id,
+      admin_status: asset.admin_status,
+      admin_reviewed: asset.admin_reviewed,
+      user_status: asset.user_status,
+      lora_type: asset.lora_type,
+      lora_base_model: asset.lora_base_model,
+      model_variant: asset.model_variant,
+      lora_link: asset.lora_link,
+      download_link: asset.download_link,
+      curator_id: asset.curator_id,
+      primaryVideo: asset.primary_media ? {
+        id: asset.primary_media.id,
+        url: asset.primary_media.url,
+        title: asset.primary_media.title || '',
+        description: asset.primary_media.description || '',
+        type: asset.primary_media.type || 'video',
+        storage_provider: asset.primary_media.storage_provider || 'supabase',
+        reviewer_name: 'Unknown',
+        skipped: false,
+        created_at: asset.primary_media.created_at,
+        admin_status: asset.primary_media.admin_status,
+        user_status: asset.primary_media.user_status,
+        user_id: asset.primary_media.user_id,
+        placeholder_image: asset.primary_media.placeholder_image,
+        thumbnailUrl: asset.primary_media.placeholder_image
+      } as VideoEntry : undefined,
+      videos: []
+    }));
+  } catch (error) {
+    logger.error('Error fetching assets:', error);
+    throw error;
+  }
+};
+
+export const fetchAssetById = async (id: string): Promise<LoraAsset | null> => {
+  try {
+    const { data, error } = await supabase
+      .from('assets')
+      .select(`
+        *,
+        primary_media:media!assets_primary_media_id_fkey(
+          id,
+          url,
+          title,
+          description,
+          type,
+          storage_provider,
+          placeholder_image,
+          created_at,
+          admin_status,
+          user_status,
+          user_id
+        )
+      `)
+      .eq('id', id)
+      .single();
+
+    if (error) throw error;
+    if (!data) return null;
+
+    return {
+      id: data.id,
+      name: data.name,
+      description: data.description,
+      creator: data.creator,
+      type: data.type as 'lora',
+      created_at: data.created_at,
+      user_id: data.user_id,
+      primary_media_id: data.primary_media_id,
+      admin_status: data.admin_status,
+      admin_reviewed: data.admin_reviewed,
+      user_status: data.user_status,
+      lora_type: data.lora_type,
+      lora_base_model: data.lora_base_model,
+      model_variant: data.model_variant,
+      lora_link: data.lora_link,
+      download_link: data.download_link,
+      curator_id: data.curator_id,
+      primaryVideo: data.primary_media ? {
+        id: data.primary_media.id,
+        url: data.primary_media.url,
+        title: data.primary_media.title || '',
+        description: data.primary_media.description || '',
+        type: data.primary_media.type || 'video',
+        storage_provider: data.primary_media.storage_provider || 'supabase',
+        reviewer_name: 'Unknown',
+        skipped: false,
+        created_at: data.primary_media.created_at,
+        admin_status: data.primary_media.admin_status,
+        user_status: data.primary_media.user_status,
+        user_id: data.primary_media.user_id,
+        placeholder_image: data.primary_media.placeholder_image,
+        thumbnailUrl: data.primary_media.placeholder_image
+      } as VideoEntry : undefined,
+      videos: []
+    };
+  } catch (error) {
+    logger.error('Error fetching asset by ID:', error);
+    return null;
+  }
+};
 
 export class AssetService {
   private readonly logger = new Logger('AssetService');
@@ -381,4 +518,4 @@ export class AssetService {
   // Potentially add clearAllAssets() similar to videoEntryService if needed
 }
 
-export const assetService = new AssetService(); 
+export const assetService = new AssetService();

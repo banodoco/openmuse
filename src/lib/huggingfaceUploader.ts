@@ -1,7 +1,22 @@
 import { Logger } from '@/lib/logger';
-import type { LoRADetails } from '@/pages/upload/UploadPage';
 import type { VideoItem } from '@/lib/types'; 
 import { supabase } from '@/integrations/supabase/client';
+
+// Define LoRADetails interface directly here since it's not exported from UploadPage
+export interface LoRADetails {
+  loraName: string;
+  loraDescription: string;
+  creator: 'self' | 'someone_else';
+  creatorName: string;
+  model: string;
+  modelVariant: string;
+  loraType: string;
+  loraStorageMethod: 'upload' | 'link';
+  loraLink: string;
+  huggingFaceApiKey: string;
+  loraDirectDownloadLink: string;
+  saveApiKey: boolean;
+}
 
 const logger = new Logger('HuggingFaceUploader');
 
@@ -215,4 +230,4 @@ function generateReadmeContent(loraDetails: LoRADetails, videos: VideoItem[], up
 // Example for LoRADetails if it's in UploadPage.tsx:
 // import type { LoRADetails } from \'../../pages/upload/UploadPage\'; 
 // If VideoItem is in src/lib/types.ts
-// import type { VideoItem } from \'../types\'; 
+// import type { VideoItem } from \'../types\';

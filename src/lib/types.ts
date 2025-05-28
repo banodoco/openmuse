@@ -47,7 +47,7 @@ export interface VideoEntry {
   cloudflare_playback_hls_url?: string;
   cloudflare_playback_dash_url?: string;
   storage_provider: 'cloudflare-stream' | string;
-  metadata?: any;
+  metadata?: VideoMetadata;
   placeholder_image?: string;
   classification?: string;
   asset_id?: string;

@@ -1,7 +1,105 @@
-import { supabase } from '../supabase';
-import { VideoEntry, AdminStatus } from '../types';
-import { Logger } from '../logger';
-import { checkIsAdmin } from '../auth';
+import { supabase } from '@/integrations/supabase/client';
+import { VideoEntry, AdminStatus, VideoDisplayStatus } from '@/lib/types';
+import { Logger } from '@/lib/logger';
+
+const logger = new Logger('VideoEntryService');
+
+export const fetchVideosByAssetId = async (assetId: string): Promise<VideoEntry[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('asset_media')
+      .select(`
+        media_id,
+        status,
+        media:media_id (
+          id,
+          url,
+          title,
+          description,
+          type,
+          storage_provider,
+          placeholder_image,
+          created_at,
+          admin_status,
+          user_status,
+          user_id,
+          admin_reviewed,
+          metadata
+        )
+      `)
+      .eq('asset_id', assetId);
+
+    if (error) throw error;
+    if (!data) return [];
+
+    return data
+      .filter(item => item.media)
+      .map(item => ({
+        id: item.media.id,
+        url: item.media.url,
+        title: item.media.title || '',
+        description: item.media.description || '',
+        type: item.media.type || 'video',
+        storage_provider: item.media.storage_provider || 'supabase',
+        reviewer_name: 'Unknown',
+        skipped: false,
+        created_at: item.media.created_at,
+        admin_status: item.media.admin_status,
+        user_status: item.media.user_status,
+        user_id: item.media.user_id,
+        admin_reviewed: item.media.admin_reviewed,
+        metadata: {
+          title: item.media.title || '',
+          description: item.media.description || '',
+          classification: (item.media.metadata as any)?.classification || 'art',
+          isPrimary: false,
+          aspectRatio: (item.media.metadata as any)?.aspectRatio
+        }
+      }));
+  } catch (error) {
+    logger.error('Error fetching videos by asset ID:', error);
+    return [];
+  }
+};
+
+export const updateVideoStatus = async (
+  videoId: string, 
+  status: VideoDisplayStatus
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('media')
+      .update({ user_status: status })
+      .eq('id', videoId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    logger.error('Error updating video status:', error);
+    return false;
+  }
+};
+
+export const updateVideoAdminStatus = async (
+  videoId: string, 
+  status: AdminStatus
+): Promise<boolean> => {
+  try {
+    const { error } = await supabase
+      .from('media')
+      .update({ 
+        admin_status: status,
+        admin_reviewed: true 
+      })
+      .eq('id', videoId);
+
+    if (error) throw error;
+    return true;
+  } catch (error) {
+    logger.error('Error updating video admin status:', error);
+    return false;
+  }
+};
 
 export class VideoEntryService {
   private readonly logger = new Logger('VideoEntryService');
