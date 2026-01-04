@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
-import { LoraAsset, VideoEntry } from '@/lib/types';
+import { LoraAsset, VideoEntry, AdminStatus } from '@/lib/types';
 import { Logger } from '@/lib/logger';
+import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('AssetService');
 
@@ -214,6 +215,10 @@ export class AssetService {
           primaryVideo: pVideo ? {
             id: pVideo.id,
             url: pVideo.url,
+            title: pVideo.title || '',
+            description: pVideo.description || '',
+            type: pVideo.type || 'video',
+            storage_provider: pVideo.storage_provider || 'supabase',
             reviewer_name: '',
             skipped: false,
             created_at: pVideo.created_at,
@@ -222,8 +227,6 @@ export class AssetService {
             user_id: pVideo.user_id,
             placeholder_image: pVideo.placeholder_image,
             thumbnailUrl: pVideo.placeholder_image,
-            title: pVideo.title,
-            description: pVideo.description,
           } : undefined,
           associatedMedia,
           associatedThumbnails: associatedMedia.map(m => m.thumbnailUrl).filter(Boolean)
@@ -291,6 +294,10 @@ export class AssetService {
            primaryVideo: pVideo ? {
             id: pVideo.id,
             url: pVideo.url,
+            title: pVideo.title || '',
+            description: pVideo.description || '',
+            type: pVideo.type || 'video',
+            storage_provider: pVideo.storage_provider || 'supabase',
             reviewer_name: '', // Adjust if needed
             skipped: false,
             created_at: pVideo.created_at,
@@ -299,8 +306,6 @@ export class AssetService {
             user_id: pVideo.user_id,
             placeholder_image: pVideo.placeholder_image,
             thumbnailUrl: pVideo.placeholder_image,
-            title: pVideo.title,
-            description: pVideo.description,
           } : undefined,
         };
 
@@ -364,6 +369,10 @@ export class AssetService {
           primaryVideo: pVideo ? {
             id: pVideo.id,
             url: pVideo.url,
+            title: pVideo.title || '',
+            description: pVideo.description || '',
+            type: pVideo.type || 'video',
+            storage_provider: pVideo.storage_provider || 'supabase',
             reviewer_name: '',
             skipped: false,
             created_at: pVideo.created_at,
@@ -372,8 +381,6 @@ export class AssetService {
             user_id: pVideo.user_id,
             placeholder_image: pVideo.placeholder_image,
             thumbnailUrl: pVideo.placeholder_image,
-            title: pVideo.title,
-            description: pVideo.description,
           } : undefined,
         };
 

@@ -140,6 +140,10 @@ export const useAssetDetails = (assetId: string | undefined) => {
             primaryVideo: pVideo ? {
                 id: pVideo.id,
                 url: pVideo.url,
+                title: pVideo.title || assetData.name || '',
+                description: pVideo.description || '',
+                type: pVideo.type || 'video',
+                storage_provider: pVideo.storage_provider || 'supabase',
                 reviewer_name: (pVideo as any)?.creator || '',
                 skipped: false,
                 created_at: pVideo.created_at,
@@ -255,6 +259,10 @@ export const useAssetDetails = (assetId: string | undefined) => {
               return {
                 id: media.id,
                 url: videoUrl,
+                title: media.title || '',
+                description: media.description || '',
+                type: media.type || 'video',
+                storage_provider: media.storage_provider || 'supabase',
                 associatedAssetId: item.asset_id,
                 is_primary: isPrimary,
                 reviewer_name: media.creator || 'Unknown',

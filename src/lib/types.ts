@@ -121,6 +121,10 @@ export interface LoraAsset extends BaseAsset {
   model_variant?: string | null;
   lora_link?: string | null; // Link to original source if not uploaded directly (e.g. CivitAI, HuggingFace page)
   // download_link is inherited from BaseAsset, can be direct model download if not using HF repo via lora_link
+  // Extended properties for admin views
+  creatorDisplayName?: string;
+  associatedMedia?: Array<{ id: string; url?: string; thumbnailUrl?: string; title?: string }>;
+  associatedThumbnails?: string[];
 }
 
 export interface WorkflowAsset extends BaseAsset {

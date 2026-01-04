@@ -1,6 +1,7 @@
 import { supabase } from '@/integrations/supabase/client';
 import { VideoEntry, AdminStatus, VideoDisplayStatus } from '@/lib/types';
 import { Logger } from '@/lib/logger';
+import { checkIsAdmin } from '@/lib/auth';
 
 const logger = new Logger('VideoEntryService');
 
@@ -33,29 +34,32 @@ export const fetchVideosByAssetId = async (assetId: string): Promise<VideoEntry[
     if (!data) return [];
 
     return data
-      .filter(item => item.media)
-      .map(item => ({
-        id: item.media.id,
-        url: item.media.url,
-        title: item.media.title || '',
-        description: item.media.description || '',
-        type: item.media.type || 'video',
-        storage_provider: item.media.storage_provider || 'supabase',
-        reviewer_name: 'Unknown',
-        skipped: false,
-        created_at: item.media.created_at,
-        admin_status: item.media.admin_status,
-        user_status: item.media.user_status,
-        user_id: item.media.user_id,
-        admin_reviewed: item.media.admin_reviewed,
-        metadata: {
-          title: item.media.title || '',
-          description: item.media.description || '',
-          classification: (item.media.metadata as any)?.classification || 'art',
-          isPrimary: false,
-          aspectRatio: (item.media.metadata as any)?.aspectRatio
-        }
-      }));
+      .filter(item => item.media && !Array.isArray(item.media))
+      .map(item => {
+        const media = item.media as any;
+        return {
+          id: media.id,
+          url: media.url,
+          title: media.title || '',
+          description: media.description || '',
+          type: media.type || 'video',
+          storage_provider: media.storage_provider || 'supabase',
+          reviewer_name: 'Unknown',
+          skipped: false,
+          created_at: media.created_at,
+          admin_status: media.admin_status,
+          user_status: media.user_status,
+          user_id: media.user_id,
+          admin_reviewed: media.admin_reviewed,
+          metadata: {
+            title: media.title || '',
+            description: media.description || '',
+            classification: (media.metadata as any)?.classification || 'art',
+            isPrimary: false,
+            aspectRatio: (media.metadata as any)?.aspectRatio
+          }
+        };
+      });
   } catch (error) {
     logger.error('Error fetching videos by asset ID:', error);
     return [];
@@ -144,6 +148,10 @@ export class VideoEntryService {
         const entry: VideoEntry = {
           id: media.id,
           url: media.url,
+          title: media.title || '',
+          description: media.description || '',
+          type: media.type || 'video',
+          storage_provider: media.storage_provider || 'supabase',
           reviewer_name: media.creator || 'Unknown',
           skipped: false,
           created_at: media.created_at,
@@ -199,15 +207,18 @@ export class VideoEntryService {
            this.logger.error(`Error fetching existing media ${id}:`, fetchError);
            return null;
          }
-         // Map existing data back (simplified for brevity)
          const mappedData: VideoEntry = {
            id: existingData.id,
            url: existingData.url,
+           title: existingData.title || '',
+           description: existingData.description || '',
+           type: existingData.type || 'video',
+           storage_provider: existingData.storage_provider || 'supabase',
            reviewer_name: existingData.creator || 'Unknown',
            skipped: false,
            created_at: existingData.created_at,
            admin_status: (existingData.admin_status as AdminStatus) || null,
-           user_status: (existingData.user_status as AdminStatus) || null,
+           user_status: (existingData.user_status as VideoDisplayStatus) || null,
            user_id: existingData.user_id,
            admin_reviewed: existingData.admin_reviewed || false,
            metadata: {
@@ -235,15 +246,18 @@ export class VideoEntryService {
         return null;
       }
       
-      // Map the returned data to VideoEntry
       const updatedEntry: VideoEntry = {
         id: data.id,
         url: data.url,
+        title: data.title || '',
+        description: data.description || '',
+        type: data.type || 'video',
+        storage_provider: data.storage_provider || 'supabase',
         reviewer_name: data.creator || 'Unknown',
         skipped: false,
         created_at: data.created_at,
         admin_status: (data.admin_status as AdminStatus) || null,
-        user_status: (data.user_status as AdminStatus) || null,
+        user_status: (data.user_status as VideoDisplayStatus) || null,
         user_id: data.user_id,
         admin_reviewed: data.admin_reviewed || false,
         metadata: {
