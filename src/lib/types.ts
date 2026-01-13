@@ -12,7 +12,7 @@ export interface VideoMetadata {
   assetId?: string;
   loraType?: string;
   loraLink?: string;
-  model?: 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff';
+  model?: 'wan' | 'hunyuan' | 'ltxv' | 'ltx2' | 'cogvideox' | 'animatediff';
   modelVariant?: string;
   baseModel?: string;
   placeholder_image?: string;

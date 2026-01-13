@@ -33,6 +33,7 @@ export const LoraFilters: React.FC<LoraFiltersProps> = ({
       case 'wan': return 'Wan';
       case 'hunyuan': return 'Hunyuan';
       case 'ltxv': return 'LTXV';
+      case 'ltx2': return 'LTX-2';
       case 'cogvideox': return 'CogVideoX';
       case 'animatediff': return 'Animatediff';
       default: return model.charAt(0).toUpperCase() + model.slice(1);

@@ -109,6 +109,8 @@ const LoraCard: React.FC<LoraCardProps> = ({
         return "bg-purple-200 text-purple-800";
       case 'ltxv':
         return "bg-yellow-200 text-yellow-800";
+      case 'ltx2':
+        return "bg-orange-200 text-orange-800";
       case 'cogvideox':
         return "bg-emerald-200 text-emerald-800";
       case 'animatediff':

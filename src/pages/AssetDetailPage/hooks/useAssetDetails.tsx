@@ -14,7 +14,7 @@ const MOCK_OWNER_MARKER_USER_ID = '---MOCK_ASSET_OWNER_USER---';
 // Helper type guard for allowed model strings
 const isValidModel = (model: string | undefined): model is VideoMetadata['model'] => {
   if (!model) return false;
-  const allowedModels = ['wan', 'hunyuan', 'ltxv', 'cogvideox', 'animatediff'];
+  const allowedModels = ['wan', 'hunyuan', 'ltxv', 'ltx2', 'cogvideox', 'animatediff'];
   return allowedModels.includes(model.toLowerCase());
 };
 

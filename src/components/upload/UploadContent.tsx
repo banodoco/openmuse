@@ -34,7 +34,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
   const [classification, setClassification] = useState<'art' | 'gen'>('gen');
   const [creator, setCreator] = useState<'self' | 'someone_else'>('self');
   const [creatorName, setCreatorName] = useState('');
-  const [model, setModel] = useState<'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff'>('wan');
+  const [model, setModel] = useState<'wan' | 'hunyuan' | 'ltxv' | 'ltx2' | 'cogvideox' | 'animatediff'>('wan');
   const [modelVariant, setModelVariant] = useState('');
   const [isPrimary, setIsPrimary] = useState(false);
   const { user } = useAuth();
@@ -284,7 +284,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="model">Base Model</Label>
-              <Select value={model} onValueChange={(value) => setModel(value as 'wan' | 'hunyuan' | 'ltxv' | 'cogvideox' | 'animatediff')} disabled={isPending}>
+              <Select value={model} onValueChange={(value) => setModel(value as 'wan' | 'hunyuan' | 'ltxv' | 'ltx2' | 'cogvideox' | 'animatediff')} disabled={isPending}>
                 <SelectTrigger className="w-full mt-1">
                   <SelectValue placeholder="Select Model" />
                 </SelectTrigger>
@@ -292,6 +292,7 @@ const UploadContent: React.FC<UploadContentProps> = ({
                   <SelectItem value="wan">Wan</SelectItem>
                   <SelectItem value="hunyuan">Hunyuan</SelectItem>
                   <SelectItem value="ltxv">LTXV</SelectItem>
+                  <SelectItem value="ltx2">LTX-2</SelectItem>
                   <SelectItem value="cogvideox">CogVideoX</SelectItem>
                   <SelectItem value="animatediff">AnimateDiff</SelectItem>
                 </SelectContent>
